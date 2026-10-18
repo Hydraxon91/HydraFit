@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.database
 
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSession as DomainWorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 
@@ -21,7 +22,8 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
     startedAtElapsedMillis = startedAtElapsedMillis,
     completedAtElapsedMillis = completedAtElapsedMillis,
-    durationSeconds = durationSeconds?.toInt()
+    durationSeconds = durationSeconds?.toInt(),
+    prescriptionSnapshot = prescriptionSnapshot?.let(WorkoutPrescriptionSnapshotJson::decode)
 )
 
 internal fun WorkoutSession.toDomain(): DomainWorkoutSession = DomainWorkoutSession(

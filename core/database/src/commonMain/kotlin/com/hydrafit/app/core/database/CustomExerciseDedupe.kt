@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.equipment.Exercise as CatalogExercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import kotlin.math.abs
 
 private const val WEIGHT_EPSILON = 1e-9
@@ -40,6 +41,7 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                     newId = canonical.id,
                     oldId = custom.id
                 )
+                remapRecordedTargets(custom.id, canonical.id)
                 database.planHistoryQueries.updateEntryExerciseId(
                     newId = canonical.id,
                     oldId = custom.id
@@ -68,6 +70,29 @@ class CustomExerciseDedupe(private val database: HydraFitDatabase) {
                 database.exerciseQueries.deleteById(custom.id)
             }
         }
+    }
+
+    /**
+     * A recorded target names its exercise, so merging a custom identity must remap it too: otherwise
+     * the set would claim one exercise while its target claimed the deleted one, which breaks both
+     * progression eligibility and the backup validator. Only the identity is rewritten; the recorded
+     * prescription itself is untouched.
+     */
+    private fun remapRecordedTargets(customId: String, canonicalId: String) {
+        database.workoutLogQueries.selectAllSets().executeAsList()
+            .filter { it.prescriptionSnapshot != null }
+            .forEach { row ->
+                val encoded = row.prescriptionSnapshot ?: return@forEach
+                val target = runCatching { WorkoutPrescriptionSnapshotJson.decode(encoded) }
+                    .getOrNull() ?: return@forEach
+                if (target.exerciseId != customId) return@forEach
+                database.workoutLogQueries.updatePrescriptionSnapshot(
+                    prescriptionSnapshot = WorkoutPrescriptionSnapshotJson.encode(
+                        target.copy(exerciseId = canonicalId)
+                    ),
+                    id = row.id
+                )
+            }
     }
 
     private fun mergePersonalRecord(customId: String, canonicalId: String) {

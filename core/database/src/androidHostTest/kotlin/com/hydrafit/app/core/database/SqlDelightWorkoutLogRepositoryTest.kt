@@ -13,12 +13,14 @@ import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
@@ -61,6 +63,68 @@ class SqlDelightWorkoutLogRepositoryTest {
         val all = repository.all()
 
         assertEquals(listOf("back-squat", "barbell-bench-press"), all.map { it.exerciseId })
+    }
+
+    @Test
+    fun rejectsATargetWhoseMeasurementDisagreesWithItsSet() = runTest {
+        val repsTarget = WorkoutPrescriptionSnapshot(
+            exerciseId = "barbell-bench-press",
+            sets = 3,
+            reps = 8,
+            loadKind = LoadKind.EXTERNAL,
+            weightKg = 80.0,
+            isDeload = false
+        )
+        assertFailsWith<IllegalArgumentException> {
+            repository.add(
+                DomainWorkoutSet(
+                    exerciseId = repsTarget.exerciseId,
+                    reps = null,
+                    durationSeconds = 30,
+                    weightKg = 80.0,
+                    performedAtMillis = 1,
+                    prescriptionSnapshot = repsTarget
+                )
+            )
+        }
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun targetPersistsAtomicallyAndSurvivesActualCorrection() = runTest {
+        val target = WorkoutPrescriptionSnapshot(
+            exerciseId = "barbell-bench-press",
+            sets = 3,
+            reps = 8,
+            loadKind = LoadKind.EXTERNAL,
+            weightKg = 80.0,
+            isDeload = false
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = target.exerciseId,
+                reps = 7,
+                weightKg = 75.0,
+                performedAtMillis = 1,
+                prescriptionSnapshot = target
+            )
+        )
+        val saved = repository.all().single()
+        assertEquals(target, saved.prescriptionSnapshot)
+        database.workoutLogQueries.updateSetValues(6, null, 70.0, null, saved.id)
+        assertEquals(target, repository.all().single().prescriptionSnapshot)
+        assertEquals(6, repository.all().single().reps)
+        // The target is written by the same insert as the set, so a rejected insert leaves no row
+        // and never a set whose target was silently dropped.
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "CREATE TRIGGER reject_set BEFORE INSERT ON workoutSet " +
+                "BEGIN SELECT RAISE(ABORT, 'injected'); END"
+        )
+        assertFailsWith<Exception> {
+            repository.add(saved.copy(id = 0, performedAtMillis = 2))
+        }
+        assertEquals(1, repository.all().size)
     }
 
     @Test

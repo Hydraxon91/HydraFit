@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,16 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     private val overrideQueries = database.exerciseOverrideQueries
 
     override suspend fun add(set: DomainWorkoutSet) {
+        val encodedTarget = set.prescriptionSnapshot?.let { target ->
+            require(target.exerciseId == set.exerciseId) { "Prescription exercise does not match" }
+            require(target.loadKind == set.loadKind) { "Prescription load kind does not match" }
+            // A recorded target must describe the same measurement the set does, or the stored row
+            // would contradict itself and the exported backup would be refused by our own validator.
+            require((target.reps != null) == (set.durationSeconds == null)) {
+                "Prescription measurement does not match"
+            }
+            WorkoutPrescriptionSnapshotJson.encode(target)
+        }
         // Snapshot the exercise's effective (override-aware) involvement weights at log time so
         // later catalog edits can't rewrite history.
         val seed = exerciseQueries.selectById(set.exerciseId).executeAsOneOrNull()
@@ -40,13 +51,15 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 timingProvenance = set.timingProvenance.name,
                 startedAtElapsedMillis = set.startedAtElapsedMillis,
                 completedAtElapsedMillis = set.completedAtElapsedMillis,
-                durationSeconds = set.durationSeconds?.toLong()
+                durationSeconds = set.durationSeconds?.toLong(),
+                prescriptionSnapshot = encodedTarget
             )
+            val setId = setQueries.lastInsertedSetId().executeAsOne()
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
                     occurrenceId = set.occurrenceId,
                     occurrenceEntryId = set.occurrenceEntryId,
-                    id = setQueries.lastInsertedSetId().executeAsOne()
+                    id = setId
                 )
             }
         }
