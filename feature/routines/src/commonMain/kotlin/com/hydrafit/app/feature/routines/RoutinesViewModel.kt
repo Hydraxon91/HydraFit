@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.routines
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -273,6 +274,98 @@ class RoutinesViewModel(
     fun onEntryWeightChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(weight = value) }
 
+    // --- Progression policy ---
+
+    /**
+     * Opens the progression dialog for a slot, seeded from its existing policy. A slot with no policy
+     * opens empty: the app never invents a rep range or a load step for the user.
+     */
+    fun onEditProgressionPolicy(workoutIndex: Int, entryIndex: Int) {
+        val entry = _state.value.editor
+            ?.workouts?.getOrNull(workoutIndex)
+            ?.entries?.getOrNull(entryIndex)
+            ?: return
+        val policy = entry.progressionPolicy
+        _state.update {
+            it.copy(
+                progressionPolicyEditor = ProgressionPolicyEditorState(
+                    workoutIndex = workoutIndex,
+                    entryIndex = entryIndex,
+                    minReps = policy?.minReps?.toString() ?: "",
+                    maxReps = policy?.maxReps?.toString() ?: "",
+                    incrementKg = policy?.let { stored -> kilogramStepText(stored.incrementKg) }
+                        ?: "",
+                    equipmentId = policy?.equipmentId ?: ""
+                )
+            )
+        }
+    }
+
+    fun onProgressionPolicyMinRepsChanged(value: String) =
+        updateProgressionPolicyEditor { it.copy(minReps = value, error = null) }
+
+    fun onProgressionPolicyMaxRepsChanged(value: String) =
+        updateProgressionPolicyEditor { it.copy(maxReps = value, error = null) }
+
+    fun onProgressionPolicyIncrementChanged(value: String) =
+        updateProgressionPolicyEditor { it.copy(incrementKg = value, error = null) }
+
+    fun onProgressionPolicyEquipmentIdChanged(value: String) =
+        updateProgressionPolicyEditor { it.copy(equipmentId = value, error = null) }
+
+    fun onProgressionPolicySave() {
+        val editor = _state.value.progressionPolicyEditor ?: return
+        val minReps = editor.minReps.trim().toIntOrNull()
+        val maxReps = editor.maxReps.trim().toIntOrNull()
+        val incrementKg = editor.incrementKg.trim().toDoubleOrNull()
+        if (minReps == null || maxReps == null) {
+            rejectProgressionPolicy(editor, ProgressionPolicyError.REPS_RANGE)
+            return
+        }
+        if (incrementKg == null) {
+            rejectProgressionPolicy(editor, ProgressionPolicyError.INCREMENT)
+            return
+        }
+        // A truly empty field means "no identity"; anything else must satisfy the domain rule.
+        val equipmentId = editor.equipmentId.takeIf { it.isNotEmpty() }
+        val error = progressionPolicyFieldError(minReps, maxReps, incrementKg, equipmentId)
+        if (error != null) {
+            rejectProgressionPolicy(editor, error)
+            return
+        }
+        val policy = SlotProgressionPolicy(
+            minReps = minReps,
+            maxReps = maxReps,
+            incrementKg = incrementKg,
+            equipmentId = equipmentId
+        )
+        updateEntry(editor.workoutIndex, editor.entryIndex) { it.copy(progressionPolicy = policy) }
+        _state.update { it.copy(progressionPolicyEditor = null) }
+    }
+
+    private fun rejectProgressionPolicy(
+        editor: ProgressionPolicyEditorState,
+        error: ProgressionPolicyError
+    ) {
+        _state.update { it.copy(progressionPolicyEditor = editor.copy(error = error)) }
+    }
+
+    fun onProgressionPolicyClear() {
+        val editor = _state.value.progressionPolicyEditor ?: return
+        updateEntry(editor.workoutIndex, editor.entryIndex) { it.copy(progressionPolicy = null) }
+        _state.update { it.copy(progressionPolicyEditor = null) }
+    }
+
+    fun onProgressionPolicyDismissed() = _state.update { it.copy(progressionPolicyEditor = null) }
+
+    /**
+     * Renders a stored kilogram step for its editor field without rounding it away. The field edits
+     * the stored value itself, so a lossy display would rewrite the user's policy on a plain reopen
+     * and save; [formatWeight] stays for display-only surfaces.
+     */
+    private fun kilogramStepText(value: Double): String =
+        if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+
     fun onSaveEditor() {
         val editor = _state.value.editor ?: return
         viewModelScope.launch {
@@ -535,6 +628,16 @@ class RoutinesViewModel(
         )
     }
 
+    private fun updateProgressionPolicyEditor(
+        transform: (ProgressionPolicyEditorState) -> ProgressionPolicyEditorState
+    ) {
+        _state.update { current ->
+            current.progressionPolicyEditor?.let {
+                current.copy(progressionPolicyEditor = transform(it))
+            } ?: current
+        }
+    }
+
     private fun updateActivation(transform: (ActivationUiState) -> ActivationUiState) {
         _state.update { current ->
             val activation = current.activation ?: return@update current
@@ -589,7 +692,8 @@ private fun RoutineTemplate.toEditor(
                     } else {
                         EntryMetric.REPETITIONS
                     },
-                    durationSeconds = entry.durationSeconds?.toString() ?: ""
+                    durationSeconds = entry.durationSeconds?.toString() ?: "",
+                    progressionPolicy = entry.progressionPolicy
                 )
             }
         )
@@ -620,7 +724,8 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     } else {
                         parseDisplayedWeight(entry.weight, unit)
                     },
-                    loadKind = entry.loadKind
+                    loadKind = entry.loadKind,
+                    progressionPolicy = entry.progressionPolicy
                 )
             }
         )
@@ -640,4 +745,56 @@ private fun parseDisplayedWeight(input: String, unit: WeightUnit): Double? {
         throw RoutineTemplateException("Weight must be zero or positive")
     }
     return unit.displayToKilograms(value)
+}
+
+/**
+ * Validates a candidate policy and, on failure, maps the domain rule's failure back to the offending
+ * field. Each field is probed against [SlotProgressionPolicy.requireValid] itself, with a known-valid
+ * value standing in for the others, so no numeric bound is duplicated here and the two can't drift.
+ * Returns null when the policy is valid.
+ */
+private fun progressionPolicyFieldError(
+    minReps: Int,
+    maxReps: Int,
+    incrementKg: Double,
+    equipmentId: String?
+): ProgressionPolicyError? {
+    val policy = SlotProgressionPolicy(
+        minReps = minReps,
+        maxReps = maxReps,
+        incrementKg = incrementKg,
+        equipmentId = equipmentId
+    )
+    return try {
+        policy.requireValid()
+        null
+    } catch (_: IllegalArgumentException) {
+        when {
+            !isValidPolicy(
+                SlotProgressionPolicy(
+                    minReps = minReps,
+                    maxReps = maxReps,
+                    incrementKg = VALID_INCREMENT_PROBE_KG
+                )
+            ) -> ProgressionPolicyError.REPS_RANGE
+            !isValidPolicy(
+                SlotProgressionPolicy(
+                    minReps = SlotProgressionPolicy.MIN_REPS,
+                    maxReps = SlotProgressionPolicy.MIN_REPS,
+                    incrementKg = incrementKg
+                )
+            ) -> ProgressionPolicyError.INCREMENT
+            else -> ProgressionPolicyError.EQUIPMENT_ID
+        }
+    }
+}
+
+/** A step known to satisfy the domain rule, used only to isolate a rep-range failure. */
+private const val VALID_INCREMENT_PROBE_KG: Double = 1.0
+
+private fun isValidPolicy(policy: SlotProgressionPolicy): Boolean = try {
+    policy.requireValid()
+    true
+} catch (_: IllegalArgumentException) {
+    false
 }

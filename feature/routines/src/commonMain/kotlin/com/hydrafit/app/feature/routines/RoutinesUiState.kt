@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.routines
 
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
@@ -29,7 +30,9 @@ data class EditorEntry(
     /** The selected measurement; only its field is shown and only its value is saved. */
     val metric: EntryMetric = EntryMetric.REPETITIONS,
     /** Whole seconds as text, used when [metric] is [EntryMetric.DURATION]. */
-    val durationSeconds: String = ""
+    val durationSeconds: String = "",
+    /** The approved progression policy for this slot, or null when the user has not set one. */
+    val progressionPolicy: SlotProgressionPolicy? = null
 ) {
     /** The prescribed rep count, or null when the slot is timed. */
     val repsValue: Int?
@@ -55,6 +58,20 @@ data class RoutineEditorState(
     val name: String,
     val unit: WeightUnit,
     val workouts: List<EditorWorkout> = emptyList()
+)
+
+/** Which progression-policy field is invalid; the dialog shows the matching localized message. */
+enum class ProgressionPolicyError { REPS_RANGE, INCREMENT, EQUIPMENT_ID }
+
+/** The progression-policy dialog draft for one slot; numbers stay as text until save. */
+data class ProgressionPolicyEditorState(
+    val workoutIndex: Int,
+    val entryIndex: Int,
+    val minReps: String,
+    val maxReps: String,
+    val incrementKg: String,
+    val equipmentId: String,
+    val error: ProgressionPolicyError? = null
 )
 
 /** Which workout/entry the exercise picker is filling; [replaceEntryIndex] null means "add". */
@@ -106,6 +123,7 @@ data class RoutinesUiState(
     val exercises: List<RoutineExerciseOption> = emptyList(),
     val editor: RoutineEditorState? = null,
     val picker: ExercisePickerState? = null,
+    val progressionPolicyEditor: ProgressionPolicyEditorState? = null,
     /** Active EX-01 exclusions, so routine entries can be marked in place. */
     val excludedExerciseIds: Set<String> = emptySet(),
     val activation: ActivationUiState? = null,

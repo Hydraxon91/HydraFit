@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.routines
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
@@ -561,6 +562,270 @@ class RoutinesViewModelTest {
         model.onReplaceExercise(0, 0)
         assertFalse(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
     }
+
+    @Test
+    fun openingTheProgressionDialogIsEmptyForASlotWithoutAPolicy() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        val dialog = assertNotNull(viewModel.state.value.progressionPolicyEditor)
+        assertEquals("", dialog.minReps)
+        assertEquals("", dialog.maxReps)
+        assertEquals("", dialog.incrementKg)
+        assertEquals("", dialog.equipmentId)
+        assertNull(dialog.error)
+    }
+
+    @Test
+    fun openingTheProgressionDialogPrefillsAnExistingPolicy() = runTest(dispatcher) {
+        routines.seed(templateWithProgressionPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        val dialog = assertNotNull(viewModel.state.value.progressionPolicyEditor)
+        assertEquals("5", dialog.minReps)
+        assertEquals("8", dialog.maxReps)
+        assertEquals("2.5", dialog.incrementKg)
+        assertEquals("barbell", dialog.equipmentId)
+    }
+
+    @Test
+    fun aStoredFractionalIncrementReopensAndResavesWithoutBeingRounded() = runTest(dispatcher) {
+        routines.seed(templateWithFractionalIncrementPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        assertEquals(
+            "1.25",
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).incrementKg
+        )
+
+        viewModel.onProgressionPolicySave()
+
+        // Reopening and saving without an edit must not rewrite the user's stored step.
+        assertEquals(1.25, assertNotNull(editorEntry(viewModel).progressionPolicy).incrementKg)
+    }
+
+    @Test
+    fun savingAValidProgressionPolicyWritesItAndClosesTheDialog() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicyEquipmentIdChanged("barbell")
+        viewModel.onProgressionPolicySave()
+
+        assertNull(viewModel.state.value.progressionPolicyEditor)
+        val policy = assertNotNull(editorEntry(viewModel).progressionPolicy)
+        assertEquals(5, policy.minReps)
+        assertEquals(8, policy.maxReps)
+        assertEquals(2.5, policy.incrementKg)
+        assertEquals("barbell", policy.equipmentId)
+    }
+
+    @Test
+    fun anInvalidRepRangeKeepsTheProgressionDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        viewModel.onProgressionPolicyMinRepsChanged("10")
+        viewModel.onProgressionPolicyMaxRepsChanged("5")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+
+        // A non-numeric bound fails the same way rather than writing a partial policy.
+        viewModel.onProgressionPolicyMinRepsChanged("abc")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun aNonPositiveIncrementKeepsTheProgressionDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("0")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.INCREMENT,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun anInvalidEquipmentIdKeepsTheProgressionDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicyEquipmentIdChanged("   ")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.EQUIPMENT_ID,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+
+        viewModel.onProgressionPolicyEquipmentIdChanged("x".repeat(81))
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.EQUIPMENT_ID,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun clearingRemovesTheProgressionPolicyAndClosesTheDialog() = runTest(dispatcher) {
+        routines.seed(templateWithProgressionPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyClear()
+
+        assertNull(viewModel.state.value.progressionPolicyEditor)
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun dismissingTheProgressionDialogWritesNothing() = runTest(dispatcher) {
+        routines.seed(templateWithProgressionPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyMinRepsChanged("6")
+        viewModel.onProgressionPolicyDismissed()
+
+        assertNull(viewModel.state.value.progressionPolicyEditor)
+        assertEquals(5, assertNotNull(editorEntry(viewModel).progressionPolicy).minReps)
+    }
+
+    @Test
+    fun aSavedProgressionPolicyRoundTripsThroughRoutineSave() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicyEquipmentIdChanged("barbell")
+        viewModel.onProgressionPolicySave()
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(
+            SlotProgressionPolicy(
+                minReps = 5,
+                maxReps = 8,
+                incrementKg = 2.5,
+                equipmentId = "barbell"
+            ),
+            saved.progressionPolicy
+        )
+    }
+
+    private fun openNewRoutineWithBenchSlot(viewModel: RoutinesViewModel) {
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+    }
+
+    private fun editorEntry(viewModel: RoutinesViewModel): EditorEntry = requireNotNull(
+        viewModel.state.value.editor
+    ).workouts.single().entries.single()
+
+    private fun templateWithProgressionPolicy() = RoutineTemplate(
+        name = "Upper",
+        revision = 1,
+        workouts = listOf(
+            RoutineWorkout(
+                name = "Day 1",
+                entries = listOf(
+                    RoutineEntry(
+                        exerciseId = "bench-press",
+                        sets = 3,
+                        reps = 8,
+                        progressionPolicy = SlotProgressionPolicy(
+                            minReps = 5,
+                            maxReps = 8,
+                            incrementKg = 2.5,
+                            equipmentId = "barbell"
+                        )
+                    )
+                )
+            )
+        )
+    )
+
+    private fun templateWithFractionalIncrementPolicy() = RoutineTemplate(
+        name = "Fractional",
+        revision = 1,
+        workouts = listOf(
+            RoutineWorkout(
+                name = "Day 1",
+                entries = listOf(
+                    RoutineEntry(
+                        exerciseId = "bench-press",
+                        sets = 3,
+                        reps = 5,
+                        progressionPolicy = SlotProgressionPolicy(
+                            minReps = 5,
+                            maxReps = 8,
+                            incrementKg = 1.25
+                        )
+                    )
+                )
+            )
+        )
+    )
 
     private fun viewModel(
         weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),

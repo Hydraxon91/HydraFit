@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
@@ -59,6 +60,7 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionImportIssue
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
 import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatWeight
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
 import hydrafit.feature.routines.generated.resources.focus_legs
@@ -153,6 +155,18 @@ import hydrafit.feature.routines.generated.resources.routines_prescription_impor
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_unsupported
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_used_by
 import hydrafit.feature.routines.generated.resources.routines_prescription_section
+import hydrafit.feature.routines.generated.resources.routines_progression_action
+import hydrafit.feature.routines.generated.resources.routines_progression_clear
+import hydrafit.feature.routines.generated.resources.routines_progression_equipment_label
+import hydrafit.feature.routines.generated.resources.routines_progression_error_equipment
+import hydrafit.feature.routines.generated.resources.routines_progression_error_increment
+import hydrafit.feature.routines.generated.resources.routines_progression_error_reps_range
+import hydrafit.feature.routines.generated.resources.routines_progression_increment_label
+import hydrafit.feature.routines.generated.resources.routines_progression_max_reps_label
+import hydrafit.feature.routines.generated.resources.routines_progression_min_reps_label
+import hydrafit.feature.routines.generated.resources.routines_progression_summary
+import hydrafit.feature.routines.generated.resources.routines_progression_summary_equipment
+import hydrafit.feature.routines.generated.resources.routines_progression_title
 import hydrafit.feature.routines.generated.resources.routines_remove
 import hydrafit.feature.routines.generated.resources.routines_repeat_block
 import hydrafit.feature.routines.generated.resources.routines_reps_label
@@ -270,6 +284,23 @@ fun RoutinesScreen(
             onQueryChanged = viewModel::onPickerQueryChanged,
             onSelected = viewModel::onPickerExerciseSelected,
             onDismiss = viewModel::onPickerDismissed
+        )
+    }
+    state.progressionPolicyEditor?.let { policyEditor ->
+        val hasExistingPolicy = state.editor
+            ?.workouts?.getOrNull(policyEditor.workoutIndex)
+            ?.entries?.getOrNull(policyEditor.entryIndex)
+            ?.progressionPolicy != null
+        ProgressionPolicyDialog(
+            state = policyEditor,
+            hasExistingPolicy = hasExistingPolicy,
+            onMinRepsChanged = viewModel::onProgressionPolicyMinRepsChanged,
+            onMaxRepsChanged = viewModel::onProgressionPolicyMaxRepsChanged,
+            onIncrementChanged = viewModel::onProgressionPolicyIncrementChanged,
+            onEquipmentIdChanged = viewModel::onProgressionPolicyEquipmentIdChanged,
+            onSave = viewModel::onProgressionPolicySave,
+            onClear = viewModel::onProgressionPolicyClear,
+            onDismiss = viewModel::onProgressionPolicyDismissed
         )
     }
     state.activation?.let { activation ->
@@ -802,7 +833,42 @@ private fun EntryRow(
             TextButton(onClick = { viewModel.onMoveEntry(workoutIndex, entryIndex, 1) }) {
                 Text(stringResource(Res.string.routines_move_down))
             }
+            // Progression applies to counted slots; a timed slot works to seconds, not reps.
+            if (entry.metric == EntryMetric.REPETITIONS) {
+                TextButton(
+                    onClick = { viewModel.onEditProgressionPolicy(workoutIndex, entryIndex) }
+                ) {
+                    Text(stringResource(Res.string.routines_progression_action))
+                }
+            }
         }
+        entry.progressionPolicy?.let { policy ->
+            Text(
+                text = progressionSummary(policy),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun progressionSummary(policy: SlotProgressionPolicy): String {
+    val equipmentId = policy.equipmentId
+    return if (equipmentId == null) {
+        stringResource(
+            Res.string.routines_progression_summary,
+            policy.minReps,
+            policy.maxReps,
+            formatWeight(policy.incrementKg)
+        )
+    } else {
+        stringResource(
+            Res.string.routines_progression_summary_equipment,
+            policy.minReps,
+            policy.maxReps,
+            formatWeight(policy.incrementKg),
+            equipmentId
+        )
     }
 }
 
@@ -884,6 +950,102 @@ private fun ExercisePickerDialog(
                 Text(stringResource(Res.string.routines_cancel))
             }
         }
+    )
+}
+
+@Composable
+private fun ProgressionPolicyDialog(
+    state: ProgressionPolicyEditorState,
+    hasExistingPolicy: Boolean,
+    onMinRepsChanged: (String) -> Unit,
+    onMaxRepsChanged: (String) -> Unit,
+    onIncrementChanged: (String) -> Unit,
+    onEquipmentIdChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.routines_progression_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.minReps,
+                    onValueChange = onMinRepsChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_min_reps_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.maxReps,
+                    onValueChange = onMaxRepsChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_max_reps_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.incrementKg,
+                    onValueChange = onIncrementChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_increment_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.equipmentId,
+                    onValueChange = onEquipmentIdChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_equipment_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                state.error?.let { error ->
+                    Text(
+                        text = progressionPolicyErrorText(error),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text(stringResource(Res.string.routines_save))
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasExistingPolicy) {
+                    TextButton(onClick = onClear) {
+                        Text(stringResource(Res.string.routines_progression_clear))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.routines_cancel))
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun progressionPolicyErrorText(error: ProgressionPolicyError): String = when (error) {
+    ProgressionPolicyError.REPS_RANGE -> stringResource(
+        Res.string.routines_progression_error_reps_range,
+        SlotProgressionPolicy.MIN_REPS,
+        SlotProgressionPolicy.MAX_REPS
+    )
+    ProgressionPolicyError.INCREMENT ->
+        stringResource(Res.string.routines_progression_error_increment)
+    ProgressionPolicyError.EQUIPMENT_ID -> stringResource(
+        Res.string.routines_progression_error_equipment,
+        SlotProgressionPolicy.MAX_ID_LENGTH
     )
 }
 

@@ -29,6 +29,19 @@
     <string name="routines_workout_number">Workout %1$d</string>
     <string name="routines_focus_label">Focus</string>
 
+    <string name="routines_progression_action">Progression</string>
+    <string name="routines_progression_title">Progression policy</string>
+    <string name="routines_progression_min_reps_label">Lowest reps</string>
+    <string name="routines_progression_max_reps_label">Highest reps</string>
+    <string name="routines_progression_increment_label">Load step (kg)</string>
+    <string name="routines_progression_equipment_label">Bar or dumbbell (optional)</string>
+    <string name="routines_progression_summary">%1$d–%2$d reps, step %3$s kg</string>
+    <string name="routines_progression_summary_equipment">%1$d–%2$d reps, step %3$s kg (%4$s)</string>
+    <string name="routines_progression_clear">Clear</string>
+    <string name="routines_progression_error_reps_range">Lowest reps must be %1$d to %2$d, and highest reps at least the lowest, up to %2$d.</string>
+    <string name="routines_progression_error_increment">The load step must be a positive number of kilograms.</string>
+    <string name="routines_progression_error_equipment">The bar or dumbbell name must be 1 to %1$d characters, with no surrounding spaces.</string>
+
     <string name="routines_save">Save</string>
     <string name="routines_cancel">Cancel</string>
     <string name="routines_confirm">Confirm</string>
