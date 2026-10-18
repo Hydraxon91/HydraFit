@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.routine.RoutineEntry as DomainRoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate as DomainRoutineTemplate
@@ -87,7 +88,9 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                             reps = entry.reps?.toLong(),
                             durationSeconds = entry.durationSeconds?.toLong(),
                             weightKg = entry.weightKg,
-                            loadKind = entry.loadKind.name
+                            loadKind = entry.loadKind.name,
+                            progressionPolicy = entry.progressionPolicy
+                                ?.let(SlotProgressionPolicyJson::encode)
                         )
                         queries.lastInsertedEntryId().executeAsOne()
                     } else {
@@ -99,6 +102,8 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                             durationSeconds = entry.durationSeconds?.toLong(),
                             weightKg = entry.weightKg,
                             loadKind = entry.loadKind.name,
+                            progressionPolicy = entry.progressionPolicy
+                                ?.let(SlotProgressionPolicyJson::encode),
                             id = entry.id
                         )
                         entry.id
@@ -161,7 +166,9 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                                 reps = entry.reps?.toInt(),
                                 durationSeconds = entry.durationSeconds?.toInt(),
                                 weightKg = entry.weightKg,
-                                loadKind = decodeLoadKind(entry.loadKind)
+                                loadKind = decodeLoadKind(entry.loadKind),
+                                progressionPolicy = entry.progressionPolicy
+                                    ?.let(SlotProgressionPolicyJson::decode)
                             )
                         }
                 )

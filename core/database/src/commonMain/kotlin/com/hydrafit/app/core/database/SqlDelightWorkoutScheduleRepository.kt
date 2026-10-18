@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.schedule.ActivationEntry as DomainActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
@@ -215,7 +216,10 @@ class SqlDelightWorkoutScheduleRepository(
                     durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability.name,
-                    loadKind = entry.loadKind.name
+                    loadKind = entry.loadKind.name,
+                    progressionPolicy = entry.progressionPolicy?.let(
+                        SlotProgressionPolicyJson::encode
+                    )
                 )
                 val entryId = queries.lastInsertedActivationEntryId().executeAsOne()
                 writeEntryExplanation(ACTIVATION_ENTRY_KIND, entryId, entry.explanation)
@@ -253,6 +257,8 @@ class SqlDelightWorkoutScheduleRepository(
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability.name,
                     loadKind = entry.loadKind.name,
+                    progressionPolicy = entry.progressionPolicy
+                        ?.let(SlotProgressionPolicyJson::encode),
                     remainingDisposition = null,
                     terminalRemainingSets = null
                 )
@@ -536,6 +542,7 @@ class SqlDelightWorkoutScheduleRepository(
             weightKg = weightKg,
             loadCapability = loadCapability.name,
             loadKind = loadKind.name,
+            progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::encode),
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong()
         )
@@ -562,6 +569,7 @@ class SqlDelightWorkoutScheduleRepository(
             weightKg = weightKg,
             loadCapability = loadCapability.name,
             loadKind = loadKind.name,
+            progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::encode),
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong(),
             id = id
@@ -638,7 +646,8 @@ class SqlDelightWorkoutScheduleRepository(
         weightKg = weightKg,
         loadCapability = decodeLoadCapability(loadCapability),
         loadKind = decodeLoadKind(loadKind),
-        explanation = explanation
+        explanation = explanation,
+        progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode)
     )
 
     private fun WorkoutOccurrence.toDomain(
@@ -679,6 +688,7 @@ class SqlDelightWorkoutScheduleRepository(
         loadCapability = decodeLoadCapability(loadCapability),
         loadKind = decodeLoadKind(loadKind),
         explanation = explanation,
+        progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
         remainingDisposition = remainingDisposition?.toRemainingDisposition(),
         terminalRemainingSets = terminalRemainingSets?.toInt()
     )

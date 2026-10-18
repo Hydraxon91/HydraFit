@@ -2036,7 +2036,8 @@ class WorkoutLoggerViewModel(
                 durationSeconds = entry.durationSeconds,
                 loadKind = entry.loadKind,
                 weightKg = entry.weightKg,
-                isDeload = isDeloadWeek(activeActivation?.weekNumber)
+                isDeload = isDeloadWeek(activeActivation?.weekNumber),
+                progressionPolicy = entry.progressionPolicy
             )
         }
         if (backdated || activeActivation != null) return null
@@ -2050,7 +2051,8 @@ class WorkoutLoggerViewModel(
             durationSeconds = entry.durationSeconds,
             loadKind = entry.loadKind,
             weightKg = entry.suggestedWeightKg,
-            isDeload = isDeloadWeek(acceptedPlan?.weekNumber)
+            isDeload = isDeloadWeek(acceptedPlan?.weekNumber),
+            progressionPolicy = entry.progressionPolicy
         )
     }
 

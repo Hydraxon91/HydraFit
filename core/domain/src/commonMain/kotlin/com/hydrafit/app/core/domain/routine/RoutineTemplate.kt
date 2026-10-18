@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.routine
 
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.workout.LoadKind
 
@@ -44,5 +45,10 @@ data class RoutineEntry(
     /** null = unspecified load; 0.0 = an explicit zero load; positive = stored kilograms. */
     val weightKg: Double? = null,
     /** What [weightKg] means under the exercise's capability. */
-    val loadKind: LoadKind = LoadKind.EXTERNAL
+    val loadKind: LoadKind = LoadKind.EXTERNAL,
+    /**
+     * The slot's approved progression policy, or null when the user has not configured one. A slot
+     * without a policy never receives an automatic progression suggestion.
+     */
+    val progressionPolicy: SlotProgressionPolicy? = null
 )

@@ -27,6 +27,7 @@ CREATE TABLE planHistoryEntry (
     suggestedWeightKg REAL,
     loadCapability TEXT NOT NULL DEFAULT 'UNSPECIFIED',
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
+    progressionPolicy TEXT,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -41,8 +42,8 @@ insertDayWithId:
 INSERT INTO planHistoryDay(id, planId, dayIndex, focus) VALUES (?, ?, ?, ?);
 
 insertEntryWithId:
-INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedPlanId:
 SELECT last_insert_rowid();
@@ -60,8 +61,8 @@ selectAllDays:
 SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
 
 insertEntry:
-INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;

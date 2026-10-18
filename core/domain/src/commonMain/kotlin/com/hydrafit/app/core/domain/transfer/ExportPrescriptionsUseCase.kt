@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.transfer
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
@@ -95,7 +96,9 @@ private fun RoutineTemplate.toRecord(
                         weightKg = entry.weightKg.takeIf { includeWeights },
                         loadKind = entry.loadKind.name,
                         movementPattern = exercise?.movementPattern?.name,
-                        loadCapability = exercise?.loadCapability?.name
+                        loadCapability = exercise?.loadCapability?.name,
+                        progressionPolicy = entry.progressionPolicy
+                            ?.let(SlotProgressionPolicyJson::encode)
                     )
                 }
             )

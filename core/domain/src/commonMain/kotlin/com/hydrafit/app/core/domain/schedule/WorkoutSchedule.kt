@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -83,7 +84,9 @@ data class ActivationEntry(
      * The plan slot's recorded reasoning, copied from the accepted plan when this block was created.
      * Null for a manual routine or any entry that never had planner reasons.
      */
-    val explanation: ExerciseTargetExplanation? = null
+    val explanation: ExerciseTargetExplanation? = null,
+    /** The slot's approved progression policy, frozen with the rest of the prescription. */
+    val progressionPolicy: SlotProgressionPolicy? = null
 )
 
 data class WorkoutOccurrence(
@@ -133,6 +136,8 @@ data class OccurrenceEntry(
      * original exercise's reasons.
      */
     val explanation: ExerciseTargetExplanation? = null,
+    /** The slot's approved progression policy, copied with the rest of the frozen prescription. */
+    val progressionPolicy: SlotProgressionPolicy? = null,
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null
 )

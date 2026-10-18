@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.transfer
 
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -12,14 +13,18 @@ import kotlinx.serialization.Serializable
 const val PRESCRIPTION_FORMAT: String = "hydrafit-routines"
 
 /** The interchange version this build writes. */
-const val PRESCRIPTION_FORMAT_VERSION: Int = 2
+const val PRESCRIPTION_FORMAT_VERSION: Int = 3
 
 /**
  * The versions a reader accepts. Version 1 carries a rep-only slot; version 2 may carry a timed slot
- * (positive whole seconds instead of a rep count). A duration in a version-1 document is rejected
+ * (positive whole seconds instead of a rep count); version 3 may additionally carry a slot's approved
+ * progression policy. A duration in a version-1 document, or a policy before version 3, is rejected
  * rather than read, so an older file is never reinterpreted.
  */
 val PRESCRIPTION_SUPPORTED_VERSIONS: IntRange = 1..PRESCRIPTION_FORMAT_VERSION
+
+/** The first interchange version that may carry a slot's approved progression policy. */
+const val PRESCRIPTION_POLICY_FORMAT_VERSION: Int = 3
 
 /** Resource safeguards for one prescription document; deliberately smaller than a full backup. */
 object PrescriptionLimits {
@@ -86,7 +91,12 @@ data class PrescriptionEntryRecord(
     val weightKg: Double? = null,
     val loadKind: String = "EXTERNAL",
     val movementPattern: String? = null,
-    val loadCapability: String? = null
+    val loadCapability: String? = null,
+    /**
+     * The encoded approved progression policy for this slot (format 3 and later), or null when the
+     * user configured none. Earlier formats must not carry one.
+     */
+    val progressionPolicy: String? = null
 )
 
 /** A custom exercise definition the document's routines need, in resolved form (not a stored blob). */
@@ -165,6 +175,17 @@ object PrescriptionValidator {
                     if (document.formatVersion < 2 && entry.durationSeconds != null) {
                         // A duration in a version-1 document is rejected, not read as a rep count.
                         fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    if (document.formatVersion < PRESCRIPTION_POLICY_FORMAT_VERSION &&
+                        entry.progressionPolicy != null
+                    ) {
+                        // A policy in a document that predates it is not what the writer claimed.
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    entry.progressionPolicy?.let { encoded ->
+                        if (runCatching { SlotProgressionPolicyJson.decode(encoded) }.isFailure) {
+                            fail(PrescriptionFailure.INVALID_VALUE)
+                        }
                     }
                     if (runCatching {
                             PrescriptionBounds.validate(

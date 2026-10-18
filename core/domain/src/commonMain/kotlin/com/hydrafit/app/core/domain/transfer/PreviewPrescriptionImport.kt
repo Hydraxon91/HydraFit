@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.transfer
 
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -155,7 +156,9 @@ object PreviewPrescriptionImport {
                         reps = entry.reps,
                         durationSeconds = entry.durationSeconds,
                         weightKg = weight,
-                        loadKind = kind
+                        loadKind = kind,
+                        progressionPolicy = entry.progressionPolicy
+                            ?.let(SlotProgressionPolicyJson::decode)
                     )
                 }
                 // A slot whose identity is unresolved would be dropped; that blocks import above.

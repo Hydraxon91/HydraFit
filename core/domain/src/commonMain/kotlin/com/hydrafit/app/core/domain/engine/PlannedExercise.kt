@@ -22,7 +22,12 @@ data class PlannedExercise(
      * Recorded reasoning for this target, or null when the producer did not record one (for example
      * a slot built only as ranking context). Inert data: it never affects selection or prescription.
      */
-    val explanation: ExerciseTargetExplanation? = null
+    val explanation: ExerciseTargetExplanation? = null,
+    /**
+     * The slot's approved progression policy, or null when none applies. Carried so an accepted plan
+     * keeps the rule the user approved for that slot.
+     */
+    val progressionPolicy: SlotProgressionPolicy? = null
 ) {
     init {
         require((reps == null) != (durationSeconds == null)) {

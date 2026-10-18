@@ -85,7 +85,9 @@ data class AcceptedExercise(
      * The recorded reasoning for this slot, or null for a legacy slot or one whose reasons were
      * invalidated by a confirmed substitution.
      */
-    val explanation: ExerciseTargetExplanation? = null
+    val explanation: ExerciseTargetExplanation? = null,
+    /** The slot's approved progression policy, or null when the user has not configured one. */
+    val progressionPolicy: SlotProgressionPolicy? = null
 ) {
     init {
         require((reps == null) != (durationSeconds == null)) {
@@ -132,7 +134,8 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     suggestedWeightKg = exercise.suggestedWeightKg,
                     loadKind = exercise.loadKind,
                     loadCapability = exercise.loadCapability,
-                    explanation = exercise.explanation
+                    explanation = exercise.explanation,
+                    progressionPolicy = exercise.progressionPolicy
                 )
             }
         )

@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -114,6 +116,28 @@ class BackupValidatorTest {
         validator.validate(
             profiledFile(BACKUP_FORMAT_VERSION).copy(
                 workoutSets = listOf(set(prescriptionSnapshot = snapshot()))
+            )
+        )
+    }
+
+    @Test
+    fun aPolicyInsideARecordedTargetIsRejectedInAPreFormat22File() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(PROGRESSION_POLICY_FORMAT_VERSION - 1).copy(
+                workoutSets = listOf(
+                    set(prescriptionSnapshot = snapshot(policy = policy()))
+                )
+            )
+        }
+    }
+
+    @Test
+    fun aPolicyInsideARecordedTargetIsAcceptedAtItsOwnFormat() {
+        validator.validate(
+            profiledFile(PROGRESSION_POLICY_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(prescriptionSnapshot = snapshot(policy = policy()))
+                )
             )
         )
     }
@@ -1125,6 +1149,53 @@ class BackupValidatorTest {
         }
     }
 
+    @Test
+    fun aPolicyInAPreFormat22FileIsRejectedRatherThanAdopted() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            policyFile(PROGRESSION_POLICY_FORMAT_VERSION - 1, encodedPolicy())
+        }
+    }
+
+    @Test
+    fun aPolicyAtItsOwnFormatIsAccepted() {
+        validator.validate(policyFile(PROGRESSION_POLICY_FORMAT_VERSION, encodedPolicy()))
+    }
+
+    @Test
+    fun anUndecodablePolicyIsRejectedBeforeAnyWrite() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            policyFile(
+                PROGRESSION_POLICY_FORMAT_VERSION,
+                """{"version":1,"minReps":8,"maxReps":5,"incrementKg":2.5}"""
+            )
+        }
+    }
+
+    private fun policy() = SlotProgressionPolicy(minReps = 5, maxReps = 8, incrementKg = 2.5)
+
+    private fun encodedPolicy() = SlotProgressionPolicyJson.encode(policy())
+
+    /** One routine slot carrying a progression policy, so the format gate is the only variable. */
+    private fun policyFile(formatVersion: Int, encodedPolicy: String?) =
+        profiledFile(formatVersion).copy(
+            routines = listOf(BackupRoutineRecord(1L, "Block", 1, 1, 1, null, null)),
+            routineWorkouts = listOf(BackupRoutineWorkoutRecord(10L, 1L, 0, "Day", "FULL_BODY")),
+            routineEntries = listOf(
+                BackupRoutineEntryRecord(
+                    id = 100L,
+                    workoutId = 10L,
+                    position = 0,
+                    exerciseId = "back-squat",
+                    sets = 3,
+                    reps = 5,
+                    durationSeconds = null,
+                    weightKg = 100.0,
+                    loadKind = "EXTERNAL",
+                    progressionPolicy = encodedPolicy
+                )
+            )
+        )
+
     private fun assertFailure(expected: BackupFailure, mutate: () -> BackupFile) {
         val failure = assertFailsWith<BackupException> { validator.validate(mutate()) }
         assertEquals(expected, failure.failure)
@@ -1389,7 +1460,8 @@ class BackupValidatorTest {
     private fun snapshot(
         exerciseId: String = "back-squat",
         loadKind: String = "EXTERNAL",
-        weightKg: Double? = 100.0
+        weightKg: Double? = 100.0,
+        policy: SlotProgressionPolicy? = null
     ) = WorkoutPrescriptionSnapshotJson.encode(
         WorkoutPrescriptionSnapshot(
             exerciseId = exerciseId,
@@ -1397,7 +1469,8 @@ class BackupValidatorTest {
             reps = 5,
             loadKind = LoadKind.valueOf(loadKind),
             weightKg = weightKg,
-            isDeload = false
+            isDeload = false,
+            progressionPolicy = policy
         )
     )
     private fun activation(id: Long) = BackupActivationRecord(

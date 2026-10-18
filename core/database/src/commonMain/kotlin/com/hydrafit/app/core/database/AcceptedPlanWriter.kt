@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 
 /** Shared insertion inside the caller's transaction (plain acceptance or accept-and-activate). */
@@ -35,7 +36,9 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
                     movementPattern = exercise.movementPattern.name,
                     suggestedWeightKg = exercise.suggestedWeightKg,
                     loadCapability = exercise.loadCapability.name,
-                    loadKind = exercise.loadKind.name
+                    loadKind = exercise.loadKind.name,
+                    progressionPolicy = exercise.progressionPolicy
+                        ?.let(SlotProgressionPolicyJson::encode)
                 )
                 val recorded = exercise.explanation ?: return@forEachIndexed
                 val columns = recorded.toColumns()

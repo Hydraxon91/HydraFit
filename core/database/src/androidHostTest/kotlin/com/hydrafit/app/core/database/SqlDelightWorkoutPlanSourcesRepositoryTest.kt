@@ -235,7 +235,8 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",
             remainingDisposition = null,
-            terminalRemainingSets = null
+            terminalRemainingSets = null,
+            progressionPolicy = null
         )
         val entryId = database.trainingScheduleQueries.lastInsertedOccurrenceEntryId()
             .executeAsOne()

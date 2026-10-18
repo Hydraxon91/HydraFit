@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.domain.transfer
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -316,7 +318,64 @@ class PrescriptionInterchangeTest {
     }
 
     @Test
-    fun exportsATimedSlotAsSecondsAtVersionTwoAndStillReadsRepOnlyVersionOneDocuments() =
+    fun aPolicyInAPreVersionThreeDocumentIsRejectedRatherThanRead() = runBlocking {
+        val policyRoutine = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Day 1",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "back-squat",
+                            sets = 3,
+                            reps = 5,
+                            weightKg = 100.0,
+                            loadKind = LoadKind.EXTERNAL,
+                            progressionPolicy = SlotProgressionPolicy(
+                                minReps = 5,
+                                maxReps = 8,
+                                incrementKg = 2.5
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        val policyRepository = object : RoutineTemplateRepository {
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(listOf(policyRoutine))
+
+            override suspend fun get(id: Long): RoutineTemplate? =
+                policyRoutine.takeIf { it.id == id }
+
+            override suspend fun save(template: RoutineTemplate): Long = 0L
+            override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+            override suspend fun isReferencedByActivation(id: Long): Boolean = false
+            override suspend fun delete(id: Long) = Unit
+        }
+
+        val document =
+            ExportPrescriptionsUseCase(policyRepository, catalog)(listOf(7L), true, "t", 1L)
+
+        assertEquals(3, document.formatVersion)
+        assertEquals(
+            2.5,
+            document.routines.single().allEntries().single().progressionPolicy?.let {
+                SlotProgressionPolicyJson.decode(it).incrementKg
+            }
+        )
+        PrescriptionValidator.validate(document)
+        // A document that predates the policy is refused outright rather than adopting one.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(document.copy(formatVersion = 2))
+            }.failure
+        )
+    }
+
+    @Test
+    fun exportsATimedSlotAtTheCurrentVersionAndStillReadsRepOnlyVersionOneDocuments() =
         runBlocking {
             val timedRoutine = routine.copy(
                 workouts = listOf(
@@ -353,12 +412,12 @@ class PrescriptionInterchangeTest {
             val document =
                 ExportPrescriptionsUseCase(timedRepository, catalog)(listOf(7L), true, "t", 1L)
 
-            assertEquals(2, document.formatVersion)
+            assertEquals(3, document.formatVersion)
             val timed = document.routines.single().allEntries().single()
             assertNull(timed.reps)
             assertEquals(90, timed.durationSeconds)
             PrescriptionValidator.validate(document)
-            // The seconds are part of the version-2 JSON contract, not just the object graph.
+            // The seconds are part of the timed-slot JSON contract, not just the object graph.
             assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
 
             // A version-1 document is rep-only: the same file read as version 1 is refused outright,

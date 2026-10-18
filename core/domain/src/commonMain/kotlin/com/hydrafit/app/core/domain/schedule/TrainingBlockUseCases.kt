@@ -275,6 +275,11 @@ class EditUnstartedOccurrenceUseCase(
                 draft.loadKind,
                 draft.weightKg
             )
+            // An edit re-prescribes the slot; the approved rule travels with the same exercise rather
+            // than being silently discarded by a sets/reps change.
+            val existingPolicy = occurrence.entries
+                .firstOrNull { it.exerciseId == draft.exerciseId }
+                ?.progressionPolicy
             OccurrenceEntry(
                 sourceActivationEntryId = null,
                 position = index,
@@ -289,7 +294,8 @@ class EditUnstartedOccurrenceUseCase(
                 durationSeconds = draft.durationSeconds,
                 weightKg = weightKg,
                 loadCapability = exercise.loadCapability,
-                loadKind = kind
+                loadKind = kind,
+                progressionPolicy = existingPolicy
             )
         }
         scheduleRepository.replaceOccurrenceEntries(occurrenceId, entries)
