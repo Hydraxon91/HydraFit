@@ -230,6 +230,12 @@ python3 scripts/run-bounded.py 600 test-output.log -- ./gradlew testAndroidHostT
 # Run tests for a single module
 python3 scripts/run-bounded.py 600 domain-test-output.log -- ./gradlew :core:domain:testAndroidHostTest
 
+# Surface an intermittent failure: repeat a command in a fresh sweep directory
+python3 scripts/flake-repeat.py 300 3 /external/sweep-dir -- ./gradlew :core:database:testAndroidHostTest --rerun-tasks
+
+# Same sweep, requiring the test task itself to have run in every repeat
+python3 scripts/flake-repeat.py --require-log-match ':core:database:testAndroidHostTest' 300 3 /external/sweep-dir -- ./gradlew :core:database:testAndroidHostTest --rerun-tasks
+
 # Mechanical format pass for Kotlin changes (run before the first test run)
 python3 scripts/run-bounded.py 600 format-output.log -- ./gradlew ktlintFormat
 
@@ -255,6 +261,24 @@ confirms. A task reported `UP-TO-DATE` was not executed in that run — re-run i
 `--rerun-tasks` or report the result as inherited, naming the inputs it came from.
 `run-bounded.py` records Gradle's executed/up-to-date split in its result JSON
 (`gradle_tasks`) and summary line whenever the log carries one.
+
+`flake-repeat.py` repeats a bounded command in a fresh sweep directory to surface an
+intermittent failure. Each run inherits `run-bounded.py`'s wall-clock limit,
+termination guarantee and result JSON; `--rerun-tasks` (or an equivalent) is what
+makes a Gradle repeat do real work. A sweep in which any run executed no Gradle task
+exits 3 as inconclusive rather than passing, so one fresh run followed by cached
+repeats is never read as a sweep that ran, and the sweep stops without starting
+another run as soon as a run's termination is not confirmed, because an unconfirmed
+process group may still be writing. `--require-log-match <regex>` pins a marker that
+must appear in every run's log — for example the test task's own `> Task :module:task`
+line — so a sweep can require the check under test to have run rather than counting
+unrelated Gradle work such as compilation. Matching Gradle task lines must show an
+executed task (no status suffix, or `FAILED`); `UP-TO-DATE`, `FROM-CACHE`, `SKIPPED`,
+`NO-SOURCE` and unrecognised suffixes do not satisfy the marker. Exit 2 lists the distinct failing tests,
+and a sweep directory that already holds results is refused, so an earlier sweep's
+pass is never consumed as this one's. It reports an observation, not a verdict about a
+flake's existence: failing to reproduce one proves only that it did not occur in those
+runs.
 
 ### Bounded command results
 

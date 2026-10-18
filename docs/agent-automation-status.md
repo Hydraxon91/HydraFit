@@ -572,6 +572,55 @@ cost that a formatting pre-pass should remove.
   "0 executed". R-04: the reference doc's record-field list includes the amendments
   array. Laundering, `already_allowed_paths` smuggling, gate weakening, contract
   immutability and run-bounded regressions were all attempted and did not pass.
+
+### Automation reliability — flake-repeat harness (item 6)
+
+- **B010-08 [flake, harness added]:** `scripts/flake-repeat.py` repeats a bounded
+  command in a fresh sweep directory, wrapping `run-bounded.py` so every run inherits
+  its wall-clock limit, termination guarantee and result JSON. A sweep in which any
+  run executed no Gradle task exits 3 as inconclusive rather than passing, so one
+  fresh run followed by cached repeats is never read as a sweep that ran; the sweep
+  also stops without starting another run as soon as a run's termination is not
+  confirmed, because an unconfirmed process group may still be writing. The optional
+  `--require-log-match` pins a marker that must appear in every run's log, so a sweep
+  can require the check under test to have run rather than counting unrelated Gradle
+  work. A sweep directory already holding results is refused, so an earlier pass is
+  never consumed as this one's. Live demonstration against the 0.10.0 flake class: six
+  fresh runs (3 isolated `ExerciseProgressRecordsIntegrationTest`, 3 full
+  `:core:database:testAndroidHostTest`, each with `--rerun-tasks` and 19 tasks
+  executed) reproduced nothing. That is an observation only: it establishes no rate,
+  and the original failure depended on an ordering these repeats did not reach.
+  Coverage: 13 offline tests. The first version of the harness was rejected in review
+  for starting repeats after an unconfirmed termination and for counting a partly
+  cached sweep as fresh; both are fixed with regressions.
+- **Rating:** the flake class moves from "surprised by it" to "measurable on demand";
+  a reproduction still needs luck, so this reports frequency, not a fix.
+
+### Automation reliability — UI preflight live adoption (item 5)
+
+- **B010-10 [adoption, verified]:** the prepared-journey preflight had offline tests
+  but no live use. It was exercised end to end on a real journey. An external
+  version-1 contract was authored for `.maestro/navigation-smoke.yaml` with the
+  baseline pinned to a compact-hierarchy artifact (sha256) and the fixture facts taken
+  from that observation; the preflight returned `preflight_clear: true` and exit 0
+  with `--max-age-seconds 1800`. `ui-runner` then executed the flow under the bounded
+  CLI: exit 0, all 17 logged commands completed, and a fresh hierarchy showed exactly one
+  `selected=true` node whose descendant is `Equipment`, with no dialog, keyboard or
+  editor node present. No write was planned or performed; one attempt, about 32 s,
+  inside the 120 s flow cap. The parent verified the runner's claims directly rather
+  than accepting the summary. The documented procedure already required a validated
+  contract before handing a prepared journey to the runner — it had simply never been
+  used, so no rule change was needed, only the adoption.
+- **Limits:** the journey exercises the installed debug build, which reports
+  `versionName=0.7.6-dev-08ba103d-dirty`. That name embeds 08ba103d, the commit
+  *before* the 0.10.0 app changes, and the `-dirty` suffix means uncommitted changes
+  existed when it was built, so its exact source identity and coverage of the
+  0.10.0 progression code are unverified. The journey remains valid for what it
+  claims — the preflight mechanism and read-only tab navigation — but the installed
+  build must not be described as matching the reviewed revision. One flow was adopted,
+  not the whole `.maestro/` set. The contract and its artifacts are external and
+  uncommitted by design, so the adoption is reproducible from the procedure rather
+  than from a checked-in contract.
 - **Ratings:** bounded-run 8.5 → 9 (freshness now visible; a live timeout containment
   is still unproven). Lease 6.5 → 8 (live two-worker serialization proven; not yet
   under real concurrent sessions). Evidence discipline 6.5 → 8.5 (rule plus a tool
