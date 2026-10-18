@@ -737,3 +737,102 @@ First boundary of the `0.10.1-0.10.2` batch (folded target `v0.10.1`), base
 - **Unchanged and unmeasured:** `git-ops` 7.5, lease 8, UI preflight 6.5, coder workflow 6,
   validator 8.5 (not yet run this boundary), batch workflow 9, review discipline 9.
 - **Guard pilot 3.5 — untouched.** Nothing in this boundary exercised it.
+
+## 0.10.2 batch — second boundary (2026-10-18)
+
+Second release scope of the `0.10.1-0.10.2` batch, under the accepted extension record
+`batch-0.10.2` (the `batch-0.10.1-0.10.2` record is preserved at revision 19). Base
+`ee71aa40`. Entry covers 0.10.2 only.
+
+### What this boundary actually exercised
+
+- **Three scope amendments, two of them caught by the gate.** The enumerated manifest again
+  under-listed files the approved change touches: SplitBuilder's five files, `PlanRequest.kt`
+  and `DeterministicWorkoutPlannerEngine.kt`, and `ObserveWorkoutPlanInputsUseCase.kt`. The
+  first was recorded by the parent; the other two were **found by `resume`**, which named
+  `PlanRequest.kt` and `DeterministicWorkoutPlannerEngine.kt` as outside the allowed set and
+  refused the checkpoint before any commit. The gate is doing the job the parent's own
+  enumeration keeps failing at.
+- **The fresh-run rule, again.** Every acceptance matrix was run with `--rerun-tasks`; the
+  accepted evidence is `d102-full-matrix-04.log` at 787 executed / 0 up-to-date. Two earlier
+  green-looking attempts were rejected as evidence — one on a corrected assertion, one on the
+  known app flake.
+- **A full-range independent review that returned REJECTED.** See B012-02.
+- **Two delegated coder chunks plus one correction brief.** Scope containment held across all
+  three: the child modified exactly its allowed paths, refused to edit a main-owned file, and
+  in one case disclosed a design weakness in its own work.
+- **Not exercised:** `git-ops` (direct Git), the lease (serialized writes), and the UI
+  preflight (no device acceptance ran). Missing observations remain unknown, not zero.
+
+### Findings
+
+- **B012-02 [review value, confirmed] — the review found two major defects a green matrix could
+  not.** The parent reported 787 executed tasks, 0 up-to-date, exit 0, and still shipped two
+  confirmed majors in the ordered write path: an unenforced `sets == setTargets.sets` invariant
+  that made the Logger address the wrong slots, and an override baseline that silently discarded
+  the ordered targets in the ordinary case. The parent's own tests could not have caught either:
+  the only ordered fixture hand-built internally consistent snapshots. **A green matrix measures
+  what the tests assert, not what the code does.** The review also found a third unmet
+  acceptance item (F-01) that the parent had reported as delivered.
+- **B012-03 [self-report, confirmed] — the parent overstated delivered scope.** The parent's
+  own summary claimed automatic per-set generation "applied to model output by the shared
+  sanitizer"; only the manual recipe builder existed. The reviewer's F-01 caught it. The
+  durable lesson: an acceptance criterion that names a *consumer* (here the sanitizer) needs a
+  test that exercises that consumer, or it will be reported as done when only the producer
+  exists.
+- **B012-04 [delegation, confirmed] — the coder disclosed a design weakness in its own work.**
+  Its first Routines chunk reconstructed the reopen inputs by fitting candidate shapes to the
+  stored targets and said so explicitly. That is an inference about user input in a feature
+  about not inventing prescriptions, so the parent corrected it by persisting the recipe. Good
+  behaviour: the disclosure is what made the fix cheap.
+- **B012-05 [flake, recurrence] — the known app flake failed two release-gate attempts.** Same
+  class as B011-07; it passed on rerun each time. The cost is now measured across two releases.
+- **B012-06 [budget, confirmed] — no supported extension path.** The helper has no extension
+  command and amendments never extend the budget, so an accepted mid-task extension can only be
+  recorded as a checkpoint while the helper's own bound stays put. That leaves the recorded
+  bound and the user's accepted budget disagreeing, which a future operator would have to
+  reconcile by hand. *Improvement:* an explicit, audited extension event that preserves elapsed
+  usage and history.
+- **B012-07 [tooling, confirmed] — exact-match edits are fragile against the format pass.** The
+  mandated `ktlintFormat` rewrites the same regions an author is editing, so several edits
+  failed on exact-match and had to be re-read and retried. Twice an edit whose `oldString` ended
+  in a newline removed that newline and produced a syntax error, which the next compile caught.
+  *Improvement:* state in the tooling guidance that `oldString` must not include a trailing
+  newline, and expect to re-read a region after a format pass.
+- **B012-08 [flake, confirmed] — a second pre-existing flake in the Koin graph test.**
+  `KoinModulesVerificationTest.theOnboardingViewModelsResolveAtRuntime` failed one release-gate
+  attempt with `java.lang.IllegalStateException: Dispatchers.Main is used concurrently with
+  setting it`. This is the same class as the documented 0.7.7 CI corrective (a runtime binding
+  test resetting `Main` while a ViewModel is still reading on a real dispatcher), not a
+  regression from this release: nothing in 0.10.2 changes the Koin graph, and the run passed on
+  rerun. Left unfixed and out of scope. Together with B012-05 this release needed three
+  release-gate reruns, two for flakes and one for a corrected assertion.
+
+### Closure
+
+The independent review returned REJECTED and closure needed three rounds: the first found the
+missing regression test, a contradictory documentation line and a new recipe-endpoint defect; the
+second found two more endpoint defects; the third closed everything after the automatic path stopped
+recording a manual recipe it could not honour. Round 2 also confirmed the flake classification for
+B012-08: no `shared/` path is in the change set, nothing alters the Koin graph, and
+`:shared:testAndroidHostTest` passes 273/273 in isolation. The lesson worth keeping from this release
+is B012-02 — the parent reported a green 787-task matrix while shipping two majors, because the only
+ordered fixture hand-built consistent data and could not exercise the invariant it violated.
+
+### Ratings at this boundary
+
+- **Review discipline 9 → 9.5.** The independent review found two majors, an unmet acceptance
+  item and four smaller findings in work the parent had already declared verified. Raised on
+  that observed value, not on intent.
+- **Evidence discipline 9 → 9 (held).** The freshness rule kept working, but this boundary is
+  the clearest evidence yet that a fresh green matrix is not coverage. Held rather than raised.
+- **Coder workflow 6 → 6.5.** Three briefs, all delivered within scope, one self-disclosed
+  design weakness, no crossing edits. The tool-call cap was exceeded again (reported honestly),
+  which keeps this well below the other tools.
+- **Batch workflow 9 → 9 (held).** The boundary gate caught two out-of-manifest paths and
+  blocked the commit; the batch's amendment and boundary discipline did the work. Held because
+  the same enumeration failure has now recurred across two releases.
+- **Task state 9 → 9 (held).** Amendments, checkpoints and the pending-outcome guard all
+  behaved correctly. Held because B012-06 shows a real gap at the extension boundary.
+- **Unchanged and unmeasured:** `git-ops` 7.5, lease 8, UI preflight 6.5, validator 8.5.
+- **Guard pilot 3.5 — untouched.**
