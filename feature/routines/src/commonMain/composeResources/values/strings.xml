@@ -42,6 +42,36 @@
     <string name="routines_progression_error_increment">The load step must be a positive number of kilograms.</string>
     <string name="routines_progression_error_equipment">The bar or dumbbell name must be 1 to %1$d characters, with no surrounding spaces.</string>
 
+    <string name="routines_set_targets_action">Per-set targets</string>
+    <string name="routines_set_targets_title">Per-set targets</string>
+    <string name="routines_set_targets_shape_label">Shape</string>
+    <string name="routines_set_targets_shape_straight">Straight</string>
+    <string name="routines_set_targets_shape_ascending_load">Ascending load</string>
+    <string name="routines_set_targets_shape_descending_load">Descending load</string>
+    <string name="routines_set_targets_shape_pyramid">Pyramid</string>
+    <string name="routines_set_targets_sets_label">Sets</string>
+    <string name="routines_set_targets_start_reps_label">Start reps</string>
+    <string name="routines_set_targets_end_reps_label">End reps</string>
+    <string name="routines_set_targets_start_load_label">Start load (kg)</string>
+    <string name="routines_set_targets_end_load_label">End load (kg)</string>
+    <string name="routines_set_targets_round_label">Round to (kg)</string>
+    <string name="routines_set_targets_rir_label">Prescribed RIR (optional)</string>
+    <string name="routines_set_targets_preview_title">Preview</string>
+    <string name="routines_set_targets_preview_set">Set %1$d: %2$d reps · %3$s</string>
+    <string name="routines_set_targets_preview_no_load">no load</string>
+    <string name="routines_set_targets_apply">Apply</string>
+    <string name="routines_set_targets_summary">Per-set targets: %1$d sets · %2$s</string>
+    <string name="routines_set_targets_reps_single">%1$d reps</string>
+    <string name="routines_set_targets_reps_span">%1$d–%2$d reps</string>
+    <string name="routines_set_targets_load_single">%1$s kg</string>
+    <string name="routines_set_targets_load_span">%1$s–%2$s kg</string>
+    <string name="routines_set_targets_rir">RIR %1$d</string>
+    <string name="routines_set_targets_error_sets">Sets must be %1$d to %2$d.</string>
+    <string name="routines_set_targets_error_reps">Reps must be %1$d to %2$d.</string>
+    <string name="routines_set_targets_error_load">Enter a load of zero or more kilograms.</string>
+    <string name="routines_set_targets_error_rounding">The rounding step must be a positive number of kilograms.</string>
+    <string name="routines_set_targets_error_rir">A prescribed RIR must be %1$d to %2$d.</string>
+
     <string name="routines_save">Save</string>
     <string name="routines_cancel">Cancel</string>
     <string name="routines_confirm">Confirm</string>

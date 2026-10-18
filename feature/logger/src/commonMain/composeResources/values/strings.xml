@@ -86,6 +86,11 @@
     <string name="logger_draft_edit">Edit draft</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
     <string name="logger_draft_timed_line">%1$s  %2$d x %3$d s · ~%4$s</string>
+    <string name="logger_draft_prescribed_effort">Prescribed RIR %1$d · RPE %2$d (RPE is the same closeness-to-failure scale, 10 − RIR)</string>
+    <string name="logger_draft_prescribed_effort_varies">Prescribed RIR differs by set (0–10 closeness-to-failure scale, RPE = 10 − RIR)</string>
+    <string name="logger_draft_set_targets_summary">Per-set targets: %1$s</string>
+    <string name="logger_draft_set_target">Set %1$d: %2$d × %3$s</string>
+    <string name="logger_draft_set_target_rir">Set %1$d: %2$d × %3$s · RIR %4$d</string>
     <string name="logger_draft_load_prompt_title">No recommended weight</string>
     <string name="logger_draft_load_prompt_body">No weight was recommended for %1$s. Choose how to log this draft.</string>
     <string name="logger_draft_load_use_last">Use last logged</string>

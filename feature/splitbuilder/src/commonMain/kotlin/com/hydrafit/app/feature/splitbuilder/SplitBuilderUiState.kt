@@ -1,8 +1,10 @@
 package com.hydrafit.app.feature.splitbuilder
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
@@ -54,6 +56,21 @@ data class MeasureDialogState(
     val error: MeasureError? = null
 )
 
+/** Which automatic-prescription input is invalid; the dialog shows the matching localized message. */
+enum class AutomaticSetPrescriptionError { REPS_RANGE, RIR_RANGE }
+
+/**
+ * The open automatic-ordered-prescription dialog: the opt-in's inputs, with the numbers as text
+ * until they are applied so partial input is allowed. [error] is set only when Apply is refused.
+ */
+data class AutomaticSetPrescriptionState(
+    val shape: SetPrescriptionShape = SetPrescriptionShape.STRAIGHT,
+    val minReps: String = "",
+    val maxReps: String = "",
+    val targetRir: String = "",
+    val error: AutomaticSetPrescriptionError? = null
+)
+
 data class SplitBuilderUiState(
     val daysPerWeek: Int = 4,
     val setsPerExercise: Int = 3,
@@ -95,7 +112,11 @@ data class SplitBuilderUiState(
     /** True after a confirmed swap invalidated the shown plan's persisted volume explanation. */
     val volumeExplanationInvalidated: Boolean = false,
     /** The open per-slot measure dialog; null when closed. */
-    val measureDialog: MeasureDialogState? = null
+    val measureDialog: MeasureDialogState? = null,
+    /** The applied automatic per-set opt-in, or null when it is off. */
+    val automaticSetPrescription: AutomaticSetPrescription? = null,
+    /** The open automatic-prescription dialog; null when closed. */
+    val automaticSetPrescriptionDialog: AutomaticSetPrescriptionState? = null
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

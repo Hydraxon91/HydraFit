@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
@@ -13,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
@@ -53,6 +55,9 @@ class SplitBuilderViewModel(
 
     /** The confirmed planning dates; empty keeps the undated planning behavior. */
     private val planningDates = MutableStateFlow<List<Long>>(emptyList())
+
+    /** The applied automatic per-set opt-in; null means no automatic ordered prescription. */
+    private val automaticSetPrescription = MutableStateFlow<AutomaticSetPrescription?>(null)
     private var generationJob: Job? = null
 
     /** Fingerprint of the request that produced the currently shown plan; null until one exists. */
@@ -82,7 +87,8 @@ class SplitBuilderViewModel(
             observeWorkoutPlanInputs(
                 setsPerExercise = setsPerExercise,
                 accessorySetsPerExercise = accessorySetsPerExercise,
-                workoutEpochDays = planningDates
+                workoutEpochDays = planningDates,
+                automaticSetPrescription = automaticSetPrescription
             ).collect { inputs ->
                 val prior = previous
                 previous = inputs
@@ -105,7 +111,9 @@ class SplitBuilderViewModel(
                         prior.request.daysPerWeek != inputs.request.daysPerWeek ||
                             prior.request.setsPerExercise != inputs.request.setsPerExercise ||
                             prior.request.accessorySetsPerExercise !=
-                            inputs.request.accessorySetsPerExercise
+                            inputs.request.accessorySetsPerExercise ||
+                            prior.request.automaticSetPrescription !=
+                            inputs.request.automaticSetPrescription
                         )
                 if (equipmentChanged) {
                     generationJob?.cancel()
@@ -172,6 +180,124 @@ class SplitBuilderViewModel(
         this.accessorySetsPerExercise.value = setsPerExercise
         _state.update { it.copy(accessorySetsPerExercise = setsPerExercise) }
     }
+
+    // --- Automatic per-set opt-in ---
+
+    /** Opens the automatic-prescription dialog, seeded from the applied opt-in when one exists. */
+    fun onAutomaticSetPrescriptionRequested() {
+        _state.update { current ->
+            val applied = current.automaticSetPrescription
+            current.copy(
+                automaticSetPrescriptionDialog = AutomaticSetPrescriptionState(
+                    shape = applied?.shape ?: SetPrescriptionShape.STRAIGHT,
+                    minReps = applied?.minReps?.toString() ?: "",
+                    maxReps = applied?.maxReps?.toString() ?: "",
+                    targetRir = applied?.targetRir?.toString() ?: ""
+                )
+            )
+        }
+    }
+
+    fun onAutomaticSetPrescriptionShapeChanged(shape: SetPrescriptionShape) =
+        updateAutomaticSetPrescriptionDialog { it.copy(shape = shape, error = null) }
+
+    fun onAutomaticSetPrescriptionMinRepsChanged(value: String) =
+        updateAutomaticSetPrescriptionDialog { it.copy(minReps = value, error = null) }
+
+    fun onAutomaticSetPrescriptionMaxRepsChanged(value: String) =
+        updateAutomaticSetPrescriptionDialog { it.copy(maxReps = value, error = null) }
+
+    fun onAutomaticSetPrescriptionRirChanged(value: String) =
+        updateAutomaticSetPrescriptionDialog { it.copy(targetRir = value, error = null) }
+
+    /** Applies the opt-in, or keeps the dialog open with the offending field; nothing else changes. */
+    fun onAutomaticSetPrescriptionApply() {
+        val dialog = _state.value.automaticSetPrescriptionDialog ?: return
+        val minReps = dialog.minReps.trim().toIntOrNull()
+        val maxReps = dialog.maxReps.trim().toIntOrNull()
+        if (minReps == null || maxReps == null) {
+            rejectAutomaticSetPrescription(AutomaticSetPrescriptionError.REPS_RANGE)
+            return
+        }
+        val rirText = dialog.targetRir.trim()
+        val rir = if (rirText.isEmpty()) null else rirText.toIntOrNull()
+        if (rirText.isNotEmpty() && rir == null) {
+            rejectAutomaticSetPrescription(AutomaticSetPrescriptionError.RIR_RANGE)
+            return
+        }
+        val candidate = AutomaticSetPrescription(
+            shape = dialog.shape,
+            minReps = minReps,
+            maxReps = maxReps,
+            targetRir = rir
+        )
+        val error = automaticSetPrescriptionFieldError(candidate)
+        if (error != null) {
+            rejectAutomaticSetPrescription(error)
+            return
+        }
+        automaticSetPrescription.value = candidate
+        _state.update {
+            it.copy(
+                automaticSetPrescription = candidate,
+                automaticSetPrescriptionDialog = null
+            )
+        }
+    }
+
+    /** Turns automatic generation off; the next generation carries no automatic prescription. */
+    fun onAutomaticSetPrescriptionCleared() {
+        automaticSetPrescription.value = null
+        _state.update {
+            it.copy(automaticSetPrescription = null, automaticSetPrescriptionDialog = null)
+        }
+    }
+
+    fun onAutomaticSetPrescriptionDismissed() =
+        _state.update { it.copy(automaticSetPrescriptionDialog = null) }
+
+    private fun updateAutomaticSetPrescriptionDialog(
+        transform: (AutomaticSetPrescriptionState) -> AutomaticSetPrescriptionState
+    ) {
+        _state.update { current ->
+            val dialog = current.automaticSetPrescriptionDialog ?: return@update current
+            current.copy(automaticSetPrescriptionDialog = transform(dialog))
+        }
+    }
+
+    private fun rejectAutomaticSetPrescription(error: AutomaticSetPrescriptionError) =
+        updateAutomaticSetPrescriptionDialog { it.copy(error = error) }
+
+    /**
+     * Maps a rejected candidate back to its offending field by probing each field against
+     * [AutomaticSetPrescription.requireValid] with the others replaced by known-valid values, so no
+     * numeric bound is duplicated here. Only called after a candidate was rejected.
+     */
+    private fun automaticSetPrescriptionFieldError(
+        candidate: AutomaticSetPrescription
+    ): AutomaticSetPrescriptionError? {
+        if (isValidAutomaticSetPrescription(candidate)) return null
+        val validReps = AutomaticSetPrescription(
+            shape = candidate.shape,
+            minReps = VALID_AUTOMATIC_MIN_REPS,
+            maxReps = VALID_AUTOMATIC_MAX_REPS,
+            targetRir = null
+        )
+        return when {
+            !isValidAutomaticSetPrescription(
+                validReps.copy(minReps = candidate.minReps, maxReps = candidate.maxReps)
+            ) -> AutomaticSetPrescriptionError.REPS_RANGE
+            else -> AutomaticSetPrescriptionError.RIR_RANGE
+        }
+    }
+
+    private fun isValidAutomaticSetPrescription(prescription: AutomaticSetPrescription): Boolean =
+        try {
+            prescription.requireValid()
+            true
+        } catch (_: IllegalArgumentException) {
+            false
+        }
 
     /** Opens the planning-date editor, seeded from the confirmed dates or today's weekday pattern. */
     fun onPlanningDatesRequested() {
@@ -285,7 +411,8 @@ class SplitBuilderViewModel(
     private suspend fun currentInputs(): WorkoutPlanInputs = observeWorkoutPlanInputs(
         setsPerExercise = setsPerExercise,
         accessorySetsPerExercise = accessorySetsPerExercise,
-        workoutEpochDays = planningDates
+        workoutEpochDays = planningDates,
+        automaticSetPrescription = automaticSetPrescription
     ).first()
 
     private fun startGeneration(inputs: WorkoutPlanInputs) {
@@ -868,6 +995,7 @@ class SplitBuilderViewModel(
             request.goal,
             request.setsPerExercise,
             request.accessorySetsPerExercise,
+            request.automaticSetPrescription,
             request.recentExerciseIdsByPattern.entries
                 .sortedBy { it.key.name }
                 .map { it.key to it.value.sorted() },
@@ -912,3 +1040,7 @@ private fun PlanningDatesState.withPlanningPreview(
     }
     return copy(preview = dates)
 }
+
+/** Values known to satisfy the automatic-prescription rule, used only to isolate one failing field. */
+private const val VALID_AUTOMATIC_MIN_REPS = 8
+private const val VALID_AUTOMATIC_MAX_REPS = 12

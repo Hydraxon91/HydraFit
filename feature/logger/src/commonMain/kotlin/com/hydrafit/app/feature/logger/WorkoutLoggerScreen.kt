@@ -67,6 +67,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -103,7 +104,12 @@ import hydrafit.feature.logger.generated.resources.logger_draft_load_prompt_titl
 import hydrafit.feature.logger.generated.resources.logger_draft_load_use_last
 import hydrafit.feature.logger.generated.resources.logger_draft_load_without
 import hydrafit.feature.logger.generated.resources.logger_draft_more_options
+import hydrafit.feature.logger.generated.resources.logger_draft_prescribed_effort
+import hydrafit.feature.logger.generated.resources.logger_draft_prescribed_effort_varies
 import hydrafit.feature.logger.generated.resources.logger_draft_reset
+import hydrafit.feature.logger.generated.resources.logger_draft_set_target
+import hydrafit.feature.logger.generated.resources.logger_draft_set_target_rir
+import hydrafit.feature.logger.generated.resources.logger_draft_set_targets_summary
 import hydrafit.feature.logger.generated.resources.logger_draft_timed_line
 import hydrafit.feature.logger.generated.resources.logger_draft_write_none
 import hydrafit.feature.logger.generated.resources.logger_draft_write_partial
@@ -1255,6 +1261,35 @@ fun WorkoutLoggerScreen(
                                 "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
                             }
                         )
+                        draft.setTargets?.let { targets ->
+                            val rirs = targets.targets.mapNotNull { it.targetRir }.distinct()
+                            if (rirs.size == 1) {
+                                val representative = targets.targets.first {
+                                    it.targetRir == rirs.single()
+                                }
+                                representative.equivalentRpe?.let { rpe ->
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.logger_draft_prescribed_effort,
+                                            rirs.single(),
+                                            rpe
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            } else if (rirs.size > 1) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_draft_prescribed_effort_varies
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Text(
+                                text = setTargetsSummaryLine(targets, state.weightUnit),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                         TargetExplanationDisclosure(
                             key = draft.occurrenceEntryId ?: draft.exerciseId,
                             explanation = draft.explanation,
@@ -1918,6 +1953,40 @@ private fun TargetExplanationReason.labelResource(): StringResource = when (this
     TargetExplanationReason.SETS_REDUCED_FOR_FATIGUE ->
         Res.string.logger_explanation_sets_reduced_for_fatigue
     TargetExplanationReason.SETS_FINAL -> Res.string.logger_explanation_sets_final
+}
+
+/**
+ * A compact read-only summary of a draft's frozen ordered targets, one entry per set. It only reads
+ * the draft the screen already renders; a prescribed target is never written back as actual effort.
+ */
+@Composable
+private fun setTargetsSummaryLine(targets: SlotSetTargets, unit: WeightUnit): String {
+    val list = targets.targets
+    val parts = mutableListOf<String>()
+    for (index in list.indices) {
+        val target = list[index]
+        val load = loadWeightText(target.loadKind, target.weightKg, unit)
+        val rir = target.targetRir
+        parts.add(
+            if (rir == null) {
+                stringResource(
+                    Res.string.logger_draft_set_target,
+                    index + 1,
+                    target.reps ?: 0,
+                    load
+                )
+            } else {
+                stringResource(
+                    Res.string.logger_draft_set_target_rir,
+                    index + 1,
+                    target.reps ?: 0,
+                    load,
+                    rir
+                )
+            }
+        )
+    }
+    return stringResource(Res.string.logger_draft_set_targets_summary, parts.joinToString(", "))
 }
 
 /** Renders a recorded weight with honest load semantics (external vs added vs bodyweight vs legacy). */

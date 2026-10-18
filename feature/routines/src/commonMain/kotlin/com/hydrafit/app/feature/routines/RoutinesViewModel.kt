@@ -2,8 +2,13 @@ package com.hydrafit.app.feature.routines
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hydrafit.app.core.domain.engine.BuildSetPrescriptionUseCase
+import com.hydrafit.app.core.domain.engine.DEFAULT_SET_PRESCRIPTION_ROUND_TO_KG
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SetPrescriptionRequest
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -50,6 +55,9 @@ class RoutinesViewModel(
     val state: StateFlow<RoutinesUiState> = _state.asStateFlow()
 
     private var weightUnit: WeightUnit = WeightUnit.KG
+
+    /** Builds the ordered per-set targets; stateless, so one instance serves every dialog. */
+    private val buildSetPrescription = BuildSetPrescriptionUseCase()
 
     private var occurrencesJob: Job? = null
 
@@ -365,6 +373,189 @@ class RoutinesViewModel(
      */
     private fun kilogramStepText(value: Double): String =
         if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+
+    // --- Per-set targets ---
+
+    /**
+     * Opens the ordered-prescription dialog for a slot, seeded from its existing targets. Only the
+     * resulting targets are persisted, so the shape and endpoints are reconstructed from them; a
+     * slot with no targets opens with empty recipe fields and the product's default rounding step.
+     */
+    fun onEditSetTargets(workoutIndex: Int, entryIndex: Int) {
+        val entry = _state.value.editor
+            ?.workouts?.getOrNull(workoutIndex)
+            ?.entries?.getOrNull(entryIndex)
+            ?: return
+        val editor = seedSetTargetsEditor(workoutIndex, entryIndex, entry.setTargets)
+        _state.update {
+            it.copy(setTargetsEditor = editor.copy(preview = buildSetTargetsPreview(editor)))
+        }
+    }
+
+    fun onSetTargetsShapeChanged(shape: SetPrescriptionShape) =
+        updateSetTargetsEditor { it.copy(shape = shape, error = null) }
+
+    fun onSetTargetsSetsChanged(value: String) =
+        updateSetTargetsEditor { it.copy(sets = value, error = null) }
+
+    fun onSetTargetsStartRepsChanged(value: String) =
+        updateSetTargetsEditor { it.copy(startReps = value, error = null) }
+
+    fun onSetTargetsEndRepsChanged(value: String) =
+        updateSetTargetsEditor { it.copy(endReps = value, error = null) }
+
+    fun onSetTargetsStartLoadChanged(value: String) =
+        updateSetTargetsEditor { it.copy(startLoadKg = value, error = null) }
+
+    fun onSetTargetsEndLoadChanged(value: String) =
+        updateSetTargetsEditor { it.copy(endLoadKg = value, error = null) }
+
+    fun onSetTargetsRoundToChanged(value: String) =
+        updateSetTargetsEditor { it.copy(roundToKg = value, error = null) }
+
+    fun onSetTargetsRirChanged(value: String) =
+        updateSetTargetsEditor { it.copy(targetRir = value, error = null) }
+
+    /** Stores the built targets on the slot, or keeps the dialog open with the offending field. */
+    fun onSetTargetsApply() {
+        val editor = _state.value.setTargetsEditor ?: return
+        val request = when (val parsed = parseSetTargetsRequest(editor)) {
+            is SetTargetsParseResult.Invalid -> {
+                rejectSetTargets(parsed.error)
+                return
+            }
+            is SetTargetsParseResult.Valid -> parsed.request
+        }
+        val targets = try {
+            buildSetPrescription(request)
+        } catch (_: IllegalArgumentException) {
+            rejectSetTargets(setTargetsFieldError(request))
+            return
+        }
+        updateEntry(editor.workoutIndex, editor.entryIndex) {
+            // The ordered list and the slot's set count are one value: keep them in sync.
+            it.copy(setTargets = targets, sets = targets.sets.toString())
+        }
+        _state.update { it.copy(setTargetsEditor = null) }
+    }
+
+    /** Removes the slot's ordered targets and closes the dialog. */
+    fun onSetTargetsClear() {
+        val editor = _state.value.setTargetsEditor ?: return
+        updateEntry(editor.workoutIndex, editor.entryIndex) { it.copy(setTargets = null) }
+        _state.update { it.copy(setTargetsEditor = null) }
+    }
+
+    fun onSetTargetsDismissed() = _state.update { it.copy(setTargetsEditor = null) }
+
+    /**
+     * Seeds the dialog from the recorded recipe when the slot has one. A slot whose targets carry no
+     * recipe opens with every recipe field empty — the app never guesses what the user entered — but
+     * still exposes the stored targets for display. A slot with no ordered targets opens empty and
+     * keeps the product's default rounding step.
+     */
+    private fun seedSetTargetsEditor(
+        workoutIndex: Int,
+        entryIndex: Int,
+        targets: SlotSetTargets?
+    ): SetTargetsEditorState {
+        val recipe = targets?.recipe
+        if (recipe == null) {
+            return SetTargetsEditorState(
+                workoutIndex = workoutIndex,
+                entryIndex = entryIndex,
+                sets = "",
+                startReps = "",
+                endReps = "",
+                startLoadKg = "",
+                endLoadKg = "",
+                roundToKg = if (targets == null) {
+                    kilogramStepText(DEFAULT_SET_PRESCRIPTION_ROUND_TO_KG)
+                } else {
+                    ""
+                },
+                targetRir = "",
+                storedTargets = targets
+            )
+        }
+        return SetTargetsEditorState(
+            workoutIndex = workoutIndex,
+            entryIndex = entryIndex,
+            shape = recipe.shape,
+            sets = recipe.sets.toString(),
+            startReps = recipe.startReps.toString(),
+            endReps = recipe.endReps.toString(),
+            startLoadKg = recipe.startLoadKg?.let(::kilogramStepText) ?: "",
+            endLoadKg = recipe.endLoadKg?.let(::kilogramStepText) ?: "",
+            roundToKg = kilogramStepText(recipe.roundToKg),
+            targetRir = recipe.targetRir?.toString() ?: "",
+            storedTargets = targets
+        )
+    }
+
+    private fun updateSetTargetsEditor(
+        transform: (SetTargetsEditorState) -> SetTargetsEditorState
+    ) {
+        _state.update { current ->
+            val editor = current.setTargetsEditor ?: return@update current
+            val updated = transform(editor)
+            current.copy(setTargetsEditor = updated.copy(preview = buildSetTargetsPreview(updated)))
+        }
+    }
+
+    private fun rejectSetTargets(error: SetTargetsError) =
+        updateSetTargetsEditor { it.copy(error = error) }
+
+    /** The ordered targets the current inputs would build, or null while they are not yet valid. */
+    private fun buildSetTargetsPreview(editor: SetTargetsEditorState): SlotSetTargets? {
+        val request = when (val parsed = parseSetTargetsRequest(editor)) {
+            is SetTargetsParseResult.Invalid -> return null
+            is SetTargetsParseResult.Valid -> parsed.request
+        }
+        return try {
+            buildSetPrescription(request)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+    /**
+     * Maps a rejected request back to its offending field by probing each field against
+     * [buildSetPrescription] with the others replaced by known-valid values, so no numeric bound is
+     * duplicated here and the two can't drift. Only called after a request was rejected.
+     */
+    private fun setTargetsFieldError(request: SetPrescriptionRequest): SetTargetsError {
+        val base = SetPrescriptionRequest(
+            shape = SetPrescriptionShape.STRAIGHT,
+            sets = VALID_SETS_TARGETS_PROBE,
+            startReps = VALID_REPS_TARGETS_PROBE,
+            endReps = VALID_REPS_TARGETS_PROBE,
+            startLoadKg = null,
+            endLoadKg = null,
+            roundToKg = DEFAULT_SET_PRESCRIPTION_ROUND_TO_KG,
+            targetRir = null
+        )
+        return when {
+            !isValidSetTargetsRequest(base.copy(sets = request.sets)) ->
+                SetTargetsError.SETS_RANGE
+            !isValidSetTargetsRequest(
+                base.copy(startReps = request.startReps, endReps = request.endReps)
+            ) -> SetTargetsError.REPS_RANGE
+            !isValidSetTargetsRequest(
+                base.copy(startLoadKg = request.startLoadKg, endLoadKg = request.endLoadKg)
+            ) -> SetTargetsError.LOAD
+            !isValidSetTargetsRequest(base.copy(roundToKg = request.roundToKg)) ->
+                SetTargetsError.ROUNDING
+            else -> SetTargetsError.RIR_RANGE
+        }
+    }
+
+    private fun isValidSetTargetsRequest(request: SetPrescriptionRequest): Boolean = try {
+        buildSetPrescription(request)
+        true
+    } catch (_: IllegalArgumentException) {
+        false
+    }
 
     fun onSaveEditor() {
         val editor = _state.value.editor ?: return
@@ -693,7 +884,8 @@ private fun RoutineTemplate.toEditor(
                         EntryMetric.REPETITIONS
                     },
                     durationSeconds = entry.durationSeconds?.toString() ?: "",
-                    progressionPolicy = entry.progressionPolicy
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
         )
@@ -725,7 +917,8 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                         parseDisplayedWeight(entry.weight, unit)
                     },
                     loadKind = entry.loadKind,
-                    progressionPolicy = entry.progressionPolicy
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
         )
@@ -797,4 +990,58 @@ private fun isValidPolicy(policy: SlotProgressionPolicy): Boolean = try {
     true
 } catch (_: IllegalArgumentException) {
     false
+}
+
+/** Values known to satisfy the ordered-prescription rule, used only to isolate one failing field. */
+private const val VALID_SETS_TARGETS_PROBE = 3
+private const val VALID_REPS_TARGETS_PROBE = 8
+
+/** The outcome of parsing one load field; a blank field is a valid "no load". */
+private data class SetTargetLoadInput(val valid: Boolean, val kilograms: Double?)
+
+private fun parseSetTargetLoad(input: String): SetTargetLoadInput {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return SetTargetLoadInput(valid = true, kilograms = null)
+    val value =
+        trimmed.toDoubleOrNull() ?: return SetTargetLoadInput(valid = false, kilograms = null)
+    return SetTargetLoadInput(valid = true, kilograms = value)
+}
+
+private sealed interface SetTargetsParseResult {
+    data class Valid(val request: SetPrescriptionRequest) : SetTargetsParseResult
+    data class Invalid(val error: SetTargetsError) : SetTargetsParseResult
+}
+
+/** Parses the dialog's text fields, or reports the first field whose text cannot become a request. */
+private fun parseSetTargetsRequest(editor: SetTargetsEditorState): SetTargetsParseResult {
+    val sets = editor.sets.trim().toIntOrNull()
+        ?: return SetTargetsParseResult.Invalid(SetTargetsError.SETS_RANGE)
+    val startReps = editor.startReps.trim().toIntOrNull()
+        ?: return SetTargetsParseResult.Invalid(SetTargetsError.REPS_RANGE)
+    val endReps = editor.endReps.trim().toIntOrNull()
+        ?: return SetTargetsParseResult.Invalid(SetTargetsError.REPS_RANGE)
+    val startLoad = parseSetTargetLoad(editor.startLoadKg)
+    if (!startLoad.valid) return SetTargetsParseResult.Invalid(SetTargetsError.LOAD)
+    val endLoad = parseSetTargetLoad(editor.endLoadKg)
+    if (!endLoad.valid) return SetTargetsParseResult.Invalid(SetTargetsError.LOAD)
+    val roundTo = editor.roundToKg.trim().toDoubleOrNull()
+        ?: return SetTargetsParseResult.Invalid(SetTargetsError.ROUNDING)
+    val rirText = editor.targetRir.trim()
+    val rir = if (rirText.isEmpty()) {
+        null
+    } else {
+        rirText.toIntOrNull() ?: return SetTargetsParseResult.Invalid(SetTargetsError.RIR_RANGE)
+    }
+    return SetTargetsParseResult.Valid(
+        SetPrescriptionRequest(
+            shape = editor.shape,
+            sets = sets,
+            startReps = startReps,
+            endReps = endReps,
+            startLoadKg = startLoad.kilograms,
+            endLoadKg = endLoad.kilograms,
+            roundToKg = roundTo,
+            targetRir = rir
+        )
+    )
 }

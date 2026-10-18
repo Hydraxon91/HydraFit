@@ -16,6 +16,8 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
@@ -774,6 +776,90 @@ class WorkoutLoggerViewModelTest {
         assertEquals(1, targets.distinct().size)
         assertEquals(100.0, assertNotNull(targets.first()).weightKg)
         assertEquals(3, assertNotNull(targets.first()).sets)
+    }
+
+    @Test
+    fun anUntouchedOrderedDraftLogsEverySetAgainstItsOwnTarget() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), orderedOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        val draft = viewModel.state.value.draftSets.single()
+        // The draft's scalars are seeded from the first ordered target.
+        assertEquals(3, draft.sets)
+        assertEquals(10, draft.reps)
+        assertEquals(60.0, draft.weightKg)
+
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+
+        // Fails pre-correction: HEAD logged the draft's scalar values (10 @ 60) for every set and
+        // captured one scalar snapshot with no setIndex, so neither the per-set reps/loads nor the
+        // ordered indices below could hold.
+        val logged = repository.all().sortedBy { it.id }
+        assertEquals(listOf(10, 8, 6), logged.map { it.reps })
+        assertEquals(listOf(60.0, 70.0, 80.0), logged.map { it.weightKg })
+        val snapshots = logged.mapNotNull { it.prescriptionSnapshot }
+        assertEquals(3, snapshots.size)
+        assertEquals(listOf(0, 1, 2), snapshots.map { it.setIndex })
+        assertEquals(listOf(10, 8, 6), snapshots.map { it.reps })
+        assertEquals(listOf(60.0, 70.0, 80.0), snapshots.map { it.weightKg })
+    }
+
+    @Test
+    fun aDraftLevelEditOverridesEveryOrderedSet() = runTest(dispatcher) {
+        // An explicit reps/load edit must win over every ordered target, and the sets must not claim
+        // an ordered slot index. This also passed against the reproducible pre-correction baseline
+        // (HEAD), because HEAD always logged the draft's own scalars; it guards the override path so a
+        // future regression cannot re-attach ordered targets to edited sets.
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), orderedOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+
+        val draft = viewModel.state.value.draftSets.single()
+        viewModel.editDraft(draft)
+        viewModel.onDraftRepsChanged("5")
+        viewModel.onDraftWeightChanged("50")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        val logged = repository.all().sortedBy { it.id }
+        assertEquals(3, logged.size)
+        assertTrue(logged.all { it.reps == 5 })
+        assertTrue(logged.all { it.weightKg == 50.0 })
+        assertEquals(3, logged.mapNotNull { it.prescriptionSnapshot }.size)
+        assertTrue(logged.all { it.prescriptionSnapshot?.setIndex == null })
+    }
+
+    @Test
+    fun aPartiallyPerformedOccurrenceOffsetsTheOrderedSlotIndices() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(initial = listOf(occurrenceSet(entryId = 40L)))
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), orderedOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule)
+        advanceUntilIdle()
+        val existingIds = repository.all().map { it.id }.toSet()
+
+        val draft = viewModel.state.value.draftSets.single()
+        // One of the three sets is already recorded, so the draft is seeded from the second target.
+        assertEquals(2, draft.sets)
+        assertEquals(8, draft.reps)
+        assertEquals(70.0, draft.weightKg)
+
+        viewModel.confirmDraft(draft)
+        advanceUntilIdle()
+
+        // Fails pre-correction: HEAD logged `draft.sets` scalar sets with no setIndex, so the offset
+        // into the ordered list (index 1 for the next set, 2 after it) could not be observed.
+        val written = repository.all().filter { it.id !in existingIds }.sortedBy { it.id }
+        assertEquals(2, written.size)
+        assertEquals(listOf(8, 6), written.map { it.reps })
+        assertEquals(listOf(70.0, 80.0), written.map { it.weightKg })
+        assertEquals(listOf(1, 2), written.mapNotNull { it.prescriptionSnapshot?.setIndex })
     }
 
     @Test
@@ -8719,6 +8805,30 @@ class WorkoutLoggerViewModelTest {
         performedAtMillis = 1L,
         occurrenceId = 30L,
         occurrenceEntryId = entryId
+    )
+
+    /** Occurrence 30's only slot as a three-set ordered prescription: 10/8/6 at 60/70/80 kg. */
+    private fun orderedOccurrences() = twoOccurrences().map { occurrence ->
+        if (occurrence.id != 30L) return@map occurrence
+        val targets = orderedTargets()
+        occurrence.copy(
+            entries = occurrence.entries.map { entry ->
+                entry.copy(
+                    sets = targets.sets,
+                    reps = targets.targets.first().reps,
+                    weightKg = targets.targets.first().weightKg,
+                    setTargets = targets
+                )
+            }
+        )
+    }
+
+    private fun orderedTargets() = SlotSetTargets.of(
+        listOf(
+            SetTarget(reps = 10, weightKg = 60.0, loadKind = LoadKind.EXTERNAL),
+            SetTarget(reps = 8, weightKg = 70.0, loadKind = LoadKind.EXTERNAL),
+            SetTarget(reps = 6, weightKg = 80.0, loadKind = LoadKind.EXTERNAL)
+        )
     )
 
     private fun twoEntryOccurrence() = twoOccurrences().map { occurrence ->

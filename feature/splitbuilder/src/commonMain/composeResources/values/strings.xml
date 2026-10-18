@@ -5,6 +5,24 @@
     <string name="split_days_label">Days per week</string>
     <string name="split_sets_label">Sets per exercise</string>
     <string name="split_accessory_sets_label">Accessory sets per exercise</string>
+
+    <string name="split_auto_targets_label">Automatic per-set targets</string>
+    <string name="split_auto_targets_off">Off</string>
+    <string name="split_auto_targets_edit">Set up</string>
+    <string name="split_auto_targets_clear">Turn off</string>
+    <string name="split_auto_targets_title">Automatic per-set targets</string>
+    <string name="split_auto_targets_shape_label">Shape</string>
+    <string name="split_auto_targets_shape_straight">Straight</string>
+    <string name="split_auto_targets_shape_ascending_load">Ascending load</string>
+    <string name="split_auto_targets_shape_descending_load">Descending load</string>
+    <string name="split_auto_targets_shape_pyramid">Pyramid</string>
+    <string name="split_auto_targets_min_reps_label">Lowest reps</string>
+    <string name="split_auto_targets_max_reps_label">Highest reps</string>
+    <string name="split_auto_targets_rir_label">Prescribed RIR (optional)</string>
+    <string name="split_auto_targets_apply">Apply</string>
+    <string name="split_auto_targets_summary">%1$s · %2$d–%3$d reps</string>
+    <string name="split_auto_targets_error_reps">Reps must be %1$d to %2$d, and the highest at least the lowest.</string>
+    <string name="split_auto_targets_error_rir">A prescribed RIR must be %1$d to %2$d.</string>
     <string name="split_suggested_weight">·  ~%1$s %2$s</string>
     <string name="split_exercise_line">%1$s  %2$d x %3$d  %4$s</string>
     <string name="split_exercise_line_timed">%1$s  %2$d × %3$d s  %4$s</string>

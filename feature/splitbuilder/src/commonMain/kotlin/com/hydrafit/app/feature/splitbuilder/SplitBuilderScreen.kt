@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -52,6 +53,7 @@ import androidx.navigation.compose.composable
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
@@ -60,9 +62,12 @@ import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanExplanation
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -87,6 +92,23 @@ import hydrafit.feature.splitbuilder.generated.resources.focus_upper
 import hydrafit.feature.splitbuilder.generated.resources.nav_label
 import hydrafit.feature.splitbuilder.generated.resources.split_accept_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_accessory_sets_label
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_apply
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_clear
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_edit
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_error_reps
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_error_rir
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_label
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_max_reps_label
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_min_reps_label
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_off
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_rir_label
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_shape_ascending_load
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_shape_descending_load
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_shape_label
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_shape_pyramid
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_shape_straight
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_summary
+import hydrafit.feature.splitbuilder.generated.resources.split_auto_targets_title
 import hydrafit.feature.splitbuilder.generated.resources.split_builder_title
 import hydrafit.feature.splitbuilder.generated.resources.split_cancel
 import hydrafit.feature.splitbuilder.generated.resources.split_confirm
@@ -302,6 +324,8 @@ fun SplitBuilderRoute(
             onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
             onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
             onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
+            onAutomaticSetPrescriptionRequested = viewModel::onAutomaticSetPrescriptionRequested,
+            onAutomaticSetPrescriptionCleared = viewModel::onAutomaticSetPrescriptionCleared,
             onEditPlanningDates = viewModel::onPlanningDatesRequested,
             onAcceptPlan = viewModel::onAcceptPlan,
             onSchedulePlan = viewModel::onScheduleRequested,
@@ -341,6 +365,9 @@ fun SplitBuilderRoute(
     state.planningDatesDialog?.let { dialog ->
         PlanningDatesDialog(dialog = dialog, viewModel = viewModel)
     }
+    state.automaticSetPrescriptionDialog?.let { dialog ->
+        AutomaticSetPrescriptionDialog(dialog = dialog, viewModel = viewModel)
+    }
 }
 
 @Composable
@@ -351,6 +378,8 @@ fun SplitBuilderScreen(
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
+    onAutomaticSetPrescriptionRequested: () -> Unit = {},
+    onAutomaticSetPrescriptionCleared: () -> Unit = {},
     onEditPlanningDates: () -> Unit,
     onAcceptPlan: () -> Unit,
     onSchedulePlan: () -> Unit,
@@ -414,6 +443,21 @@ fun SplitBuilderScreen(
                     onClick = { onAccessorySetsPerExerciseChanged(sets) },
                     label = { Text(sets.toString()) }
                 )
+            }
+        }
+        Text(text = stringResource(Res.string.split_auto_targets_label))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = state.automaticSetPrescription?.let { automaticSetPrescriptionSummary(it) }
+                    ?: stringResource(Res.string.split_auto_targets_off)
+            )
+            TextButton(onClick = onAutomaticSetPrescriptionRequested) {
+                Text(stringResource(Res.string.split_auto_targets_edit))
+            }
+            if (state.automaticSetPrescription != null) {
+                TextButton(onClick = onAutomaticSetPrescriptionCleared) {
+                    Text(stringResource(Res.string.split_auto_targets_clear))
+                }
             }
         }
         Text(text = stringResource(Res.string.split_planning_dates_label))
@@ -1383,4 +1427,105 @@ private fun weekdayLabel(day: DayOfWeek): String = when (day) {
     DayOfWeek.FRIDAY -> stringResource(Res.string.weekday_friday)
     DayOfWeek.SATURDAY -> stringResource(Res.string.weekday_saturday)
     DayOfWeek.SUNDAY -> stringResource(Res.string.weekday_sunday)
+}
+
+/** A compact line describing the applied automatic per-set opt-in. */
+@Composable
+private fun automaticSetPrescriptionSummary(applied: AutomaticSetPrescription): String =
+    stringResource(
+        Res.string.split_auto_targets_summary,
+        automaticShapeLabel(applied.shape),
+        applied.minReps,
+        applied.maxReps
+    )
+
+@Composable
+private fun automaticShapeLabel(shape: SetPrescriptionShape): String = when (shape) {
+    SetPrescriptionShape.STRAIGHT -> stringResource(Res.string.split_auto_targets_shape_straight)
+    SetPrescriptionShape.ASCENDING_LOAD ->
+        stringResource(Res.string.split_auto_targets_shape_ascending_load)
+    SetPrescriptionShape.DESCENDING_LOAD ->
+        stringResource(Res.string.split_auto_targets_shape_descending_load)
+    SetPrescriptionShape.PYRAMID -> stringResource(Res.string.split_auto_targets_shape_pyramid)
+}
+
+@Composable
+private fun automaticSetPrescriptionErrorText(error: AutomaticSetPrescriptionError): String =
+    when (error) {
+        AutomaticSetPrescriptionError.REPS_RANGE -> stringResource(
+            Res.string.split_auto_targets_error_reps,
+            PrescriptionBounds.MIN_REPS,
+            PrescriptionBounds.MAX_REPS
+        )
+        AutomaticSetPrescriptionError.RIR_RANGE -> stringResource(
+            Res.string.split_auto_targets_error_rir,
+            SetTarget.MIN_RIR,
+            SetTarget.MAX_RIR
+        )
+    }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AutomaticSetPrescriptionDialog(
+    dialog: AutomaticSetPrescriptionState,
+    viewModel: SplitBuilderViewModel
+) {
+    AlertDialog(
+        onDismissRequest = viewModel::onAutomaticSetPrescriptionDismissed,
+        title = { Text(stringResource(Res.string.split_auto_targets_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(Res.string.split_auto_targets_shape_label),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SetPrescriptionShape.entries.forEach { shape ->
+                        FilterChip(
+                            selected = dialog.shape == shape,
+                            onClick = { viewModel.onAutomaticSetPrescriptionShapeChanged(shape) },
+                            label = { Text(automaticShapeLabel(shape)) }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = dialog.minReps,
+                    onValueChange = viewModel::onAutomaticSetPrescriptionMinRepsChanged,
+                    label = { Text(stringResource(Res.string.split_auto_targets_min_reps_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = dialog.maxReps,
+                    onValueChange = viewModel::onAutomaticSetPrescriptionMaxRepsChanged,
+                    label = { Text(stringResource(Res.string.split_auto_targets_max_reps_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = dialog.targetRir,
+                    onValueChange = viewModel::onAutomaticSetPrescriptionRirChanged,
+                    label = { Text(stringResource(Res.string.split_auto_targets_rir_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                dialog.error?.let { error ->
+                    Text(
+                        text = automaticSetPrescriptionErrorText(error),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = viewModel::onAutomaticSetPrescriptionApply) {
+                Text(stringResource(Res.string.split_auto_targets_apply))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::onAutomaticSetPrescriptionDismissed) {
+                Text(stringResource(Res.string.split_cancel))
+            }
+        }
+    )
 }
