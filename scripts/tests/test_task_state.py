@@ -191,6 +191,26 @@ class TaskStateTests(unittest.TestCase):
                 self.contract_file.write_text(json.dumps(self.contract))
                 self.assertEqual(125, self.init()[0])
 
+    def test_temporary_root_detection(self):
+        temp_root = Path(tempfile.gettempdir())
+        self.assertTrue(ts.under_temporary_root(temp_root))
+        self.assertTrue(ts.under_temporary_root(temp_root / "nested" / "state"))
+        self.assertTrue(ts.under_temporary_root(Path("/tmp")))
+        self.assertFalse(ts.under_temporary_root(Path.home() / "state"))
+
+    def test_temporary_state_location_is_warned_about_without_blocking(self):
+        # A platform cleanup evicted a live record once, so a temporary location is reported. It is
+        # deliberately a warning: a short-lived record may legitimately live in a temporary directory,
+        # so it must not stop the task or make the record look unreconciled.
+        result = self.init()
+        self.assertEqual(0, result[0])
+        self.assertIn("temporary", result[2].lower())
+        code, out, _ = self.cli("resume")
+        report = json.loads(out)
+        self.assertTrue(report["state_directory_temporary"])
+        self.assertFalse(report["reconciliation_needed"])
+        self.assertEqual(0, code)
+
     def test_stale_update_preserves_first_writer(self):
         self.init()
         self.assertEqual(0, self.update({"type": "phase", "value": "implementing"}, 0)[0])
