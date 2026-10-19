@@ -317,6 +317,13 @@ data class WorkoutLoggerUiState(
     /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */
     val guidedProgress: GuidedWorkoutProgress? = null,
     /**
+     * One paired turn the user explicitly skipped. It records no set and satisfies no target, and is
+     * cleared after the next guided write so the outstanding member is selected again.
+     */
+    val supersetSkippedEntryId: Long? = null,
+    /** Pair keys unpaired for this workout only; stored prescriptions and recorded sets are untouched. */
+    val supersetUnpairedKeys: Set<String> = emptySet(),
+    /**
      * The active occurrence's optional warm-up guidance, or null when no workout is active. Derived
      * from the frozen occurrence; shown only while guided mode is active and the user has not hidden it.
      */
@@ -409,6 +416,16 @@ data class WorkoutLoggerUiState(
     /** True when guided mode is on and an active occurrence is available to guide. */
     val isGuidedActive: Boolean
         get() = guidedEnabled && guidedProgress != null
+
+    /**
+     * The entry the guided workflow recommends next, alternating paired members by recorded working
+     * sets. Null when every slot is complete or actively skipped.
+     */
+    val nextGuidedEntryId: Long?
+        get() = guidedProgress?.nextExercise(
+            skippedEntryIds = supersetSkippedEntryId?.let(::setOf) ?: emptySet(),
+            unpairedKeys = supersetUnpairedKeys
+        )?.occurrenceEntryId
 
     /**
      * True when replacement is available for [entryId]: its slot holds no recorded work and it is not

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -231,6 +232,12 @@ import hydrafit.feature.splitbuilder.generated.resources.split_schedule_weekdays
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_start_block
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
+import hydrafit.feature.splitbuilder.generated.resources.split_superset_enabled
+import hydrafit.feature.splitbuilder.generated.resources.split_superset_error
+import hydrafit.feature.splitbuilder.generated.resources.split_superset_label
+import hydrafit.feature.splitbuilder.generated.resources.split_superset_note
+import hydrafit.feature.splitbuilder.generated.resources.split_superset_pair_rest
+import hydrafit.feature.splitbuilder.generated.resources.split_superset_transition
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_action
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_candidate
 import hydrafit.feature.splitbuilder.generated.resources.split_swap_dialog_cancel
@@ -326,6 +333,9 @@ fun SplitBuilderRoute(
             onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
             onAutomaticSetPrescriptionRequested = viewModel::onAutomaticSetPrescriptionRequested,
             onAutomaticSetPrescriptionCleared = viewModel::onAutomaticSetPrescriptionCleared,
+            onPlannerSupersetEnabledChanged = viewModel::onPlannerSupersetEnabledChanged,
+            onPlannerSupersetTransitionChanged = viewModel::onPlannerSupersetTransitionChanged,
+            onPlannerSupersetPairRestChanged = viewModel::onPlannerSupersetPairRestChanged,
             onEditPlanningDates = viewModel::onPlanningDatesRequested,
             onAcceptPlan = viewModel::onAcceptPlan,
             onSchedulePlan = viewModel::onScheduleRequested,
@@ -380,6 +390,9 @@ fun SplitBuilderScreen(
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
     onAutomaticSetPrescriptionRequested: () -> Unit = {},
     onAutomaticSetPrescriptionCleared: () -> Unit = {},
+    onPlannerSupersetEnabledChanged: (Boolean) -> Unit = {},
+    onPlannerSupersetTransitionChanged: (String) -> Unit = {},
+    onPlannerSupersetPairRestChanged: (String) -> Unit = {},
     onEditPlanningDates: () -> Unit,
     onAcceptPlan: () -> Unit,
     onSchedulePlan: () -> Unit,
@@ -459,6 +472,53 @@ fun SplitBuilderScreen(
                     Text(stringResource(Res.string.split_auto_targets_clear))
                 }
             }
+        }
+        Text(text = stringResource(Res.string.split_superset_label))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Checkbox(
+                checked = state.plannerSupersetEnabled,
+                onCheckedChange = onPlannerSupersetEnabledChanged
+            )
+            Text(stringResource(Res.string.split_superset_enabled))
+        }
+        if (state.plannerSupersetEnabled) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.plannerSupersetTransitionSeconds,
+                    onValueChange = onPlannerSupersetTransitionChanged,
+                    label = { Text(stringResource(Res.string.split_superset_transition)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = state.plannerSupersetPairRestSeconds,
+                    onValueChange = onPlannerSupersetPairRestChanged,
+                    label = { Text(stringResource(Res.string.split_superset_pair_rest)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (plannerSupersetPreference(
+                    enabled = true,
+                    transitionSeconds = state.plannerSupersetTransitionSeconds,
+                    pairRestSeconds = state.plannerSupersetPairRestSeconds
+                ) == null
+            ) {
+                Text(
+                    text = stringResource(Res.string.split_superset_error),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Text(
+                text = stringResource(Res.string.split_superset_note),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         Text(text = stringResource(Res.string.split_planning_dates_label))
         if (state.planningDates.dates.isEmpty()) {

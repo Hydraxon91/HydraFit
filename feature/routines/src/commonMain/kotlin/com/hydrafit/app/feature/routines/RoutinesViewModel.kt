@@ -17,10 +17,13 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.RoutineTemplateException
 import com.hydrafit.app.core.domain.routine.RoutineWorkout
+import com.hydrafit.app.core.domain.routine.Superset
+import com.hydrafit.app.core.domain.routine.validateSupersets
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
+import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
@@ -235,7 +238,10 @@ class RoutinesViewModel(
             val entries = if (picker.replaceEntryIndex == null) {
                 workout.entries + entry
             } else {
-                workout.entries.mapIndexed { index, existing ->
+                // Replacing a slot's exercise can invalidate its pair, so the pair is dropped with it.
+                val pairKey = workout.entries.getOrNull(picker.replaceEntryIndex)?.superset?.key
+                val slots = pairKey?.let { workout.withoutSuperset(it).entries } ?: workout.entries
+                slots.mapIndexed { index, existing ->
                     // Replace exactly the chosen slot; keep its persisted id so an edit is an update.
                     if (index == picker.replaceEntryIndex) {
                         entry.copy(id = existing.id)
@@ -250,7 +256,17 @@ class RoutinesViewModel(
     }
 
     fun onRemoveEntry(workoutIndex: Int, entryIndex: Int) = updateWorkout(workoutIndex) { workout ->
-        workout.copy(entries = workout.entries.filterIndexed { i, _ -> i != entryIndex })
+        val removed = workout.entries.getOrNull(entryIndex) ?: return@updateWorkout workout
+        val remaining = workout.entries.filterIndexed { i, _ -> i != entryIndex }
+        val key = removed.superset?.key
+        // A deleted slot must not leave its partner holding half a pair.
+        workout.copy(
+            entries = if (key == null) {
+                remaining
+            } else {
+                remaining.map { if (it.superset?.key == key) it.copy(superset = null) else it }
+            }
+        )
     }
 
     fun onMoveEntry(workoutIndex: Int, entryIndex: Int, delta: Int) =
@@ -259,11 +275,15 @@ class RoutinesViewModel(
             if (target !in workout.entries.indices) {
                 workout
             } else {
-                workout.copy(
-                    entries = workout.entries.toMutableList().apply {
-                        add(target, removeAt(entryIndex))
-                    }
-                )
+                val reordered = workout.entries.toMutableList().apply {
+                    add(target, removeAt(entryIndex))
+                }
+                // A move must never split a pair: a non-adjacent pair could not be saved at all.
+                if (supersetsFormValidGroups(reordered)) {
+                    workout.copy(entries = reordered)
+                } else {
+                    workout
+                }
             }
         }
 
@@ -556,6 +576,140 @@ class RoutinesViewModel(
     } catch (_: IllegalArgumentException) {
         false
     }
+
+    // --- Superset pairs ---
+
+    /**
+     * Opens the pair dialog for a slot and the slot after it. The measurement and prescription of
+     * either slot are untouched by pairing. The two fields are prefilled with editable values the
+     * user can change (no transition, and the app's default rest); applying is explicit.
+     */
+    fun onEditSuperset(workoutIndex: Int, entryIndex: Int) {
+        val entries = _state.value.editor?.workouts?.getOrNull(workoutIndex)?.entries ?: return
+        val entry = entries.getOrNull(entryIndex) ?: return
+        if (entries.getOrNull(entryIndex + 1) == null) return
+        val pair = entry.superset
+        _state.update {
+            it.copy(
+                supersetEditor = SupersetEditorState(
+                    workoutIndex = workoutIndex,
+                    entryIndex = entryIndex,
+                    transitionSeconds = pair?.transitionSeconds?.toString() ?: "0",
+                    pairRestSeconds = pair?.pairRestSeconds?.toString()
+                        ?: DEFAULT_REST_SECONDS.toString()
+                )
+            )
+        }
+    }
+
+    fun onSupersetTransitionChanged(value: String) =
+        updateSupersetEditor { it.copy(transitionSeconds = value, error = null) }
+
+    fun onSupersetPairRestChanged(value: String) =
+        updateSupersetEditor { it.copy(pairRestSeconds = value, error = null) }
+
+    /**
+     * Stores the identical pair on both slots, or keeps the dialog open with the offending field.
+     * The group is validated against the domain rule, whose backstop the save also runs.
+     */
+    fun onSupersetApply() {
+        val dialog = _state.value.supersetEditor ?: return
+        val transition = dialog.transitionSeconds.trim().toIntOrNull()
+        if (transition == null) {
+            rejectSuperset(dialog, SupersetError.TRANSITION_RANGE)
+            return
+        }
+        val pairRest = dialog.pairRestSeconds.trim().toIntOrNull()
+        if (pairRest == null) {
+            rejectSuperset(dialog, SupersetError.PAIR_REST_RANGE)
+            return
+        }
+        val fieldError = supersetFieldError(transition, pairRest)
+        if (fieldError != null) {
+            rejectSuperset(dialog, fieldError)
+            return
+        }
+        val workout = _state.value.editor?.workouts?.getOrNull(dialog.workoutIndex) ?: return
+        if (workout.entries.getOrNull(dialog.entryIndex + 1) == null) return
+        val pair = Superset(
+            key = supersetKey(dialog.workoutIndex, dialog.entryIndex),
+            transitionSeconds = transition,
+            pairRestSeconds = pairRest
+        )
+        val grouped = workout.entries.mapIndexed { index, entry ->
+            if (index == dialog.entryIndex || index == dialog.entryIndex + 1) {
+                entry.copy(superset = pair)
+            } else {
+                entry
+            }
+        }
+        if (!supersetsFormValidGroups(grouped)) {
+            rejectSuperset(dialog, SupersetError.SAME_EXERCISE)
+            return
+        }
+        updateWorkout(dialog.workoutIndex) { it.copy(entries = grouped) }
+        _state.update { it.copy(supersetEditor = null) }
+    }
+
+    /** Removes the slot's pair from both of its members. */
+    fun onRemoveSuperset(workoutIndex: Int, entryIndex: Int) {
+        val key = _state.value.editor
+            ?.workouts?.getOrNull(workoutIndex)
+            ?.entries?.getOrNull(entryIndex)
+            ?.superset?.key
+            ?: return
+        updateWorkout(workoutIndex) { it.withoutSuperset(key) }
+    }
+
+    fun onSupersetDismissed() = _state.update { it.copy(supersetEditor = null) }
+
+    private fun rejectSuperset(dialog: SupersetEditorState, error: SupersetError) {
+        _state.update { it.copy(supersetEditor = dialog.copy(error = error)) }
+    }
+
+    private fun updateSupersetEditor(transform: (SupersetEditorState) -> SupersetEditorState) {
+        _state.update { current ->
+            current.supersetEditor?.let { current.copy(supersetEditor = transform(it)) } ?: current
+        }
+    }
+
+    /**
+     * Validates the pair's two rest inputs against the domain rule and, on failure, maps the
+     * offending field by probing [Superset.requireValid] itself, so no numeric bound is duplicated
+     * here and the two cannot drift. Returns null when the pair is a valid configuration.
+     */
+    private fun supersetFieldError(transitionSeconds: Int, pairRestSeconds: Int): SupersetError? =
+        when {
+            !isValidSupersetRest(transitionSeconds, VALID_PAIR_REST_PROBE) ->
+                SupersetError.TRANSITION_RANGE
+            !isValidSupersetRest(SUPERSET_TRANSITION_PROBE, pairRestSeconds) ->
+                SupersetError.PAIR_REST_RANGE
+            else -> null
+        }
+
+    /** True when the two rest values pass the domain rule; the other field is a known-good probe. */
+    private fun isValidSupersetRest(transitionSeconds: Int, pairRestSeconds: Int): Boolean = try {
+        Superset(SUPERSET_KEY_PROBE, transitionSeconds, pairRestSeconds).requireValid()
+        true
+    } catch (_: IllegalArgumentException) {
+        false
+    }
+
+    /** True when every pair in [entries] still forms one valid two-slot group. */
+    private fun supersetsFormValidGroups(entries: List<EditorEntry>): Boolean = try {
+        validateSupersets(entries.map { it.exerciseId to it.superset })
+        true
+    } catch (_: IllegalArgumentException) {
+        false
+    }
+
+    /**
+     * The pair's workout-scoped identity. A pair is created only from the first slot of an unpaired
+     * adjacent pair, and no reordering separates a live pair, so two live pairs can never share the
+     * key derived from a first slot's position.
+     */
+    private fun supersetKey(workoutIndex: Int, entryIndex: Int): String =
+        "routine-$workoutIndex-$entryIndex"
 
     fun onSaveEditor() {
         val editor = _state.value.editor ?: return
@@ -885,7 +1039,8 @@ private fun RoutineTemplate.toEditor(
                     },
                     durationSeconds = entry.durationSeconds?.toString() ?: "",
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets
+                    setTargets = entry.setTargets,
+                    superset = entry.superset
                 )
             }
         )
@@ -918,12 +1073,17 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     },
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets
+                    setTargets = entry.setTargets,
+                    superset = entry.superset
                 )
             }
         )
     }
 )
+
+/** Drops the pair identified by [key] from every slot, leaving the rest of each slot untouched. */
+private fun EditorWorkout.withoutSuperset(key: String): EditorWorkout =
+    copy(entries = entries.map { if (it.superset?.key == key) it.copy(superset = null) else it })
 
 /**
  * Blank means "no load recorded" (null). A non-blank value must be a finite, non-negative number;
@@ -991,6 +1151,13 @@ private fun isValidPolicy(policy: SlotProgressionPolicy): Boolean = try {
 } catch (_: IllegalArgumentException) {
     false
 }
+
+/** A pair key known to satisfy the domain rule, used only to isolate one failing rest field. */
+private const val SUPERSET_KEY_PROBE = "probe"
+
+/** Rest values known to satisfy the pair rule, used only to isolate the other failing field. */
+private const val VALID_PAIR_REST_PROBE = 120
+private const val SUPERSET_TRANSITION_PROBE = 0
 
 /** Values known to satisfy the ordered-prescription rule, used only to isolate one failing field. */
 private const val VALID_SETS_TARGETS_PROBE = 3

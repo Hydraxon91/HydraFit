@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LiveRestCompletion
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -1998,7 +1999,11 @@ class WorkoutLoggerViewModel(
                 },
                 warmupGuidanceHidden = sameOccurrence && it.warmupGuidanceHidden,
                 warmupRampWriteFailed = sameOccurrence && it.warmupRampWriteFailed,
-                guidedSetWriteFailed = it.guidedSetWriteFailed && sameOccurrence
+                guidedSetWriteFailed = it.guidedSetWriteFailed && sameOccurrence,
+                // A skipped pair turn and a session-local unpair belong to one workout, not to the
+                // stored prescription: switching occurrence forgets both.
+                supersetSkippedEntryId = it.supersetSkippedEntryId.takeIf { sameOccurrence },
+                supersetUnpairedKeys = if (sameOccurrence) it.supersetUnpairedKeys else emptySet()
             )
         }
         warmupGuidancePublishedGeneration = generation
@@ -2334,6 +2339,35 @@ class WorkoutLoggerViewModel(
         confirmGuidedSet(occurrenceEntryId, liveCompletion = true)
     }
 
+    /**
+     * Passes over one paired member's turn without recording a set or satisfying a target. The skip is
+     * cleared by the next successful guided write, so the outstanding work returns to the rotation.
+     */
+    fun skipSupersetTurn(occurrenceEntryId: Long) {
+        val entry = _state.value.guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId } ?: return
+        val supersetKey = entry.superset?.key ?: return
+        if (entry.isComplete) return
+        if (supersetKey in _state.value.supersetUnpairedKeys) return
+        _state.update { it.copy(supersetSkippedEntryId = occurrenceEntryId) }
+    }
+
+    /** Clears an explicit skip so the outstanding paired work is selectable again. */
+    fun resumeSupersetTurn() {
+        _state.update { it.copy(supersetSkippedEntryId = null) }
+    }
+
+    /**
+     * Stops alternating this pair for the rest of the workout. It changes no stored prescription and
+     * no recorded set; a later occurrence still carries its frozen grouping.
+     */
+    fun unpairSuperset(occurrenceEntryId: Long) {
+        val entry = _state.value.guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId } ?: return
+        val key = entry.superset?.key ?: return
+        _state.update { it.copy(supersetUnpairedKeys = it.supersetUnpairedKeys + key) }
+    }
+
     /** Records an explicit set-start intent without creating a performed set. */
     fun startGuidedSet(occurrenceEntryId: Long) {
         if (draftSubmissionInProgress) return
@@ -2461,19 +2495,24 @@ class WorkoutLoggerViewModel(
         if (writeResult.succeeded) {
             val contextStillCurrent = contextRevision == draftContextRevision &&
                 timerGeneration == liveTimerGeneration
+            val supersetRest = supersetRestAfter(resolved.occurrenceEntryId)
             if (liveCompletion && !writeResult.isWarmup && contextStillCurrent && isGuidedActive) {
                 startRestTimerIfDurationValid(
                     resolved.occurrenceId,
                     resolved.exerciseId,
                     writeResult.sessionId,
                     contextRevision,
-                    timerGeneration
+                    timerGeneration,
+                    restSecondsOverride = supersetRest?.first,
+                    isSupersetTransition = supersetRest?.second == true
                 )
             } else {
                 resetShortRestCoaching()
             }
             applyGuidedWriteSuccess()
-            _state.update { it.copy(isWarmup = false) }
+            _state.update {
+                it.copy(isWarmup = false, supersetSkippedEntryId = null)
+            }
             clearLiveSetStart()
         } else if (forcedWarmup == true) {
             _state.update { it.copy(warmupRampWriteFailed = true) }
@@ -2517,20 +2556,34 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /**
+     * Rest to start after one recorded set of paired work: the transition while the partner still owes
+     * the same round, otherwise the pair rest after a completed round. Null leaves ordinary rest, and a
+     * session-local unpair removes the override.
+     */
+    private fun supersetRestAfter(occurrenceEntryId: Long?): Pair<Int, Boolean>? =
+        supersetRestSelection(
+            progress = _state.value.guidedProgress,
+            unpairedKeys = _state.value.supersetUnpairedKeys,
+            occurrenceEntryId = occurrenceEntryId
+        )
+
     private suspend fun startRestTimerIfDurationValid(
         occurrenceId: Long?,
         exerciseId: String,
         sessionId: String?,
         contextRevision: Long,
-        timerGeneration: Long
+        timerGeneration: Long,
+        restSecondsOverride: Int? = null,
+        isSupersetTransition: Boolean = false
     ) {
-        if (!_state.value.canStartRestTimer) return
+        if (restSecondsOverride == null && !_state.value.canStartRestTimer) return
         val completedAtElapsedMillis = liveSetCompletedAtElapsedMillis ?: return
-        val seconds = settings.restDurationSeconds(exerciseId).takeIf {
-            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
-        } ?: return
+        val seconds = restSecondsOverride?.toLong() ?: settings.restDurationSeconds(exerciseId)
+        if (seconds <= 0L || seconds > RestCountdown.MAX_DURATION_MILLIS / 1_000L) return
         val durationMillis = seconds * 1_000L
-        val hasOverride = settings.hasExerciseRestDurationOverride(exerciseId)
+        val hasOverride = restSecondsOverride == null &&
+            settings.hasExerciseRestDurationOverride(exerciseId)
         val currentSessionId = logMutations.observeOpenSession().first()?.id
         // Preference reads may suspend; an End/New session, dismissal or context switch must win.
         if (contextRevision != draftContextRevision ||
@@ -2543,7 +2596,12 @@ class WorkoutLoggerViewModel(
             return
         }
         val boot = runtime.bootIdentity()
-        if (shortRestCoachingEnabled && boot != null && sessionId != null && occurrenceId != null) {
+        if (shortRestCoachingEnabled &&
+            !isSupersetTransition &&
+            boot != null &&
+            sessionId != null &&
+            occurrenceId != null
+        ) {
             shortRestCoach.completed(
                 LiveRestCompletion(
                     sessionId,
@@ -3374,4 +3432,33 @@ class WorkoutLoggerViewModel(
 
     private val sessionNoteSaving: Boolean
         get() = _state.value.sessionNoteSaving
+}
+
+/**
+ * The rest a recorded set of paired work starts: a transition while the partner still owes the same
+ * round, otherwise the pair rest. A completed partner (unequal set counts) makes the remaining sets
+ * solo work, so they take pair rest rather than a transition. A session-local unpair returns null.
+ *
+ * Pure so the selection can be tested without a ViewModel or a timer.
+ */
+internal fun supersetRestSelection(
+    progress: GuidedWorkoutProgress?,
+    unpairedKeys: Set<String>,
+    occurrenceEntryId: Long?
+): Pair<Int, Boolean>? {
+    if (occurrenceEntryId == null) return null
+    val entry = progress?.exercises?.firstOrNull {
+        it.occurrenceEntryId == occurrenceEntryId
+    } ?: return null
+    val pair = entry.superset ?: return null
+    if (pair.key in unpairedKeys) return null
+    val partner = progress.exercises.firstOrNull {
+        it.superset?.key == pair.key && it.occurrenceEntryId != occurrenceEntryId
+    } ?: return null
+    val performedAfter = entry.performedWorkingSets + 1
+    return if (!partner.isComplete && partner.performedWorkingSets < performedAfter) {
+        pair.transitionSeconds to true
+    } else {
+        pair.pairRestSeconds to false
+    }
 }

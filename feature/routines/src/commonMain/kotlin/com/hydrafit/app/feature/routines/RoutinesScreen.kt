@@ -50,6 +50,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
@@ -208,6 +209,16 @@ import hydrafit.feature.routines.generated.resources.routines_set_targets_start_
 import hydrafit.feature.routines.generated.resources.routines_set_targets_summary
 import hydrafit.feature.routines.generated.resources.routines_set_targets_title
 import hydrafit.feature.routines.generated.resources.routines_sets_label
+import hydrafit.feature.routines.generated.resources.routines_superset_action
+import hydrafit.feature.routines.generated.resources.routines_superset_error_pair_rest
+import hydrafit.feature.routines.generated.resources.routines_superset_error_same_exercise
+import hydrafit.feature.routines.generated.resources.routines_superset_error_transition
+import hydrafit.feature.routines.generated.resources.routines_superset_note
+import hydrafit.feature.routines.generated.resources.routines_superset_pair_rest_label
+import hydrafit.feature.routines.generated.resources.routines_superset_remove
+import hydrafit.feature.routines.generated.resources.routines_superset_summary
+import hydrafit.feature.routines.generated.resources.routines_superset_title
+import hydrafit.feature.routines.generated.resources.routines_superset_transition_label
 import hydrafit.feature.routines.generated.resources.routines_switch_mode
 import hydrafit.feature.routines.generated.resources.routines_title
 import hydrafit.feature.routines.generated.resources.routines_unarchive
@@ -356,6 +367,15 @@ fun RoutinesScreen(
             onApply = viewModel::onSetTargetsApply,
             onClear = viewModel::onSetTargetsClear,
             onDismiss = viewModel::onSetTargetsDismissed
+        )
+    }
+    state.supersetEditor?.let { supersetEditor ->
+        SupersetDialog(
+            state = supersetEditor,
+            onTransitionChanged = viewModel::onSupersetTransitionChanged,
+            onPairRestChanged = viewModel::onSupersetPairRestChanged,
+            onApply = viewModel::onSupersetApply,
+            onDismiss = viewModel::onSupersetDismissed
         )
     }
     state.activation?.let { activation ->
@@ -765,12 +785,16 @@ private fun WorkoutCard(
                 )
             }
             workout.entries.forEachIndexed { entryIndex, entry ->
+                val next = workout.entries.getOrNull(entryIndex + 1)
                 EntryRow(
                     workoutIndex = index,
                     entryIndex = entryIndex,
                     entry = entry,
                     weightUnit = weightUnit,
                     isExcluded = entry.exerciseId in excludedExerciseIds,
+                    canPairWithNext = entry.superset == null &&
+                        next != null &&
+                        next.superset == null,
                     viewModel = viewModel
                 )
             }
@@ -799,6 +823,8 @@ private fun EntryRow(
     entry: EditorEntry,
     weightUnit: WeightUnit,
     isExcluded: Boolean,
+    /** The slot is unpaired and the slot after it exists and is unpaired too, so it can be paired. */
+    canPairWithNext: Boolean,
     viewModel: RoutinesViewModel
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -905,6 +931,22 @@ private fun EntryRow(
                     }
                 }
             }
+            // Pairing only groups the two slots' rest; a timed slot can be paired too.
+            if (entry.superset != null) {
+                TextButton(onClick = { viewModel.onRemoveSuperset(workoutIndex, entryIndex) }) {
+                    Text(stringResource(Res.string.routines_superset_remove))
+                }
+            } else if (canPairWithNext) {
+                TextButton(onClick = { viewModel.onEditSuperset(workoutIndex, entryIndex) }) {
+                    Text(stringResource(Res.string.routines_superset_action))
+                }
+            }
+        }
+        entry.superset?.let { pair ->
+            Text(
+                text = supersetSummary(pair),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         entry.progressionPolicy?.let { policy ->
             Text(
@@ -1342,6 +1384,81 @@ private fun setTargetsSummary(targets: SlotSetTargets): String {
         targets.sets,
         parts.joinToString(" · ")
     )
+}
+
+/** A compact one-line description of a pair's two rest values. */
+@Composable
+private fun supersetSummary(pair: Superset): String = stringResource(
+    Res.string.routines_superset_summary,
+    pair.transitionSeconds,
+    pair.pairRestSeconds
+)
+
+@Composable
+private fun SupersetDialog(
+    state: SupersetEditorState,
+    onTransitionChanged: (String) -> Unit,
+    onPairRestChanged: (String) -> Unit,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.routines_superset_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(Res.string.routines_superset_note))
+                OutlinedTextField(
+                    value = state.transitionSeconds,
+                    onValueChange = onTransitionChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_superset_transition_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.pairRestSeconds,
+                    onValueChange = onPairRestChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_superset_pair_rest_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                state.error?.let { error ->
+                    Text(
+                        text = supersetErrorText(error),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onApply) {
+                Text(stringResource(Res.string.routines_set_targets_apply))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.routines_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun supersetErrorText(error: SupersetError): String = when (error) {
+    SupersetError.TRANSITION_RANGE -> stringResource(
+        Res.string.routines_superset_error_transition,
+        Superset.MAX_REST_SECONDS
+    )
+    SupersetError.PAIR_REST_RANGE -> stringResource(
+        Res.string.routines_superset_error_pair_rest,
+        Superset.MAX_REST_SECONDS
+    )
+    SupersetError.SAME_EXERCISE ->
+        stringResource(Res.string.routines_superset_error_same_exercise)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

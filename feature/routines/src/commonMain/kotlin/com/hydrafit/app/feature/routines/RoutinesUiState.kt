@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
@@ -36,7 +37,9 @@ data class EditorEntry(
     /** The approved progression policy for this slot, or null when the user has not set one. */
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
-    val setTargets: SlotSetTargets? = null
+    val setTargets: SlotSetTargets? = null,
+    /** The pair this slot belongs to with its next slot, or null when the slot is unpaired. */
+    val superset: Superset? = null
 ) {
     /** The prescribed rep count, or null when the slot is timed. */
     val repsValue: Int?
@@ -103,6 +106,21 @@ data class SetTargetsEditorState(
     val storedTargets: SlotSetTargets? = null
 )
 
+/** Which pair input is invalid; the dialog shows the matching localized message. */
+enum class SupersetError { TRANSITION_RANGE, PAIR_REST_RANGE, SAME_EXERCISE }
+
+/**
+ * The pair dialog draft for one slot and the slot after it; numbers stay as text until apply so
+ * partial input is allowed. Nothing is written until the user applies.
+ */
+data class SupersetEditorState(
+    val workoutIndex: Int,
+    val entryIndex: Int,
+    val transitionSeconds: String,
+    val pairRestSeconds: String,
+    val error: SupersetError? = null
+)
+
 /** Which workout/entry the exercise picker is filling; [replaceEntryIndex] null means "add". */
 data class ExercisePickerState(
     val workoutIndex: Int,
@@ -154,6 +172,7 @@ data class RoutinesUiState(
     val picker: ExercisePickerState? = null,
     val progressionPolicyEditor: ProgressionPolicyEditorState? = null,
     val setTargetsEditor: SetTargetsEditorState? = null,
+    val supersetEditor: SupersetEditorState? = null,
     /** Active EX-01 exclusions, so routine entries can be marked in place. */
     val excludedExerciseIds: Set<String> = emptySet(),
     val activation: ActivationUiState? = null,
