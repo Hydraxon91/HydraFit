@@ -3799,3 +3799,60 @@ editor cases and 3 SplitBuilder opt-in cases.
   reopen with empty recipe inputs rather than its original endpoints.
 - The pre-existing `ExerciseProgressRecordsIntegrationTest` flake remains unfixed; it failed two
   release-gate attempts during this release and passed on rerun.
+
+## 0.10.1 device acceptance for the new surfaces (2026-10-19)
+
+First device acceptance for the three surfaces shipped in `v0.10.1`, run on `emulator-5554` after
+the release. Seven flows were added to `.maestro/`; their contracts and results are in
+`.maestro/README.md` under "0.10.1 per-set prescription acceptance". Summary:
+
+- **Build.** The installed build was stale (`0.7.6-dev-08ba103d-dirty`, predating all three
+  surfaces), so the current debug APK was built and installed (`0.7.6-dev-be0939f0`, clean tree).
+  Installing it migrated the existing database to `user_version = 59`: **`57.sqm` and `58.sqm` ran
+  against real existing data** with the Equipment profile intact, which closes the on-device
+  upgrade exercise this document previously listed as unverified. The version was read from the
+  database file header, not from an in-app migration report.
+- **Verified on device.** The per-set dialog renders all four shapes, every endpoint field and both
+  actions; an untouched preview enumerates one line per set (all three of a 3-set pyramid,
+  confirmed by scrolling); selecting Pyramid moves the peak to the middle set; Apply writes the
+  slot summary and Save persists it across a reopen; reopening restores the recorded recipe
+  (`3 / 10 / 6 / 60 / 80`, Round 2.5) rather than an inferred shape; the SplitBuilder opt-in refuses
+  an inverted rep range with its own message and restores to `Off`; and the Logger renders
+  `Current workout: Day 1`, `0 of 3 sets` and the ordered per-set summary for the fixture slot
+  with no set logged.
+- **Logger.** The Logger renders `Current workout: Day 1`, `0 of 3 sets` and the ordered per-set
+  summary for the fixture slot, with no set logged. The prescribed-effort line **was rendered and
+  observed** in a hierarchy dump (`hf-ui-24.csv`: `Prescribed RIR 2 · RPE 8 (RPE is the same
+  closeness-to-failure scale, 10 − RIR)`), but no passing flow asserts it.
+- **Not established.** No checked-in flow asserts the prescribed-effort line: the RIR was saved and
+  the block restarted to carry it, and the line was seen in a dump, but
+  `logger-prescribed-effort.yaml` has never passed, because the Logger keeps its scroll position
+  between runs and the draft sits several swipes below the top in a list that must be swiped in a
+  band avoiding the nested exercise picker. The observation is real; the *assertion* is what is
+  missing, and the line is reported as observed-but-not-asserted rather than passed. Also
+  unverified: dark mode, larger text, locale, rotation, TalkBack, and any signed-release runtime
+  behaviour.
+- **Withdrawn claim.** An earlier version of this section recorded an "observation, not a defect"
+  that the Logger's compact summary lists two entries (`Set 1`, `Set 2`) for a 3-set pyramid while
+  the dialog preview enumerates three. That was wrong and is **withdrawn**: every retained
+  hierarchy shows three entries (`Set 1: 10 × 60 kg, Set 2: 6 × 80 kg, Set 3: 10 × 60 kg`, and with
+  the RIR added, `· RIR 2`). The claim came from a truncated console grep, not from the artifact.
+- **No app defect** was found on any surface. Five flow defects were found and corrected, all
+  parent-side: an assertion assuming `Add workout` opens a picker, a missing workout-section name
+  (the app correctly refused with `Workout name must not be blank`; the flow now types it and
+  **passes**, 52/52), a `Cancel` target that matched the validation snackbar instead of the
+  editor's, preconditions assuming the Routines tab was selected and the Logger scrolled to the
+  top, and a Logger flow whose scroll normalisation was not reliable.
+- **Fixtures.** The apply journey created one routine `HF UI accept per-set` and one block
+  activation, deliberately. Its first run failed before Save, so the fixture was in fact created by
+  a temporary exploration flow and later archived; after the fix the checked-in apply flow created a
+  second routine of the same name. The device therefore holds **two archived routines** of that name,
+  one from each attempt. The block was cancelled and both were archived, because the app refuses to
+  delete a routine a block references (`This routine is used by a training block and can only…`),
+  matching the documented behaviour for a referenced routine. No set, session or preference was left
+  changed.
+- **Process limits, disclosed.** The parent executed the acceptance journeys directly instead of
+  delegating the prepared journeys to `ui-runner` as the ownership rule requires, so these results
+  are not an independent execution. One flow file was edited through a bash heredoc rather than the
+  edit tool. The Logger flow was attempted six times, beyond the one-attempt-plus-one-correction
+  rule, before it was stopped; each attempt was read-only.
