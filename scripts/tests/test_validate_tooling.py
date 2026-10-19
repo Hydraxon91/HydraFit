@@ -10,6 +10,7 @@ import contextlib
 import importlib.util
 import io
 import pathlib
+import re
 import sys
 import tempfile
 import unittest
@@ -330,11 +331,69 @@ class FormatPassTests(unittest.TestCase):
         self.assertEqual([], vt.format_pass_findings(self.root))
 
     def test_labels_do_not_prove_scope_or_validate_ownership(self):
-        # Arbitrary content carrying the required labels still passes: this
+        # Arbitrary content carrying the required labels and statements still passes: this
         # demonstrates the structural boundary instead of claiming enforcement.
         self.path.write_text(vt.FORMAT_PASS_HEADING + "\n" + "\n".join(
-            f"- **{label}:** operator claim only" for label in vt.FORMAT_PASS_STEPS))
+            [f"- **{label}:** operator claim only" for label in vt.FORMAT_PASS_STEPS] +
+            list(vt.FORMAT_PASS_TOKENS)))
         self.assertEqual([], vt.format_pass_findings(self.root))
+
+
+class TrustBoundaryTests(unittest.TestCase):
+    """Mutation scenarios check declaration loss, not a directory's lifetime or shell containment."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = pathlib.Path(self.tmp.name)
+        self.source = MODULE_PATH.parents[1]
+        for relative in vt.TRUST_BOUNDARY_TOKENS:
+            write(self.root, relative, (self.source / relative).read_text())
+
+    def test_complete_declarations_pass(self):
+        self.assertEqual([], vt.trust_boundary_findings(self.root))
+
+    def test_each_required_statement_removal_is_reported(self):
+        for relative, tokens in vt.TRUST_BOUNDARY_TOKENS.items():
+            original = (self.source / relative).read_text()
+            for token in tokens:
+                with self.subTest(path=relative, token=token):
+                    # The statements are matched after whitespace normalization, so removal has to
+                    # tolerate the paragraph's wrapping rather than assume the phrase sits on one line.
+                    pattern = re.compile(r"\s+".join(re.escape(part) for part in token.split()))
+                    write(self.root, relative, pattern.sub("removed", original))
+                    self.assertTrue(
+                        any(token in item for item in vt.trust_boundary_findings(self.root))
+                    )
+                    write(self.root, relative, original)
+
+    def test_each_required_format_statement_removal_is_reported(self):
+        original = (self.source / "docs/agent-project-reference.md").read_text()
+        relative = "docs/agent-project-reference.md"
+        for token in vt.FORMAT_PASS_TOKENS:
+            with self.subTest(token=token):
+                pattern = re.compile(r"\s+".join(re.escape(part) for part in token.split()))
+                write(self.root, relative, pattern.sub("removed", original))
+                self.assertTrue(any(token in item for item in vt.format_pass_findings(self.root)))
+                write(self.root, relative, original)
+
+    def test_reflowed_prose_still_matches(self):
+        # The statements are matched after whitespace normalization, so a rewrapped paragraph passes.
+        for relative in vt.TRUST_BOUNDARY_TOKENS:
+            original = (self.source / relative).read_text()
+            write(self.root, relative, "\n".join(original.split(" ")))
+        self.assertEqual([], vt.trust_boundary_findings(self.root))
+
+    def test_statements_do_not_prove_a_directory_or_containment(self):
+        # Arbitrary content carrying the required statements still passes: the check is structural,
+        # and it cannot observe where a state directory lives or whether a shell call is contained.
+        for relative, tokens in vt.TRUST_BOUNDARY_TOKENS.items():
+            write(self.root, relative, "\n".join(tokens))
+        self.assertEqual([], vt.trust_boundary_findings(self.root))
+
+    def test_absent_files_are_not_findings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual([], vt.trust_boundary_findings(pathlib.Path(tmp)))
 
 
 class MainTests(unittest.TestCase):

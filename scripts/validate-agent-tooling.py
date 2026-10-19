@@ -270,6 +270,31 @@ def coder_workflow_findings(root: pathlib.Path) -> list[str]:
     return findings
 
 
+TRUST_BOUNDARY_TOKENS = {
+    "docs/agent-project-reference.md": ("not under a temporary directory", "not a safety boundary"),
+    "AGENTS.md": ("not under a temporary directory",),
+    ".opencode/commands/task.md": ("not under a temporary directory", "not a safety boundary"),
+    ".opencode/commands/batch.md": ("not under a temporary directory",),
+}
+
+
+def trust_boundary_findings(root: pathlib.Path) -> list[str]:
+    """Declaration checks only: cannot observe a directory's lifetime or contain a shell call."""
+    reference = root / "docs/agent-project-reference.md"
+    if not reference.exists():
+        return []  # Small fixture/tooling trees need not provide the reference.
+    findings = []
+    for relative, tokens in TRUST_BOUNDARY_TOKENS.items():
+        path = root / relative
+        if not path.exists():
+            continue
+        body = " ".join(path.read_text().split())
+        for token in tokens:
+            if token not in body:
+                findings.append(f"{path}: missing trust-boundary statement {token!r}")
+    return findings
+
+
 ACCEPTANCE_HEADING = "### Acceptance and authorization evidence"
 ACCEPTANCE_STEPS = ("Consumer evidence", "Regression evidence", "Missing verification",
                     "Design decisions", "Record consistency", "Publication")
@@ -295,6 +320,7 @@ def acceptance_workflow_findings(root: pathlib.Path) -> list[str]:
 
 FORMAT_PASS_HEADING = "### Scoped Kotlin format pass"
 FORMAT_PASS_STEPS = ("Module-scoped invocation", "Ownership delta", "Incomplete pass")
+FORMAT_PASS_TOKENS = ("separate invocation",)
 
 
 def format_pass_findings(root: pathlib.Path) -> list[str]:
@@ -308,6 +334,9 @@ def format_pass_findings(root: pathlib.Path) -> list[str]:
     section = re.split(r"\n#{1,3} ", body.split(FORMAT_PASS_HEADING, 1)[1], maxsplit=1)[0]
     findings = [f"{path}: scoped format pass missing step {step}"
                 for step in FORMAT_PASS_STEPS if f"- **{step}:**" not in section]
+    normalized = " ".join(section.split())
+    findings.extend(f"{path}: scoped format pass missing statement {token!r}"
+                    for token in FORMAT_PASS_TOKENS if token not in normalized)
     consumer = root / "AGENTS.md"
     if consumer.exists() and "Scoped Kotlin format pass" not in " ".join(consumer.read_text().split()):
         findings.append(f"{consumer}: missing scoped format pass procedure reference")
@@ -327,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
     findings.extend(batch_state_findings(root))
     findings.extend(coder_workflow_findings(root))
     findings.extend(acceptance_workflow_findings(root))
+    findings.extend(trust_boundary_findings(root))
     findings.extend(format_pass_findings(root))
     for finding in findings:
         print(finding)
