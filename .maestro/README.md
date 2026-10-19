@@ -536,6 +536,25 @@ Direct `inspect_screen` returned the full Settings hierarchy on 2026-10-13 with
 Maestro 2.11.0, without a service/app restart or state changes. See
 `docs/maestro-evaluation.md` for the diagnosis and verification limits.
 
+## CLI wrapper and journey template
+
+Use `scripts/maestro-cli.sh` as the default Maestro CLI entry point. It resolves
+`MAESTRO_BIN` when set, then `maestro` on `PATH`, then `$HOME/.maestro/bin/maestro`,
+and exits 127 with a clear message when none is usable. It exports
+`MAESTRO_CLI_NO_ANALYTICS=1` and `MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true`
+and forwards every argument unchanged. It does not choose a device, infer state or
+change the app, so callers still pass `--device` and keep their own hard timeout:
+
+```bash
+perl -e 'alarm 120; exec @ARGV' scripts/maestro-cli.sh --device emulator-5554 test --no-reinstall-driver --test-output-dir /tmp/hydrafit-example .maestro/navigation-smoke.yaml > /tmp/hydrafit-example.log 2>&1
+```
+
+Start a prepared journey from `.maestro/journey-template.yaml.template`. The
+`.template` suffix keeps a directory run from collecting it as a flow. Copy it to
+`.maestro/<journey>.yaml`, then name the same `takeScreenshot:` checkpoints in the
+prepared contract's `screenshot_evidence` (preflight schema v2); see
+`docs/agent-ui-verification.md`.
+
 Inspect through flat CLI output without launching or restarting the app:
 
 ```bash

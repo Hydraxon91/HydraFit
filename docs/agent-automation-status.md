@@ -1420,3 +1420,68 @@ or safety boundary, and the offline suite now covers the new failure modes.
 It stops at 8 because adoption is still cooperative and unproven in a live batch,
 and the completion-after-expiry rule depends on the operator recording evidence
 and outcomes before treating the record as finished.
+
+## Maestro CLI wrapper and preflight v2 (2026-10-19)
+
+### What was implemented
+
+- **`scripts/maestro-cli.sh`:** a small Bash entry point that resolves
+  `MAESTRO_BIN`, then `maestro` on `PATH`, then `$HOME/.maestro/bin/maestro`; exits
+  127 with a clear message when none is usable; disables Maestro analytics with
+  `MAESTRO_CLI_NO_ANALYTICS=1` and
+  `MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true`; and `exec`s the binary with
+  the caller's arguments unchanged. It infers no device and makes no state change.
+- **Preflight schema v2:** `scripts/ui-journey-preflight.py` still accepts version-1
+  contracts unchanged and now validates version 2. V2 requires
+  `screenshot_evidence`, either the exact string `"none"` or a nonempty list of
+  unique nonempty names. `"none"` is accepted only with `screenshot_checkpoints`
+  equal to `none` (trimmed, case-insensitive). List entries must appear as
+  `takeScreenshot:`/`assertScreenshot:` values in at least one referenced flow;
+  scalar, quoted and inline `{ path: name }` forms are read from flow bytes. This is
+  a declaration/text check, not YAML parsing.
+- **`--brief`:** prints a deterministic Markdown handoff instead of JSON, covering
+  status, version, scope, writes, safeguards, budgets, baseline observation age,
+  shortened flow hashes, fixture expectations, durable assertions, screenshot
+  evidence and findings. It remains read-only and exits 0/2/125 by findings.
+- **Template:** `.maestro/journey-template.yaml.template` documents the copy-to-
+  `.maestro/<journey>.yaml` shape with `launchApp`, `clearState: false`,
+  `stopApp: false`, a starting-state assertion, action placeholders, a
+  `takeScreenshot` checkpoint and a durable assertion. The `.template` suffix keeps
+  directory runs from collecting it as a flow.
+
+### Verification
+
+- `bash -n scripts/maestro-cli.sh` — exit 0.
+- `shellcheck --severity=warning scripts/maestro-cli.sh` — exit 0, no findings.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_ui_journey_preflight.py'`
+  — **21 tests OK** (13 baseline plus 8 v2/brief cases).
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_maestro_cli.py'` —
+  **2 tests OK**.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **248
+  tests OK** (237 baseline plus 9 preflight cases and 2 wrapper cases).
+- `python3 scripts/validate-agent-tooling.py` — 13 definitions, 30 surface files,
+  **0 findings**, exit 0.
+- `python3 scripts/check-living-docs.py` — exit 0, no findings.
+
+### Limits
+
+- No existing `.maestro/*.yaml` journey was retrofitted to v2, and no existing
+  contract was migrated; v1 compatibility is what keeps those contracts valid.
+- `screenshot_evidence` matching is textual. It does not parse full YAML, resolve
+  includes/templates, prove a screenshot file was produced, judge its image, or
+  replace semantic assertions. A flow that takes a correctly named screenshot of
+  the wrong screen still passes this check.
+- The brief reflects the contract declarations and current file hashes; it does not
+  verify device state, approval, fixture facts or YAML execution.
+- No device or emulator run and no Maestro execution against the app were performed
+  for this phase. The template is not executed in place.
+
+**Maestro tooling confidence: 8/10.** The wrapper removes the long inline analytics
+prefix and gives one predictable binary-resolution path, with offline coverage of
+argument forwarding and the missing-binary failure. It stops at 8 because it was
+not exercised against a real Maestro installation or device in this phase.
+
+**Preflight v2 confidence: 8.5/10.** The added required declaration closes the
+specific gap where a contract could claim screenshots the flow never takes, while
+v1 stays valid and exit codes/output remain stable. It stops below 9 because the
+check is textual (not YAML semantics) and cannot prove screenshot content or review.

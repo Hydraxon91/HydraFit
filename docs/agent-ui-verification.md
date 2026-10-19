@@ -10,19 +10,25 @@ Paths below are relative to the repository root.
 ### Prepared-journey preflight
 
 Before handing a prepared acceptance journey to the runner, validate an external
-version-1 JSON contract with `scripts/ui-journey-preflight.py`:
+JSON contract with `scripts/ui-journey-preflight.py`. Version-1 contracts remain
+valid unchanged; new contracts use version 2:
 
 ```sh
 python3 -B scripts/ui-journey-preflight.py <contract.json> --max-age-seconds <accepted-baseline-age>
+python3 -B scripts/ui-journey-preflight.py <contract.json> --max-age-seconds <accepted-baseline-age> --brief
 ```
 
 Use an explicitly accepted positive maximum baseline age, in seconds. JSON output
 `preflight_clear` and exit 0 mean declarations passed, not approval or device-state
 verification. Exit 2 lists findings; 125 reports invalid input/I/O (argument-parser
-errors use 2). Never execute the journey after a failed preflight.
+errors use 2). Never execute the journey after a failed preflight. The JSON reports
+the contract version that was validated. `--brief` prints a deterministic Markdown
+handoff (status, declared scope, baseline observation time and age, shortened flow
+hashes, fixture facts, assertions, screenshots and any findings) instead of JSON,
+with the same exit codes; it is read-only and still declarations only.
 
 Required fields:
-- `version`: 1; `device`: exact running emulator serial; `build`: debug build identity.
+- `version`: 1 or 2; `device`: exact running emulator serial; `build`: debug build identity.
 - `starting_state`, `approval_reference`, `allowed_interactions`, `prior_writes`,
   `safeguard`, `cleanup`, `restoration`, `screenshot_checkpoints`: nonempty strings;
   explicitly say `none` when inapplicable, not when a safeguard is required.
@@ -44,6 +50,16 @@ Required fields:
   `gating-only`, or `unverified`. Execution-planned entries also need a `write`
   present in planned_writes, `authorization_reference`, `safeguard`, `recovery`,
   and `postcondition`. Planned execution is never a completed result.
+
+Version 2 additionally requires `screenshot_evidence`: either the exact string
+`"none"` or a nonempty list of unique nonempty screenshot names. `"none"` is valid
+only when `screenshot_checkpoints` is also `none` after trimming and ignoring case.
+Each listed name must appear as a `takeScreenshot:` or `assertScreenshot:` command
+value in at least one referenced flow; scalar, quoted scalar and inline
+`{ path: name }` forms are recognized. This is a declaration/text check, not YAML
+parsing or execution: it catches a contract that names a screenshot the flow never
+takes, but it does not prove the image exists, looks correct or was reviewed.
+Screenshot declarations supplement, never replace, semantic assertions.
 
 Include every destructive category in the accepted acceptance scope; list skipped
 ones honestly. Execution requires actual user authorization, verified safeguards
