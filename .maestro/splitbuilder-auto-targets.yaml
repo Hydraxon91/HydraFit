@@ -25,13 +25,19 @@ tags:
 - assertVisible: '^Highest reps$'
 - assertVisible: '^Prescribed RIR \(optional\)$'
 - assertVisible: '^Apply$'
-# An inverted range is refused with its own message rather than silently accepted.
+# An inverted range is refused with its own message rather than silently accepted. Each typed
+# value is scoped to its labelled field (`containsChild`). No retained hierarchy captured the
+# SplitBuilder dialog, so this label/field shape is unverified at runtime; these scoped
+# assertions are syntax-checked only until the flow is re-run.
 - tapOn:
     text: '^Lowest reps$'
     retryTapIfNoChange: false
 - eraseText
 - inputText: '10'
-- assertVisible: '^10$'
+- assertVisible:
+    text: '^10$'
+    containsChild:
+      text: '^Lowest reps$'
 - hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:
@@ -39,7 +45,10 @@ tags:
     retryTapIfNoChange: false
 - eraseText
 - inputText: '6'
-- assertVisible: '^6$'
+- assertVisible:
+    text: '^6$'
+    containsChild:
+      text: '^Highest reps$'
 - hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:
@@ -52,7 +61,10 @@ tags:
     retryTapIfNoChange: false
 - eraseText
 - inputText: '12'
-- assertVisible: '^12$'
+- assertVisible:
+    text: '^12$'
+    containsChild:
+      text: '^Highest reps$'
 - hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:

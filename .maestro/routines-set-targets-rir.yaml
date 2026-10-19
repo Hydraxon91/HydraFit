@@ -28,18 +28,44 @@ tags:
     text: '^Per-set targets$'
     retryTapIfNoChange: false
 - assertVisible: '^Shape$'
-# The dialog reopens from the recorded recipe, not from an inferred shape.
-- assertVisible: '^3$'
-- assertVisible: '^10$'
-- assertVisible: '^6$'
-- assertVisible: '^60$'
-- assertVisible: '^80$'
+# The dialog reopens from the recorded recipe, not from an inferred shape. Each value is scoped
+# to its own labelled field: in the retained compact hierarchy (hf-ui-20) the label is a direct
+# child of the field node, so the assertion cannot pass on that number rendered elsewhere.
+- assertVisible:
+    text: '^3$'
+    containsChild:
+      text: '^Sets$'
+- assertVisible:
+    text: '^10$'
+    containsChild:
+      text: '^Start reps$'
+- assertVisible:
+    text: '^6$'
+    containsChild:
+      text: '^End reps$'
+- assertVisible:
+    text: '^60$'
+    containsChild:
+      text: '^Start load \(kg\)$'
+- assertVisible:
+    text: '^80$'
+    containsChild:
+      text: '^End load \(kg\)$'
+# The round-to value is part of the recorded recipe too, and was never asserted before.
+- assertVisible:
+    text: '^2\.5$'
+    containsChild:
+      text: '^Round to \(kg\)$'
 - tapOn:
-    text: '^Prescribed RIR \(optional\)$'
+    containsChild:
+      text: '^Prescribed RIR \(optional\)$'
     retryTapIfNoChange: false
 - eraseText
 - inputText: '2'
-- assertVisible: '^2$'
+- assertVisible:
+    text: '^2$'
+    containsChild:
+      text: '^Prescribed RIR \(optional\)$'
 - hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:

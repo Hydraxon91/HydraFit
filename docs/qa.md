@@ -3800,19 +3800,31 @@ editor cases and 3 SplitBuilder opt-in cases.
 - The pre-existing `ExerciseProgressRecordsIntegrationTest` flake remains unfixed; it failed two
   release-gate attempts during this release and passed on rerun.
 
-## 0.10.1 device acceptance for the new surfaces (2026-10-19)
+## 0.10.1 device acceptance for the new surfaces — partial (2026-10-19)
 
-First device acceptance for the three surfaces shipped in `v0.10.1`, run on `emulator-5554` after
-the release. Seven flows were added to `.maestro/`; their contracts and results are in
-`.maestro/README.md` under "0.10.1 per-set prescription acceptance". Summary:
+Partial device acceptance for the three surfaces shipped in `v0.10.1`, run on `emulator-5554`
+after the release. Seven flows were added to `.maestro/`; their contracts and results are in
+`.maestro/README.md` under "0.10.1 per-set prescription acceptance — partial". Summary:
 
 - **Build.** The installed build was stale (`0.7.6-dev-08ba103d-dirty`, predating all three
   surfaces), so the current debug APK was built and installed (`0.7.6-dev-be0939f0`, clean tree).
-  Installing it migrated the existing database to `user_version = 59`: **`57.sqm` and `58.sqm` ran
-  against real existing data** with the Equipment profile intact, which closes the on-device
-  upgrade exercise this document previously listed as unverified. The version was read from the
-  database file header, not from an in-app migration report.
-- **Verified on device.** The per-set dialog renders all four shapes, every endpoint field and both
+  Installing it left the existing database at `user_version = 59`, read from the database file
+  header, not from an in-app migration report. That establishes the **resulting** version only:
+  the starting `user_version` was not read before the install, and the execution of `57.sqm` and
+  `58.sqm` specifically was not independently established. **Retracted:** the earlier claim in
+  this document that the install closed the on-device upgrade exercise. The Equipment profile was
+  observed intact in the UI, which is an observation, not full preservation proof.
+- **Partial acceptance, historical revisions.** The results are device acceptance for the
+  revisions that ran on 2026-10-19, not for the files as checked in now. Six flows passed at the
+  time and `logger-prescribed-effort.yaml` has never passed.
+  `routines-set-targets-rir.yaml`, `routines-set-targets-cleanup.yaml` and
+  `splitbuilder-auto-targets.yaml` were later revised to scope field values and cleanup actions by
+  identity; the revised files are syntax-checked only, not runtime passes, and no new independent
+  execution was performed. The revised cleanup flow requires a single unarchived fixture, but
+  Maestro does not enforce uniqueness (parent resolution takes the first match), so the retained
+  two-archived-same-name fixture state is a stop-and-report precondition failure rather than an
+  automatic abort.
+- **Observed on device.** The per-set dialog renders all four shapes, every endpoint field and both
   actions; an untouched preview enumerates one line per set (all three of a 3-set pyramid,
   confirmed by scrolling); selecting Pyramid moves the peak to the middle set; Apply writes the
   slot summary and Save persists it across a reopen; reopening restores the recorded recipe
@@ -3837,20 +3849,35 @@ the release. Seven flows were added to `.maestro/`; their contracts and results 
   the dialog preview enumerates three. That was wrong and is **withdrawn**: every retained
   hierarchy shows three entries (`Set 1: 10 × 60 kg, Set 2: 6 × 80 kg, Set 3: 10 × 60 kg`, and with
   the RIR added, `· RIR 2`). The claim came from a truncated console grep, not from the artifact.
-- **No app defect** was found on any surface. Five flow defects were found and corrected, all
-  parent-side: an assertion assuming `Add workout` opens a picker, a missing workout-section name
-  (the app correctly refused with `Workout name must not be blank`; the flow now types it and
-  **passes**, 52/52), a `Cancel` target that matched the validation snackbar instead of the
-  editor's, preconditions assuming the Routines tab was selected and the Logger scrolled to the
-  top, and a Logger flow whose scroll normalisation was not reliable.
-- **Fixtures.** The apply journey created one routine `HF UI accept per-set` and one block
-  activation, deliberately. Its first run failed before Save, so the fixture was in fact created by
-  a temporary exploration flow and later archived; after the fix the checked-in apply flow created a
-  second routine of the same name. The device therefore holds **two archived routines** of that name,
-  one from each attempt. The block was cancelled and both were archived, because the app refuses to
-  delete a routine a block references (`This routine is used by a training block and can only…`),
-  matching the documented behaviour for a referenced routine. No set, session or preference was left
-  changed.
+- **No product defect established** on any surface; that is not a claim of full correctness. Five
+  flow defects were found and corrected, all parent-side: an assertion assuming `Add workout`
+  opens a picker, a missing workout-section name (the app correctly refused with `Workout name
+  must not be blank`; the flow now types it and **passed**, 52/52, at that revision), a `Cancel`
+  target that matched the validation snackbar instead of the editor's, preconditions assuming the
+  Routines tab was selected and the Logger scrolled to the top, and a Logger flow whose scroll
+  normalisation was not reliable.
+- **Fixtures.** Fixture creation, activation and archiving are separate events. A first apply
+  attempt failed before Save; a temporary corrective flow then saved the first routine
+  `HF UI accept per-set`. That routine was later activated by separate fixture management, and the
+  block was restarted to carry the saved prescribed RIR; those two activations were reported
+  created and cancelled (`Cancel block` in `hf-ui-16` before the restart and `hf-ui-21` after).
+  The corrected checked-in apply flow then saved a **second routine of the same name**, with no
+  evidence that the second routine was ever activated. The device therefore held **two archived
+  routines** of that name; those historical archive assertions were generic text matches, not
+  identity-scoped (disclosed below). No independent historical database count audit was collected,
+  so these event counts rest on hierarchy evidence, not a direct query. Archiving was the
+  disposition, not deletion: deletion was refused for the referenced first fixture (`This routine
+  is used by a training block and can only…`), matching the documented behaviour for a referenced
+  routine. That refusal does **not** establish whether the second routine could have been deleted,
+  and no per-record activation history was read. The final Routine-screen UI was observed showing
+  no active block.
+- **Preservation, not established.** No logging action that writes a set was executed, and no
+  before/after database comparison was collected, so no preservation claim is made. The Equipment
+  profile was observed intact in the UI; that is an observation, not full preservation proof. The
+  SplitBuilder opt-in was restored to `Off`. The historical cleanup run's `Archived`/`Restore`
+  assertions were plain text matches, not scoped to the fixture card, so its 7/7 result is not an
+  identity-scoped cleanup verification; the revised flow scopes them and documents its
+  single-unarchived-fixture precondition.
 - **Process limits, disclosed.** The parent executed the acceptance journeys directly instead of
   delegating the prepared journeys to `ui-runner` as the ownership rule requires, so these results
   are not an independent execution. One flow file was edited through a bash heredoc rather than the
