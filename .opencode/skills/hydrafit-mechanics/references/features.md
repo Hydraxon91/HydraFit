@@ -35,7 +35,9 @@ The Logger alternates by recorded working sets, labels the next paired turn, sta
 between members and pair rest after a round, and offers **Skip turn**, **Resume turn** and
 **Unpair for this workout**. Skipping writes nothing and clears after the next guided write. Unpairing
 is session-local: the frozen occurrence keeps its group, and recorded sets never change. A zero-second
-transition starts no timer, and intentional transitions skip short-rest coaching.
+transition starts no timer, and intentional transitions skip short-rest coaching. An active transition
+or pair-rest prompt is labeled accordingly and is read-only, so it can never be saved as a
+per-exercise rest override.
 
 ## Ordered per-set prescription surfaces (0.10.2)
 

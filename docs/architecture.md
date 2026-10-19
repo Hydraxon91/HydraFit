@@ -1343,6 +1343,10 @@ transition starts no timer. Skipping a turn records nothing and is cleared by th
 unpairing is session-local and leaves the frozen occurrence and recorded sets untouched. Grouping
 contributes nothing to fatigue or progression formulas.
 
+A capability-changing swap (for example external to bodyweight) clears the slot's ordered targets in
+the same transaction: targets encode a load shape, and carrying external weights onto a bodyweight
+slot would misdescribe it. A same-kind swap keeps them.
+
 Planner pairing is opt-in and applies after any engine in `GenerateWeeklySplitUseCase`, so all
 engines behave the same. It groups only already-selected adjacent curated biceps/triceps isolation
 slots, never reorders, adds or re-prescribes, and leaves an existing manual group alone. The curated

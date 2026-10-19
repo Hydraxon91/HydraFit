@@ -3885,7 +3885,6 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   rule, before it was stopped; each attempt was read-only.
 
 ## 0.10.3 / 0.10.4 — supersets and effort/readiness disposition
-
 - **Verification (fresh, 2026-10-19).** `full-matrix-05.log`: 787 Gradle tasks executed, 0 inherited —
   `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
   `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
@@ -3913,3 +3912,23 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   **Per-set targets** action label wraps to "Per-se t targets" in the slot action row.
   This evidence section was appended with a shell heredoc rather than the edit tool; the content is
   accurate, but the write method did not follow the file-edit rule.
+
+## Post-0.10.3 hardening — open review items
+
+- **Scope.** Accepted-plan `progressionPolicy`/`setTargets` now survive acceptance and same-kind
+  swaps; a capability-changing swap clears stored ordered targets. Occurrence edits preserve pairs
+  only when both members stay unchanged and adjacent. Backup validator isolates a valid pair at
+  format 24 versus 23; PDF prints one pair line. Routines disables pair-splitting moves and wraps
+  slot actions; SplitBuilder blocks generation with invalid pairing rest; Logger labels transition
+  versus pair rest and keeps both read-only, including after a restored countdown.
+- **Verification.** `full-matrix-09.log`: 787 tasks executed, 0 inherited (host suite, migration
+  verification, ktlint, debug assembly, both iOS compiles). OI closure reviewer verdict **CLOSED /
+  APPROVED** for OI-01/02/03.
+- **Device acceptance.** Pinned `.maestro/superset-acceptance.yaml` (contract and hashes in
+  `/Users/hydraxon/.local/state/hydrafit/batch-0103-0104/`) passed 32/32 commands on `emulator-5554`:
+  add exercise, pair, dialog, Apply, pair summary, Cancel, and reopening the routine showed no stored
+  pair. Dialog/summary screenshots came from the earlier partial run of the same APK; the passing run
+  captured only the post-cancel list.
+- **Limits.** No plan/activation/occurrence backup restore round-trip test yet; no ViewModel-level
+  test of the restored countdown path; no device check of the disabled move controls or the wrapping
+  label; Save path and Logger guidance remain device-unverified.
