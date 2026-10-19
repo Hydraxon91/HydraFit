@@ -1299,3 +1299,71 @@ subsection; they are not a field of the helper's `boundary` report, which is the
   (`offline-suite-final4.log`), and any later run shows the same numbers.
 - **Not established:** no live batch run under the new boundary fields; no permission-prompt count has
   been observed; the guard remains unexercised and unenabled.
+
+## Living-doc mechanical checks (2026-10-19)
+
+Bounded tooling chunk at base `13d50ee6`, `coder` ownership, local-only changes; no
+app, schema, dependency, CI workflow or publication changes. The existing `Agent
+tooling checks` CI job already runs `scripts/validate-agent-tooling.py`, so the new
+checks reach CI through that script without editing the workflow.
+
+### What was added
+
+- **`scripts/living_docs.py`** (new, standard library only) resolves the
+  `**Living docs (keep current):**` paragraph from `AGENTS.md`, including the
+  mechanics skill's `SKILL.md` and its `references/*.md` topic files. It reports a
+  finding when the paragraph is absent or yields fewer than five documents, when a
+  declared document is missing, when numbered ATX headings repeat or move backwards
+  within their parent group, when numbered heading titles repeat in one document,
+  and when a relative Markdown link does not resolve. Fenced code is ignored so an
+  example does not read as document structure.
+- **`scripts/check-living-docs.py`** (new CLI) exposes the structural check with
+  exit 0/1 (125 for invalid input) and adds an advisory `--changed-from REV` mode.
+  That mode reads tracked changes plus untracked files from the repository root and
+  prints `Living docs to review:` without changing the exit code.
+- **`docs/doc-impact.json`** (new) maps repository-relative prefixes to the living
+  docs worth reviewing: SQLDelight and domain changes to architecture/formula/skill
+  docs, feature changes to architecture and the mechanics feature reference,
+  workflow changes to the CI/release procedure, Maestro changes to the UI
+  verification procedure, and `scripts/` changes to the agent reference and this
+  status record. Longest matching prefix wins and duplicate docs are collapsed.
+- **`scripts/validate-agent-tooling.py`** now appends the living-doc structural
+  findings to its existing findings; its output and exit-code contract is
+  unchanged. The new test module adds 21 offline tests covering resolution,
+  numbering, links, mapping, CLI exit codes, advisory output and a read-only
+  before/after check.
+
+### Findings resolved
+
+- **DL-01 [declaration drift, fixed]:** the required mapping target
+  `.maestro/README.md` was not in the `AGENTS.md` living-docs list, so the mapping
+  validation flagged it as a non-living doc. The file is an actively updated local
+  flow record, so the declaration now lists it; adding it produced no new heading or
+  link findings. This was the only finding the initial real-tree run produced; no
+  existing living document needed a link or heading correction.
+- **DL-02 [scope note]:** the advisory map flags
+  `docs/agent-project-reference.md` for `scripts/` changes. Its Key Commands list
+  was not edited in this chunk because the approved write condition for that file
+  was a checker finding, not a general documentation expansion; the new CLI is
+  recorded here instead.
+
+### Verification
+
+- `python3 -B scripts/check-living-docs.py` — exit 0, no findings.
+- `python3 -B scripts/validate-agent-tooling.py` — 13 definitions, 30 surface
+  files, **0 findings**, exit 0.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **230 tests
+  OK** (209 baseline + 21 new), including the separate CLI and temporary-git-advisory
+  cases.
+- `python3 -B scripts/check-living-docs.py --changed-from HEAD` — exit 0 with
+  `Living docs to review:` and the two `scripts/`-mapped docs.
+- **Not established:** the new checks have not yet run in PR CI; the structural
+  checks cannot verify prose accuracy, stale claims or a missing update that leaves
+  no broken link or heading. The impact map is intentionally partial and advisory.
+
+**Docs-sync confidence: 7.5/10.** The mechanical classes that caused recent drift —
+duplicate/out-of-order numbered headings, dangling relative links, a missing
+declared doc and a mapping to a removed doc — are now checked on every validator
+run and covered by tests. It stops short of 8 because "this document should have
+been updated" and "this statement is still true" remain review-owned; the advisory
+map only narrows the review surface and has not yet been exercised in a live batch.

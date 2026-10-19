@@ -6,7 +6,9 @@ Checks:
     frontmatter with its required top-level keys;
   - every agent permission rule declares action, resource and a valid effect;
   - the file references inside the tooling surface resolve (root-relative
-    paths, and skill-relative links under .opencode/skills/).
+    paths, and skill-relative links under .opencode/skills/);
+  - the living docs declared in AGENTS.md keep their mechanical invariants
+    (existence, numbered headings, relative links and the doc-impact map).
 
 Read-only and standard library only. Exit codes:
     0  consistent
@@ -20,6 +22,11 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import living_docs  # noqa: E402  (sibling module, resolved from SCRIPTS_DIR)
 
 # Directories whose backticked paths are resolved from the repository root.
 ROOT_RELATIVE_PREFIXES = (
@@ -358,6 +365,10 @@ def main(argv: list[str] | None = None) -> int:
     findings.extend(acceptance_workflow_findings(root))
     findings.extend(trust_boundary_findings(root))
     findings.extend(format_pass_findings(root))
+    # The living-doc checks evaluate the repository that owns this script; the
+    # optional root argument keeps working for small fixture trees in tests.
+    if root.resolve() == ROOT.resolve():
+        findings.extend(living_docs.structural_findings(ROOT))
     for finding in findings:
         print(finding)
     print(

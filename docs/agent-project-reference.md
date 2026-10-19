@@ -303,6 +303,11 @@ for f in scripts/*.sh; do bash -n "$f" || exit 1; done
 shellcheck --severity=warning scripts/*.sh
 python3 scripts/validate-agent-tooling.py
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
+
+# Living-doc drift (also included in validate-agent-tooling.py)
+python3 scripts/check-living-docs.py
+# Advisory: docs to review for changes since a revision, including untracked files
+python3 scripts/check-living-docs.py --changed-from <revision>
 ```
 
 `ktlintFormat` is the mechanical pre-pass: it rewrites imports and expression-body
