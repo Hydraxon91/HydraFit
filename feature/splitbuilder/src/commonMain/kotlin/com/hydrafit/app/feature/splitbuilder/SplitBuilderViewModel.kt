@@ -441,6 +441,17 @@ class SplitBuilderViewModel(
     ).first()
 
     private fun startGeneration(inputs: WorkoutPlanInputs) {
+        // An enabled pairing opt-in with invalid rest must not become a request with pairing dropped:
+        // the screen already shows the field error, and Generate simply waits for valid values.
+        if (
+            plannerSupersetGenerationBlocked(
+                enabled = _state.value.plannerSupersetEnabled,
+                transitionSeconds = _state.value.plannerSupersetTransitionSeconds,
+                pairRestSeconds = _state.value.plannerSupersetPairRestSeconds
+            )
+        ) {
+            return
+        }
         lastRequest = inputs.request
         generationJob?.cancel()
         generationJob = viewModelScope.launch { generate(inputs) }
@@ -1098,3 +1109,14 @@ internal fun plannerSupersetPreference(
 
 /** Keeps a rest field numeric and bounded in length; invalid input is never silently coerced. */
 internal fun String.filterDigits(): String = filter { it.isDigit() }.take(5)
+
+/**
+ * True when an enabled pairing opt-in still holds invalid rest, so Generate must not start a
+ * request that silently sends pairing disabled. The screen already shows the localized field error.
+ */
+internal fun plannerSupersetGenerationBlocked(
+    enabled: Boolean,
+    transitionSeconds: String,
+    pairRestSeconds: String
+): Boolean =
+    enabled && plannerSupersetPreference(enabled, transitionSeconds, pairRestSeconds) == null

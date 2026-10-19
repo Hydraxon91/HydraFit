@@ -301,10 +301,22 @@ class SubstituteExerciseUseCaseTest {
         val repository = FakePlanHistoryRepository()
         val useCase = useCase(repository)
         val pair = com.hydrafit.app.core.domain.routine.Superset("arms", 10, 120)
+        val policy = SlotProgressionPolicy(minReps = 5, maxReps = 8, incrementKg = 2.5)
+        val targets = SlotSetTargets.of(
+            listOf(SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 60.0))
+        )
         val paired = plan().let { plan ->
             plan.copy(
                 days = plan.days.map { day ->
-                    day.copy(exercises = day.exercises.map { it.copy(superset = pair) })
+                    day.copy(
+                        exercises = day.exercises.map {
+                            it.copy(
+                                superset = pair,
+                                progressionPolicy = policy,
+                                setTargets = targets
+                            )
+                        }
+                    )
                 }
             )
         }
@@ -321,6 +333,36 @@ class SubstituteExerciseUseCaseTest {
         // partner unpaired and make Save-as-routine / Start block reject a malformed half pair.
         assertEquals("dumbbell-bench", result?.exerciseId)
         assertEquals(pair, result?.superset)
+        assertEquals(policy, result?.progressionPolicy)
+        assertEquals(targets, result?.setTargets)
+    }
+
+    @Test
+    fun aCapabilityChangingSwapDropsOrderedTargetsInsteadOfCarryingExternalLoads() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+        val targets = SlotSetTargets.of(
+            listOf(SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 60.0))
+        )
+        val targeted = plan().let { plan ->
+            plan.copy(
+                days = plan.days.map { day ->
+                    day.copy(exercises = day.exercises.map { it.copy(setTargets = targets) })
+                }
+            )
+        }
+
+        val result = useCase(
+            plan = targeted,
+            dayIndex = 0,
+            position = 0,
+            request = request(equipment = emptySet()),
+            selectedExerciseId = "push-up"
+        )
+
+        assertEquals("push-up", result?.exerciseId)
+        assertEquals(LoadKind.BODYWEIGHT, result?.loadKind)
+        assertNull(result?.setTargets)
     }
 
     private fun useCase(repository: PlanHistoryRepository) =

@@ -206,7 +206,11 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_finished
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_pair_duration
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_pair_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_transition_duration
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_transition_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_seconds_label
@@ -1224,6 +1228,8 @@ fun WorkoutLoggerScreen(
                         restTimer = state.restTimer,
                         restDurationSeconds = state.restDurationSeconds,
                         restDurationIsOverride = state.restDurationIsOverride,
+                        restDurationIsPairRest = state.restDurationIsPairRest,
+                        restDurationIsSupersetTransition = state.restDurationIsSupersetTransition,
                         onRestDurationChanged = onRestDurationChanged,
                         onResetRestDuration = onResetRestDuration,
                         onCancelRestTimer = onCancelRestTimer,
@@ -2524,6 +2530,8 @@ private fun GuidedWorkoutSection(
     restTimer: RestTimerState?,
     restDurationSeconds: String,
     restDurationIsOverride: Boolean,
+    restDurationIsPairRest: Boolean,
+    restDurationIsSupersetTransition: Boolean,
     onRestDurationChanged: (String) -> Unit,
     onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
@@ -2589,9 +2597,16 @@ private fun GuidedWorkoutSection(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    stringResource(Res.string.logger_rest_timer_note),
+                    text = when {
+                        restDurationIsSupersetTransition ->
+                            stringResource(Res.string.logger_rest_timer_transition_note)
+                        restDurationIsPairRest ->
+                            stringResource(Res.string.logger_rest_timer_pair_note)
+                        else -> stringResource(Res.string.logger_rest_timer_note)
+                    },
                     style = MaterialTheme.typography.bodySmall
                 )
+                val supersetRest = restDurationIsPairRest || restDurationIsSupersetTransition
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2600,8 +2615,21 @@ private fun GuidedWorkoutSection(
                     OutlinedTextField(
                         value = restDurationSeconds,
                         onValueChange = onRestDurationChanged,
-                        label = { Text(stringResource(Res.string.logger_rest_timer_duration)) },
+                        label = {
+                            Text(
+                                stringResource(
+                                    when {
+                                        restDurationIsSupersetTransition ->
+                                            Res.string.logger_rest_timer_transition_duration
+                                        restDurationIsPairRest ->
+                                            Res.string.logger_rest_timer_pair_duration
+                                        else -> Res.string.logger_rest_timer_duration
+                                    }
+                                )
+                            )
+                        },
                         singleLine = true,
+                        readOnly = supersetRest,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f)
                     )
@@ -2609,7 +2637,7 @@ private fun GuidedWorkoutSection(
                         Text(stringResource(Res.string.logger_rest_timer_cancel))
                     }
                 }
-                if (restDurationIsOverride) {
+                if (restDurationIsOverride && !supersetRest) {
                     TextButton(onClick = onResetRestDuration) {
                         Text(stringResource(Res.string.logger_rest_timer_use_default))
                     }

@@ -1212,6 +1212,30 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun aValidPairIsAcceptedOnlyFromFormat24() {
+        val encoded = com.hydrafit.app.core.domain.routine.SupersetJson.encode(
+            com.hydrafit.app.core.domain.routine.Superset("arms", 10, 120)
+        )
+        val paired = profiledFile(24).copy(
+            routines = listOf(BackupRoutineRecord(1L, "Block", 1, 1, 1, null, null)),
+            routineWorkouts = listOf(BackupRoutineWorkoutRecord(10L, 1L, 0, "Day", "FULL_BODY")),
+            routineEntries = listOf(
+                BackupRoutineEntryRecord(
+                    id = 100L, workoutId = 10L, position = 0, exerciseId = "back-squat",
+                    sets = 3, reps = 5, weightKg = 100.0, loadKind = "EXTERNAL", superset = encoded
+                ),
+                BackupRoutineEntryRecord(
+                    id = 101L, workoutId = 10L, position = 1, exerciseId = "user-x",
+                    sets = 3, reps = 8, weightKg = 60.0, loadKind = "EXTERNAL", superset = encoded
+                )
+            )
+        )
+
+        validator.validate(paired)
+        assertFailure(BackupFailure.INVALID_VALUE) { paired.copy(formatVersion = 23) }
+    }
+
+    @Test
     fun rejectsSupersetMetadataBeforeItsFormatAndRejectsOrphanMembership() {
         val encoded = com.hydrafit.app.core.domain.routine.SupersetJson.encode(
             com.hydrafit.app.core.domain.routine.Superset("arms", 0, 120)

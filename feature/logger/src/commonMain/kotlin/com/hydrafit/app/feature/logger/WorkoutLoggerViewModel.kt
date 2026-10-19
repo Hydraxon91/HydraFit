@@ -161,7 +161,15 @@ class WorkoutLoggerViewModel(
             }
         }
         viewModelScope.launch {
-            restTimer.state.collect { timer -> _state.update { it.copy(restTimer = timer) } }
+            restTimer.state.collect { timer ->
+                _state.update {
+                    if (timer == null) {
+                        it.copy(restTimer = null).withRestCleared()
+                    } else {
+                        it.copy(restTimer = timer)
+                    }
+                }
+            }
         }
         viewModelScope.launch {
             // Observe the catalog so a newly added/edited custom exercise appears without a restart.
@@ -306,6 +314,7 @@ class WorkoutLoggerViewModel(
         timerSessionId = null
         timerExerciseId = null
         restTimer.cancel(clearPersisted)
+        _state.update { it.withRestCleared() }
         resetShortRestCoaching()
         clearLiveSetStart()
     }
@@ -346,10 +355,17 @@ class WorkoutLoggerViewModel(
             timerSessionId = restored.sessionId
             timerExerciseId = restored.exerciseId
             val isOverride = settings.hasExerciseRestDurationOverride(restored.exerciseId)
+            val paired = _state.value.guidedProgress?.exercises?.any {
+                it.exerciseId == restored.exerciseId && it.superset != null
+            } == true
             _state.update {
                 it.copy(
                     restDurationSeconds = restored.durationMillis.div(1_000L).toString(),
-                    restDurationIsOverride = isOverride
+                    restDurationIsOverride = isOverride,
+                    // A restored countdown keeps the read-only superset treatment: the persisted
+                    // countdown does not carry the flag, but the frozen pairing still does.
+                    restDurationIsPairRest = paired,
+                    restDurationIsSupersetTransition = false
                 )
             }
         }
@@ -2276,6 +2292,8 @@ class WorkoutLoggerViewModel(
     fun onPendingHistoryKeyConsumed() = _state.update { it.copy(pendingHistoryKey = null) }
 
     fun onRestDurationChanged(value: String) {
+        // Pair rest belongs to the superset, not this exercise: editing it would write an override.
+        if (!_state.value.restDurationIsEditable) return
         val digits = value.filter(Char::isDigit)
         _state.update { it.copy(restDurationSeconds = digits) }
         val millis = digits.toLongOrNull()?.takeIf {
@@ -2292,6 +2310,7 @@ class WorkoutLoggerViewModel(
     }
 
     fun resetExerciseRestDuration() {
+        if (_state.value.restDurationIsPairRest) return
         val exerciseId = timerExerciseId ?: return
         viewModelScope.launch {
             settings.clearExerciseRestDuration(exerciseId)
@@ -2309,6 +2328,7 @@ class WorkoutLoggerViewModel(
         timerSessionId = null
         timerExerciseId = null
         restTimer.cancel()
+        _state.update { it.withRestCleared() }
     }
 
     /** True when guided mode is on and a workout occurrence is active. */
@@ -2617,7 +2637,12 @@ class WorkoutLoggerViewModel(
         timerSessionId = sessionId
         timerExerciseId = exerciseId
         _state.update {
-            it.copy(restDurationSeconds = seconds.toString(), restDurationIsOverride = hasOverride)
+            it.withRestStarted(
+                seconds = seconds,
+                hasExerciseOverride = hasOverride,
+                fromPairOverride = restSecondsOverride != null,
+                fromTransition = isSupersetTransition
+            )
         }
         restTimer.start(
             durationMillis = durationMillis,

@@ -7,7 +7,9 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Guided superset state and rest selection. These are the pure seams behind the Logger's next-turn,
@@ -75,6 +77,22 @@ class WorkoutLoggerSupersetTest {
     }
 
     @Test
+    fun aTransitionPromptIsLabelledSeparatelyAndStaysNonEditable() {
+        val state = WorkoutLoggerUiState()
+            .withRestStarted(
+                seconds = 10,
+                hasExerciseOverride = false,
+                fromPairOverride = true,
+                fromTransition = true
+            )
+        assertEquals(10L, state.restDurationSeconds.toLong())
+        assertEquals(true, state.restDurationIsSupersetTransition)
+        assertEquals(false, state.restDurationIsPairRest)
+        assertEquals(false, state.restDurationIsEditable)
+        assertEquals(false, state.withRestCleared().restDurationIsSupersetTransition)
+    }
+
+    @Test
     fun theUiStateSelectsTheOutstandingTurnAndHonoursSkipAndUnpair() {
         // A is behind after B logged first, so the unskipped selection is A.
         val state = WorkoutLoggerUiState(
@@ -92,5 +110,35 @@ class WorkoutLoggerSupersetTest {
             10L,
             state.copy(supersetUnpairedKeys = setOf("arms")).nextGuidedEntryId
         )
+    }
+
+    @Test
+    fun pairRestIsFlaggedReadOnlyAndClearsWhenThePromptEnds() {
+        val started = WorkoutLoggerUiState().withRestStarted(
+            seconds = 10,
+            hasExerciseOverride = false,
+            fromPairOverride = true
+        )
+        assertTrue(started.restDurationIsPairRest)
+        // The duration field is read-only intent: editing it must not write a per-exercise override.
+        assertFalse(started.restDurationIsEditable)
+        assertEquals("10", started.restDurationSeconds)
+        assertFalse(started.restDurationIsOverride)
+
+        val cleared = started.withRestCleared()
+        assertFalse(cleared.restDurationIsPairRest)
+        assertTrue(cleared.restDurationIsEditable)
+    }
+
+    @Test
+    fun anOrdinaryRestDurationStaysEditableAndKeepsItsOwnOverrideState() {
+        val started = WorkoutLoggerUiState().withRestStarted(
+            seconds = 120,
+            hasExerciseOverride = true,
+            fromPairOverride = false
+        )
+        assertFalse(started.restDurationIsPairRest)
+        assertTrue(started.restDurationIsEditable)
+        assertTrue(started.restDurationIsOverride)
     }
 }

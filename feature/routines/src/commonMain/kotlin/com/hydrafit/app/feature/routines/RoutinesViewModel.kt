@@ -271,19 +271,16 @@ class RoutinesViewModel(
 
     fun onMoveEntry(workoutIndex: Int, entryIndex: Int, delta: Int) =
         updateWorkout(workoutIndex) { workout ->
-            val target = entryIndex + delta
-            if (target !in workout.entries.indices) {
-                workout
+            // A move must never split a pair: a non-adjacent pair could not be saved at all.
+            if (workout.canMoveEntry(entryIndex, delta)) {
+                val target = entryIndex + delta
+                workout.copy(
+                    entries = workout.entries.toMutableList().apply {
+                        add(target, removeAt(entryIndex))
+                    }
+                )
             } else {
-                val reordered = workout.entries.toMutableList().apply {
-                    add(target, removeAt(entryIndex))
-                }
-                // A move must never split a pair: a non-adjacent pair could not be saved at all.
-                if (supersetsFormValidGroups(reordered)) {
-                    workout.copy(entries = reordered)
-                } else {
-                    workout
-                }
+                workout
             }
         }
 
@@ -696,12 +693,8 @@ class RoutinesViewModel(
     }
 
     /** True when every pair in [entries] still forms one valid two-slot group. */
-    private fun supersetsFormValidGroups(entries: List<EditorEntry>): Boolean = try {
-        validateSupersets(entries.map { it.exerciseId to it.superset })
-        true
-    } catch (_: IllegalArgumentException) {
-        false
-    }
+    private fun supersetsFormValidGroups(entries: List<EditorEntry>): Boolean =
+        entriesFormValidGroups(entries)
 
     /**
      * The pair's workout-scoped identity. A pair is created only from the first slot of an unpaired
@@ -1211,4 +1204,23 @@ private fun parseSetTargetsRequest(editor: SetTargetsEditorState): SetTargetsPar
             targetRir = rir
         )
     )
+}
+
+/** True when every pair in [entries] still forms one valid two-slot group. */
+internal fun entriesFormValidGroups(entries: List<EditorEntry>): Boolean = try {
+    validateSupersets(entries.map { it.exerciseId to it.superset })
+    true
+} catch (_: IllegalArgumentException) {
+    false
+}
+
+/**
+ * True when moving the slot at [entryIndex] by [delta] keeps every pair adjacent. The editor uses
+ * this to disable a direction it would otherwise refuse, so no tap silently does nothing.
+ */
+internal fun EditorWorkout.canMoveEntry(entryIndex: Int, delta: Int): Boolean {
+    val target = entryIndex + delta
+    if (target !in entries.indices) return false
+    val reordered = entries.toMutableList().apply { add(target, removeAt(entryIndex)) }
+    return entriesFormValidGroups(reordered)
 }

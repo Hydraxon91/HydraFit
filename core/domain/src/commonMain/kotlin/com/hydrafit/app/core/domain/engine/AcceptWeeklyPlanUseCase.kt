@@ -52,6 +52,8 @@ class AcceptWeeklyPlanUseCase(
                             loadCapability = planned.loadCapability,
                             loadKind = planned.loadKind,
                             explanation = planned.explanation,
+                            progressionPolicy = planned.progressionPolicy,
+                            setTargets = planned.setTargets,
                             superset = planned.superset
                         )
                     }

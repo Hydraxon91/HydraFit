@@ -28,14 +28,16 @@ class PrescriptionPdfLayoutTest {
         sets: Int = 3,
         reps: Int = 5,
         weightKg: Double? = 100.0,
-        loadKind: LoadKind = LoadKind.EXTERNAL
+        loadKind: LoadKind = LoadKind.EXTERNAL,
+        superset: String? = null
     ) = PrescriptionEntryRecord(
         exerciseId = name.lowercase().replace(' ', '-'),
         exerciseName = name,
         sets = sets,
         reps = reps,
         weightKg = weightKg,
-        loadKind = loadKind.name
+        loadKind = loadKind.name,
+        superset = superset
     )
 
     private fun document(
@@ -60,6 +62,29 @@ class PrescriptionPdfLayoutTest {
 
     private fun texts(pages: List<PrescriptionPage>): List<String> =
         pages.flatMap { page -> page.lines.map { it.text } }
+
+    @Test
+    fun printsOneSupersetLineForThePairNotOnePerMember() {
+        val encoded = com.hydrafit.app.core.domain.routine.SupersetJson.encode(
+            com.hydrafit.app.core.domain.routine.Superset("arms", 15, 90)
+        )
+        val pages = PrescriptionPdfLayout.build(
+            document(
+                listOf(
+                    routine(
+                        entry(name = "Barbell Curl", weightKg = 30.0, superset = encoded),
+                        entry(name = "Triceps Pushdown", weightKg = 25.0, superset = encoded)
+                    )
+                )
+            ),
+            linesPerPage = 100
+        )
+
+        val printed = texts(pages).filter { it.startsWith("Superset:") }
+        assertEquals(1, printed.size)
+        assertTrue(printed.single().contains("15 s"))
+        assertTrue(printed.single().contains("90 s"))
+    }
 
     @Test
     fun printsTheTitleRoutineWorkoutAndSlotLinesInOrder() {

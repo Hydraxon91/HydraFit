@@ -2,7 +2,10 @@ package com.hydrafit.app.feature.splitbuilder
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class SplitBuilderSupersetTest {
 
@@ -11,6 +14,23 @@ class SplitBuilderSupersetTest {
         assertNull(plannerSupersetPreference(false, "0", "120"))
         assertEquals(0, plannerSupersetPreference(true, "0", "120")?.transitionSeconds)
         assertEquals(120, plannerSupersetPreference(true, "0", "120")?.pairRestSeconds)
+    }
+
+    @Test
+    fun invalidRestBlocksGenerationInsteadOfSendingPairingDisabled() {
+        assertTrue(plannerSupersetGenerationBlocked(true, "abc", "120"))
+        assertTrue(plannerSupersetGenerationBlocked(true, "0", "0"))
+        assertTrue(plannerSupersetGenerationBlocked(true, "0", "99999"))
+        // Pairing is off, so whatever the rest fields hold is never sent and never blocks.
+        assertFalse(plannerSupersetGenerationBlocked(false, "abc", ""))
+    }
+
+    @Test
+    fun validRestDoesNotBlockGenerationAndForwardsThePreference() {
+        assertFalse(plannerSupersetGenerationBlocked(true, "15", "90"))
+        val preference = assertNotNull(plannerSupersetPreference(true, "15", "90"))
+        assertEquals(15, preference.transitionSeconds)
+        assertEquals(90, preference.pairRestSeconds)
     }
 
     @Test

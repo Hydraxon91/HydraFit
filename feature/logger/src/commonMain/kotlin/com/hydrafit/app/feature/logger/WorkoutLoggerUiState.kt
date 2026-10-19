@@ -369,6 +369,13 @@ data class WorkoutLoggerUiState(
     val restDurationSeconds: String = "120",
     /** True when the current exercise uses an explicit rest-duration override. */
     val restDurationIsOverride: Boolean = false,
+    /**
+     * True when the active rest prompt came from a superset override. Its duration is pair rest, not a
+     * per-exercise preference, so the field is read-only and editing it must never write an override.
+     */
+    val restDurationIsPairRest: Boolean = false,
+    /** True when the active prompt is the short transition between paired members. */
+    val restDurationIsSupersetTransition: Boolean = false,
     /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
     val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,
@@ -466,6 +473,10 @@ data class WorkoutLoggerUiState(
             it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
         } == true
 
+    /** False while the prompt is pair rest: editing the field would write a per-exercise override. */
+    val restDurationIsEditable: Boolean
+        get() = !restDurationIsPairRest && !restDurationIsSupersetTransition
+
     /**
      * The open session a backdated set would attach to, or null when logging will start a new one.
      * Mirrors the domain attach rule: same local day and not before that session began.
@@ -516,3 +527,23 @@ data class WorkoutLoggerUiState(
             exercises.filter { matchesExerciseNameQuery(it.name, exerciseSearch) }
         }
 }
+
+/**
+ * The rest-duration state after a prompt starts. A superset override is pair rest, so it never also
+ * counts as a per-exercise override.
+ */
+internal fun WorkoutLoggerUiState.withRestStarted(
+    seconds: Long,
+    hasExerciseOverride: Boolean,
+    fromPairOverride: Boolean,
+    fromTransition: Boolean = false
+): WorkoutLoggerUiState = copy(
+    restDurationSeconds = seconds.toString(),
+    restDurationIsOverride = hasExerciseOverride,
+    restDurationIsPairRest = fromPairOverride && !fromTransition,
+    restDurationIsSupersetTransition = fromTransition
+)
+
+/** Clears the superset rest label when its prompt is dismissed or otherwise ends. */
+internal fun WorkoutLoggerUiState.withRestCleared(): WorkoutLoggerUiState =
+    copy(restDurationIsPairRest = false, restDurationIsSupersetTransition = false)

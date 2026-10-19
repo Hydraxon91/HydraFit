@@ -111,6 +111,11 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         newLoadKind: LoadKind
     ) {
         queries.transaction {
+            val previousKind = queries.selectEntryLoadKindAtPosition(
+                position = position.toLong(),
+                planId = planId,
+                dayIndex = dayIndex.toLong()
+            ).executeAsOneOrNull()
             val updated = queries.updateEntryExerciseIdAtPosition(
                 newExerciseId = newExerciseId,
                 newExerciseName = newExerciseName,
@@ -125,6 +130,15 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
             // replaced slot's recorded reasoning. A missing day/position is a no-op that must leave
             // the plan and its metadata untouched.
             if (updated > 0L) {
+                if (previousKind != null && previousKind != newLoadKind.name) {
+                    // The new slot means something different by "load"; ordered targets from the old
+                    // shape would contradict it, so they are cleared with the swap.
+                    queries.clearEntrySetTargetsAtPosition(
+                        position = position.toLong(),
+                        planId = planId,
+                        dayIndex = dayIndex.toLong()
+                    )
+                }
                 volumeQueries.deleteForPlan(planId)
                 stateQueries.invalidateForSlot(planId, dayIndex.toLong(), position.toLong())
                 targetQueries.deleteExplanationForSlot(planId, dayIndex.toLong(), position.toLong())

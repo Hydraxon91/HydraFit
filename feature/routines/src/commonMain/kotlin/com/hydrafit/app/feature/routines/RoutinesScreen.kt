@@ -795,6 +795,8 @@ private fun WorkoutCard(
                     canPairWithNext = entry.superset == null &&
                         next != null &&
                         next.superset == null,
+                    canMoveUp = workout.canMoveEntry(entryIndex, -1),
+                    canMoveDown = workout.canMoveEntry(entryIndex, 1),
                     viewModel = viewModel
                 )
             }
@@ -816,6 +818,7 @@ private fun WorkoutCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EntryRow(
     workoutIndex: Int,
@@ -825,6 +828,8 @@ private fun EntryRow(
     isExcluded: Boolean,
     /** The slot is unpaired and the slot after it exists and is unpaired too, so it can be paired. */
     canPairWithNext: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     viewModel: RoutinesViewModel
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -907,11 +912,20 @@ private fun EntryRow(
                 modifier = Modifier.width(120.dp)
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = { viewModel.onMoveEntry(workoutIndex, entryIndex, -1) }) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            TextButton(
+                onClick = { viewModel.onMoveEntry(workoutIndex, entryIndex, -1) },
+                enabled = canMoveUp
+            ) {
                 Text(stringResource(Res.string.routines_move_up))
             }
-            TextButton(onClick = { viewModel.onMoveEntry(workoutIndex, entryIndex, 1) }) {
+            TextButton(
+                onClick = { viewModel.onMoveEntry(workoutIndex, entryIndex, 1) },
+                enabled = canMoveDown
+            ) {
                 Text(stringResource(Res.string.routines_move_down))
             }
             // Progression applies to counted slots; a timed slot works to seconds, not reps.
@@ -919,7 +933,11 @@ private fun EntryRow(
                 TextButton(
                     onClick = { viewModel.onEditProgressionPolicy(workoutIndex, entryIndex) }
                 ) {
-                    Text(stringResource(Res.string.routines_progression_action))
+                    Text(
+                        text = stringResource(Res.string.routines_progression_action),
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
                 // Ordered per-set targets need a numeric load; bodyweight and added-load slots have
                 // no per-set numeric target to prescribe.
@@ -927,18 +945,30 @@ private fun EntryRow(
                     TextButton(
                         onClick = { viewModel.onEditSetTargets(workoutIndex, entryIndex) }
                     ) {
-                        Text(stringResource(Res.string.routines_set_targets_action))
+                        Text(
+                            text = stringResource(Res.string.routines_set_targets_action),
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
             // Pairing only groups the two slots' rest; a timed slot can be paired too.
             if (entry.superset != null) {
                 TextButton(onClick = { viewModel.onRemoveSuperset(workoutIndex, entryIndex) }) {
-                    Text(stringResource(Res.string.routines_superset_remove))
+                    Text(
+                        text = stringResource(Res.string.routines_superset_remove),
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             } else if (canPairWithNext) {
                 TextButton(onClick = { viewModel.onEditSuperset(workoutIndex, entryIndex) }) {
-                    Text(stringResource(Res.string.routines_superset_action))
+                    Text(
+                        text = stringResource(Res.string.routines_superset_action),
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
         }

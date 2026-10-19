@@ -46,8 +46,10 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -284,6 +286,24 @@ class RoutinesSupersetTest {
         val reordered = editorEntries(viewModel)
         assertEquals(assertNotNull(reordered[0].superset), reordered[1].superset)
     }
+
+    @Test
+    fun aMoveDirectionThatWouldSplitAPairIsDisabledWhileAnAdjacentMoveStaysEnabled() =
+        runTest(dispatcher) {
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            openRoutineWithSlots(viewModel, "bench-press", "overhead-press", "barbell-squat")
+            pairFirstTwoSlots(viewModel)
+
+            val workout = requireNotNull(viewModel.state.value.editor).workouts.single()
+            // The second member cannot move down: that would leave the pair at slots 0 and 2.
+            assertFalse(workout.canMoveEntry(entryIndex = 1, delta = 1))
+            // The same member can move up: the pair stays adjacent, just in the other order.
+            assertTrue(workout.canMoveEntry(entryIndex = 1, delta = -1))
+            // The first member can move down for the same reason; its up direction is out of range.
+            assertTrue(workout.canMoveEntry(entryIndex = 0, delta = 1))
+            assertFalse(workout.canMoveEntry(entryIndex = 0, delta = -1))
+        }
 
     private fun openRoutineWithSlots(viewModel: RoutinesViewModel, vararg exerciseIds: String) {
         viewModel.onNewRoutine()
