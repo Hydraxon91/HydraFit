@@ -1265,9 +1265,12 @@ subsection; they are not a field of the helper's `boundary` report, which is the
 - **The dominant class is the edit-tool hazard.** Across this task and the one that recorded B012-07
   there are five occurrences of the same edit join, three of them here, and it is the largest avoidable
   cost in this boundary.
-- **Permission prompts observed for delegated runs: unknown.** No mutating delegation ran, so no
-  prompts could be observed; the two reviewer checkpoints were read-only and raise none. An observation
-  that was not made is recorded as unknown rather than zero — the same rule this task added.
+- **Permission prompts observed for delegated runs: 0, from one run.** No mutating delegation ran during
+  implementation or review, so the value was unknown at the boundary; the four exact-path commits were
+  then delegated to `git-ops`, which reported **0 prompts** for routine inspection plus exact-path
+  staging and committing. That is the metric's first observed number, and it is reported with its
+  source rather than generalised: one delegation of one kind is not a prompt-reduction measurement, and
+  an observation that was not made is still recorded as unknown rather than zero.
 
 ### Ratings at this boundary
 
@@ -1280,8 +1283,9 @@ subsection; they are not a field of the helper's `boundary` report, which is the
 - **Formatting workflow 7 → 7 (held).** The ordering rule is stated and drift-detected, and the
   correction-round count is now recorded above, but it has no prior baseline to compare against, so the
   expected saving is still unmeasured rather than shown.
-- **git-ops 7 → 7 (held).** Prompt reporting is now a requirement of the agent, but no count has been
-  observed under it yet. The rating moves when a number does.
+- **git-ops 7 → 7 (held).** Prompt reporting is now a requirement of the agent and one delegation
+  reported its count (0, above), but a single commit delegation is not a prompt-reduction measurement
+  against a baseline. The rating moves when a real measurement does.
 - **Review discipline 9, bounded-run 9, acceptance completeness 8, validator 8.5, publication
   controls 7, batch workflow 6, coder workflow 7, lease 8, UI preflight 6.5 — unchanged and
   unmeasured at this boundary.**
