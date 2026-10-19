@@ -365,10 +365,9 @@ def main(argv: list[str] | None = None) -> int:
     findings.extend(acceptance_workflow_findings(root))
     findings.extend(trust_boundary_findings(root))
     findings.extend(format_pass_findings(root))
-    # The living-doc checks evaluate the repository that owns this script; the
-    # optional root argument keeps working for small fixture trees in tests.
-    if root.resolve() == ROOT.resolve():
-        findings.extend(living_docs.structural_findings(ROOT))
+    # Evaluate the supplied root: an alternate tree must satisfy the same
+    # living-doc declaration, numbering, link and mapping checks as the checkout.
+    findings.extend(living_docs.structural_findings(root))
     for finding in findings:
         print(finding)
     print(

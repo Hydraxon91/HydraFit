@@ -145,8 +145,12 @@ compliance. Never infer approval or an independent review verdict from a record.
   pending outcomes still block new work. Expired nonterminal records may be extended,
   terminal records may not. An expired record may be marked `complete` only after
   required evidence and outcomes are recorded and no identity, drift, pending-outcome
-  or out-of-scope blocker remains; expiry alone does not prevent that bookkeeping
-  step. `begin`, active-phase advances and boundary checks still stop on expiry.
+  or out-of-scope blocker remains; that evidence requirement is procedural and
+  operator-checked, not enforced by the completion transition. The transition checks
+  identity, drift, pending outcomes and out-of-scope paths only. Inspect the evidence
+  yourself, and use `boundary --require-evidence` as the separate evidence gate.
+  Expiry alone does not prevent that bookkeeping step. `begin`, active-phase advances
+  and boundary checks still stop on expiry.
   Never initialize a replacement record to bypass expiry.
 - **Publication:** record readiness and the exact candidate/approval scope; retain
   the separate user approval gate. After approval, record unique attempts and

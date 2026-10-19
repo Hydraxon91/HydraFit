@@ -1552,3 +1552,59 @@ amendment set and the deterministic group/test coverage is exercised offline. It
 stops below 9 because the match is textual and cannot establish semantic closure,
 and it has been validated against one known change set rather than repeated live
 batch runs.
+
+## Correction: alternate-root living-doc scope and preflight wording (2026-10-19)
+
+Bounded tooling correction at base `820562154ed2dabb9b02774325ed4db5c0245b12`,
+`coder` ownership; local tooling and living-doc changes only, with no app, schema,
+dependency, CI workflow or publication change.
+
+### Corrections
+
+- **T-01 (validator root scope):** `scripts/validate-agent-tooling.py` now runs
+  `living_docs.structural_findings` against the supplied root instead of only the
+  checkout that owns the script. Alternate-root tests now build a valid living-doc
+  declaration and `docs/doc-impact.json`, so the existing clean-tree fixture
+  exercises the living-doc checks instead of bypassing them. New integration
+  coverage checks a clean alternate root (exit 0), a duplicate numbered heading
+  (exit 1) and a missing declared document (exit 1).
+- **T-02 (completion scope):** `docs/agent-project-reference.md` and
+  `.opencode/commands/batch.md` now state that `phase complete` checks identity,
+  drift, pending outcomes and out-of-scope paths, not required evidence. Evidence
+  reconciliation remains operator-owned, and `boundary --require-evidence` remains
+  the separate evidence gate. `scripts/task-state.py` behavior is unchanged.
+- **T-03 (living-doc acceptance):** `.maestro/README.md` is accepted as a living doc.
+  It remains declared in `AGENTS.md` and mapped under `.maestro/` in
+  `docs/doc-impact.json`; neither file changed in this correction. The earlier
+  DL-01 entry above is a historical record and is not rewritten.
+- **T-04 (output wording):** `docs/agent-ui-verification.md` and the
+  `scripts/ui-journey-preflight.py` docstrings now describe `--brief` as stable at
+  fixed inputs and time rather than deterministic, noting that baseline age varies
+  with the clock. Brief output and behavior are unchanged.
+
+### Verification
+
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_validate_tooling.py'`
+  — **48 tests OK** (45 baseline plus 3 integration tests).
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **264 tests
+  OK** (261 baseline plus 3 new).
+- `python3 -B scripts/validate-agent-tooling.py` — 13 definitions, 30 surface
+  files, **0 findings**, exit 0.
+- `python3 -B scripts/check-living-docs.py` — exit 0, no findings.
+- `git diff --check` — exit 0.
+- No Gradle run, device or emulator interaction.
+
+### Limits
+
+- The alternate-root tests prove the validator applies living-doc structural checks
+  to a supplied root and reports duplicate headings and missing declarations. They
+  do not prove a repository's prose, links or verification claims are accurate.
+- `phase complete` remains cooperative bookkeeping. The prose now matches the
+  helper's identity, drift, pending-outcome and out-of-scope checks; it does not
+  enforce evidence descriptions, inspect artifacts or replace a review.
+- The stable-format wording describes fixed fields and ordering for fixed inputs and
+  time; it does not make output independent of the wall clock, because baseline age
+  is computed from the current time.
+- Living-doc acceptance here is a record of the existing declaration and mapping,
+  not new enforcement; `.maestro/README.md` keeps the same structural checks as the
+  other declared documents.

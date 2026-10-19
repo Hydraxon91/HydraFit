@@ -3,7 +3,8 @@
 
 Usage: ui-journey-preflight.py CONTRACT --max-age-seconds SECONDS [--brief]
 Paths in artifacts/flows are absolute. Exit 0 clear, 2 findings, 125 invalid input.
---brief prints a deterministic Markdown declaration brief instead of JSON.
+--brief prints a stable Markdown declaration brief instead of JSON: fixed field
+format and order for fixed inputs and time, with baseline age varying with the clock.
 """
 import argparse
 import hashlib
@@ -200,7 +201,10 @@ def display(value):
 
 
 def brief(contract, now, errors):
-    """Deterministic declarations-only Markdown; no writes or timestamps beyond age."""
+    """Stable declarations-only Markdown: fixed format/order for fixed inputs and time.
+
+    No writes; the reported baseline age is the only time-dependent field.
+    """
     contract = contract if isinstance(contract, dict) else {}
     lines = [
         "# Prepared-journey preflight brief",

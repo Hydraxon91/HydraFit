@@ -507,9 +507,13 @@ Event JSON objects:
   out-of-scope paths or an expired budget prevent advancing to an active phase;
   recording `blocked` remains possible. Recording `complete` is bookkeeping rather
   than new work: an expired budget alone does not prevent it, but identity
-  mismatch, drift, pending outcomes and out-of-scope paths still do. It records
-  already-reconciled work after expiry; it does not authorize more. `begin` and
-  `boundary` continue to stop on expiry.
+  mismatch, drift, pending outcomes and out-of-scope paths still do. That check
+  covers identity, drift, pending outcomes and out-of-scope paths; it does not
+  reconcile evidence or require each acceptance check to be recorded. Evidence
+  remains operator-owned: inspect the referenced artifacts, and treat `boundary
+  --require-evidence` as the separate evidence gate. It records already-reconciled
+  work after expiry; it does not authorize more. `begin` and `boundary` continue to
+  stop on expiry.
 
 `resume` does not write. It reports expected/current drift, identity, pending ids
 as unknown outcomes, new out-of-scope dirty paths, the amended paths now in scope,

@@ -22,10 +22,12 @@ Use an explicitly accepted positive maximum baseline age, in seconds. JSON outpu
 `preflight_clear` and exit 0 mean declarations passed, not approval or device-state
 verification. Exit 2 lists findings; 125 reports invalid input/I/O (argument-parser
 errors use 2). Never execute the journey after a failed preflight. The JSON reports
-the contract version that was validated. `--brief` prints a deterministic Markdown
-handoff (status, declared scope, baseline observation time and age, shortened flow
-hashes, fixture facts, assertions, screenshots and any findings) instead of JSON,
-with the same exit codes; it is read-only and still declarations only.
+the contract version that was validated. `--brief` prints a stable Markdown handoff
+(status, declared scope, baseline observation time and age, shortened flow hashes,
+fixture facts, assertions, screenshots and any findings) instead of JSON, with the
+same exit codes. Field format and order are fixed for fixed inputs and time; the
+reported baseline age varies with the current clock. It is read-only and still
+declarations only.
 
 Required fields:
 - `version`: 1 or 2; `device`: exact running emulator serial; `build`: debug build identity.
