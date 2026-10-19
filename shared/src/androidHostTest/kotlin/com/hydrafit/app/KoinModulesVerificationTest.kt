@@ -259,7 +259,9 @@ class KoinModulesVerificationTest {
      *
      * The reset is only safe because [installMainDispatcher] runs first for the next test and no test
      * body touches `Dispatchers.Main` after this point: coroutines reports an unset Main the moment
-     * anything is dispatched to it, including after a reset.
+     * anything is dispatched to it, including after a reset. A test body that installs its own
+     * dispatcher must therefore drain it after closing its Koin graph and before resetting Main, so no
+     * scope-cancellation handler is still dispatching when the reset runs.
      */
     @AfterTest
     fun resetMainDispatcher() {
@@ -486,6 +488,9 @@ class KoinModulesVerificationTest {
             advanceUntilIdle()
         } finally {
             koin.close()
+            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
+            // reset, or the reset races a live Main dispatch and the next test inherits the leak.
+            advanceUntilIdle()
             Dispatchers.resetMain()
         }
     }
@@ -513,6 +518,9 @@ class KoinModulesVerificationTest {
             advanceUntilIdle()
         } finally {
             koin.close()
+            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
+            // reset, or the reset races a live Main dispatch and the next test inherits the leak.
+            advanceUntilIdle()
             Dispatchers.resetMain()
         }
     }
@@ -588,6 +596,9 @@ class KoinModulesVerificationTest {
             advanceUntilIdle()
         } finally {
             koin.close()
+            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
+            // reset, or the reset races a live Main dispatch and the next test inherits the leak.
+            advanceUntilIdle()
             Dispatchers.resetMain()
         }
     }
@@ -946,6 +957,9 @@ class KoinModulesVerificationTest {
             advanceUntilIdle()
         } finally {
             koin.close()
+            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
+            // reset, or the reset races a live Main dispatch and the next test inherits the leak.
+            advanceUntilIdle()
             Dispatchers.resetMain()
         }
     }
@@ -1050,6 +1064,9 @@ class KoinModulesVerificationTest {
             assertEquals(false, replacement.state.value.open)
         } finally {
             koin.close()
+            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
+            // reset, or the reset races a live Main dispatch and the next test inherits the leak.
+            advanceUntilIdle()
             Dispatchers.resetMain()
         }
     }
@@ -1061,7 +1078,8 @@ class KoinModulesVerificationTest {
      */
     @Test
     fun theProgressViewModelResolvesAtRuntime() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        val dispatcher = UnconfinedTestDispatcher()
+        Dispatchers.setMain(dispatcher)
         val koin = koinApplication {
             modules(
                 module {
@@ -1077,6 +1095,9 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<ProgressViewModel>())
         } finally {
             koin.close()
+            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
+            // reset, or the reset races a live Main dispatch.
+            dispatcher.scheduler.advanceUntilIdle()
             Dispatchers.resetMain()
         }
     }

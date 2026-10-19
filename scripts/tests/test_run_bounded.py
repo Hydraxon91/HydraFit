@@ -301,13 +301,17 @@ class RunBoundedTests(unittest.TestCase):
             with self.subTest(step=step, method=method):
                 result = self.tmp / f"log-failure-{step}-{method}.json"
                 ready = self.tmp / f"ready-{step}-{method}"
+                # The leader records the descendant's pid itself, straight after `Popen` returns, so
+                # readiness proves the descendant was spawned instead of depending on the grandchild
+                # being scheduled to run its own first statement. The descendant still ignores SIGTERM,
+                # so escalation to SIGKILL remains the claim under test.
                 child = (
-                    "import os,signal,time,pathlib,sys; signal.signal(signal.SIGTERM,signal.SIG_IGN); "
-                    "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(30)"
+                    "import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)"
                 )
                 leader = (
-                    "import subprocess,sys,time; "
-                    "subprocess.Popen([sys.executable,'-c',sys.argv[1],sys.argv[2]]); time.sleep(30)"
+                    "import pathlib,subprocess,sys,time; "
+                    "process = subprocess.Popen([sys.executable,'-c',sys.argv[1]]); "
+                    "pathlib.Path(sys.argv[2]).write_text(str(process.pid)); time.sleep(30)"
                 )
 
                 def injected_open(path, mode):
@@ -315,10 +319,14 @@ class RunBoundedTests(unittest.TestCase):
                     return FailingLog(handle, step, method) if mode == "w" else handle
 
                 with mock.patch.object(rb, "open", side_effect=injected_open, create=True):
+                    # Three seconds, not one: the setup spawns two nested interpreters and the
+                    # descendant must install its SIGTERM handler before the timeout fires. A
+                    # one-second window was observed to expire first under load, leaving the
+                    # readiness sentinel absent (recorded as a harness flake, not a wrapper defect).
                     code, out, _ = self.run_main(
-                        ["--result-json", str(result), "1", str(self.tmp / "diagnostics.log"), "--",
+                        ["--result-json", str(result), "3", str(self.tmp / "diagnostics.log"), "--",
                          sys.executable, "-c", leader, child, str(ready)])
-                self.assertTrue(ready.exists())
+                self.assertTrue(ready.exists(), "the leader must have spawned the descendant")
                 data = json.loads(result.read_text())
                 self.assertEqual(124, code)
                 self.assertTrue(data["sigkill"])
