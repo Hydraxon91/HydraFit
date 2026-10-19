@@ -3645,6 +3645,14 @@ Known pre-existing flake, not fixed and out of scope: `ExerciseProgressRecordsIn
 intermittently throws `cannot start a transaction within a transaction`; it passes in isolation and on
 a full rerun. Diagnosis: the progress repository's flow runs `transactionWithResult` and `first()`
 cancels it mid-transaction.
+Further tracing on 2026-10-19 (automation task A–D) found a second contributing dimension rather than
+a test defect: `ObserveOccurrenceRecordsUseCase` subscribes through `combine` to one
+`observeProgress` reader per exercise, and each reader opens `transactionWithResult` on the same
+single-connection driver, so two readers can hold that connection's transaction at once — the
+`first()` cancellation only widens the window. That makes the collision reachable from any consumer
+with two exercises, not just this test. Fixing it changes persistence concurrency (serialize the
+readers, limit their parallelism, or change the transaction shape), which is a design decision; it is
+escalated, not fixed, and recorded in `docs/agent-automation-status.md`.
 
 ## 0.10.1 — approved progression and stall-handling policies (OF-10A)
 

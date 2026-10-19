@@ -836,3 +836,152 @@ ordered fixture hand-built consistent data and could not exercise the invariant 
   behaved correctly. Held because B012-06 shows a real gap at the extension boundary.
 - **Unchanged and unmeasured:** `git-ops` 7.5, lease 8, UI preflight 6.5, validator 8.5.
 - **Guard pilot 3.5 — untouched.**
+
+## Automation hardening A–D (2026-10-19)
+
+One Authorized Autonomous Task covering four phases, accepted in chat on 2026-10-19: acceptance and
+authorization integrity (A), audited budget extensions (B), scoped formatting and delegation (C),
+and flake corrections (D). Base `93043d25`, branch `feature/0.10.1-progression-policies`, six-hour
+budget, state `automation-ad` under the agreed external root. Owners: main agent for A/B/D, `coder`
+for C. Local commits only; no publication. This entry is parent-owned evidence consolidation, not a
+reviewer verdict — the independent checkpoint for this task is recorded separately once it closes.
+
+### What was implemented
+
+- **A — acceptance is consumer-backed.** `docs/agent-project-reference.md` gains an *Acceptance and
+  authorization evidence* section: a criterion-to-consumer ledger, regression evidence that names
+  the assertion failing against the defect, missing verification that stays unverified unless the
+  user approves changed expectations, design findings that need the user's actual decision, and the
+  statement that a clear state boundary proves record consistency rather than permission. `AGENTS.md`,
+  `.opencode/commands/task.md` and `.opencode/commands/batch.md` reference it. The validator gained
+  `acceptance_workflow_findings`, with mutation scenarios covering each failure mode and one test
+  that demonstrates the structural-only boundary.
+- **B — audited budget extensions.** `scripts/task-state.py` accepts an `extend` event
+  (`add_seconds`, `approval_reference`, `reason`). The original `budget_seconds`, contract, baseline,
+  expected snapshot, operations and prior history stay intact; effective budget is the original plus
+  validated extensions and must stay finite. Extensions are refused while a record is `complete` or
+  `blocked`, permitted after expiry on nonterminal ones, and — deliberately — permitted while an outcome is
+  pending without resolving it or admitting new work. `resume` now reports original and effective
+  budget. Six regressions cover preservation, the expired-record path, rejection of invalid amounts
+  and terminal phases, tampering/overflow failing closed, and a test stating plainly that a fabricated
+  approval reference passes because the helper cannot authenticate consent.
+- **C — scoped formatting and delegation.** The repo-wide format pre-pass is replaced by a
+  module/source-set scoped one, with its source stated: `build.gradle.kts` applies the ktlint plugin to
+  every subproject, so a root `./gradlew ktlintFormat` is repo-wide. An ownership-delta rule (inspect
+  the diff; a path changed outside the approved chunk is a blocker to report, not to fix) and a
+  hard-stop delegation budget were added, plus `format_pass_findings` and five structural regressions.
+  The "no explicit maximum line length" claim was corrected to the effective 100-character limit:
+  `.editorconfig` selects `ktlint_code_style = android_studio` and sets no `max_line_length`, and that
+  code style defaults `max_line_length` to 100 in the bundled ktlint (1.5.0, verified in its
+  `MaxLineLengthEditorConfigProperty`), which is why diagnostics enforced a limit the docs denied.
+- **D — flake corrections.** See the dispositions below.
+
+### Findings
+
+- **B013-01 [contract, verified] — pre-enumerating mechanically-touched files worked.** Unlike
+  B010-02, B011-05 and B012-01, this contract's `allowed_paths` covered every file the work touched:
+  `resume` reported an empty `outside_allowed_paths` at every checkpoint and **no amendment was
+  needed**. The improvement those findings asked for (enumerate the consumers and version pins up
+  front) was applied at planning time here and the gate never had to catch anything.
+- **B013-02 [process, verified] — the unknown-outcome discipline handled a harness abort.** The phase
+  C delegation call was aborted by the harness before it returned a child session id. The parent did
+  not replay it: it recomputed the tracked binary diff and confirmed it was byte-identical to the
+  preserved pre-delegation baseline (`8e30aee7…` for both), resolved the attempt as `not-performed`
+  with that evidence, and re-issued under a fresh operation id. This is the first live exercise of the
+  "pending after interruption is unknown" rule against a *dropped tool call* rather than a process
+  kill.
+- **B013-03 [environment, confirmed] — the `patch` tool was unavailable mid-session.** A `patch` call
+  returned `Tool is not available for this request: patch` after earlier `patch` calls had succeeded,
+  so the parent switched to `write`/`edit`. No work was lost and no state was misreported; recorded
+  because a silently missing tool could otherwise look like a dropped call.
+- **B013-04 [flake, fixed] — the bounded-run readiness race.** The harness test's readiness sentinel
+  was written by the *grandchild*, so it depended on that process being scheduled inside a one-second
+  window; under load the window expired first. The leader now records the descendant's pid itself
+  immediately after `Popen` returns, making readiness deterministic once the leader runs, and the
+  window is three seconds — proportionate to a setup that spawns two nested interpreters. Escalation
+  to SIGKILL remains the claim under test. Verified: `test_run_bounded.py`, 17 tests OK.
+- **B013-05 [flake, fixed by trace] — the shared-test Main lifecycle.** Five `runTest` bodies and one
+  plain test installed their own Main dispatcher and reset it immediately after `koin.close()`, so a
+  scope-cancellation handler could still be dispatching to Main when the reset ran. That matches both
+  recorded symptoms: `Dispatchers.Main is used concurrently with setting it` in this class, and the
+  `UncaughtExceptionsBeforeTest` that surfaced in the *next* class as the victim of the leak. All six
+  sites now drain before resetting. **Not reproduced**: the fix is source-traced, and `:shared`
+  passes 273/273 in isolation either way, so it is disclosed as a trace-backed correction rather than
+  a reproduced-and-fixed one.
+- **B013-06 [flake, escalated — blocker] — the exercise-progress transaction collision is a product
+  question, not a test defect.** `ObserveOccurrenceRecordsUseCase` combines one `observeProgress`
+  reader per exercise, and each reader runs `transactionWithResult` on the same single-connection
+  driver, so two readers can hold that connection's transaction simultaneously; the `first()`
+  cancellation widens the window. That makes it reachable from any two-exercise consumer, and the
+  recorded diagnosis in `docs/qa.md` named only the cancellation half. Fixing it means deciding
+  persistence concurrency (serialize the readers, limit their parallelism, or change the transaction
+  shape), so it is **not fixed here**. Reproduction was not achieved and is not claimed; the mechanism
+  is source-traced against the recorded exception. Whether the production Android driver has the same
+  single-connection semantics is **unverified**.
+- **B013-07 [claim accuracy, fixed] — a doc claim contradicted observed behaviour.** Two files
+  asserted there is no maximum line length while diagnostics enforced 100 characters. The wording now
+  names the effective limit and its source. The old claim was the kind of unsourced assertion this
+  task exists to remove.
+- **B013-08 [verification, verified] — the scoped format pass was exercised live.** During D the
+  parent ran `:shared:ktlintAndroidHostTestSourceSetFormat` with the affected source set named; it
+  modified only the intended file, which the root invocation could not have guaranteed. That is the
+  first live use of the corrected guidance, not only a declaration.
+
+### Ratings at this boundary
+
+**Re-baseline note.** The starting values below are not always the last recorded boundary's, and that
+is stated rather than implied. On 2026-10-19 the user asked for a re-assessment of this tooling against
+the 0.10.1–0.10.2 evidence, and that review deliberately lowered several tools — batch workflow 9 → 6,
+task state 9 → 8, review discipline 9.5 → 9, `git-ops` 7.5 → 7 — because containment successes had been
+counted as execution successes. This entry adopts that re-based scale, so a value here can sit below
+the 2026-10-18 entry with no new failure behind it. A line that says "held" is held against the re-based
+value. "Acceptance completeness", "formatting workflow" and "publication controls" had no prior
+recorded number; their starting values are this entry's own re-based estimates, not continuations.
+
+- **Task state 8 → 8.5** (recorded 9 on 2026-10-18, re-based to 8). The extension event closes
+  B012-06's gap and the amendment/unknown-outcome guards held live again, including against a dropped
+  tool call. Not raised to 9: extensions are covered by regressions but were not needed in this run, so
+  the feature still lacks live use, and the helper still cannot authenticate an approval reference (a
+  test now says so explicitly).
+- **Acceptance completeness 5 → 6** (re-based starting estimate, no prior recorded number). A canonical
+  procedure and a structural check now exist, and the failure modes each have a named declaration.
+  Raised only one point because there is no live adoption yet: this is the *capability* to require
+  consumer evidence, not evidence that a future run will produce it.
+- **Formatting workflow 5 → 7** (re-based starting estimate, no prior recorded number). The scoping
+  claim is now source-backed, the ownership-delta rule is explicit, and the scoped invocation was used
+  live and touched only its target. Still short of a measured saving in correction rounds.
+- **Coder workflow 6.5 → 7.** Phase C was delivered inside its five declared paths with no crossing
+  edits, no cap breach, an honest declaration-only caveat and a self-reported environment quirk. The
+  brief and the report both improved on the earlier rounds.
+- **Publication controls 4 → 5** (re-based starting estimate, no prior recorded number). The
+  report-before-approval rule is in place and committed; it has not yet been exercised against a real
+  publication, so the demonstrated rating stays low.
+- **Bounded-run 9 → 9 (held).** The wrapper was not changed; its own test's race was. The unproven live
+  timeout containment remains the limit.
+- **Review discipline 9 → 9 (held, provisional; recorded 9.5 on 2026-10-18, re-based to 9).** This
+  task's own independent checkpoint and closure had not run when this entry was written; the rating is
+  not raised on the strength of this task's implementation.
+- **Batch workflow 6 → 6 (held; recorded 9 on 2026-10-18, re-based to 6).** The procedure improved, but
+  no batch has run under the new rules.
+- **Unchanged and unmeasured:** `git-ops` 7 (recorded 7.5, re-based to 7; provisional, still no
+  permission-prompt measurement), lease 8, UI preflight 6.5, validator 8.5 (it gained checks and
+  mutation tests but remains a structural checker).
+- **Guard pilot 3.5 — untouched.** Nothing in this task exercised it.
+
+### Verification at this boundary
+
+- Offline suite: **201 tests, OK** (`abcd-offline-suite-02.log`, run after the review corrections). The
+  baseline is **185** test methods at HEAD, not 196: `test_validate_tooling.py` went 29 → 39 (+10 — five
+  acceptance tests for A, one of which holds six mutation sub-scenarios, and five format-pass scenarios
+  for C) and `test_task_state.py` 34 → 40 (+6 extension regressions for B). The 196 measured mid-task was
+  the A+B intermediate, and an earlier version of this entry mislabelled it as the baseline. Validator:
+  13 definitions, 30 surface files, **0 findings**.
+- Harness suite: 17 tests OK (`d-runbounded-tests.log`).
+- `:shared:testAndroidHostTest --rerun-tasks`: **273 executed / 0 up-to-date**, zero failures
+  (`d-shared-tests.log`), after the scoped format pass `d-format-shared.log` — "5 actionable tasks:
+  3 executed, 1 from cache, 1 up-to-date" — which touched only the intended file.
+- Full matrix `--rerun-tasks`: **787 executed / 0 up-to-date**, exit 0, zero failures
+  (`abcd-matrix-01.log`) — clean on the first attempt, with none of the three flake classes appearing.
+- **Not established:** no live adoption of the acceptance ledger, the extension event or the
+  ownership-delta rule; no reproduction of B013-05 or B013-06; no emulator or device interaction; no
+  publication.
