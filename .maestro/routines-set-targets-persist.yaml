@@ -1,0 +1,40 @@
+# Contract and verification status: see README.md. Read-only persistence check: opens the
+# fixture routine and asserts the stored per-set summary. Requires the fixture routine
+# "HF UI accept per-set" to be present; it is created by the apply journey and archived by
+# the cleanup flow. Taps no Save and writes nothing.
+appId: com.hydrafit.app
+name: Routine per-set targets persist across reopen
+tags:
+  - smoke
+  - routines
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Routines$'
+- assertVisible: '^HF UI accept per-set$'
+- tapOn:
+    text: '^Edit$'
+    below: '^HF UI accept per-set$'
+    retryTapIfNoChange: false
+- assertVisible: '^Routine name$'
+- assertVisible: '.*Per-set targets: 3 sets.*'
+- assertVisible: '^Back Squat$'
+# Leave without touching Save. The editor's Cancel is below the slot; the validation
+# snackbar also offers a Cancel at the top, so the target is scoped by relation.
+- scrollUntilVisible:
+    element:
+      text: '^Cancel$'
+      below: '^Back Squat$'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: '^Cancel$'
+    below: '^Back Squat$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'

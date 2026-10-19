@@ -29,6 +29,7 @@ CREATE TABLE routineEntry (
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     progressionPolicy TEXT,
     setTargets TEXT,
+    superset TEXT,
     FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
 );
 
@@ -100,6 +101,9 @@ WHERE id = ?;
 
 lastInsertedEntryId:
 SELECT last_insert_rowid();
+
+setEntrySuperset:
+UPDATE routineEntry SET superset = ? WHERE workoutId = ? AND position = ?;
 
 setArchived:
 UPDATE routineTemplate SET archivedAtMillis = ? WHERE id = ?;

@@ -206,7 +206,11 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_duration
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_finished
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_note
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_pair_duration
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_pair_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_remaining
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_transition_duration
+import hydrafit.feature.logger.generated.resources.logger_rest_timer_transition_note
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_search_label
 import hydrafit.feature.logger.generated.resources.logger_seconds_label
@@ -226,6 +230,11 @@ import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_short_rest_coaching
 import hydrafit.feature.logger.generated.resources.logger_short_rest_dismiss
 import hydrafit.feature.logger.generated.resources.logger_skip
+import hydrafit.feature.logger.generated.resources.logger_superset_next
+import hydrafit.feature.logger.generated.resources.logger_superset_pair_note
+import hydrafit.feature.logger.generated.resources.logger_superset_resume_turn
+import hydrafit.feature.logger.generated.resources.logger_superset_skip_turn
+import hydrafit.feature.logger.generated.resources.logger_superset_unpair
 import hydrafit.feature.logger.generated.resources.logger_target_current_session
 import hydrafit.feature.logger.generated.resources.logger_target_label
 import hydrafit.feature.logger.generated.resources.logger_technique_considerations
@@ -452,6 +461,11 @@ fun WorkoutLoggerRoute(
         onConfirmGuidedSetNow = viewModel::confirmGuidedSetNow,
         onStartGuidedSet = viewModel::startGuidedSet,
         onEditGuidedSet = viewModel::editGuidedSet,
+        onSkipSupersetTurn = viewModel::skipSupersetTurn,
+        onResumeSupersetTurn = viewModel::resumeSupersetTurn,
+        onUnpairSuperset = viewModel::unpairSuperset,
+        nextGuidedEntryId = state.nextGuidedEntryId,
+        supersetSkippedEntryId = state.supersetSkippedEntryId,
         onRestDurationChanged = viewModel::onRestDurationChanged,
         onResetRestDuration = viewModel::resetExerciseRestDuration,
         onCancelRestTimer = viewModel::cancelRestTimer,
@@ -613,6 +627,11 @@ fun WorkoutLoggerScreen(
     onConfirmGuidedSetNow: (Long) -> Unit,
     onStartGuidedSet: (Long) -> Unit,
     onEditGuidedSet: (Long) -> Unit,
+    onSkipSupersetTurn: (Long) -> Unit = {},
+    onResumeSupersetTurn: () -> Unit = {},
+    onUnpairSuperset: (Long) -> Unit = {},
+    nextGuidedEntryId: Long? = null,
+    supersetSkippedEntryId: Long? = null,
     onRestDurationChanged: (String) -> Unit,
     onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
@@ -1209,6 +1228,8 @@ fun WorkoutLoggerScreen(
                         restTimer = state.restTimer,
                         restDurationSeconds = state.restDurationSeconds,
                         restDurationIsOverride = state.restDurationIsOverride,
+                        restDurationIsPairRest = state.restDurationIsPairRest,
+                        restDurationIsSupersetTransition = state.restDurationIsSupersetTransition,
                         onRestDurationChanged = onRestDurationChanged,
                         onResetRestDuration = onResetRestDuration,
                         onCancelRestTimer = onCancelRestTimer,
@@ -1220,7 +1241,12 @@ fun WorkoutLoggerScreen(
                         onEditSet = onEditGuidedSet,
                         onReplace = onReplaceOccurrenceEntry,
                         onInstructions = onGuidedInstructions,
-                        onLoadingCalculator = onGuidedLoadingCalculator
+                        onLoadingCalculator = onGuidedLoadingCalculator,
+                        nextEntryId = nextGuidedEntryId,
+                        skippedEntryId = supersetSkippedEntryId,
+                        onSkipTurn = onSkipSupersetTurn,
+                        onResumeTurn = onResumeSupersetTurn,
+                        onUnpair = onUnpairSuperset
                     )
                 }
             }
@@ -2504,6 +2530,8 @@ private fun GuidedWorkoutSection(
     restTimer: RestTimerState?,
     restDurationSeconds: String,
     restDurationIsOverride: Boolean,
+    restDurationIsPairRest: Boolean,
+    restDurationIsSupersetTransition: Boolean,
     onRestDurationChanged: (String) -> Unit,
     onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
@@ -2515,7 +2543,12 @@ private fun GuidedWorkoutSection(
     onEditSet: (Long) -> Unit,
     onReplace: (Long) -> Unit,
     onInstructions: (Long) -> Unit,
-    onLoadingCalculator: (GuidedExerciseProgress) -> Unit
+    onLoadingCalculator: (GuidedExerciseProgress) -> Unit,
+    nextEntryId: Long?,
+    skippedEntryId: Long?,
+    onSkipTurn: (Long) -> Unit,
+    onResumeTurn: () -> Unit,
+    onUnpair: (Long) -> Unit
 ) {
     Card {
         Column(
@@ -2564,9 +2597,16 @@ private fun GuidedWorkoutSection(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    stringResource(Res.string.logger_rest_timer_note),
+                    text = when {
+                        restDurationIsSupersetTransition ->
+                            stringResource(Res.string.logger_rest_timer_transition_note)
+                        restDurationIsPairRest ->
+                            stringResource(Res.string.logger_rest_timer_pair_note)
+                        else -> stringResource(Res.string.logger_rest_timer_note)
+                    },
                     style = MaterialTheme.typography.bodySmall
                 )
+                val supersetRest = restDurationIsPairRest || restDurationIsSupersetTransition
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2575,8 +2615,21 @@ private fun GuidedWorkoutSection(
                     OutlinedTextField(
                         value = restDurationSeconds,
                         onValueChange = onRestDurationChanged,
-                        label = { Text(stringResource(Res.string.logger_rest_timer_duration)) },
+                        label = {
+                            Text(
+                                stringResource(
+                                    when {
+                                        restDurationIsSupersetTransition ->
+                                            Res.string.logger_rest_timer_transition_duration
+                                        restDurationIsPairRest ->
+                                            Res.string.logger_rest_timer_pair_duration
+                                        else -> Res.string.logger_rest_timer_duration
+                                    }
+                                )
+                            )
+                        },
                         singleLine = true,
+                        readOnly = supersetRest,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f)
                     )
@@ -2584,7 +2637,7 @@ private fun GuidedWorkoutSection(
                         Text(stringResource(Res.string.logger_rest_timer_cancel))
                     }
                 }
-                if (restDurationIsOverride) {
+                if (restDurationIsOverride && !supersetRest) {
                     TextButton(onClick = onResetRestDuration) {
                         Text(stringResource(Res.string.logger_rest_timer_use_default))
                     }
@@ -2713,6 +2766,48 @@ private fun GuidedWorkoutSection(
                                 ),
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            exercise.superset?.let { group ->
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_superset_pair_note,
+                                        group.transitionSeconds,
+                                        group.pairRestSeconds
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                if (exercise.occurrenceEntryId == nextEntryId) {
+                                    Text(
+                                        text = stringResource(Res.string.logger_superset_next),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                Row {
+                                    if (skippedEntryId == exercise.occurrenceEntryId) {
+                                        TextButton(onClick = onResumeTurn) {
+                                            Text(
+                                                stringResource(
+                                                    Res.string.logger_superset_resume_turn
+                                                )
+                                            )
+                                        }
+                                    } else {
+                                        TextButton(
+                                            onClick = { onSkipTurn(exercise.occurrenceEntryId) },
+                                            enabled = !writeInProgress
+                                        ) {
+                                            Text(
+                                                stringResource(Res.string.logger_superset_skip_turn)
+                                            )
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { onUnpair(exercise.occurrenceEntryId) },
+                                        enabled = !writeInProgress
+                                    ) {
+                                        Text(stringResource(Res.string.logger_superset_unpair))
+                                    }
+                                }
+                            }
                             TargetExplanationDisclosure(
                                 key = exercise.occurrenceEntryId,
                                 explanation = exercise.explanation,

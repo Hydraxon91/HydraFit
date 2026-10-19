@@ -15,6 +15,11 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
             "Recorded slot reasoning requires a plan-level explanation record"
         }
         val queries = database.planHistoryQueries
+        plan.days.forEach { day ->
+            com.hydrafit.app.core.domain.routine.validateSupersets(
+                day.exercises.map { it.exerciseId to it.superset }
+            )
+        }
         queries.insertPlan(
             plan.engine.name,
             plan.acceptedAtMillis,
@@ -41,6 +46,13 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
                     progressionPolicy = exercise.progressionPolicy
                         ?.let(SlotProgressionPolicyJson::encode),
                     setTargets = exercise.setTargets?.let(SlotSetTargetsJson::encode)
+                )
+                queries.setEntrySuperset(
+                    superset = exercise.superset?.let(
+                        com.hydrafit.app.core.domain.routine.SupersetJson::encode
+                    ),
+                    dayId = dayId,
+                    position = position.toLong()
                 )
                 val recorded = exercise.explanation ?: return@forEachIndexed
                 val columns = recorded.toColumns()

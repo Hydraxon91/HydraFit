@@ -1329,6 +1329,30 @@ UTC instants with one row per set, keeps an absent load distinct from a recorded
 RFC 4180 and neutralizes a leading formula trigger, and has no column for notes or credentials, so
 there is nothing to redact. It cannot be restored, and the UI says so.
 
+### 1.23 Supersets: explicit groups, counted guidance (OF-10B)
+A slot may carry a workout-scoped `Superset(key, transitionSeconds, pairRestSeconds)`. The four
+prescription stores carry it through additive `59.sqm` (schema 60); backup format 24 and prescription
+interchange v5 port it. Validation rejects a group unless exactly two adjacent, distinct slots in one
+workout share an identical configuration, so a malformed or overlapping group never becomes a
+routine, plan, activation or occurrence. Legacy rows and pre-24 files stay unpaired rather than
+inventing a group.
+
+Guided logging alternates the pair by recorded working-set counts. It starts transition rest while
+the partner still owes the same round and pair rest after a completed round; a zero-second
+transition starts no timer. Skipping a turn records nothing and is cleared by the next write;
+unpairing is session-local and leaves the frozen occurrence and recorded sets untouched. Grouping
+contributes nothing to fatigue or progression formulas.
+
+A capability-changing swap (for example external to bodyweight) clears the slot's ordered targets in
+the same transaction: targets encode a load shape, and carrying external weights onto a bodyweight
+slot would misdescribe it. A same-kind swap keeps them.
+
+Planner pairing is opt-in and applies after any engine in `GenerateWeeklySplitUseCase`, so all
+engines behave the same. It groups only already-selected adjacent curated biceps/triceps isolation
+slots, never reorders, adds or re-prescribes, and leaves an existing manual group alone. The curated
+set excludes custom exercises and close-grip bench press, which the catalog classifies as a compound
+`HORIZONTAL_PUSH` rather than an isolation pattern.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

@@ -21,7 +21,6 @@ import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
-import com.hydrafit.app.core.domain.backup.SET_TARGETS_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
 import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
@@ -49,6 +48,45 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightBackupRepositoryTest {
+
+    @Test
+    fun authoredSupersetSurvivesRepositoryExportAndWholeRestore() = runTest {
+        val pair = com.hydrafit.app.core.domain.routine.Superset("arms", 10, 120)
+        val routines = SqlDelightRoutineTemplateRepository(database)
+        val id = routines.save(
+            com.hydrafit.app.core.domain.routine.RoutineTemplate(
+                name = "Pairs",
+                workouts = listOf(
+                    com.hydrafit.app.core.domain.routine.RoutineWorkout(
+                        name = "Day",
+                        entries = listOf("barbell-curl", "dumbbell-curl").mapIndexed {
+                                index,
+                                exercise
+                            ->
+                            com.hydrafit.app.core.domain.routine.RoutineEntry(
+                                position = index,
+                                exerciseId = exercise,
+                                sets = 3,
+                                reps = 10,
+                                superset = pair
+                            )
+                        }
+                    )
+                )
+            )
+        )
+        val original = requireNotNull(routines.get(id))
+        val exported = repository.export("dev", 1)
+        BackupValidator(SqlDelightBackupCatalog()).validate(exported)
+        repository.restore(exported)
+        assertEquals(original, routines.get(id))
+        assertEquals(
+            listOf(pair, pair),
+            routines.get(id)?.workouts?.single()?.entries?.map {
+                it.superset
+            }
+        )
+    }
 
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var database: HydraFitDatabase
@@ -104,7 +142,7 @@ class SqlDelightBackupRepositoryTest {
         val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
         repository.restore(exported)
 
-        assertEquals(SET_TARGETS_FORMAT_VERSION, exported.formatVersion)
+        assertEquals(BACKUP_FORMAT_VERSION, exported.formatVersion)
         val restored = database.routineTemplateQueries.selectEntriesForWorkout(workoutId)
             .executeAsOne()
         assertEquals(encoded, restored.setTargets)

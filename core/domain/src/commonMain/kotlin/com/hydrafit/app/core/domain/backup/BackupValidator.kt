@@ -42,6 +42,18 @@ import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
  */
 class BackupValidator(private val catalog: BackupCatalog) {
 
+    private fun checkSupersets(entries: List<Pair<String, String?>>) {
+        try {
+            com.hydrafit.app.core.domain.routine.validateSupersets(
+                entries.map { (id, encoded) ->
+                    id to encoded?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode)
+                }
+            )
+        } catch (_: IllegalArgumentException) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+    }
+
     fun prepareForRestore(file: BackupFile): BackupFile =
         file.withNonConflictingEquipment(catalog.builtInEquipmentIds()).also { validate(it) }
 
@@ -89,6 +101,25 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.planEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
         file.activationEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
         file.occurrenceEntries.forEach { checkOrderedTargets(it.sets, it.setTargets) }
+        val supersetValues = file.routineEntries.map { it.superset } +
+            file.planEntries.map { it.superset } +
+            file.activationEntries.map { it.superset } +
+            file.occurrenceEntries.map { it.superset }
+        if (file.formatVersion < SUPERSET_FORMAT_VERSION && supersetValues.any { it != null }) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        file.routineEntries.groupBy { it.workoutId }.values.forEach { entries ->
+            checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
+        }
+        file.planEntries.groupBy { it.dayId }.values.forEach { entries ->
+            checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
+        }
+        file.activationEntries.groupBy { it.workoutId }.values.forEach { entries ->
+            checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
+        }
+        file.occurrenceEntries.groupBy { it.occurrenceId }.values.forEach { entries ->
+            checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
+        }
         if (file.formatVersion < SETUP_FORMAT_VERSION &&
             (file.setup != BackupSetupRecord() || file.preferredWeekdays != null)
         ) {

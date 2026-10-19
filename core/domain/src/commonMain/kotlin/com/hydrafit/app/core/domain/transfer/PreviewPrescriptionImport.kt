@@ -160,11 +160,21 @@ object PreviewPrescriptionImport {
                         loadKind = kind,
                         progressionPolicy = entry.progressionPolicy
                             ?.let(SlotProgressionPolicyJson::decode),
-                        setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode)
+                        setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode),
+                        superset = entry.superset?.let(
+                            com.hydrafit.app.core.domain.routine.SupersetJson::decode
+                        )
                     )
                 }
                 // A slot whose identity is unresolved would be dropped; that blocks import above.
                 if (entries.size != workout.entries.size) return@mapNotNull null
+                try {
+                    com.hydrafit.app.core.domain.routine.validateSupersets(
+                        entries.map { it.exerciseId to it.superset }
+                    )
+                } catch (_: IllegalArgumentException) {
+                    throw PrescriptionException(PrescriptionFailure.INVALID_VALUE)
+                }
                 RoutineWorkout(
                     position = 0,
                     name = workout.name,

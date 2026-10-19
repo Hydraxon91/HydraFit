@@ -102,7 +102,19 @@ class SubstituteExerciseUseCase(
             movementPattern = chosen.movementPattern,
             suggestedWeightKg = weight,
             loadCapability = chosen.loadCapability,
-            loadKind = kind
+            loadKind = kind,
+            // A swap re-prescribes only the exercise. The user-approved rule and ordered targets are
+            // slot configuration, not exercise properties, and must survive the swap unchanged.
+            progressionPolicy = context.entry.progressionPolicy,
+            // Ordered targets are load-shape-specific: a capability change (for example external to
+            // bodyweight) must not carry external per-set loads onto the new slot. The repository
+            // clears the stored column on the same kind change.
+            setTargets = context.entry.setTargets.takeIf {
+                kind == context.entry.loadKind
+            },
+            // A swap re-prescribes only this slot; the frozen pair is rest configuration, not an
+            // exercise property, so it stays with the slot the user paired.
+            superset = context.entry.superset
         )
     }
 

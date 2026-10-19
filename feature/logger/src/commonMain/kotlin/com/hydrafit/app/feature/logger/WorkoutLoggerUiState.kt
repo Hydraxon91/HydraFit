@@ -317,6 +317,13 @@ data class WorkoutLoggerUiState(
     /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */
     val guidedProgress: GuidedWorkoutProgress? = null,
     /**
+     * One paired turn the user explicitly skipped. It records no set and satisfies no target, and is
+     * cleared after the next guided write so the outstanding member is selected again.
+     */
+    val supersetSkippedEntryId: Long? = null,
+    /** Pair keys unpaired for this workout only; stored prescriptions and recorded sets are untouched. */
+    val supersetUnpairedKeys: Set<String> = emptySet(),
+    /**
      * The active occurrence's optional warm-up guidance, or null when no workout is active. Derived
      * from the frozen occurrence; shown only while guided mode is active and the user has not hidden it.
      */
@@ -362,6 +369,13 @@ data class WorkoutLoggerUiState(
     val restDurationSeconds: String = "120",
     /** True when the current exercise uses an explicit rest-duration override. */
     val restDurationIsOverride: Boolean = false,
+    /**
+     * True when the active rest prompt came from a superset override. Its duration is pair rest, not a
+     * per-exercise preference, so the field is read-only and editing it must never write an override.
+     */
+    val restDurationIsPairRest: Boolean = false,
+    /** True when the active prompt is the short transition between paired members. */
+    val restDurationIsSupersetTransition: Boolean = false,
     /** A pending explicit load decision for legacy drafts, or null when none is waiting. */
     val legacyResolution: LegacyResolution? = null,
     val todayFocus: SplitFocus? = null,
@@ -411,6 +425,16 @@ data class WorkoutLoggerUiState(
         get() = guidedEnabled && guidedProgress != null
 
     /**
+     * The entry the guided workflow recommends next, alternating paired members by recorded working
+     * sets. Null when every slot is complete or actively skipped.
+     */
+    val nextGuidedEntryId: Long?
+        get() = guidedProgress?.nextExercise(
+            skippedEntryIds = supersetSkippedEntryId?.let(::setOf) ?: emptySet(),
+            unpairedKeys = supersetUnpairedKeys
+        )?.occurrenceEntryId
+
+    /**
      * True when replacement is available for [entryId]: its slot holds no recorded work and it is not
      * the currently started slot. An untouched later slot stays replaceable.
      */
@@ -448,6 +472,10 @@ data class WorkoutLoggerUiState(
         get() = restDurationSeconds.toLongOrNull()?.let {
             it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
         } == true
+
+    /** False while the prompt is pair rest: editing the field would write a per-exercise override. */
+    val restDurationIsEditable: Boolean
+        get() = !restDurationIsPairRest && !restDurationIsSupersetTransition
 
     /**
      * The open session a backdated set would attach to, or null when logging will start a new one.
@@ -499,3 +527,23 @@ data class WorkoutLoggerUiState(
             exercises.filter { matchesExerciseNameQuery(it.name, exerciseSearch) }
         }
 }
+
+/**
+ * The rest-duration state after a prompt starts. A superset override is pair rest, so it never also
+ * counts as a per-exercise override.
+ */
+internal fun WorkoutLoggerUiState.withRestStarted(
+    seconds: Long,
+    hasExerciseOverride: Boolean,
+    fromPairOverride: Boolean,
+    fromTransition: Boolean = false
+): WorkoutLoggerUiState = copy(
+    restDurationSeconds = seconds.toString(),
+    restDurationIsOverride = hasExerciseOverride,
+    restDurationIsPairRest = fromPairOverride && !fromTransition,
+    restDurationIsSupersetTransition = fromTransition
+)
+
+/** Clears the superset rest label when its prompt is dismissed or otherwise ends. */
+internal fun WorkoutLoggerUiState.withRestCleared(): WorkoutLoggerUiState =
+    copy(restDurationIsPairRest = false, restDurationIsSupersetTransition = false)

@@ -12,6 +12,17 @@ rather than counted as zero reps, and performed timed sets do not enter rep-deri
 inputs. Informational soreness/exhaustion storage is deferred; do not infer that the existing
 fatigue-based skip/reduce behavior consumes user reports.
 
+## Curated planner superset pairing (0.10.3)
+
+`PlanRequest.plannerSupersetPreference` is null by default; a non-null
+`PlannerSupersetPreference(transitionSeconds, pairRestSeconds)` opts in. `GenerateWeeklySplitUseCase`
+applies `PlannerSupersetPairing` after the selected engine returns, so deterministic, Gemini and
+local-LLM output follow one rule. Only already-selected **adjacent** curated biceps/triceps isolation
+slots are grouped; nothing is reordered, added or re-prescribed, and an already-paired slot is left
+alone. Custom exercises and `close-grip-bench-press` are excluded (the catalog classifies it as a
+compound `HORIZONTAL_PUSH`, not an isolation pattern). Grouping never changes fatigue or
+progression inputs. Accepted plans copy the frozen group through `AcceptWeeklyPlanUseCase`.
+
 ## Confirmed planning dates (decay-only projection)
 
 SplitBuilder's separate date editor lets the user confirm the exact next N workout civil dates

@@ -29,6 +29,7 @@ CREATE TABLE planHistoryEntry (
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     progressionPolicy TEXT,
     setTargets TEXT,
+    superset TEXT,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -68,6 +69,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
 
+setEntrySuperset:
+UPDATE planHistoryEntry SET superset = ? WHERE dayId = ? AND position = ?;
+
 selectEntriesForDay:
 SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
 
@@ -76,6 +80,16 @@ UPDATE planHistoryEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
 
 countEntriesForExercise:
 SELECT COUNT(*) FROM planHistoryEntry WHERE exerciseId = ?;
+
+selectEntryLoadKindAtPosition:
+SELECT loadKind FROM planHistoryEntry
+WHERE position = :position
+  AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
+
+clearEntrySetTargetsAtPosition:
+UPDATE planHistoryEntry SET setTargets = NULL
+WHERE position = :position
+  AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 
 updateEntryExerciseIdAtPosition:
 UPDATE planHistoryEntry

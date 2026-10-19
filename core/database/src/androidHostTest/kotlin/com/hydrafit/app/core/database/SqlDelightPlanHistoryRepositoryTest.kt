@@ -663,6 +663,50 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertNull(slot.durationSeconds)
     }
 
+    @Test
+    fun substituteClearsOrderedTargetsWhenTheLoadKindChanges() = runTest {
+        val targets = com.hydrafit.app.core.domain.engine.SlotSetTargets.of(
+            listOf(
+                com.hydrafit.app.core.domain.engine.SetTarget(
+                    reps = 8,
+                    loadKind = LoadKind.EXTERNAL,
+                    weightKg = 60.0
+                )
+            )
+        )
+        val original = plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L).let { plan ->
+            plan.copy(
+                days = plan.days.map { day ->
+                    day.copy(
+                        exercises = day.exercises.map {
+                            if (it.exerciseId == "overhead-press") {
+                                it.copy(setTargets = targets)
+                            } else {
+                                it
+                            }
+                        }
+                    )
+                }
+            )
+        }
+        repository.accept(original)
+        val accepted = requireNotNull(repository.latest())
+
+        repository.substitute(
+            planId = accepted.id,
+            dayIndex = 0,
+            position = 1,
+            newExerciseId = "push-up",
+            newExerciseName = "Push-up",
+            newWeightKg = null,
+            newLoadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY,
+            newLoadKind = LoadKind.BODYWEIGHT
+        )
+
+        // External ordered targets cannot describe a bodyweight slot; the stored column is cleared.
+        assertNull(repository.latest()!!.days.first().exercises[1].setTargets)
+    }
+
     private fun plan(
         engine: PlannerEngineId,
         acceptedAt: Long,

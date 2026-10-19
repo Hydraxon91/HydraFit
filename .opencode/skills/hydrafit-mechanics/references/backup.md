@@ -3,8 +3,13 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 23), restored by whole replacement.
-The reader accepts versions 1–23; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 24), restored by whole replacement.
+The reader accepts versions 1–24; version 1 defaults the guided-workout preference to off.
+Format 24 adds a prescription slot's explicit two-entry superset membership and user-configured
+transition/pair rest (`superset` on the same four entry kinds). A pre-24 file must not carry one;
+a present value must decode, and each workout's group must be exactly two adjacent distinct slots
+with identical settings. Formats 1–23 restore every slot unpaired. Prescription interchange v5
+carries the same value, and v1–v4 must not.
 Format 23 adds a prescription slot's ordered per-set targets (`setTargets` on the same four
 entry kinds) and permits a format-3 recorded target that carries a slot index and a
 prescribed RIR. A pre-23 file must not carry either, an ordered list must decode, and its

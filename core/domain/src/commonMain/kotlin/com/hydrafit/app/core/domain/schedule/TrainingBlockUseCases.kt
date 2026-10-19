@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.schedule
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplateException
+import com.hydrafit.app.core.domain.routine.validateSupersets
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
@@ -257,50 +258,88 @@ class EditUnstartedOccurrenceUseCase(
         if (drafts.isEmpty()) throw ScheduleException("A workout needs at least one exercise")
 
         val byId = catalog.all().associateBy { it.id }
-        val entries = drafts.mapIndexed { index, draft ->
-            try {
-                PrescriptionBounds.validate(
-                    draft.sets,
-                    draft.reps,
-                    draft.durationSeconds,
+        val entries = preserveUnchangedSupersets(
+            existing = occurrence.entries,
+            rebuilt = drafts.mapIndexed { index, draft ->
+                try {
+                    PrescriptionBounds.validate(
+                        draft.sets,
+                        draft.reps,
+                        draft.durationSeconds,
+                        draft.weightKg
+                    )
+                } catch (error: RoutineTemplateException) {
+                    throw ScheduleException(error.message ?: "Invalid prescription")
+                }
+                val exercise = byId[draft.exerciseId]
+                    ?: throw ScheduleException("That exercise no longer exists")
+                val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
+                    exercise.loadCapability,
+                    draft.loadKind,
                     draft.weightKg
                 )
-            } catch (error: RoutineTemplateException) {
-                throw ScheduleException(error.message ?: "Invalid prescription")
+                // An edit re-prescribes the slot; the approved rule and the ordered targets travel with
+                // the same exercise rather than being silently discarded by a sets/reps change. Ordered
+                // targets are kept only when the slot still prescribes the same number of sets, because
+                // the list and the count are one value. Pairing is restored below, and only when both
+                // members are unchanged and still adjacent.
+                val existing = occurrence.entries.firstOrNull { it.exerciseId == draft.exerciseId }
+                val preservedTargets = existing?.setTargets?.takeIf { it.sets == draft.sets }
+                OccurrenceEntry(
+                    sourceActivationEntryId = null,
+                    position = index,
+                    exerciseId = draft.exerciseId,
+                    exerciseName = exercise.name,
+                    movementPattern = exercise.movementPattern,
+                    requiredEquipment = exercise.requiredEquipment,
+                    involvements = exercise.effectiveInvolvements,
+                    isUnilateral = exercise.isUnilateral,
+                    sets = draft.sets,
+                    reps = draft.reps,
+                    durationSeconds = draft.durationSeconds,
+                    weightKg = weightKg,
+                    loadCapability = exercise.loadCapability,
+                    loadKind = kind,
+                    progressionPolicy = existing?.progressionPolicy,
+                    setTargets = preservedTargets
+                )
             }
-            val exercise = byId[draft.exerciseId]
-                ?: throw ScheduleException("That exercise no longer exists")
-            val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
-                exercise.loadCapability,
-                draft.loadKind,
-                draft.weightKg
-            )
-            // An edit re-prescribes the slot; the approved rule and the ordered targets travel with the
-            // same exercise rather than being silently discarded by a sets/reps change. Ordered
-            // targets are kept only when the slot still prescribes the same number of sets, because
-            // the list and the count are one value.
-            val existing = occurrence.entries.firstOrNull { it.exerciseId == draft.exerciseId }
-            val preservedTargets = existing?.setTargets?.takeIf { it.sets == draft.sets }
-            OccurrenceEntry(
-                sourceActivationEntryId = null,
-                position = index,
-                exerciseId = draft.exerciseId,
-                exerciseName = exercise.name,
-                movementPattern = exercise.movementPattern,
-                requiredEquipment = exercise.requiredEquipment,
-                involvements = exercise.effectiveInvolvements,
-                isUnilateral = exercise.isUnilateral,
-                sets = draft.sets,
-                reps = draft.reps,
-                durationSeconds = draft.durationSeconds,
-                weightKg = weightKg,
-                loadCapability = exercise.loadCapability,
-                loadKind = kind,
-                progressionPolicy = existing?.progressionPolicy,
-                setTargets = preservedTargets
-            )
+        )
+        try {
+            validateSupersets(entries.map { it.exerciseId to it.superset })
+        } catch (error: IllegalArgumentException) {
+            throw ScheduleException(error.message ?: "A superset would no longer be valid")
         }
         scheduleRepository.replaceOccurrenceEntries(occurrenceId, entries)
         scheduleRepository.updateOccurrence(occurrence.copy(revision = occurrence.revision + 1))
     }
+}
+
+/**
+ * Restores a stored pair onto the rebuilt entries only when both of its members are still present,
+ * unchanged, and adjacent. A replaced or moved member drops the whole pair rather than leaving one
+ * slot paired with nothing, which the routine and activation validators would reject.
+ *
+ * Duplicate exercise ids make membership ambiguous, so such a workout keeps no pairs; the user can
+ * re-pair explicitly.
+ */
+internal fun preserveUnchangedSupersets(
+    existing: List<OccurrenceEntry>,
+    rebuilt: List<OccurrenceEntry>
+): List<OccurrenceEntry> {
+    if (rebuilt.map { it.exerciseId }.toSet().size != rebuilt.size) return rebuilt
+    val result = rebuilt.toMutableList()
+    val groups = existing.mapNotNull { it.superset }.distinctBy { it.key }
+    groups.forEach { group ->
+        val memberIds = existing.filter { it.superset?.key == group.key }
+            .map { it.exerciseId }
+            .distinct()
+        if (memberIds.size != 2) return@forEach
+        val first = rebuilt.indexOfFirst { it.exerciseId == memberIds[0] }
+        val second = rebuilt.indexOfFirst { it.exerciseId == memberIds[1] }
+        if (first < 0 || second < 0 || kotlin.math.abs(first - second) != 1) return@forEach
+        result[first] = result[first].copy(superset = group)
+        result[second] = result[second].copy(superset = group)
+    }
+    return result
 }

@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.PlannerSupersetPreference
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -179,6 +180,30 @@ class SplitBuilderViewModel(
     fun onAccessorySetsPerExerciseChanged(setsPerExercise: Int) {
         this.accessorySetsPerExercise.value = setsPerExercise
         _state.update { it.copy(accessorySetsPerExercise = setsPerExercise) }
+    }
+
+    // --- Curated planner superset pairing ---
+
+    fun onPlannerSupersetEnabledChanged(enabled: Boolean) {
+        _state.update { it.copy(plannerSupersetEnabled = enabled, canRegenerate = true) }
+    }
+
+    fun onPlannerSupersetTransitionChanged(seconds: String) {
+        _state.update {
+            it.copy(
+                plannerSupersetTransitionSeconds = seconds.filterDigits(),
+                canRegenerate = true
+            )
+        }
+    }
+
+    fun onPlannerSupersetPairRestChanged(seconds: String) {
+        _state.update {
+            it.copy(
+                plannerSupersetPairRestSeconds = seconds.filterDigits(),
+                canRegenerate = true
+            )
+        }
     }
 
     // --- Automatic per-set opt-in ---
@@ -416,6 +441,17 @@ class SplitBuilderViewModel(
     ).first()
 
     private fun startGeneration(inputs: WorkoutPlanInputs) {
+        // An enabled pairing opt-in with invalid rest must not become a request with pairing dropped:
+        // the screen already shows the field error, and Generate simply waits for valid values.
+        if (
+            plannerSupersetGenerationBlocked(
+                enabled = _state.value.plannerSupersetEnabled,
+                transitionSeconds = _state.value.plannerSupersetTransitionSeconds,
+                pairRestSeconds = _state.value.plannerSupersetPairRestSeconds
+            )
+        ) {
+            return
+        }
         lastRequest = inputs.request
         generationJob?.cancel()
         generationJob = viewModelScope.launch { generate(inputs) }
@@ -794,7 +830,13 @@ class SplitBuilderViewModel(
     }
 
     private suspend fun generate(inputs: WorkoutPlanInputs) {
-        val request = inputs.request
+        val request = inputs.request.copy(
+            plannerSupersetPreference = plannerSupersetPreference(
+                enabled = _state.value.plannerSupersetEnabled,
+                transitionSeconds = _state.value.plannerSupersetTransitionSeconds,
+                pairRestSeconds = _state.value.plannerSupersetPairRestSeconds
+            )
+        )
         val fingerprint = fingerprintOf(request, exerciseCatalog.all())
         currentCoroutineContext().ensureActive()
         val canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
@@ -996,6 +1038,7 @@ class SplitBuilderViewModel(
             request.setsPerExercise,
             request.accessorySetsPerExercise,
             request.automaticSetPrescription,
+            request.plannerSupersetPreference,
             request.recentExerciseIdsByPattern.entries
                 .sortedBy { it.key.name }
                 .map { it.key to it.value.sorted() },
@@ -1044,3 +1087,36 @@ private fun PlanningDatesState.withPlanningPreview(
 /** Values known to satisfy the automatic-prescription rule, used only to isolate one failing field. */
 private const val VALID_AUTOMATIC_MIN_REPS = 8
 private const val VALID_AUTOMATIC_MAX_REPS = 12
+
+/**
+ * The pairing preference to send with a request, or null to leave the generated days untouched.
+ *
+ * A non-numeric, negative or out-of-range value disables pairing rather than sending a guess: the
+ * user's own numbers are the only acceptable rest values, and the screen surfaces the invalid field.
+ */
+internal fun plannerSupersetPreference(
+    enabled: Boolean,
+    transitionSeconds: String,
+    pairRestSeconds: String
+): PlannerSupersetPreference? {
+    if (!enabled) return null
+    val transition = transitionSeconds.trim().toIntOrNull() ?: return null
+    val pairRest = pairRestSeconds.trim().toIntOrNull() ?: return null
+    return runCatching {
+        PlannerSupersetPreference(transition, pairRest).also { it.requireValid() }
+    }.getOrNull()
+}
+
+/** Keeps a rest field numeric and bounded in length; invalid input is never silently coerced. */
+internal fun String.filterDigits(): String = filter { it.isDigit() }.take(5)
+
+/**
+ * True when an enabled pairing opt-in still holds invalid rest, so Generate must not start a
+ * request that silently sends pairing disabled. The screen already shows the localized field error.
+ */
+internal fun plannerSupersetGenerationBlocked(
+    enabled: Boolean,
+    transitionSeconds: String,
+    pairRestSeconds: String
+): Boolean =
+    enabled && plannerSupersetPreference(enabled, transitionSeconds, pairRestSeconds) == null

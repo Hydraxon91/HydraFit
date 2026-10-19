@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.workout.LoadKind
 
@@ -89,7 +90,8 @@ data class AcceptedExercise(
     /** The slot's approved progression policy, or null when the user has not configured one. */
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
-    val setTargets: SlotSetTargets? = null
+    val setTargets: SlotSetTargets? = null,
+    val superset: Superset? = null
 ) {
     init {
         require((reps == null) != (durationSeconds == null)) {
@@ -138,7 +140,8 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     loadCapability = exercise.loadCapability,
                     explanation = exercise.explanation,
                     progressionPolicy = exercise.progressionPolicy,
-                    setTargets = exercise.setTargets
+                    setTargets = exercise.setTargets,
+                    superset = exercise.superset
                 )
             }
         )

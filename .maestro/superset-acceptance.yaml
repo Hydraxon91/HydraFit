@@ -1,0 +1,59 @@
+appId: com.hydrafit.app
+---
+# Prepared acceptance journey for the 0.10.3 superset authoring surface.
+# It adds an exercise in-memory, pairs the first two slots, checks the dialog and summary,
+# then cancels the editor so no routine is persisted.
+- launchApp:
+    clearState: false
+    stopApp: false
+- tapOn: "Routines"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Edit"
+    index: 0
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Add exercise"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Add exercise"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Barbell Curl"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Barbell Curl"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      text: "Superset with next"
+    direction: UP
+    timeout: 10000
+- assertVisible: "Superset with next"
+- tapOn: "Superset with next"
+- assertVisible: "Pair with next exercise"
+- assertVisible: "Transition (seconds)"
+- assertVisible: "Rest after the pair (seconds)"
+- tapOn: "Apply"
+- assertVisible:
+    text: "Pair: .*"
+- assertVisible: "Remove pair"
+- scrollUntilVisible:
+    element:
+      text: "Cancel"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Cancel"
+- waitForAnimationToEnd
+- assertVisible: "Routines"
+# Downstream check: the discarded pair must not have been stored.
+- tapOn:
+    text: "Edit"
+    index: 0
+- waitForAnimationToEnd
+- assertVisible: "Back Squat"
+- assertNotVisible: "Remove pair"
+- assertNotVisible: "Barbell Curl"
+- pressKey: back

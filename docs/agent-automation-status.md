@@ -161,9 +161,11 @@ boundaries.
 1. **Wire task-state into `/batch`** plus one real process-kill interruption
    test (instead of the simulated acknowledgement loss) — the tool with the
    best live evidence is unused by the batch runner.
-2. **Guard: decide the shell-boundary policy**, then verify in a real model
-   loop before any reliance; keep it a pilot until then. Current boundary is
-   documented, not fixed.
+2. **Guard: the shell-boundary decision is made — it is not a safety boundary.** Recorded
+   2026-10-19: the pilot stays inactive and nothing may rely on it for containment or authorization,
+   because its shell bypass is proven and its model-loop and cancellation behaviour is unverified.
+   Reopen only with a concrete threat model that justifies verifying those paths; do not grow it to
+   look like enforcement.
 3. **Lease: run one supervised parallel two-coder chunk** to exercise
    `lease.py` in live fire.
 4. **Measure Git permission prompts** during this batch and record the delta
@@ -1172,3 +1174,128 @@ B015-01.
 - **Not established:** no on-device acceptance of the release build, by design — the development
   emulator stays on debug builds and a release APK is never installed on it. No emulator interaction
   occurred during this publication.
+
+## Guidance hardening: state location, trust boundary, measurement (2026-10-19)
+
+A bounded Authorized Autonomous Task covering items 3–6 of the post-publication review. Base
+`78f9c857`, three-hour budget, main-agent ownership, state `hardening-3-6`. Local commits only.
+
+### What was implemented
+
+- **State location and record span (B015-01, B015-02).** The rule now reads "outside the checkout and
+  Git directory **and not under a temporary directory**" wherever the state directory is chosen —
+  `AGENTS.md`, `.opencode/commands/task.md`, `.opencode/commands/batch.md` and the reference.
+  `scripts/task-state.py` detects a temporary location, warns at `init` and reports
+  `state_directory_temporary` in `resume` and `boundary`. It is deliberately a **warning, not a
+  refusal**, and it does not affect `reconciliation_needed`: a short-lived record may legitimately
+  live in a temporary directory, so the helper must not block it. The batch lifecycle also now states
+  that the record stays non-terminal until the publication it gates is recorded.
+- **Trust boundary (item 4, decided not built).** The guard is documented in the reference and the
+  task command as **not a safety boundary** — proven shell bypass, unverified model loop and
+  cancellation — so no rule, run or review may rely on it for containment or authorization. Nothing
+  was enabled and nothing was deleted.
+- **Measurement (items 5 and 6).** The batch boundary now carries two counts: permission prompts
+  observed for delegated runs, and the chunk's correction-round count, with an observation that was
+  not made recorded as unknown rather than zero. `git-ops` reports the prompts its own operation
+  raised. The reference and `coder.md` state that the format pass and the lint check run as
+  **separate invocations**, because one invocation can report a violation the pass has already fixed.
+
+### Findings
+
+- **B016-01 [state location, verified] — the task practised the rule it was fixing.** This task's own
+  state directory is `~/.local/state/hydrafit-agent-state`, outside the checkout and not under a
+  temporary directory, and `resume` reports `state_directory_temporary: false`. B015-01 and B015-02
+  are addressed; the eviction that motivated them cannot recur through the same path.
+- **B016-02 [authoring, confirmed] — the trailing-newline edit hazard recurred, and this time it
+  broke a Python file.** An edit whose `oldString` ended in a newline joined two statements in
+  `scripts/validate-agent-tooling.py` into one line, a syntax error caught immediately by the suite.
+  It happened twice in this task and twice in the task that recorded B012-07, so the hazard has now
+  been observed four times; this is the first time it broke executable code rather than prose, which
+  makes it demonstrably not a Markdown-only nuisance.
+- **B016-03 [test design, confirmed] — the new mutation test was wrong in the same way as B014-03.**
+  Its removal step used a literal `str.replace`, but the check matches after whitespace normalization
+  and the docs wrap their prose, so the removal was a no-op and the test failed against a *correct*
+  check. The mirror image of the B013-06 instrument: an instrument that lies in the direction that
+  looks like a product failure. Fixed with a whitespace-tolerant pattern.
+- **B016-04 [drift detection, verified] — the new check is wired and honest.** A third declaration
+  check family (`trust_boundary_findings`) requires the temporary-directory exclusion and the
+  not-a-safety-boundary statement with their cross-references, with six scenarios in its test class,
+  one of which demonstrates that arbitrary content carrying the statements passes. It is structural,
+  and it says so: it cannot observe where a directory lives or contain a shell call.
+
+### Review and measurements
+
+Independent full-range review: **APPROVED WITH FINDINGS** — no blocker or major, no assertion weakened
+and no file deleted. The diff is additive: the deleted lines are rewording plus a two-line fixture
+adjustment that strengthened a test rather than weakening it. Findings and
+dispositions:
+
+- **F-01 (minor, no change):** the new check family returns no findings when a checked file is absent,
+  which is the same fixture accommodation its sibling checks already make. Recorded, not changed.
+- **F-02 (minor, fixed):** `.opencode/commands/batch.md` states the temporary-directory rule but was
+  not drift-detected; it is now in the token map.
+- **F-03 (nit, fixed):** the separate-invocation rule was stated but not drift-detected; it now has a
+  required statement and a mutation test.
+- **F-04 (nit, fixed):** the reference's `resume` and `boundary` field descriptions now name
+  `state_directory_temporary`, and the boundary description says the field never affects
+  `boundary_clear`.
+- **F-05 (nit, open decision):** detection omits other volatile roots (`XDG_RUNTIME_DIR`, `/run`,
+  `/dev/shm`), and the helper's docstring overstated `/var/tmp` on Linux, where it is preserved and
+  cleaned by age. The wording is corrected; **how wide "temporary root" should be is left as a
+  decision**, not widened silently.
+- **F-06 (nit, open decision):** the two counts are carried as evidence text and required-evidence
+  labels, not as a structured boundary field. Under the criterion's wording that satisfies "records
+  carry"; whether a machine-readable field is wanted is **left as a decision**.
+
+**Measured at this boundary, as the new rule requires.** These two counts live in this measurement
+subsection; they are not a field of the helper's `boundary` report, which is the open question in F-06.
+
+- **Correction rounds before the independent review: 10, all mechanical.** One duplicated sentence, one
+  duplicated bullet, a missing import, a plural/singular token mismatch, one test fixture extended, one
+  check made tolerant of a fixture tree, one statement added to the wrong section, one mutation test
+  that was a no-op against wrapped prose (B016-03), and two same-class edit joins that broke Python
+  syntax (B016-02).
+- **Post-review correction rounds are deliberately not aggregated, and that is the finding.** Three
+  attempts to total them failed to reconcile, because this metric has no defined granularity: it is
+  unclear whether a round is one edit, one finding, or one finding's parts, and the same action can sit
+  in two phases depending on when it was discovered rather than when it was caused. The third edit join
+  is the clearest case — introduced during implementation, found and repaired after the review. The
+  field needs a definition before its number means anything; until then this entry reports the
+  pre-review count, which has a fixed meaning, and declines to invent a total.
+- **The dominant class is the edit-tool hazard.** Across this task and the one that recorded B012-07
+  there are five occurrences of the same edit join, three of them here, and it is the largest avoidable
+  cost in this boundary.
+- **Permission prompts observed for delegated runs: 0, from one run.** No mutating delegation ran during
+  implementation or review, so the value was unknown at the boundary; the four exact-path commits were
+  then delegated to `git-ops`, which reported **0 prompts** for routine inspection plus exact-path
+  staging and committing. That is the metric's first observed number, and it is reported with its
+  source rather than generalised: one delegation of one kind is not a prompt-reduction measurement, and
+  an observation that was not made is still recorded as unknown rather than zero.
+
+### Ratings at this boundary
+
+- **Task state 8 → 8.5.** The location rule, the helper warning and the record-span rule close both
+  B015-01 and B015-02. Not back to 9: the extension path still has no live use, and the helper still
+  cannot authenticate an approval reference.
+- **Guard 3.5 → 3.5 (held), now documented.** The rating is unchanged because the tool is unchanged;
+  what changed is that it can no longer be mistaken for containment. The backlog item is closed
+  against that decision rather than left open.
+- **Formatting workflow 7 → 7 (held).** The ordering rule is stated and drift-detected, and the
+  correction-round count is now recorded above, but it has no prior baseline to compare against, so the
+  expected saving is still unmeasured rather than shown.
+- **git-ops 7 → 7 (held).** Prompt reporting is now a requirement of the agent and one delegation
+  reported its count (0, above), but a single commit delegation is not a prompt-reduction measurement
+  against a baseline. The rating moves when a real measurement does.
+- **Review discipline 9, bounded-run 9, acceptance completeness 8, validator 8.5, publication
+  controls 7, batch workflow 6, coder workflow 7, lease 8, UI preflight 6.5 — unchanged and
+  unmeasured at this boundary.**
+
+### Verification at this boundary
+
+- Offline suite: **209 tests OK**, up from 201 — two for the temporary-location detection, five for
+  the trust-boundary declaration check and one for the format-statement requirement. Validator: 13
+  definitions, 30 surface files, **0 findings**. Neither check reads this document, so their result is
+  invariant to corrections here; the named log is one such run on the final tree
+  (`offline-suite-final4.log`), and any later run shows the same numbers.
+- **Not established:** no live batch run under the new boundary fields; no permission-prompt count has
+  been observed; the guard remains unexercised and unenabled.

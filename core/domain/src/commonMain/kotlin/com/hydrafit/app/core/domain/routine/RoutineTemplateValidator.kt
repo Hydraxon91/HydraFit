@@ -24,6 +24,11 @@ internal object RoutineTemplateValidator {
                 if (workoutName.isEmpty()) {
                     throw RoutineTemplateException("Workout name must not be blank")
                 }
+                try {
+                    validateSupersets(workout.entries.map { it.exerciseId to it.superset })
+                } catch (error: IllegalArgumentException) {
+                    throw RoutineTemplateException(error.message ?: "Invalid superset")
+                }
                 workout.copy(
                     position = index,
                     name = workoutName,

@@ -107,6 +107,11 @@ class SqlDelightPrescriptionImportRepository(
                         ?.let(SlotProgressionPolicyJson::encode),
                     setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode)
                 )
+                templateQueries.setEntrySuperset(
+                    entry.superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
+                    workoutId,
+                    entryIndex.toLong()
+                )
             }
         }
     }

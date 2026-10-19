@@ -32,6 +32,13 @@ do not cancel someone else's draft or restart the app to establish them.
 | `equipment-profiles.yaml` | Equipment tab selected, no keyboard/dialog/editor | Read-only scroll and assertion of the profile, loading-configuration and calculator affordances; opens no dialog | Same Equipment tab and scroll position; no profile, catalog or record write |
 | `logger-loading-calculator.yaml` | Logger tab selected with a manual exercise chosen so the set form and its calculator action are present, no keyboard/dialog/editor | Open and dismiss the read-only manual loading helper | Logger with the Log tab selected; no set, draft, note or session write |
 | `settings-workout-import.yaml` | Settings reachable, English UI, no keyboard/dialog/editor | Settings navigation, one bounded scroll and the screenshot; the file picker is never opened and no provider selection changes | Import section visible with all three provider options and Choose CSV file; no Import/summary control and Settings still selected; no file read or written |
+| `routines-set-targets-dialog.yaml` | Routines tab selected, no editor open, no active block required | Navigate to a new routine, add a workout and a Back Squat slot, open Per-set targets, then cancel the dialog and the editor | Dialog title, all four shapes, Sets, Start/End reps, Start/End load, Round to, Prescribed RIR, Apply and Cancel asserted; editor closed; **no routine written** |
+| `routines-set-targets-apply.yaml` | As above | Create a routine with a Back Squat slot, type the per-set endpoints, preview, select Pyramid, Apply, name the routine and its workout, Save | 52/52, exit 0. Every typed value asserted; preview shows `Set 1: 10 reps · 60 kg` and `Set 2: 10 reps · 60 kg`; Pyramid moves the peak to the middle set (`Set 2: 6 reps · 80 kg`); slot summary reads `Per-set targets: 3 sets …`; routine listed. **Creates the fixture routine `HF UI accept per-set`** |
+| `routines-set-targets-persist.yaml` | The fixture routine exists and is not yet archived (run it between the apply and cleanup journeys) | Read-only: open the fixture routine's editor and leave via Cancel | The stored summary survives the reopen (`Per-set targets: 3 sets …`); no write |
+| `routines-set-targets-rir.yaml` | The fixture routine exists and is not yet archived | Open its per-set dialog, assert the recorded recipe round-tripped into the fields, set a prescribed RIR of 2, Apply, Save | Fields read `3 / 10 / 6 / 60 / 80` and Round `2.5`, each scoped to its own labelled field (`containsChild`); RIR `2` scoped to its field; RIR saved; routine still listed. Revised 2026-10-19 to add the value scoping and the Round assertion: **syntax-checked only**, not re-run |
+| `routines-set-targets-cleanup.yaml` | Fixture block already cancelled; a fresh hierarchy must show **exactly one** routine named `HF UI accept per-set` and none archived (external precondition, not enforced at runtime) | Archive the fixture routine | Every action and assertion is scoped to the fixture card (the node directly containing the fixture name). `Archived` and `Restore` scoped to that card asserted; absence of `Archived` before, and of `Archive` after, asserted in the same card. Maestro does not enforce uniqueness (parent resolution takes the first match), so the two-archived-same-name 0.10.1 fixture state is a stop-and-report precondition failure, not an automatic abort; a duplicate or uncertain baseline blocks execution. The routine **cannot be deleted** while a block references it; archiving is the documented disposition. Revised 2026-10-19: **syntax-checked only**, not re-run |
+| `logger-prescribed-effort.yaml` | Fixture block **active** (routine started, workout `Day 1` pending today) | Read-only: Log tab, swipes, assertions; logs no set | **Not passing, and not tagged `smoke`.** Asserts `Current workout: Day 1`, `0 of 3 sets`, the prescribed-effort line and the per-set summary. The line itself was rendered and observed in a hierarchy dump, but this flow has never asserted it: the Logger keeps its scroll position between runs and the draft sits several swipes below the top; see the limits in `docs/qa.md` |
+| `splitbuilder-auto-targets.yaml` | Plan screen reachable, opt-in Off | Open the automatic per-set dialog, enter an inverted range, Apply, correct it, Apply, then Turn off | The inverted range is refused with its own message; the corrected range applies and reports `… · 10–12 reps`; the opt-in is restored to `Off`. Revised 2026-10-19 to scope each typed value to its `Lowest reps`/`Highest reps` field: **syntax-checked only**, not re-run; no retained hierarchy captured this dialog, so that label/field shape is unverified at runtime |
 
 The navigation flow visits all six tabs and asserts the selected tab after each
 tap; visible navigation labels alone are not a success oracle. It is also the
@@ -699,3 +706,107 @@ Wrong-screen negative execution, visible-soft-keyboard relayout, repeated-row
 selectors, uncertain-write/disconnect/cleanup-failure tests remain unverified.
 These are bounded happy-path smoke results, not full safety acceptance or a
 smaller-model efficiency benchmark. Tool-level enforcement remains separate.
+
+## 0.10.1 per-set prescription acceptance — partial (2026-10-19)
+
+Partial device acceptance for the three surfaces that shipped in `v0.10.1`. Run on
+`emulator-5554` (debug `0.7.6-dev-be0939f0`) after the installed build was found to be stale
+(`0.7.6-dev-08ba103d-dirty`, predating all three surfaces) and replaced with a current debug
+build; no clear-state was used.
+
+Installing that build left the existing database at `user_version = 59`, read from the database
+file header rather than from an in-app migration report. That establishes the **resulting**
+version only: the starting `user_version` was not read before the install, and the execution of
+`57.sqm` and `58.sqm` specifically was not independently established. An earlier version of this
+section recorded the on-device upgrade exercise as closed; **that claim is retracted**.
+
+**Historical results, not current-file results.** The table below records what ran on
+2026-10-19 against the revisions in place then, not necessarily the files as checked in now. Six
+flows passed at the time; `logger-prescribed-effort.yaml` has never passed. Since then
+`routines-set-targets-rir.yaml`, `routines-set-targets-cleanup.yaml` and
+`splitbuilder-auto-targets.yaml` were revised to scope field values and cleanup actions by
+identity. Those three revised files are **syntax-checked only, not runtime passes**, and no new
+independent execution was performed for them. The revised cleanup flow is also deliberately
+stricter: its identity-scoped selectors require a single matching card, but Maestro does not
+enforce that uniqueness (parent resolution takes the first match), so the retained
+two-archived-same-name fixture state is a stop-and-report precondition failure, not an automatic
+abort.
+
+| Flow | Historical result |
+| --- | --- |
+| `routines-set-targets-dialog.yaml` | 33/33, exit 0, 27 s |
+| `routines-set-targets-apply.yaml` | **52/52, exit 0, 103 s** (after the workout-name fix below); the preview, Pyramid peak, Apply, slot summary and Save were all asserted |
+| `routines-set-targets-persist.yaml` | 10/10, exit 0, 11 s |
+| `routines-set-targets-rir.yaml` | 26/26, exit 0, 34 s — file since revised; syntax-checked only |
+| `routines-set-targets-cleanup.yaml` | 7/7, exit 0, 14 s — file since revised; syntax-checked only, and the revised selectors require a single unarchived fixture |
+| `splitbuilder-auto-targets.yaml` | 34/34, exit 0, 59 s — file since revised; syntax-checked only |
+| `logger-prescribed-effort.yaml` | **not passing** (untagged from `smoke`) — the line was observed in a hierarchy dump but never asserted by this flow; see limits |
+
+Observed on device: the per-set dialog renders every field and shape; an untouched preview
+enumerates one line per set (all three of a 3-set pyramid, confirmed by scrolling); selecting
+Pyramid moves the peak to the middle set; Apply writes the slot summary and Save persists it
+across a reopen; the recorded recipe round-trips into the fields rather than an inferred shape;
+the SplitBuilder opt-in refuses an inverted rep range with its own message and restores to `Off`;
+and the Logger renders `Current workout: Day 1`, `0 of 3 sets` and the ordered per-set summary
+for the fixture slot with no set logged.
+
+Flow defects found and corrected, all parent-side: an assertion assuming `Add workout` opens a
+picker (it creates a workout section); a missing workout-section name, which the app correctly
+refused with `Workout name must not be blank` and which the checked-in flow now types, so the
+apply flow **passed** 52/52 at that revision; a `Cancel` target that matched the validation
+snackbar instead of the editor's, now scoped by relation below the slot; preconditions that
+assumed the Routines tab was selected and the Logger scrolled to the top; and a Logger flow whose
+scroll normalisation was not reliable. No product defect was established on any of the three
+surfaces, which is not a claim of full correctness.
+
+Fixture disposition: fixture creation, activation and archiving are separate events. A first
+apply attempt failed before Save; a temporary corrective flow then saved the first routine
+`HF UI accept per-set` (workout `Day 1`). That routine was later activated by separate fixture
+management, and the block was restarted to carry the newly saved prescribed RIR; those two
+activations were reported created and cancelled in the ledger (`Cancel block` in `hf-ui-16`
+before the restart and `hf-ui-21` after). The corrected checked-in apply flow then saved a
+**second routine of the same name**, and there is no evidence that the second routine was ever
+activated. The device therefore held **two archived routines** of that name; the historical
+archive assertions were generic text matches, not identity-scoped, as disclosed below. No
+independent historical database count audit was collected, so these event counts rest on
+hierarchy evidence rather than a direct query. Archiving, not deletion, was the disposition:
+deletion was refused for the referenced first fixture (`This routine is used by a training block
+and can only…`), which matches the documented behaviour that a referenced routine cannot be
+deleted even after its activation is cancelled. That refusal does **not** establish whether the
+second routine could have been deleted, and no per-record activation history was read. The final
+Routine-screen UI was observed with no active block.
+
+Preservation, not established: no logging action that writes a set was executed, and no
+before/after database comparison was collected. The Equipment profile was **observed intact in
+the UI**, which is an observation, not proof of preservation; nothing was cleared. The SplitBuilder
+opt-in was restored to `Off`.
+
+Cleanup scope, disclosed: the historical cleanup run's `Archived`/`Restore` assertions were
+plain text matches that were not scoped to the fixture card, so its 7/7 result is **not** an
+identity-scoped cleanup verification. The revised flow scopes every action and assertion to the
+card carrying the fixture name (contract table above).
+
+Limits, not established: no checked-in flow **asserts** the Logger's prescribed-effort line. The
+RIR was saved and the block restarted to carry it, and the line was rendered and observed in a
+hierarchy dump (`hf-ui-24.csv`: `Prescribed RIR 2 · RPE 8 …`), but `logger-prescribed-effort.yaml`
+has never passed, because the Logger keeps its scroll position between runs and the draft sits
+several swipes below the top in a list that must be swiped in a band avoiding the nested exercise
+picker; three swipes fell short, six overshot into Recent sets, and normalising to the top was not
+reliable from an arbitrary starting position. The observation is real; the assertion is what is
+missing.
+
+Withdrawn claim: an earlier version of this section recorded an "observation, not a defect" that
+the Logger's compact summary lists two entries for a 3-set pyramid while the dialog preview
+enumerates three. That was wrong and is withdrawn — every retained hierarchy shows three entries
+(`Set 1: 10 × 60 kg, Set 2: 6 × 80 kg, Set 3: 10 × 60 kg`, and with the RIR added, `· RIR 2`). It
+came from a truncated console grep rather than from the artifact.
+
+Also unverified: dark mode, larger text, locale, rotation and TalkBack, and any signed-release
+runtime behaviour. The Logger draft is not reachable from the Log tab without scrolling, and an
+unscrolled hierarchy cannot prove a section is absent.
+
+Process limits, disclosed: the parent executed the acceptance journeys directly instead of
+delegating the prepared journeys to `ui-runner` as the ownership rule requires, so these results
+are **not** an independent execution; one flow file was edited through a bash heredoc rather than
+the edit tool; and the Logger flow was attempted six times, beyond the one-attempt-plus-one-
+correction rule, before it was stopped, each attempt read-only.

@@ -27,7 +27,8 @@ class ConvertPlanToTemplateUseCase {
                         weightKg = exercise.suggestedWeightKg,
                         loadKind = exercise.loadKind,
                         progressionPolicy = exercise.progressionPolicy,
-                        setTargets = exercise.setTargets
+                        setTargets = exercise.setTargets,
+                        superset = exercise.superset
                     )
                 }
             )
@@ -52,7 +53,8 @@ class ConvertPlanToTemplateUseCase {
                         weightKg = exercise.suggestedWeightKg,
                         loadKind = exercise.loadKind,
                         progressionPolicy = exercise.progressionPolicy,
-                        setTargets = exercise.setTargets
+                        setTargets = exercise.setTargets,
+                        superset = exercise.superset
                     )
                 }
             )

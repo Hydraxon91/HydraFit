@@ -1,0 +1,61 @@
+# Contract and verification status: see README.md. Cleanup for the per-set targets fixture.
+# The fixture routine cannot be deleted while a training block references it (the app says so),
+# so it is archived, which is the documented disposition for a referenced routine. Requires
+# the fixture block to be cancelled first; that is fixture management, not part of this flow.
+#
+# Precondition, external and NOT enforced by this flow: before any execution, a fresh hierarchy
+# inspection must establish exactly ONE card named `HF UI accept per-set` and that it is not
+# archived. Maestro does not enforce this: parent-hierarchy resolution selects the first matching
+# parent, so the identity-scoped selectors below cannot count duplicate cards, and the retained
+# two-archived-same-name 0.10.1 fixture state does not by itself abort the tap. If a duplicate
+# card, an uncertain count or a stale baseline is found, stop and report instead of running. The
+# `Archived` assertion below is scoped to the fixture card but is not proof of global uniqueness.
+appId: com.hydrafit.app
+name: Per-set targets fixture cleanup archives the referenced routine
+tags:
+  - smoke
+  - routines
+  - cleanup
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^No active training block\.$'
+# The fixture card is the node that directly contains the fixture name.
+- assertVisible:
+    containsChild:
+      text: '^HF UI accept per-set$'
+- assertNotVisible:
+    text: '^Archived$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept per-set$'
+- tapOn:
+    containsChild:
+      text: '^Archive$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept per-set$'
+    retryTapIfNoChange: false
+- assertVisible:
+    text: '^Archived$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept per-set$'
+- assertVisible:
+    containsChild:
+      text: '^Restore$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept per-set$'
+- assertNotVisible:
+    containsChild:
+      text: '^Archive$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept per-set$'

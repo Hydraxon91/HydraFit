@@ -116,7 +116,16 @@ data class SplitBuilderUiState(
     /** The applied automatic per-set opt-in, or null when it is off. */
     val automaticSetPrescription: AutomaticSetPrescription? = null,
     /** The open automatic-prescription dialog; null when closed. */
-    val automaticSetPrescriptionDialog: AutomaticSetPrescriptionState? = null
+    val automaticSetPrescriptionDialog: AutomaticSetPrescriptionState? = null,
+    /**
+     * The user's opt-in for curated adjacent biceps/triceps pairing. Off by default; on passes the
+     * configured transition and pair rest with the next generation request.
+     */
+    val plannerSupersetEnabled: Boolean = false,
+    /** Whole seconds of transition between paired exercises, as typed. Never persisted here. */
+    val plannerSupersetTransitionSeconds: String = "0",
+    /** Whole seconds of rest after a completed pair round, as typed. */
+    val plannerSupersetPairRestSeconds: String = "120"
 ) {
     val usedFallbackEngine: Boolean
         get() = plan != null && requestedEngine != null && plan.engine != requestedEngine

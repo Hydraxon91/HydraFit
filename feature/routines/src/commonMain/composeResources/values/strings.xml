@@ -72,6 +72,17 @@
     <string name="routines_set_targets_error_rounding">The rounding step must be a positive number of kilograms.</string>
     <string name="routines_set_targets_error_rir">A prescribed RIR must be %1$d to %2$d.</string>
 
+    <string name="routines_superset_action">Superset with next</string>
+    <string name="routines_superset_remove">Remove pair</string>
+    <string name="routines_superset_title">Pair with next exercise</string>
+    <string name="routines_superset_note">Pairs these two slots so you move between them with the rest you set here. Their sets, reps and load stay exactly as they are.</string>
+    <string name="routines_superset_transition_label">Transition (seconds)</string>
+    <string name="routines_superset_pair_rest_label">Rest after the pair (seconds)</string>
+    <string name="routines_superset_summary">Pair: %1$d s transition · %2$d s rest</string>
+    <string name="routines_superset_error_transition">The transition must be 0 to %1$d seconds.</string>
+    <string name="routines_superset_error_pair_rest">The rest after the pair must be 1 to %1$d seconds.</string>
+    <string name="routines_superset_error_same_exercise">A pair needs two different exercises.</string>
+
     <string name="routines_save">Save</string>
     <string name="routines_cancel">Cancel</string>
     <string name="routines_confirm">Confirm</string>

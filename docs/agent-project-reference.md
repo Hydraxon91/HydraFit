@@ -136,7 +136,10 @@ chunk; this extends the procedure above rather than replacing it.
   further style source the chunk relies on.
 - **Lint-first order:** for Kotlin changes, run the affected module's (or source
   set's) `ktlintFormat`, not the root task, then that module's ktlint before the
-  heavier test task, then the module host tests. `build.gradle.kts` applies the
+  heavier test task, then the module host tests. Run the pass and the check as
+  separate invocations: in one invocation the check can report a violation the pass
+  has already fixed, which reads as a failure that is not there. `build.gradle.kts`
+  applies the
   ktlint plugin to every subproject, so the root `./gradlew ktlintFormat` is
   repo-wide and can rewrite or block on files outside the approved chunk. Agent-tooling-only
   changes (Python scripts, docs) use the offline validator and unittest commands
@@ -148,7 +151,10 @@ chunk; this extends the procedure above rather than replacing it.
   changed constructor or dispatcher also inspects the affected tests for
   scheduler/clock consistency and runs them before closure.
 - **Structured report:** classify correction rounds (mechanical, product, tool or
-  budget) with counts, and record elapsed and remaining budget. The brief's cap and
+  budget) with counts, and record elapsed and remaining budget. Carry the chunk's
+  correction-round count and the permission prompts observed for any delegated run
+  into the boundary report, so the trend is measured rather than re-argued; an
+  observation that was not made is recorded as unknown, never as zero. The brief's cap and
   its tool-call limit are hard stops, not targets: exceeding either means stopping
   at a clean point and reporting what remains, not continuing and mentioning it
   afterwards.
@@ -339,7 +345,9 @@ the chunk does not own and rewrite files outside the approved chunk.
 
 - **Module-scoped invocation:** run `./gradlew :module:ktlintFormat` (or a
   per-source-set task such as `:core:database:ktlintCommonMainSourceSetFormat`), not
-  the root `ktlintFormat`. The module's `ktlint<SourceSet>Check` then confirms.
+  the root `ktlintFormat`. The module's `ktlint<SourceSet>Check` then confirms, as a
+  **separate invocation**: in one invocation the check can report a violation the pass
+  has already fixed, which reads as a failure that is not there.
 - **Ownership delta:** after the pass, inspect `git status --short` and the affected
   module's diff. If the pass modified any path outside the approved chunk, stop and
   report it instead of committing it.
@@ -389,9 +397,13 @@ execution or permission enforcement; inspect fresh state before allowed writes.
 contracts and accepted finite-budget `/batch` contracts. It never runs recorded
 commands, grants approval, or performs recovery. Batch integration is a cooperative
 procedure in `.opencode/commands/batch.md`, not mandatory tool interception.
-Use an explicitly selected external directory (not the checkout or its Git
-directory) and a task id; record both in chat. Runtime JSON and logs are never
-committed. Contract/evidence text must not contain secrets or private data.
+Use an explicitly selected external directory that is not the checkout or its Git
+directory and **not under a temporary directory** — a platform cleanup has evicted
+a live record mid-task — and a task id; record both in chat. Runtime JSON and logs
+are never committed. Contract/evidence text must not contain secrets or private data.
+`resume` and `boundary` report `state_directory_temporary` so a resumed session sees
+the risk; it is a warning, not a blocker, because a deliberately short-lived record
+may live in a temporary directory.
 
 Prepare a contract JSON object with `objective`, `owner`, `approval_reference`,
 `allowed_paths` (exact repository-relative file paths, no globs) and `acceptance`
@@ -472,7 +484,7 @@ Event JSON objects:
 
 `resume` does not write. It reports expected/current drift, identity, pending ids
 as unknown outcomes, new out-of-scope dirty paths, the amended paths now in scope,
-and original/effective budget and remaining seconds. Exit 2
+`state_directory_temporary`, and original/effective budget and remaining seconds. Exit 2
 means reconciliation or a budget stop is needed; exit 0 is not authorization to
 continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
 usage are retained, without a reset option. A backward clock cannot reduce usage
@@ -486,7 +498,8 @@ preconditions and rejects blocked/complete phases. Each repeated
 snapshot matches the current tree. A later failed/unknown entry supersedes an
 earlier pass; checkpointing a changed tree does not refresh old evidence. It
 returns 0 only when `boundary_clear` is true, 2 for a blocked boundary, or 125 for
-invalid input/state. It cannot verify artifact contents, infer the required check
+invalid input/state. It reports `state_directory_temporary` alongside the reconciliation
+checks; that field is informational and never affects `boundary_clear`. It cannot verify artifact contents, infer the required check
 list, authenticate a reviewer or authorize execution. The operator supplies the
 accepted check list and inspects the evidence. No descriptions means only the
 base reconciliation checks, not acceptance coverage.
@@ -574,7 +587,10 @@ a complete model-generated tool loop. The first two are exercised locally. Nativ
 The outer Code Mode gateway was absent from the live registry, so its removal/deny
 behavior is tested offline only. Full model-loop ordering, in-flight cancellation
 and hostile-plugin isolation remain **unverified**. Do not enable the pilot in a
-normal development session or describe those paths as proven enforcement.
+normal development session or describe those paths as proven enforcement. **It is
+not a safety boundary:** with a proven shell bypass and unverified model-loop and
+cancellation behaviour, no rule, run or review may rely on it for containment or
+authorization. Its value is as a measured pilot, not as protection.
 
 ## Project Structure & Conventions
 

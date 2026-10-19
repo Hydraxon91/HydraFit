@@ -100,7 +100,10 @@ private fun RoutineTemplate.toRecord(
                         loadCapability = exercise?.loadCapability?.name,
                         progressionPolicy = entry.progressionPolicy
                             ?.let(SlotProgressionPolicyJson::encode),
-                        setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode)
+                        setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
+                        superset = entry.superset?.let(
+                            com.hydrafit.app.core.domain.routine.SupersetJson::encode
+                        )
                     )
                 }
             )

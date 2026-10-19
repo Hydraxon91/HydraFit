@@ -60,6 +60,49 @@ class AcceptWeeklyPlanUseCaseTest {
     }
 
     @Test
+    fun acceptanceCarriesTheSlotPolicyTargetsAndPair() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = AcceptWeeklyPlanUseCase(repository, FakeCatalog, TimeProvider { 0L })
+        val policy = SlotProgressionPolicy(minReps = 5, maxReps = 8, incrementKg = 2.5)
+        val targets = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 60.0),
+                SetTarget(reps = 6, loadKind = LoadKind.EXTERNAL, weightKg = 65.0)
+            )
+        )
+        val pair = com.hydrafit.app.core.domain.routine.Superset("arms", 10, 120)
+
+        useCase(
+            WeeklyPlan(
+                engine = PlannerEngineId.DETERMINISTIC,
+                days = listOf(
+                    WorkoutDay(
+                        dayIndex = 0,
+                        focus = SplitFocus.PUSH,
+                        exercises = listOf(
+                            PlannedExercise(
+                                exerciseId = "bench-press",
+                                sets = 2,
+                                reps = 8,
+                                suggestedWeightKg = 60.0,
+                                progressionPolicy = policy,
+                                setTargets = targets,
+                                superset = pair
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        // 0.10.1/0.10.2 promised these reach the accepted plan; before this fix only superset did.
+        val accepted = requireNotNull(repository.stored).days.single().exercises.single()
+        assertEquals(policy, accepted.progressionPolicy)
+        assertEquals(targets, accepted.setTargets)
+        assertEquals(pair, accepted.superset)
+    }
+
+    @Test
     fun fallsBackToTheIdWhenTheExerciseIsNotInTheCatalog() = runTest {
         val repository = FakePlanHistoryRepository()
         val useCase = AcceptWeeklyPlanUseCase(repository, FakeCatalog, TimeProvider { 0L })

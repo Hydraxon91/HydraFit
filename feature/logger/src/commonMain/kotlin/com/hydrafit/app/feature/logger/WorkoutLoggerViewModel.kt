@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
+import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LiveRestCompletion
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -160,7 +161,15 @@ class WorkoutLoggerViewModel(
             }
         }
         viewModelScope.launch {
-            restTimer.state.collect { timer -> _state.update { it.copy(restTimer = timer) } }
+            restTimer.state.collect { timer ->
+                _state.update {
+                    if (timer == null) {
+                        it.copy(restTimer = null).withRestCleared()
+                    } else {
+                        it.copy(restTimer = timer)
+                    }
+                }
+            }
         }
         viewModelScope.launch {
             // Observe the catalog so a newly added/edited custom exercise appears without a restart.
@@ -305,6 +314,7 @@ class WorkoutLoggerViewModel(
         timerSessionId = null
         timerExerciseId = null
         restTimer.cancel(clearPersisted)
+        _state.update { it.withRestCleared() }
         resetShortRestCoaching()
         clearLiveSetStart()
     }
@@ -345,10 +355,17 @@ class WorkoutLoggerViewModel(
             timerSessionId = restored.sessionId
             timerExerciseId = restored.exerciseId
             val isOverride = settings.hasExerciseRestDurationOverride(restored.exerciseId)
+            val paired = _state.value.guidedProgress?.exercises?.any {
+                it.exerciseId == restored.exerciseId && it.superset != null
+            } == true
             _state.update {
                 it.copy(
                     restDurationSeconds = restored.durationMillis.div(1_000L).toString(),
-                    restDurationIsOverride = isOverride
+                    restDurationIsOverride = isOverride,
+                    // A restored countdown keeps the read-only superset treatment: the persisted
+                    // countdown does not carry the flag, but the frozen pairing still does.
+                    restDurationIsPairRest = paired,
+                    restDurationIsSupersetTransition = false
                 )
             }
         }
@@ -1998,7 +2015,11 @@ class WorkoutLoggerViewModel(
                 },
                 warmupGuidanceHidden = sameOccurrence && it.warmupGuidanceHidden,
                 warmupRampWriteFailed = sameOccurrence && it.warmupRampWriteFailed,
-                guidedSetWriteFailed = it.guidedSetWriteFailed && sameOccurrence
+                guidedSetWriteFailed = it.guidedSetWriteFailed && sameOccurrence,
+                // A skipped pair turn and a session-local unpair belong to one workout, not to the
+                // stored prescription: switching occurrence forgets both.
+                supersetSkippedEntryId = it.supersetSkippedEntryId.takeIf { sameOccurrence },
+                supersetUnpairedKeys = if (sameOccurrence) it.supersetUnpairedKeys else emptySet()
             )
         }
         warmupGuidancePublishedGeneration = generation
@@ -2271,6 +2292,8 @@ class WorkoutLoggerViewModel(
     fun onPendingHistoryKeyConsumed() = _state.update { it.copy(pendingHistoryKey = null) }
 
     fun onRestDurationChanged(value: String) {
+        // Pair rest belongs to the superset, not this exercise: editing it would write an override.
+        if (!_state.value.restDurationIsEditable) return
         val digits = value.filter(Char::isDigit)
         _state.update { it.copy(restDurationSeconds = digits) }
         val millis = digits.toLongOrNull()?.takeIf {
@@ -2287,6 +2310,7 @@ class WorkoutLoggerViewModel(
     }
 
     fun resetExerciseRestDuration() {
+        if (_state.value.restDurationIsPairRest) return
         val exerciseId = timerExerciseId ?: return
         viewModelScope.launch {
             settings.clearExerciseRestDuration(exerciseId)
@@ -2304,6 +2328,7 @@ class WorkoutLoggerViewModel(
         timerSessionId = null
         timerExerciseId = null
         restTimer.cancel()
+        _state.update { it.withRestCleared() }
     }
 
     /** True when guided mode is on and a workout occurrence is active. */
@@ -2332,6 +2357,35 @@ class WorkoutLoggerViewModel(
     fun confirmGuidedSetNow(occurrenceEntryId: Long) {
         if (_state.value.startedSetEntryId != occurrenceEntryId) return
         confirmGuidedSet(occurrenceEntryId, liveCompletion = true)
+    }
+
+    /**
+     * Passes over one paired member's turn without recording a set or satisfying a target. The skip is
+     * cleared by the next successful guided write, so the outstanding work returns to the rotation.
+     */
+    fun skipSupersetTurn(occurrenceEntryId: Long) {
+        val entry = _state.value.guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId } ?: return
+        val supersetKey = entry.superset?.key ?: return
+        if (entry.isComplete) return
+        if (supersetKey in _state.value.supersetUnpairedKeys) return
+        _state.update { it.copy(supersetSkippedEntryId = occurrenceEntryId) }
+    }
+
+    /** Clears an explicit skip so the outstanding paired work is selectable again. */
+    fun resumeSupersetTurn() {
+        _state.update { it.copy(supersetSkippedEntryId = null) }
+    }
+
+    /**
+     * Stops alternating this pair for the rest of the workout. It changes no stored prescription and
+     * no recorded set; a later occurrence still carries its frozen grouping.
+     */
+    fun unpairSuperset(occurrenceEntryId: Long) {
+        val entry = _state.value.guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId } ?: return
+        val key = entry.superset?.key ?: return
+        _state.update { it.copy(supersetUnpairedKeys = it.supersetUnpairedKeys + key) }
     }
 
     /** Records an explicit set-start intent without creating a performed set. */
@@ -2461,19 +2515,24 @@ class WorkoutLoggerViewModel(
         if (writeResult.succeeded) {
             val contextStillCurrent = contextRevision == draftContextRevision &&
                 timerGeneration == liveTimerGeneration
+            val supersetRest = supersetRestAfter(resolved.occurrenceEntryId)
             if (liveCompletion && !writeResult.isWarmup && contextStillCurrent && isGuidedActive) {
                 startRestTimerIfDurationValid(
                     resolved.occurrenceId,
                     resolved.exerciseId,
                     writeResult.sessionId,
                     contextRevision,
-                    timerGeneration
+                    timerGeneration,
+                    restSecondsOverride = supersetRest?.first,
+                    isSupersetTransition = supersetRest?.second == true
                 )
             } else {
                 resetShortRestCoaching()
             }
             applyGuidedWriteSuccess()
-            _state.update { it.copy(isWarmup = false) }
+            _state.update {
+                it.copy(isWarmup = false, supersetSkippedEntryId = null)
+            }
             clearLiveSetStart()
         } else if (forcedWarmup == true) {
             _state.update { it.copy(warmupRampWriteFailed = true) }
@@ -2517,20 +2576,34 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /**
+     * Rest to start after one recorded set of paired work: the transition while the partner still owes
+     * the same round, otherwise the pair rest after a completed round. Null leaves ordinary rest, and a
+     * session-local unpair removes the override.
+     */
+    private fun supersetRestAfter(occurrenceEntryId: Long?): Pair<Int, Boolean>? =
+        supersetRestSelection(
+            progress = _state.value.guidedProgress,
+            unpairedKeys = _state.value.supersetUnpairedKeys,
+            occurrenceEntryId = occurrenceEntryId
+        )
+
     private suspend fun startRestTimerIfDurationValid(
         occurrenceId: Long?,
         exerciseId: String,
         sessionId: String?,
         contextRevision: Long,
-        timerGeneration: Long
+        timerGeneration: Long,
+        restSecondsOverride: Int? = null,
+        isSupersetTransition: Boolean = false
     ) {
-        if (!_state.value.canStartRestTimer) return
+        if (restSecondsOverride == null && !_state.value.canStartRestTimer) return
         val completedAtElapsedMillis = liveSetCompletedAtElapsedMillis ?: return
-        val seconds = settings.restDurationSeconds(exerciseId).takeIf {
-            it > 0L && it <= RestCountdown.MAX_DURATION_MILLIS / 1_000L
-        } ?: return
+        val seconds = restSecondsOverride?.toLong() ?: settings.restDurationSeconds(exerciseId)
+        if (seconds <= 0L || seconds > RestCountdown.MAX_DURATION_MILLIS / 1_000L) return
         val durationMillis = seconds * 1_000L
-        val hasOverride = settings.hasExerciseRestDurationOverride(exerciseId)
+        val hasOverride = restSecondsOverride == null &&
+            settings.hasExerciseRestDurationOverride(exerciseId)
         val currentSessionId = logMutations.observeOpenSession().first()?.id
         // Preference reads may suspend; an End/New session, dismissal or context switch must win.
         if (contextRevision != draftContextRevision ||
@@ -2543,7 +2616,12 @@ class WorkoutLoggerViewModel(
             return
         }
         val boot = runtime.bootIdentity()
-        if (shortRestCoachingEnabled && boot != null && sessionId != null && occurrenceId != null) {
+        if (shortRestCoachingEnabled &&
+            !isSupersetTransition &&
+            boot != null &&
+            sessionId != null &&
+            occurrenceId != null
+        ) {
             shortRestCoach.completed(
                 LiveRestCompletion(
                     sessionId,
@@ -2559,7 +2637,12 @@ class WorkoutLoggerViewModel(
         timerSessionId = sessionId
         timerExerciseId = exerciseId
         _state.update {
-            it.copy(restDurationSeconds = seconds.toString(), restDurationIsOverride = hasOverride)
+            it.withRestStarted(
+                seconds = seconds,
+                hasExerciseOverride = hasOverride,
+                fromPairOverride = restSecondsOverride != null,
+                fromTransition = isSupersetTransition
+            )
         }
         restTimer.start(
             durationMillis = durationMillis,
@@ -3374,4 +3457,33 @@ class WorkoutLoggerViewModel(
 
     private val sessionNoteSaving: Boolean
         get() = _state.value.sessionNoteSaving
+}
+
+/**
+ * The rest a recorded set of paired work starts: a transition while the partner still owes the same
+ * round, otherwise the pair rest. A completed partner (unequal set counts) makes the remaining sets
+ * solo work, so they take pair rest rather than a transition. A session-local unpair returns null.
+ *
+ * Pure so the selection can be tested without a ViewModel or a timer.
+ */
+internal fun supersetRestSelection(
+    progress: GuidedWorkoutProgress?,
+    unpairedKeys: Set<String>,
+    occurrenceEntryId: Long?
+): Pair<Int, Boolean>? {
+    if (occurrenceEntryId == null) return null
+    val entry = progress?.exercises?.firstOrNull {
+        it.occurrenceEntryId == occurrenceEntryId
+    } ?: return null
+    val pair = entry.superset ?: return null
+    if (pair.key in unpairedKeys) return null
+    val partner = progress.exercises.firstOrNull {
+        it.superset?.key == pair.key && it.occurrenceEntryId != occurrenceEntryId
+    } ?: return null
+    val performedAfter = entry.performedWorkingSets + 1
+    return if (!partner.isComplete && partner.performedWorkingSets < performedAfter) {
+        pair.transitionSeconds to true
+    } else {
+        pair.pairRestSeconds to false
+    }
 }

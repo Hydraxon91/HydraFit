@@ -101,6 +101,35 @@ def validate_exact_path(path) -> None:
         raise Invalid(f"invalid exact allowed path: {path!r}")
 
 
+def temporary_roots() -> tuple[Path, ...]:
+    """Platform temporary roots whose contents a cleanup may remove.
+
+    A record that must outlive the session does not belong in one; a short-lived record may.
+    """
+    candidates = (tempfile.gettempdir(), "/tmp", "/var/tmp", "/private/tmp", "/private/var/tmp")
+    roots = []
+    for candidate in candidates:
+        try:
+            roots.append(Path(candidate).resolve())
+        except OSError:
+            continue
+    return tuple(dict.fromkeys(roots))
+
+
+def under_temporary_root(directory: Path) -> bool:
+    """Whether the state directory sits somewhere a platform cleanup may remove.
+
+    A warning, never a refusal: a deliberately short-lived record may live in a temporary
+    directory, but a record meant to outlive the session must not, and a platform cleanup
+    has evicted a live record before.
+    """
+    try:
+        resolved = directory.resolve()
+    except OSError:
+        resolved = directory
+    return any(resolved == root or resolved.is_relative_to(root) for root in temporary_roots())
+
+
 def validate_contract(contract: dict) -> None:
     for key in ("objective", "owner", "approval_reference"):
         if not text(contract.get(key)):
@@ -556,14 +585,21 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "resume":
             report = reconcile(record, current, time.time())
+            # Informational only: a temporary location is a risk to report, not a reason to block.
+            report["state_directory_temporary"] = under_temporary_root(directory)
             print(json.dumps(report, indent=2))
             return 2 if report["reconciliation_needed"] else 0
         if args.command == "boundary":
             if any(not text(item) for item in args.require_evidence):
                 raise Invalid("required evidence descriptions must be nonempty")
             report = boundary_report(record, current, time.time(), args.expect, args.require_evidence)
+            report["state_directory_temporary"] = under_temporary_root(directory)
             print(json.dumps(report, indent=2))
             return 0 if report["boundary_clear"] else 2
+        if args.command == "init" and under_temporary_root(directory):
+            print(f"task-state: warning: the state directory {directory} is under a temporary root; "
+                  f"a platform cleanup can evict this record before the task finishes",
+                  file=sys.stderr)
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         with locked(directory, args.task):
             if path.is_symlink():

@@ -43,6 +43,7 @@ CREATE TABLE activationEntry (
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     progressionPolicy TEXT,
     setTargets TEXT,
+    superset TEXT,
     FOREIGN KEY (workoutId) REFERENCES activationWorkout(id)
 );
 
@@ -81,6 +82,7 @@ CREATE TABLE occurrenceEntry (
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     progressionPolicy TEXT,
     setTargets TEXT,
+    superset TEXT,
     FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
 );
 
@@ -165,6 +167,9 @@ SELECT * FROM activationEntry WHERE workoutId = ? ORDER BY position;
 selectAllActivationEntries:
 SELECT * FROM activationEntry ORDER BY workoutId, position;
 
+setActivationSuperset:
+UPDATE activationEntry SET superset = ? WHERE workoutId = ? AND position = ?;
+
 remapActivationEquipment:
 UPDATE activationEntry SET requiredEquipment = ? WHERE id = ?;
 
@@ -209,6 +214,12 @@ SELECT * FROM occurrenceEntry WHERE occurrenceId = ? ORDER BY position;
 
 selectAllOccurrenceEntries:
 SELECT * FROM occurrenceEntry ORDER BY occurrenceId, position;
+
+setOccurrenceSuperset:
+UPDATE occurrenceEntry SET superset = ? WHERE occurrenceId = ? AND position = ?;
+
+setOccurrenceSupersetById:
+UPDATE occurrenceEntry SET superset = ? WHERE id = ?;
 
 remapOccurrenceEquipment:
 UPDATE occurrenceEntry SET requiredEquipment = ? WHERE id = ?;
