@@ -3654,6 +3654,15 @@ with two exercises, not just this test. Fixing it changes persistence concurrenc
 readers, limit their parallelism, or change the transaction shape), which is a design decision; it is
 escalated, not fixed, and recorded in `docs/agent-automation-status.md`.
 
+**Fixed 2026-10-19 (B013-06).** The user chose to serialize the replays, and
+`SqlDelightExerciseProgressRepository` now holds a repository-owned lock across each replay
+transaction, so a second replay waits for the first — including its rollback — instead of opening a
+second transaction. Both affected consumers are covered by the one change: the occurrence list's
+per-exercise `combine` and the chart selector's `collectLatest` cancellation. Verified by a
+deterministic regression (`concurrentReplaysNeverHoldTwoTransactionsOnTheSharedConnection`, which
+fails against the pre-fix code) and by six fresh repeats of the previously flaky class with no
+recurrence.
+
 ## 0.10.1 — approved progression and stall-handling policies (OF-10A)
 
 Implemented on `feature/0.10.1-progression-policies` (base `45ac019d`) and verified at the chunk and

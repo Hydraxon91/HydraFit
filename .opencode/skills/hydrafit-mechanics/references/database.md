@@ -46,7 +46,10 @@ bound without an optional-cursor `OR` predicate: a first-page query plus two dis
 reads (equal timestamp/id range, then strictly earlier/later time) that `SqlDelightExerciseProgressRepository`
 concatenates. That keeps every page a direct index seek instead of rescanning the prefix earlier pages
 already read. `SqlDelightExerciseProgressRepository` replays one exercise through the request instant
-in one off-main transaction, retaining derived outputs rather than all raw rows. Chart day bounds do not
+in one off-main transaction, retaining derived outputs rather than all raw rows. Replays are serialized
+by a repository-owned lock, because a driver may expose a single connection and two consumers routinely
+have two replays in flight: the occurrence record list combines one reader per exercise, and the chart
+selector cancels one reader before starting the next. Chart day bounds do not
 limit all-time record comparisons. The set-count query is an invalidation anchor, not a revision:
 do not apply `distinctUntilChanged` to its count, since correction/restore can keep counts unchanged.
 The repository is bound by `databaseModule` and consumed read-only by `:feature:progress` and the

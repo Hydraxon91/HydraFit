@@ -68,7 +68,10 @@ effective names without requiring catalog presence. Each first page and each cur
 a separate bound query over the `(exerciseId, performedAt, id)` index: the continuation splits the
 equal-time/id range from the strictly earlier/later-time range and concatenates them, so a deep page
 never re-scans the rows earlier pages already read. Progress replays the selected exercise through
-the requested instant, oldest-first in 256-row pages inside one read transaction off-main. Complete
+the requested instant, oldest-first in 256-row pages inside one read transaction off-main, and replays
+are serialized through a lock the repository owns: observing several exercises at once, or cancelling
+one reader and starting another, would otherwise open two transactions on a driver that exposes a
+single connection, which such a driver rejects. Complete
 all-time comparisons are independent of chart bounds and history pagination. Cancellation is checked
 between pages. The invalidation query observes set-table changes without suppressing equal counts,
 so same-count corrections/replacement trigger replay. The request fixes its clock instant and offset;

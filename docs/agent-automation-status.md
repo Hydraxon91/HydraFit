@@ -985,3 +985,111 @@ recorded number; their starting values are this entry's own re-based estimates, 
 - **Not established:** no live adoption of the acceptance ledger, the extension event or the
   ownership-delta rule; no reproduction of B013-05 or B013-06; no emulator or device interaction; no
   publication.
+
+## B013-06 flake fix (2026-10-19)
+
+The escalated blocker from the A–D boundary, taken as its own bounded Authorized Autonomous Task.
+Base `d3a29a19`, branch `feature/0.10.1-progression-policies`, three-hour budget, state `b013-06`
+under the agreed external root, main-agent ownership. Local commits only; no publication. This entry
+supersedes the "no reproduction of B013-06" line above.
+
+### What was implemented
+
+The user chose option A of the four presented: serialize the replay transaction. `SqlDelightExerciseProgressRepository`
+now holds a repository-owned `Mutex` across each replay's `transactionWithResult`, so a second replay
+waits — including for a cancelled reader's rollback — instead of opening a second transaction on a
+driver that exposes one connection. The transaction itself is kept, so cross-page consistency is
+unchanged. Because the repository is a Koin singleton, one lock covers every consumer, and the single
+change fixes both affected paths: the occurrence list's per-exercise `combine` and the chart
+selector's `collectLatest` cancellation.
+
+### Findings
+
+- **B014-01 [adoption, verified] — the acceptance ledger was used for the first time.** A–D's own
+  boundary noted that the new procedure had not been self-applied. This task's completion report maps
+  every criterion to its consumer and the artifact that exercises it, which changed what was actually
+  run: the "regression fails before the fix" criterion forced an empirical pre-fix run rather than a
+  claim, and the sweep criterion forced a real repeat sweep. Caveat: the same agent wrote the
+  criteria and the evidence, so this is adoption, not independent assurance.
+- **B014-02 [evidence, verified] — the pre-fix failure was observed, not argued.** The lock was
+  temporarily neutralised, the regression was run, and it failed with the instrument's own assertion
+  (`expected:<0> but was:<1>`); the lock was then restored and the restore confirmed by reading the
+  file and the diff. The new rule "identify the assertion that fails against the defect" was satisfied
+  by observation.
+- **B014-03 [instrument, confirmed] — the first instrument was itself the defect.** The initial
+  overlap detector counted *any* second transaction request, so it failed against the **fixed** code
+  by flagging a normal sequential replay. Running it is what caught that; the detector now counts only
+  requests that arrive while the first transaction is still held. A test can be wrong in the direction
+  that looks like a product failure.
+- **B014-04 [tooling, confirmed] — a sweep marker must be something a passing run prints.** The first
+  `flake-repeat` sweep returned exit 3 (inconclusive) with six green runs because
+  `--require-log-match` was given a test *class* name, which Gradle prints only for failures. The
+  documented form is the task name (`:core:database:testAndroidHostTest`). The harness behaved
+  correctly — it refused to call an unmatched sweep fresh — but the marker choice cost one sweep.
+- **B014-05 [contract, verified] — conditional paths removed the usual amendment churn.** The manifest
+  listed the three docs that *might* describe the replay's transaction, and all three needed the sync;
+  no amendment was required. That is the second consecutive task with no amendment, against three in
+  0.10.1 and three in 0.10.2.
+- **B014-06 [workflow, confirmed] — format and check in one Gradle invocation can report a stale
+  lint failure.** Running `ktlint…Format` and `ktlint…Check` in a single invocation produced an
+  import-ordering failure that the format pass had already fixed; re-running the check alone passed.
+  The scoped pass itself worked, and it touched only the intended file.
+- **B014-07 [contract, verified] — pre-classifying the fix as a decision paid off.** A–D recorded
+  B013-06 as needing the user's behavioral choice rather than guessing one. That meant the decision was
+  asked once, up front, with four options and a recommendation, and implementation then ran without a
+  pause.
+- **B014-08 [test design, confirmed] — the first regression raced instead of forcing the overlap.**
+  The initial version launched both readers together and relied on them interleaving inside the
+  instrument's hold. With the lock neutralised it failed on the first attempt and **passed on a later
+  one**, so it was not a reliable regression at all. The independent review had already flagged that
+  the counter is time-bounded (its F4). Fixed by starting the second reader only after the first
+  transaction is already open (`awaitFirstTransaction`), which makes the causal order deterministic
+  instead of racing, plus a wider hold; three consecutive pre-fix runs now fail. This is the
+  "identify the assertion that fails against the defect" rule doing real work — the first version
+  would have shipped as a regression that only sometimes regressed.
+- **B014-09 [review, verified] — the review found the regression-reliability gap and three hygiene
+  items.** Its findings were F1 (a missing blank line merged two `qa.md` paragraphs), F2 (the quoted
+  pre-fix assertion message was not in the saved log, only the failure), F3 (the lock serializes this
+  repository's replays but not against another repository's write transactions — out of scope, left
+  as a recorded residual), F4 (the instrument's undercount window, lenient, no action) and F5 (the
+  cancellation path was covered by construction but not by a test). F1, F2 and F5 are fixed; F2 is now
+  backed by the retained test report `prefix-test-report.xml`.
+
+### Ratings at this boundary
+
+- **Acceptance completeness 6 → 8.** The ledger was adopted live and it changed what was run, not just
+  what was written. Held below 9 because it is still self-applied: the same agent authored the
+  criteria and the evidence, and no independent check has yet tested whether a ledger with a missing
+  criterion would be caught.
+- **Formatting workflow 7 → 7 (held).** The scoped pass worked again and stayed inside its module, but
+  B014-06 shows the format-then-check ordering needs care in one invocation.
+- **Task state 8.5 → 8.5 (held).** Contract, begin/resolve, checkpoint and boundary all behaved; no
+  amendment and no extension were needed, so the extension path still lacks live use.
+- **Flake measurement 7 → 7 (held).** The sweep correctly refused to pass on an unmatched marker,
+  which is the safe behaviour, but B014-04 is a usability cost.
+- **Bounded-run 9 → 9 (held).** Unchanged; no timeout path was exercised.
+- **Review discipline — provisional.** This task's own independent review and closure had not run when
+  this entry was written.
+- **Coder workflow 7 (unchanged).** Not exercised: this task was main-agent only.
+- **Unchanged and unmeasured:** `git-ops` 7 (provisional; the commit delegation itself is not a
+  permission-prompt measurement), lease 8, UI preflight 6.5, validator 8.5.
+- **Guard pilot 3.5 — untouched.**
+
+### Verification at this boundary
+
+- `:core:database:testAndroidHostTest` and `:core:domain:testAndroidHostTest` with `--rerun-tasks`,
+  plus both scoped ktlint checks: exit 0, 27 executed / 0 up-to-date, zero failures
+  (`final-module-tests.log`); the repository test class reports **11 tests, 0 failures**, one more
+  than before the review because the cancellation guard was added.
+- Pre-fix regression runs: with the replay lock neutralised, the new test fails with
+  `expected:<0> but was:<1>` in **three consecutive runs** (`prefix-repeat-1..3.log`), the report is
+  retained as `prefix-test-report.xml`, and it still failed after the instrument's ordering was
+  tightened (`prefix-after-n1.log`). An earlier attempt that raced instead of forcing the order is
+  recorded as B014-08.
+- `flake-repeat` sweep of the previously flaky class: **6 fresh runs, 19 tasks executed each, zero
+  failures, marker matched every run** (`sweep-04/summary.json`).
+- Full matrix `--rerun-tasks`: **787 executed / 0 up-to-date**, exit 0, zero failures
+  (`matrix-final.log`), with the flake absent on the first attempt.
+- **Not established:** whether the production Android driver actually collides is still unverified —
+  the fix was chosen to be correct either way, so this does not block, but it is not resolved. No
+  emulator or device interaction; no publication.
