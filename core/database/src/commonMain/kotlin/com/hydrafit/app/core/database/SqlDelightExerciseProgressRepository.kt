@@ -17,11 +17,23 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
-/** Read-only projections; each replay reads a consistent transaction in bounded pages off-main. */
+/**
+ * Read-only projections; each replay reads a consistent transaction in bounded pages off-main.
+ *
+ * Replays are serialized through [replayTransaction] because the driver may expose a single
+ * connection. Observing several exercises at once, or cancelling one reader and starting another,
+ * would otherwise open two transactions on that connection and the driver rejects the second. The
+ * repository is shared, so the lock covers every consumer rather than one call site.
+ */
 class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabase) :
     ExerciseProgressRepository {
     private val queries = database.exerciseProgressQueries
+
+    /** Serializes replays; see the class note. Held for the whole replay, including its rollback. */
+    private val replayTransaction = Mutex()
 
     override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> {
         val limit = request.pageSize.toLong() + 1L
@@ -64,18 +76,25 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
     override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> =
         queries.observeExerciseSets(request.exerciseId).asFlow().map {
             val context = currentCoroutineContext()
-            database.transactionWithResult {
-                val calculator = ExerciseProgressCalculator(request)
-                var cursor: Pair<Long, Long>? = null
-                while (true) {
-                    context.ensureActive()
-                    val rows = replayPage(request, cursor)
-                    rows.forEach(calculator::accept)
-                    val last = rows.lastOrNull() ?: break
-                    cursor = last.performedAtMillis to last.id
-                    if (rows.size < REPLAY_PAGE_SIZE.toInt()) break
+            // One replay transaction at a time. A consumer that observes several exercises at once
+            // (the occurrence record list combines one reader per exercise) or that cancels a reader
+            // and starts another (the chart selector) can otherwise have two transactions open on the
+            // same driver connection, and SQLite rejects the second one outright. The lock spans the
+            // whole replay, so a cancelled reader finishes its rollback before the next one begins.
+            replayTransaction.withLock {
+                database.transactionWithResult {
+                    val calculator = ExerciseProgressCalculator(request)
+                    var cursor: Pair<Long, Long>? = null
+                    while (true) {
+                        context.ensureActive()
+                        val rows = replayPage(request, cursor)
+                        rows.forEach(calculator::accept)
+                        val last = rows.lastOrNull() ?: break
+                        cursor = last.performedAtMillis to last.id
+                        if (rows.size < REPLAY_PAGE_SIZE.toInt()) break
+                    }
+                    calculator.result()
                 }
-                calculator.result()
             }
         }.flowOn(Dispatchers.Default)
 
