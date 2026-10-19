@@ -193,12 +193,19 @@ paths, style sources and checks.
 - **Style sources:** before authoring Kotlin, read the affected module's
   `.editorconfig` and a nearby existing file in the same package, and follow the
   repository's ktlint configuration. `.editorconfig` sets
-  `ktlint_code_style = android_studio` and no explicit maximum line length, so do
-  not assume a universal 100-character limit; cite the source of any style
-  constraint the brief states.
-- **Lint first:** for Kotlin changes, run the affected module's ktlint before the
-  heavier test task so style failures fail fast, then run the module host tests.
-  This adds no Gradle tasks: agent-tooling-only changes (Python, docs) use the
+  `ktlint_code_style = android_studio` with no explicit `max_line_length`; that code
+  style defaults the limit to 100 columns (Android Kotlin Style Guide), so 100 is
+  here the effective limit rather than a universal rule. Cite the source of any
+  style constraint the brief states.
+- **Lint first:** for Kotlin changes, run the affected module's (or source set's)
+  ktlint format pass, then the module's ktlint before the heavier test task so style
+  failures fail fast, then run the module host tests. Scope the format pass:
+  `build.gradle.kts` applies the ktlint plugin to every subproject, so the root
+  `./gradlew ktlintFormat` is repo-wide and may rewrite or block on files outside
+  the approved chunk. After the pass, inspect `git status --short` and the affected
+  module's diff; a path changed outside the approved chunk, or a violation in a file
+  the chunk does not own, is a blocker to stop and report, never to fix in that
+  file. This adds no Gradle tasks: agent-tooling-only changes (Python, docs) use the
   offline validator and unittest commands instead. If a lint or test check is
   unavailable or not applicable, report that rather than implying it ran.
 - **Consumer map:** for each changed API, trace producer → consumers → checks and
@@ -207,5 +214,7 @@ paths, style sources and checks.
   constructor or dispatcher, inspect the affected tests for scheduler/clock
   consistency and run those checks before reporting closure.
 - **Structured report:** classify each correction round (mechanical, product,
-  tool or budget) and record elapsed and remaining budget; stop at the brief's
-  caps rather than extending silently.
+  tool or budget) and record elapsed and remaining budget. The brief's cap and its
+  tool-call limit are hard stops, not targets: exceeding either means stopping at a
+  clean point and reporting what remains, not continuing and mentioning it
+  afterwards.

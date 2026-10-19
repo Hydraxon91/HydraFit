@@ -186,6 +186,12 @@ other gates remain in force, including harness restrictions.
   existing results is the user's: put it in the plan and wait—never choose
   it silently. This gate does not apply to a PLANS.md status-line-only
   commit after an approved phase.
+- **Acceptance is consumer-backed, not a green-build inference.** Follow
+  `docs/agent-project-reference.md` Acceptance and authorization evidence for the
+  criterion-to-consumer ledger, regression evidence and completion report. A design
+  finding needs the user's behavioral decision; a reviewer cannot waive unavailable
+  required verification on the user's behalf. A state helper's clear boundary proves
+  record consistency, not permission, review approval or product completeness.
 - **Live progress:** For multi-step tasks, use OpenCode's todo tool when
   available to keep the sidebar current. Use short, outcome-based items; mark
   the current item in progress and update on completion, blockers, or scope
@@ -205,12 +211,18 @@ other gates remain in force, including harness restrictions.
   group is confirmed — termination is not guaranteed while the group may still
   exist. If a run hangs, jstack the test executor and report; don't retry
   blindly.
-- Kotlin changes: run the mechanical format pass before the first test run.
-  `./gradlew ktlintFormat` rewrites imports and wrapping — the two problems that
-  otherwise cost several correction rounds — then `ktlintCheck`, or the affected
-  module's `ktlint<SourceSet>Check`, confirms. This applies to main-agent and
-  delegated work alike, and the format pass's own diff is inspected like any other
-  edit.
+- Kotlin changes: run the mechanical format pass before the first test run, scoped
+  to the affected module or source set — `./gradlew :core:database:ktlintFormat`
+  rewrites imports and wrapping, the two problems that otherwise cost several
+  correction rounds — then `ktlint<SourceSet>Check` confirms. Scope it because
+  `build.gradle.kts` applies the ktlint plugin to every subproject, so the root
+  `./gradlew ktlintFormat` is repo-wide and can block on or rewrite files outside
+  the approved chunk. After the pass, inspect `git status --short` and the affected
+  module's diff: any path changed outside the approved chunk, or any violation
+  reported in a file the chunk does not own, is a blocker to stop and report rather
+  than commit or "fix". See `docs/agent-project-reference.md` Scoped Kotlin format
+  pass. This applies to main-agent and delegated work alike, and the format pass's
+  own diff is inspected like any other edit.
 - Report a check as passed only when it executed in that run. A Gradle task reported
   `UP-TO-DATE`, or otherwise inherited, is not fresh verification: re-run it with
   `--rerun-tasks` or state plainly that the result was inherited and from which
@@ -367,6 +379,9 @@ durable record (`docs/agent-project-reference.md` Durable task state) so the acc
 contract stays byte-identical and the expanded paths join the effective allowed set;
 never edit the contract or initialize a replacement record to widen scope, and never
 treat an amendment as a budget extension.
+An explicitly approved budget extension uses the separate `extend` event on that
+same record. It preserves original budget, elapsed usage, history and pending
+outcomes; it cannot revive a terminal record or waive reconciliation.
 
 **Review and ownership.** The parent may remain in Build Mode while the separate
 read-only `reviewer` performs the pre-requested checkpoint and targeted closure.

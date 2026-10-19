@@ -10,12 +10,15 @@ Usage: task-state.py --dir <external-directory> --task <id> <subcommand>
 
 Events: begin (id, description), resolve (id, outcome, evidence), phase (value),
 evidence (description, outcome, reference), checkpoint (reason), amend
-(approval_reference, note, add_allowed_paths, add_acceptance). Contract fields:
+(approval_reference, note, add_allowed_paths, add_acceptance), extend
+(approval_reference, reason, add_seconds). Contract fields:
 objective, allowed_paths (exact repo-relative files), acceptance (string list),
 owner, approval_reference. Other JSON fields are retained as contract context.
 The contract object is never rewritten; an approved scope expansion is an appended
 amend event whose paths join the effective allowed set. Amendments add scope only,
 never budget, and they record which already-dirty paths they legitimized.
+Budget extensions are appended separately; original budget and elapsed usage stay
+intact. Approval references are audit context, never authenticated user consent.
 
 Atomic JSON replacement plus a nonblocking POSIX advisory lock serialize cooperating
 writers. Locks release on process exit; the permanent lock file is never removed.
@@ -219,6 +222,7 @@ def validate_record(record: dict) -> None:
             raise Invalid("invalid history entry")
     validate_operation_history(record)
     validate_amendments(record)
+    validate_extensions(record)
 
 
 def validate_operation_history(record: dict) -> None:
@@ -247,7 +251,7 @@ def validate_operation_history(record: dict) -> None:
                     not text(event.get("evidence"))):
                 raise Invalid("invalid resolution in history")
             operation.update(outcome=event["outcome"], evidence=event["evidence"])
-        elif kind not in ("phase", "checkpoint", "evidence", "amend"):
+        elif kind not in ("phase", "checkpoint", "evidence", "amend", "extend"):
             raise Invalid("unknown event type in history")
     if operations != record["operations"]:
         raise Invalid("operations/history mismatch; unknown outcomes cannot be discarded")
@@ -305,6 +309,45 @@ def validate_amendments(record: dict) -> None:
             raise Invalid("amendment covered paths must be among the added paths")
 
 
+def extension_fields(event: dict) -> dict:
+    seconds = event.get("add_seconds")
+    if not number(seconds) or seconds <= 0:
+        raise Invalid("extend requires positive finite add_seconds")
+    if not text(event.get("approval_reference")) or not text(event.get("reason")):
+        raise Invalid("extend requires an approval reference and reason")
+    return {key: event[key] for key in ("add_seconds", "approval_reference", "reason")}
+
+
+def effective_budget_seconds(record: dict) -> float:
+    total = record["budget_seconds"]
+    for extension in record.get("extensions", []):
+        total += extension["add_seconds"]
+        if not number(total):
+            raise Invalid("effective budget must be finite")
+    return total
+
+
+def validate_extensions(record: dict) -> None:
+    """Validate both representations; legacy v1 records without extensions stay readable."""
+    extensions = record.get("extensions", [])
+    if not isinstance(extensions, list):
+        raise Invalid("invalid extensions")
+    expected = []
+    phase = "planned"
+    for entry in record["history"]:
+        event = entry["event"]
+        if event.get("type") == "phase":
+            phase = event.get("value")
+        elif event.get("type") == "extend":
+            if phase in ("complete", "blocked"):
+                raise Invalid("extension recorded for a terminal task")
+            expected.append({"revision": entry["revision"], "at": entry["at"],
+                             **extension_fields(event)})
+    if extensions != expected:
+        raise Invalid("extensions/history mismatch")
+    effective_budget_seconds(record)
+
+
 def used_seconds(record: dict, now: float) -> float:
     return record["used_seconds"] + max(0, now - record["accounted_at"])
 
@@ -313,7 +356,8 @@ def reconcile(record: dict, current: dict, now: float) -> dict:
     pending = [key for key, value in record["operations"].items() if value["outcome"] == "pending"]
     identity = all(current[key] == record["expected"][key] for key in ("repo", "common_dir"))
     drift = current != record["expected"]
-    remaining = max(0, record["budget_seconds"] - used_seconds(record, now))
+    budget = effective_budget_seconds(record)
+    remaining = max(0, budget - used_seconds(record, now))
     allowed = effective_allowed_paths(record)
     # Baseline dirt is preserved context, not authority to modify it.
     outside = sorted(set(current["changed_paths"]) - set(record["baseline"]["changed_paths"]) - allowed)
@@ -321,7 +365,8 @@ def reconcile(record: dict, current: dict, now: float) -> dict:
             "identity_matches": identity, "drift": drift,
             "unknown_operations": pending, "outside_allowed_paths": outside,
             "amended_paths": sorted(allowed - set(record["contract"]["allowed_paths"])),
-            "remaining_seconds": remaining,
+             "original_budget_seconds": record["budget_seconds"],
+             "effective_budget_seconds": budget, "remaining_seconds": remaining,
             "reconciliation_needed": drift or bool(pending) or bool(outside) or remaining <= 0,
              "authorization": "recorded approval is audit context only; verify actual user authorization"}
 
@@ -435,6 +480,16 @@ def apply_event(record: dict, event: dict, current: dict, now: float) -> dict:
              "add_allowed_paths": added, "add_acceptance": list(acceptance),
              "already_allowed_paths": sorted(set(requested) & allowed),
              "covered_dirty_paths": covered})
+    elif kind == "extend":
+        fields = extension_fields(event)
+        if not report["identity_matches"]:
+            raise Conflict("cannot extend against a different repository")
+        if record["phase"] in ("complete", "blocked"):
+            raise Conflict("a terminal record cannot be extended")
+        # Recording more approved time is not reconciliation: pending operations,
+        # source drift, scope and expected snapshots all remain untouched.
+        result.setdefault("extensions", []).append(
+            {"revision": record["revision"] + 1, "at": now, **fields})
     elif kind == "phase":
         if event.get("value") not in PHASES:
             raise Invalid("invalid phase")

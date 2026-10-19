@@ -77,6 +77,102 @@ class TaskStateTests(unittest.TestCase):
         self.assertEqual(2, self.init()[0])
         self.assertEqual(record, self.record())
 
+    def test_extension_preserves_contract_baseline_usage_history_and_original_budget(self):
+        self.init()
+        original = self.record()
+        now = original["accounted_at"] + 10
+        event = {"type": "extend", "add_seconds": 90,
+                 "approval_reference": "user approved 90 seconds", "reason": "finish verification"}
+        with mock.patch.object(ts.time, "time", return_value=now):
+            self.assertEqual(0, self.update(event)[0])
+        record = self.record()
+        for key in ("contract", "baseline", "expected", "budget_seconds"):
+            self.assertEqual(original[key], record[key])
+        self.assertEqual(10, record["used_seconds"])
+        self.assertEqual(690, ts.effective_budget_seconds(record))
+        self.assertEqual(event, record["history"][-1]["event"])
+        self.assertEqual(0, self.update(dict(event, add_seconds=30))[0])
+        self.assertEqual(720, ts.effective_budget_seconds(self.record()))
+
+    def test_extension_after_expiry_does_not_clear_pending_or_acknowledge_drift(self):
+        self.init("10")
+        self.update({"type": "begin", "id": "write", "description": "unknown outcome"})
+        before = self.record()
+        (self.repo / "file.txt").write_text("observed write\n")
+        now = before["accounted_at"] + 20
+        with mock.patch.object(ts.time, "time", return_value=now):
+            self.assertEqual(0, self.update({"type": "extend", "add_seconds": 90,
+                "approval_reference": "user approval", "reason": "inspect unknown outcome"})[0])
+            code, out, _ = self.cli("resume")
+        report = json.loads(out)
+        self.assertEqual(2, code)
+        self.assertTrue(report["drift"])
+        self.assertEqual(["write"], report["unknown_operations"])
+        self.assertGreater(report["remaining_seconds"], 0)
+        self.assertEqual(before["expected"], self.record()["expected"])
+        self.assertEqual(before["operations"], self.record()["operations"])
+        self.assertEqual(before["history"], self.record()["history"][:-1])
+        self.assertEqual(2, self.update({"type": "begin", "id": "again", "description": "refuse"})[0])
+
+    def test_expired_nonterminal_can_extend_and_begin_only_when_reconciled(self):
+        self.init("10")
+        now = self.record()["accounted_at"] + 20
+        with mock.patch.object(ts.time, "time", return_value=now):
+            self.assertEqual(2, self.update({"type": "begin", "id": "no", "description": "expired"})[0])
+            self.assertEqual(0, self.update({"type": "extend", "add_seconds": 30,
+                "approval_reference": "approved", "reason": "more time"})[0])
+            code, out, _ = self.cli("resume")
+            self.assertEqual(0, code)
+            self.assertEqual(20, json.loads(out)["remaining_seconds"])
+            self.assertEqual(0, self.update({"type": "begin", "id": "yes", "description": "fresh"})[0])
+
+    def test_extension_rejects_invalid_amount_text_and_terminal_phase_without_writing(self):
+        self.init()
+        good = {"type": "extend", "add_seconds": 60, "approval_reference": "approved", "reason": "more"}
+        for field, values in (("add_seconds", (0, -1, True, "60", None, float("inf"))),
+                              ("approval_reference", (None, " ")), ("reason", (None, ""))):
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    before = self.record_path.read_bytes()
+                    self.assertEqual(125, self.update(dict(good, **{field: value}))[0])
+                    self.assertEqual(before, self.record_path.read_bytes())
+        for phase in ("complete", "blocked"):
+            record = self.record()
+            record["phase"] = phase
+            with self.assertRaises(ts.Conflict):
+                ts.apply_event(record, good, record["expected"], time.time())
+
+    def test_extension_history_tampering_and_overflow_fail_closed(self):
+        self.init()
+        self.update({"type": "extend", "add_seconds": 60, "approval_reference": "approved", "reason": "more"})
+        original = self.record()
+        for field, value in (("add_seconds", 120), ("approval_reference", "invented"),
+                             ("reason", "changed"), ("revision", 9), ("at", 0)):
+            with self.subTest(field=field):
+                record = json.loads(json.dumps(original))
+                record["extensions"][0][field] = value
+                with self.assertRaises(ts.Invalid):
+                    ts.validate_record(record)
+        record = json.loads(json.dumps(original))
+        record.pop("extensions")
+        with self.assertRaises(ts.Invalid):
+            ts.validate_record(record)
+        record = json.loads(json.dumps(original))
+        record["history"][0]["event"]["add_seconds"] = -1
+        with self.assertRaises(ts.Invalid):
+            ts.validate_record(record)
+        huge = {"type": "extend", "add_seconds": 1e308, "approval_reference": "approved", "reason": "finite"}
+        first = ts.apply_event(original, huge, original["expected"], time.time())
+        with self.assertRaises(ts.Invalid):
+            ts.apply_event(first, huge, first["expected"], time.time())
+
+    def test_extension_does_not_authenticate_an_approval_reference(self):
+        self.init()
+        # Deliberately fabricated audit text passes: real user consent is checked by
+        # the operator, never authenticated by this cooperative helper.
+        self.assertEqual(0, self.update({"type": "extend", "add_seconds": 60,
+            "approval_reference": "fabricated fixture claim", "reason": "boundary demonstration"})[0])
+
     def test_rejects_internal_state_directory_before_creating_it(self):
         target = self.repo / "state"
         result = self.cli("init", "--repo", str(self.repo), "--contract", str(self.contract_file),
