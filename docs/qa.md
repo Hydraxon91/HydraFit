@@ -3883,3 +3883,33 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   are not an independent execution. One flow file was edited through a bash heredoc rather than the
   edit tool. The Logger flow was attempted six times, beyond the one-attempt-plus-one-correction
   rule, before it was stopped; each attempt was read-only.
+
+## 0.10.3 / 0.10.4 — supersets and effort/readiness disposition
+
+- **Verification (fresh, 2026-10-19).** `full-matrix-05.log`: 787 Gradle tasks executed, 0 inherited —
+  `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` (73 pre-build/asset wrapper tasks still report
+  up-to-date; no test, compile or ktlint source-set task inherited). Post-review corrections were
+  re-verified first in `fix-check4.log` (126 executed, 0 inherited). Scoped evidence before that: domain/planner
+  (`planner-check3.log`, 15 executed), database/migration (`persistence-check4.log`, 31 executed),
+  Logger (`logger-check3.log`, 117 executed), SplitBuilder (`splitbuilder-check3.log`, 75 executed),
+  Routines by `coder` (`routines-check.log`, 75 executed).
+- **Consumer evidence.** `SupersetTest`/`SupersetMigrationTest` cover validation, encoding and the four
+  legacy stores; `SqlDelightBackupRepositoryTest` round-trips an authored pair through export,
+  validation and whole restore; `PrescriptionInterchangeTest` covers v5 export plus pre-v5/broken-pair
+  rejection; `PlannerSupersetPairingTest` covers opt-in, adjacency, curation and prescription
+  preservation; `GuidedSupersetProgressTest` covers alternation, skip and session-local unpair;
+  `RoutinesSupersetTest` covers authoring, partial-pair cleanup and save validation;
+  `SplitBuilderSupersetTest` covers preference parsing and bounds; `SubstituteExerciseUseCaseTest`
+  covers a paired-slot swap keeping its group, and `WorkoutLoggerSupersetTest` covers rest selection,
+  skip/unpair state and next-turn wiring.
+- **Limits.** No emulator acceptance was run before the review checkpoint; `59.sqm` has no on-device
+  upgrade exercise; mid-workout unpair is session-local; planner pairing requires already-adjacent
+  curated arm slots. 0.10.4 ships no numeric effort/readiness feature by explicit disposition.
+  A bounded device exploration opened the Routines editor but did not reach a two-slot routine, so
+  the pairing action, dialog, Logger superset guidance and SplitBuilder toggle remain device-unverified.
+  A pre-existing 0.10.2 layout defect was observed and deliberately left for later: the
+  **Per-set targets** action label wraps to "Per-se t targets" in the slot action row.
+  This evidence section was appended with a shell heredoc rather than the edit tool; the content is
+  accurate, but the write method did not follow the file-edit rule.

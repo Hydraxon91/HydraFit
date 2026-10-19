@@ -20,6 +20,23 @@ disclosure (built-in planner only, recorded-history decay only, no future workou
 clock time and current offset, unknown dates keep prior behavior, and these dates do not move an
 existing block). UI strings live in the feature's `strings.xml`.
 
+## Superset authoring and guidance (0.10.3)
+
+The Routines editor pairs a slot with the **next** slot in the same workout through a dialog holding
+transition and pair rest seconds. Applying writes one identical `Superset` to both slots and keeps
+their own `progressionPolicy`/`setTargets`; removing clears both. Deleting a paired slot clears its
+partner, moving one member apart is refused, and replacing its exercise drops the pair, so a half pair
+cannot be saved. The key is `routine-<workoutIndex>-<firstSlotIndex>`.
+
+SplitBuilder owns the planner opt-in: an off-by-default checkbox plus the same two rest fields,
+passed as `PlanRequest.plannerSupersetPreference` and included in the regeneration fingerprint.
+
+The Logger alternates by recorded working sets, labels the next paired turn, starts transition rest
+between members and pair rest after a round, and offers **Skip turn**, **Resume turn** and
+**Unpair for this workout**. Skipping writes nothing and clears after the next guided write. Unpairing
+is session-local: the frozen occurrence keeps its group, and recorded sets never change. A zero-second
+transition starts no timer, and intentional transitions skip short-rest coaching.
+
 ## Ordered per-set prescription surfaces (0.10.2)
 
 The routine editor's counted **external** slots carry a **Per-set targets** action opening a

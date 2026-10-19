@@ -93,6 +93,11 @@ which stays "no policy configured" rather than adopting a rule the user never ap
 `ALTER TABLE`, no rebuild); existing rows keep `NULL`, which stays "this slot's sets share
 one repeated prescription" rather than being read as an ordered one, so no historical set is
 given an invented slot identity.
+`59.sqm` adds the nullable `superset` text column to the same four tables (additive
+`ALTER TABLE`, no rebuild); existing rows keep `NULL`, which stays "unpaired" rather than
+inventing a group from exercise order. Saves and restores write it through
+`setEntrySuperset`/`setActivationSuperset`/`setOccurrenceSuperset`, and the repository decodes
+it with `SupersetJson` on read.
 `ProgressionHistory.sq` is query-only: it registers `workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
 `trainingActivation` as one invalidation anchor, so a set write, a session
 boundary, a replacement or an activation change re-emits. `SqlDelightWorkoutPlanSourcesRepository`
