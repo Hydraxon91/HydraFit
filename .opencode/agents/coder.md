@@ -202,7 +202,9 @@ paths, style sources and checks.
   failures fail fast, then run the module host tests. Scope the format pass:
   `build.gradle.kts` applies the ktlint plugin to every subproject, so the root
   `./gradlew ktlintFormat` is repo-wide and may rewrite or block on files outside
-  the approved chunk. After the pass, inspect `git status --short` and the affected
+  the approved chunk. Run the pass and the check as separate invocations: in one
+  invocation the check can report a violation the pass has already fixed. After the
+  pass, inspect `git status --short` and the affected
   module's diff; a path changed outside the approved chunk, or a violation in a file
   the chunk does not own, is a blocker to stop and report, never to fix in that
   file. This adds no Gradle tasks: agent-tooling-only changes (Python, docs) use the

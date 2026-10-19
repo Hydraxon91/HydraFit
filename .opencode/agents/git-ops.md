@@ -383,6 +383,9 @@ timeout, canceled run, missing run or inaccessible check is not a CI pass.
 
 Report the commit SHA, `git status --short`, and the CI results or explicit
 monitoring exception/limitation when a push happened.
+Report the permission prompts this operation raised, as a count and which command
+raised each, so the parent can record the reduction against a baseline. A prompt
+you did not observe is reported as unknown, never as zero.
 Label each delegated operation completed, failed, unknown or unverified; include
 exact commands/results, affected paths/hunks, resulting SHA/ref and preserved
 unrelated changes. Separate push success from CI outcome and report remaining

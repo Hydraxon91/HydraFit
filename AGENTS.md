@@ -217,7 +217,9 @@ other gates remain in force, including harness restrictions.
   correction rounds — then `ktlint<SourceSet>Check` confirms. Scope it because
   `build.gradle.kts` applies the ktlint plugin to every subproject, so the root
   `./gradlew ktlintFormat` is repo-wide and can block on or rewrite files outside
-  the approved chunk. After the pass, inspect `git status --short` and the affected
+  the approved chunk. Run the pass and the check as **separate invocations**: in one
+  invocation the check can report a violation the pass has already fixed, which reads
+  as a failure that is not there. After the pass, inspect `git status --short` and the affected
   module's diff: any path changed outside the approved chunk, or any violation
   reported in a file the chunk does not own, is a blocker to stop and report rather
   than commit or "fix". See `docs/agent-project-reference.md` Scoped Kotlin format
@@ -400,8 +402,10 @@ to part of the scope as blocked or partial without concealing it; do not advance
 dependent work or mark it complete.
 
 **Durable task record.** After contract acceptance, use `scripts/task-state.py`
-with an explicitly selected state directory outside the checkout and Git directory.
-Record its location and task id in chat. Keep the accepted contract and its approval
+with an explicitly selected state directory outside the checkout and Git directory
+and not under a temporary directory — a platform cleanup can evict a live record
+mid-task — and record its location and task id in chat.
+Keep the accepted contract and its approval
 reference, baseline and expected repository fingerprints, phase, evidence,
 operation attempts and budget there, never in a committed task-state file. Before
 a side-effecting operation record a unique pending attempt; resolve only from an

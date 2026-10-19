@@ -91,7 +91,9 @@ compliance. Never infer approval or an independent review verdict from a record.
 - **Initialize:** after acceptance and before implementation, initialize
   `scripts/task-state.py` with the accepted contract, exact allowed paths,
   approval reference, owner, baseline and finite budget. Select an external state
-  directory, record it and the task id in chat, and retain the original baseline.
+  directory that is outside the checkout and Git directory and **not under a
+  temporary directory** — a platform cleanup has evicted a live record mid-task —
+  record it and the task id in chat, and retain the original baseline.
   See `docs/agent-project-reference.md` Durable task state for command examples.
   An accepted unlimited budget is not currently representable by this helper;
   stop and resolve that contract mismatch rather than inventing a finite cap.
@@ -119,6 +121,9 @@ compliance. Never infer approval or an independent review verdict from a record.
   Missing state, stale revisions, pending outcomes, drift, out-of-scope paths,
   blocked/complete phases, expired budgets and missing/current-tree evidence stop
   continuation. Evidence references must be inspected, not trusted by label.
+  Carry the two measured counts into the boundary report: permission prompts
+  observed for delegated runs, and the chunk's correction-round count. An
+  observation that was not made is recorded as unknown, never as zero.
 - **Review:** at each release boundary, include independent reviewer closure in
   the required evidence descriptions. Record its actual verdict and reviewed tree;
   a phase label is not closure. Record verification and findings at every chunk
@@ -134,8 +139,11 @@ compliance. Never infer approval or an independent review verdict from a record.
 - **Publication:** record readiness and the exact candidate/approval scope; retain
   the separate user approval gate. After approval, record unique attempts and
   evidence for the authorized publication operations. Approval text in a state
-  record is audit context only. Record completion only after required evidence
-  and outcomes are reconciled; terminal records cannot admit more work.
+  record is audit context only. Keep the record non-terminal until the publication
+  it gates is recorded: reaching `complete` first leaves the batch's own final step
+  with nowhere to live, because a terminal record admits no new attempt. Record
+  completion only after required evidence and outcomes are reconciled; terminal
+  records cannot admit more work.
 
 Apply these standing defaults unless the user explicitly overrides them:
 

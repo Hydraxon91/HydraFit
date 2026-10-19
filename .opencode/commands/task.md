@@ -49,14 +49,18 @@ implement; ask the user to switch to Build mode when they accept the contract.
 ## Execution
 
 - The model-tool guard in `scripts/opencode-task-guard` is an opt-in read-only
-  pilot, not the default `/task` executor. Do not enable it in the live checkout
+  pilot, not the default `/task` executor. It is **not a safety boundary**: its
+  shell bypass is proven and its model-loop and cancellation behaviour is unverified,
+  so nothing may rely on it for containment or authorization. Do not enable it in
+  the live checkout
   or bind this session automatically. Its supported surface and exclusions are in
   `docs/agent-project-reference.md` Opt-in model-tool guard pilot. When explicitly
   bound, the guard owns admission/outcome records for supported tool calls; do not
   also create a manual pending record around those same calls. Direct user/API
   shell execution is outside this guard's boundary.
 - After contract acceptance, initialize `scripts/task-state.py` in an explicitly
-  selected directory outside the checkout and Git directory; see
+  selected directory outside the checkout and Git directory and not under a
+  temporary directory, which a platform cleanup can evict mid-task; see
   `docs/agent-project-reference.md` Durable task state for the JSON/event format.
   Record the state directory and task id in chat so a resumed session can find it.
   Do not store secrets in the contract or evidence. The approval reference is audit
