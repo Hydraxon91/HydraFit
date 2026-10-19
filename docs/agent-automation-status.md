@@ -1093,3 +1093,82 @@ selector's `collectLatest` cancellation.
 - **Not established:** whether the production Android driver actually collides is still unverified —
   the fix was chosen to be correct either way, so this does not block, but it is not resolved. No
   emulator or device interaction; no publication.
+
+## v0.10.1 published, and the state location failed (2026-10-19)
+
+The folded `v0.10.1` publication ran from the `0.10.1-0.10.2` batch, under the user's explicit
+approval of the enumerated publication report and their instruction to run the remaining steps without
+per-step pauses. It is recorded here because the batch's own durable record no longer exists — see
+B015-01.
+
+### Publication
+
+- Candidate `bd9865f4`, after the release notes gained the `Fixed` entry for the B013-06 progress-read
+  fix (the notes predated it and would otherwise have shipped incomplete). Pushed fast-forward
+  `76d7ab30..bd9865f4`.
+- PR **#34** into `main`. PR CI run `39242293870` (`Build and Test`) **success**: Lint, Agent tooling
+  checks, Unit Tests and Assemble Debug APK all green.
+- Merged as a merge commit **`49d10003`** (parents `1ff9847d`, `bd9865f4`); `origin/main` advanced to it.
+- Annotated tag **`v0.10.1`** (tag object `3296cb49`, dereferences to `49d10003`) pushed. Release
+  workflow run `39244615752` **success**: Lint, Unit Tests and Build Signed Release APK all green, with
+  signing secrets present and the release-notes presence check passing.
+- GitHub Release `v0.10.1` published 2026-10-19T11:31:22Z, not draft and not prerelease, asset
+  `androidApp-release.apk` (25,286,591 bytes).
+- **Artifact verified offline, never installed:** SHA-256
+  `0c482f7581cf04d46e22827f16f9c490f7e1fefde0dd9755d2587b8b7228d380`; `apksigner verify` reports a
+  valid v2 signature with one signer (`CN=Bence Szabo, OU=HydraFit`); `aapt2 dump badging` reports
+  package `com.hydrafit.app`, `versionCode 100100` and `versionName 0.10.1`, matching the tag mapping.
+  The development emulator was not touched.
+- Every step after the push was verified by the parent independently with `git` and `gh`, not accepted
+  from the delegated summary.
+
+### Findings
+
+- **B015-01 [state location, confirmed] — the durable record was evicted from an OS temp directory.**
+  The batch's state lived under the agreed external root, which is the platform temp directory. macOS
+  cleaned it mid-session: `batch-0.10.1-0.10.2/` is gone, taking the contract, evidence, boundary
+  report and amendments for the whole batch with it. The two records created later in the session
+  (`automation-ad`, `b013-06`) survived, so this is eviction, not corruption. The consequence is
+  concrete: the publication could not be recorded as a begun/resolved operation on the record that was
+  meant to hold it, and the batch's bookkeeping for its own final step is lost. The publication itself
+  is durably recorded in git, the PR and the two workflow runs, so nothing about the release is in
+  doubt — only the agent-side record.
+  *Improvement:* the guidance to keep state "outside the checkout and Git directory" is right but
+  incomplete. It should also say **not an OS temp directory**: a record that must outlive the session
+  needs an external location with the user's own retention, and the helper could warn when its state
+  directory sits under a platform temp root.
+- **B015-02 [bookkeeping, confirmed] — the batch record was closed before the batch's own final
+  step.** The `batch-0.10.2` record reached phase `complete` at revision 24 when the implementation and
+  review were finished, which is before the publication the batch was gating. The phase then refuses
+  new work, so the publication could not have been recorded as an operation even if the file had
+  survived — only `evidence` is accepted on a terminal record. The publication boundary's own rule is
+  to record unique attempts and evidence for the authorized publication operations, which needs the
+  record to stay open until publication finishes.
+  *Improvement:* treat publication as part of the batch's work, and reach `complete` only after it, or
+  provide an explicit post-terminal publication record.
+
+### Ratings at this boundary
+
+- **Task state 8.5 → 8.** The helper behaved correctly throughout — the loss is not a defect in it —
+  but the rating is confidence to rely on it end-to-end, and this run showed that a record kept in an
+  evictable location can vanish before it is finished with. B015-01's fix is a location rule and a
+  warning, not a mechanism change.
+- **Publication controls 5 → 7.** The report-before-approval rule was exercised for real: the user's
+  "Publish 0.10.1" was treated as a request for the report, the enumerated list was approved, and the
+  remaining steps ran only after an explicit "run the rest". The rule did what it was added for. Held
+  below 8 because the eight-step sequence still needed a hand-written report rather than a generated
+  one, and because B015-02 shows the record did not span the operation it was gating.
+- **Review discipline 9 → 9 (held).** Unchanged; the publication ran on already-reviewed revisions.
+- **Unchanged and unmeasured:** `git-ops` 7 (provisional; this run used it for commits, a push, a PR
+  and CI monitoring without a permission-prompt measurement), bounded-run 9, formatting workflow 7,
+  acceptance completeness 8, coder workflow 7, lease 8, UI preflight 6.5, validator 8.5.
+- **Guard pilot 3.5 — untouched.**
+
+### Verification at this boundary
+
+- PR CI run `39242293870` and release run `39244615752`, both `success`, both re-checked by the parent
+  with `gh run view`.
+- Artifact checks as listed above, run from a downloaded copy in an external temp directory.
+- **Not established:** no on-device acceptance of the release build, by design — the development
+  emulator stays on debug builds and a release APK is never installed on it. No emulator interaction
+  occurred during this publication.
