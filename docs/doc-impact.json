@@ -1,0 +1,33 @@
+{
+  ".github/workflows/": [
+    "docs/agent-ci-release.md"
+  ],
+  ".maestro/": [
+    "docs/agent-ui-verification.md",
+    ".maestro/README.md"
+  ],
+  "core/database/src/commonMain/sqldelight/": [
+    "docs/architecture.md"
+  ],
+  "core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/": [
+    "docs/architecture.md",
+    "docs/fatigue-formula.md",
+    ".opencode/skills/hydrafit-mechanics/SKILL.md"
+  ],
+  "feature/logger/": [
+    "docs/architecture.md",
+    ".opencode/skills/hydrafit-mechanics/references/features.md"
+  ],
+  "feature/routines/": [
+    "docs/architecture.md",
+    ".opencode/skills/hydrafit-mechanics/references/features.md"
+  ],
+  "feature/splitbuilder/": [
+    "docs/architecture.md",
+    ".opencode/skills/hydrafit-mechanics/references/features.md"
+  ],
+  "scripts/": [
+    "docs/agent-project-reference.md",
+    "docs/agent-automation-status.md"
+  ]
+}

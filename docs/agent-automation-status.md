@@ -1299,3 +1299,312 @@ subsection; they are not a field of the helper's `boundary` report, which is the
   (`offline-suite-final4.log`), and any later run shows the same numbers.
 - **Not established:** no live batch run under the new boundary fields; no permission-prompt count has
   been observed; the guard remains unexercised and unenabled.
+
+## Living-doc mechanical checks (2026-10-19)
+
+Bounded tooling chunk at base `13d50ee6`, `coder` ownership, local-only changes; no
+app, schema, dependency, CI workflow or publication changes. The existing `Agent
+tooling checks` CI job already runs `scripts/validate-agent-tooling.py`, so the new
+checks reach CI through that script without editing the workflow.
+
+### What was added
+
+- **`scripts/living_docs.py`** (new, standard library only) resolves the
+  `**Living docs (keep current):**` paragraph from `AGENTS.md`, including the
+  mechanics skill's `SKILL.md` and its `references/*.md` topic files. It reports a
+  finding when the paragraph is absent or yields fewer than five documents, when a
+  declared document is missing, when numbered ATX headings repeat or move backwards
+  within their parent group, when numbered heading titles repeat in one document,
+  and when a relative Markdown link does not resolve. Fenced code is ignored so an
+  example does not read as document structure.
+- **`scripts/check-living-docs.py`** (new CLI) exposes the structural check with
+  exit 0/1 (125 for invalid input) and adds an advisory `--changed-from REV` mode.
+  That mode reads tracked changes plus untracked files from the repository root and
+  prints `Living docs to review:` without changing the exit code.
+- **`docs/doc-impact.json`** (new) maps repository-relative prefixes to the living
+  docs worth reviewing: SQLDelight and domain changes to architecture/formula/skill
+  docs, feature changes to architecture and the mechanics feature reference,
+  workflow changes to the CI/release procedure, Maestro changes to the UI
+  verification procedure, and `scripts/` changes to the agent reference and this
+  status record. Longest matching prefix wins and duplicate docs are collapsed.
+- **`scripts/validate-agent-tooling.py`** now appends the living-doc structural
+  findings to its existing findings; its output and exit-code contract is
+  unchanged. The new test module adds 21 offline tests covering resolution,
+  numbering, links, mapping, CLI exit codes, advisory output and a read-only
+  before/after check.
+
+### Findings resolved
+
+- **DL-01 [declaration drift, fixed]:** the required mapping target
+  `.maestro/README.md` was not in the `AGENTS.md` living-docs list, so the mapping
+  validation flagged it as a non-living doc. The file is an actively updated local
+  flow record, so the declaration now lists it; adding it produced no new heading or
+  link findings. This was the only finding the initial real-tree run produced; no
+  existing living document needed a link or heading correction.
+- **DL-02 [scope note]:** the advisory map flags
+  `docs/agent-project-reference.md` for `scripts/` changes. Its Key Commands list
+  was not edited in this chunk because the approved write condition for that file
+  was a checker finding, not a general documentation expansion; the new CLI is
+  recorded here instead.
+
+### Verification
+
+- `python3 -B scripts/check-living-docs.py` — exit 0, no findings.
+- `python3 -B scripts/validate-agent-tooling.py` — 13 definitions, 30 surface
+  files, **0 findings**, exit 0.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **230 tests
+  OK** (209 baseline + 21 new), including the separate CLI and temporary-git-advisory
+  cases.
+- `python3 -B scripts/check-living-docs.py --changed-from HEAD` — exit 0 with
+  `Living docs to review:` and the two `scripts/`-mapped docs.
+- **Not established:** the new checks have not yet run in PR CI; the structural
+  checks cannot verify prose accuracy, stale claims or a missing update that leaves
+  no broken link or heading. The impact map is intentionally partial and advisory.
+
+**Docs-sync confidence: 7.5/10.** The mechanical classes that caused recent drift —
+duplicate/out-of-order numbered headings, dangling relative links, a missing
+declared doc and a mapping to a removed doc — are now checked on every validator
+run and covered by tests. It stops short of 8 because "this document should have
+been updated" and "this statement is still true" remain review-owned; the advisory
+map only narrows the review surface and has not yet been exercised in a live batch.
+
+## Task-state Phase 2 (2026-10-19)
+
+### What was implemented
+
+- **Atomic multi-event updates:** `update --expect N --event a.json --event b.json`
+  applies events in order against one observed snapshot and one timestamp, then
+  writes once through the existing atomic replacement. A failure in any event
+  leaves the record byte-identical; `--expect` checks only the initial revision.
+  A `resolve` followed by a `checkpoint` in one call works, and the checkpoint
+  still enforces its own identity, pending-outcome and scope guards.
+- **Actionable conflicts:** `begin`, `checkpoint`, `amend` and `phase` conflicts
+  name the blockers relevant to that action (identity mismatch, drift, pending
+  operation ids, out-of-scope paths, budget exhaustion). `resume` and other
+  reconcile output additively report `blockers` and `completion_blockers`; existing
+  fields and exit codes are unchanged.
+- **Completion after expiry:** `phase complete` refuses only on identity mismatch,
+  drift, pending outcomes or out-of-scope paths. Expiry alone no longer blocks
+  completion, which records already-reconciled work. `begin` still refuses on
+  expiry, `boundary` still reports it, `blocked` is unchanged, and other phases
+  retain the full check including expiry.
+
+### Verification
+
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_task_state.py'` —
+  **49 tests OK** (42 baseline plus 7 new multi-event, conflict-detail and
+  completion-after-expiry cases).
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` —
+  **237 tests OK**, including the unchanged boundary-expiry and terminal-phase
+  cases except the one assertion that encoded the old completion-after-expiry
+  behavior; that assertion now records the approved rule.
+- `python3 scripts/validate-agent-tooling.py` — 13 definitions and 30 surface
+  files, **0 findings**, exit 0.
+- `python3 scripts/check-living-docs.py` — exit 0, no findings.
+
+### Limits
+
+- Multi-event updates still hold the cooperative POSIX lock for the whole command;
+  they do not make two separate CLI invocations atomic together.
+- `resume` evidence is a report, not enforcement: nothing prevents a caller from
+  ignoring named blockers or running unrelated work.
+- Completion after expiry cannot prove the recorded evidence is current beyond the
+  snapshot checks; the operator still verifies artifacts and the reviewer verdict.
+- The task-state helper is still not wired into `/batch` as mandatory interception,
+  and has one live end-to-end journey (`n=1`), so conflict messages and the new
+  multi-event path are covered by offline tests rather than a live batch.
+
+**Task-state confidence: 8/10.** The conflict detail and one-round-trip
+resolve+checkpoint close a practical friction point without changing the approval
+or safety boundary, and the offline suite now covers the new failure modes.
+It stops at 8 because adoption is still cooperative and unproven in a live batch,
+and the completion-after-expiry rule depends on the operator recording evidence
+and outcomes before treating the record as finished.
+
+## Maestro CLI wrapper and preflight v2 (2026-10-19)
+
+### What was implemented
+
+- **`scripts/maestro-cli.sh`:** a small Bash entry point that resolves
+  `MAESTRO_BIN`, then `maestro` on `PATH`, then `$HOME/.maestro/bin/maestro`; exits
+  127 with a clear message when none is usable; disables Maestro analytics with
+  `MAESTRO_CLI_NO_ANALYTICS=1` and
+  `MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true`; and `exec`s the binary with
+  the caller's arguments unchanged. It infers no device and makes no state change.
+- **Preflight schema v2:** `scripts/ui-journey-preflight.py` still accepts version-1
+  contracts unchanged and now validates version 2. V2 requires
+  `screenshot_evidence`, either the exact string `"none"` or a nonempty list of
+  unique nonempty names. `"none"` is accepted only with `screenshot_checkpoints`
+  equal to `none` (trimmed, case-insensitive). List entries must appear as
+  `takeScreenshot:`/`assertScreenshot:` values in at least one referenced flow;
+  scalar, quoted and inline `{ path: name }` forms are read from flow bytes. This is
+  a declaration/text check, not YAML parsing.
+- **`--brief`:** prints a deterministic Markdown handoff instead of JSON, covering
+  status, version, scope, writes, safeguards, budgets, baseline observation age,
+  shortened flow hashes, fixture expectations, durable assertions, screenshot
+  evidence and findings. It remains read-only and exits 0/2/125 by findings.
+- **Template:** `.maestro/journey-template.yaml.template` documents the copy-to-
+  `.maestro/<journey>.yaml` shape with `launchApp`, `clearState: false`,
+  `stopApp: false`, a starting-state assertion, action placeholders, a
+  `takeScreenshot` checkpoint and a durable assertion. The `.template` suffix keeps
+  directory runs from collecting it as a flow.
+
+### Verification
+
+- `bash -n scripts/maestro-cli.sh` — exit 0.
+- `shellcheck --severity=warning scripts/maestro-cli.sh` — exit 0, no findings.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_ui_journey_preflight.py'`
+  — **21 tests OK** (13 baseline plus 8 v2/brief cases).
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_maestro_cli.py'` —
+  **2 tests OK**.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **248
+  tests OK** (237 baseline plus 9 preflight cases and 2 wrapper cases).
+- `python3 scripts/validate-agent-tooling.py` — 13 definitions, 30 surface files,
+  **0 findings**, exit 0.
+- `python3 scripts/check-living-docs.py` — exit 0, no findings.
+
+### Limits
+
+- No existing `.maestro/*.yaml` journey was retrofitted to v2, and no existing
+  contract was migrated; v1 compatibility is what keeps those contracts valid.
+- `screenshot_evidence` matching is textual. It does not parse full YAML, resolve
+  includes/templates, prove a screenshot file was produced, judge its image, or
+  replace semantic assertions. A flow that takes a correctly named screenshot of
+  the wrong screen still passes this check.
+- The brief reflects the contract declarations and current file hashes; it does not
+  verify device state, approval, fixture facts or YAML execution.
+- No device or emulator run and no Maestro execution against the app were performed
+  for this phase. The template is not executed in place.
+
+**Maestro tooling confidence: 8/10.** The wrapper removes the long inline analytics
+prefix and gives one predictable binary-resolution path, with offline coverage of
+argument forwarding and the missing-binary failure. It stops at 8 because it was
+not exercised against a real Maestro installation or device in this phase.
+
+**Preflight v2 confidence: 8.5/10.** The added required declaration closes the
+specific gap where a contract could claim screenshots the flow never takes, while
+v1 stays valid and exit codes/output remain stable. It stops below 9 because the
+check is textual (not YAML semantics) and cannot prove screenshot content or review.
+
+## Change-closure report for batch pre-flight (2026-10-19)
+
+### What was added
+
+- **`scripts/plan-file-closure.py`:** read-only, standard-library helper that parses
+  top-level `interface`, `class` and `object` declarations from seed files
+  (including simple modifiers and annotations; indented/nested declarations are
+  ignored), scans `.kt`, `.kts`, `.sq` and `.sqm` files for whole-word matches, and
+  reports consumers, test doubles and regression coverage, DI/navigation files,
+  migration/schema coverage and living docs in deterministic Markdown. Function and
+  method names are not inferred: `--symbol` adds explicit names such as
+  `substitute` or `setTargets`. `--repo` defaults to the checkout; `--seed` is
+  repeatable and required. Invalid input exits 125.
+- **Batch pre-flight step:** `.opencode/commands/batch.md` now requires the report
+  for planned interface, schema/stored-encoding, shared-state or DI/navigation
+  changes, and requires every surfaced candidate to be marked include or exclude
+  with a reason. It remains advisory and does not grant approval or replace
+  consumer inspection.
+- **Reference example:** `docs/agent-project-reference.md` lists the helper under
+  Key Commands and points Implementation Readiness at it for consumer mapping.
+
+### 0.10.3 validation
+
+Run against four seeds: `PlanHistoryRepository.kt`, `PlanHistory.sq`,
+`AcceptWeeklyPlanUseCase.kt` and `WorkoutLoggerUiState.kt`. The report surfaced
+**5 of 5** known amendment-set files: `BodyWeightMigrationTest.kt`,
+`EquipmentProfileMigrationTest.kt`, `AcceptWeeklyPlanUseCase.kt` (seed),
+`SubstituteExerciseUseCase.kt` (consumer) and `SubstituteExerciseUseCaseTest.kt`
+(test double). Group counts in that run: 4 seeds, 16 consumers, 11 test
+double/regression files, 2 DI/navigation files, 40 migration tests and a
+`verifySqlDelightMigration` build file, and 4 living docs.
+
+### Verification
+
+- `python3 scripts/plan-file-closure.py --help` — exit 0.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_plan_file_closure.py'`
+  — **13 tests OK**.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **261
+  tests OK** (248 baseline plus 13).
+- `python3 scripts/validate-agent-tooling.py` — 13 definitions, 30 surface files,
+  **0 findings**, exit 0.
+- `python3 scripts/check-living-docs.py` — exit 0, no findings.
+- No Gradle run, device or emulator interaction.
+
+### Limits
+
+- The report is advisory. Symbol matching is textual: it does not resolve types,
+  aliases, inheritance, reflection, generated code or dynamic dispatch, and it
+  cannot prove that every consumer was found or changed.
+- By default only top-level type declarations are extracted from seeds. Nested
+  types, functions and methods require explicit `--symbol` entries, so the report
+  is narrower than a full grep but can miss a symbol nobody names.
+- A group being empty is not evidence that no consumer exists. The seed is
+  excluded from its own matches, and only `.kt`, `.kts`, `.sq` and `.sqm` files are
+  scanned.
+- Migration coverage lists all `*MigrationTest.kt` files under
+  `core/database/src/*Test/` for any schema seed, not only the tests related to
+  that specific schema change.
+- Living-doc mapping depends on `AGENTS.md` and `docs/doc-impact.json`; a missing
+  declaration or mapping produces an advisory warning rather than a failure.
+
+**Change-closure report confidence: 8/10.** The 0.10.3 run found the full known
+amendment set and the deterministic group/test coverage is exercised offline. It
+stops below 9 because the match is textual and cannot establish semantic closure,
+and it has been validated against one known change set rather than repeated live
+batch runs.
+
+## Correction: alternate-root living-doc scope and preflight wording (2026-10-19)
+
+Bounded tooling correction at base `820562154ed2dabb9b02774325ed4db5c0245b12`,
+`coder` ownership; local tooling and living-doc changes only, with no app, schema,
+dependency, CI workflow or publication change.
+
+### Corrections
+
+- **T-01 (validator root scope):** `scripts/validate-agent-tooling.py` now runs
+  `living_docs.structural_findings` against the supplied root instead of only the
+  checkout that owns the script. Alternate-root tests now build a valid living-doc
+  declaration and `docs/doc-impact.json`, so the existing clean-tree fixture
+  exercises the living-doc checks instead of bypassing them. New integration
+  coverage checks a clean alternate root (exit 0), a duplicate numbered heading
+  (exit 1) and a missing declared document (exit 1).
+- **T-02 (completion scope):** `docs/agent-project-reference.md` and
+  `.opencode/commands/batch.md` now state that `phase complete` checks identity,
+  drift, pending outcomes and out-of-scope paths, not required evidence. Evidence
+  reconciliation remains operator-owned, and `boundary --require-evidence` remains
+  the separate evidence gate. `scripts/task-state.py` behavior is unchanged.
+- **T-03 (living-doc acceptance):** `.maestro/README.md` is accepted as a living doc.
+  It remains declared in `AGENTS.md` and mapped under `.maestro/` in
+  `docs/doc-impact.json`; neither file changed in this correction. The earlier
+  DL-01 entry above is a historical record and is not rewritten.
+- **T-04 (output wording):** `docs/agent-ui-verification.md` and the
+  `scripts/ui-journey-preflight.py` docstrings now describe `--brief` as stable at
+  fixed inputs and time rather than deterministic, noting that baseline age varies
+  with the clock. Brief output and behavior are unchanged.
+
+### Verification
+
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_validate_tooling.py'`
+  — **48 tests OK** (45 baseline plus 3 integration tests).
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **264 tests
+  OK** (261 baseline plus 3 new).
+- `python3 -B scripts/validate-agent-tooling.py` — 13 definitions, 30 surface
+  files, **0 findings**, exit 0.
+- `python3 -B scripts/check-living-docs.py` — exit 0, no findings.
+- `git diff --check` — exit 0.
+- No Gradle run, device or emulator interaction.
+
+### Limits
+
+- The alternate-root tests prove the validator applies living-doc structural checks
+  to a supplied root and reports duplicate headings and missing declarations. They
+  do not prove a repository's prose, links or verification claims are accurate.
+- `phase complete` remains cooperative bookkeeping. The prose now matches the
+  helper's identity, drift, pending-outcome and out-of-scope checks; it does not
+  enforce evidence descriptions, inspect artifacts or replace a review.
+- The stable-format wording describes fixed fields and ordering for fixed inputs and
+  time; it does not make output independent of the wall clock, because baseline age
+  is computed from the current time.
+- Living-doc acceptance here is a record of the existing declaration and mapping,
+  not new enforcement; `.maestro/README.md` keeps the same structural checks as the
+  other declared documents.

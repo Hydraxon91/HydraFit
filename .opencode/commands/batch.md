@@ -36,6 +36,14 @@ sequencing, folding and publication remain batch-specific.
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
   and the budget split, proposing one when the invocation omitted `--budget`. Label
   each open decision ANSWER-NOW or NEEDS-EVIDENCE. Then stop and wait for feedback.
+- **Change-closure report (advisory, required for interface/schema/shared-state/DI
+  changes):** before presenting the plan, run
+  `python3 scripts/plan-file-closure.py --seed <path>` for each intended seed when a
+  release changes an interface, schema or stored encoding, shared state, or a
+  DI/navigation registration. List every surfaced consumer, test double,
+  migration test, DI/navigation file and living doc in the plan, and mark each
+  **include** or **exclude** with a reason. The report is heuristic symbol matching:
+  it grants no approval and does not replace inspecting consumers, tests or wiring.
 - **Fold (one publication per batch):** a batch publishes once, under its lowest
   requested version — `/batch 0.9.0-0.9.1` combines both scopes into 0.9.0. State
   the folded target in this plan and do not create one release per requested version.
@@ -135,7 +143,15 @@ compliance. Never infer approval or an independent review verdict from a record.
   finite `add_seconds`, an `approval_reference` and a reason on the same record.
   Original budget, elapsed usage, history and unknown outcomes are preserved;
   pending outcomes still block new work. Expired nonterminal records may be extended,
-  terminal records may not. Never initialize a replacement record to bypass expiry.
+  terminal records may not. An expired record may be marked `complete` only after
+  required evidence and outcomes are recorded and no identity, drift, pending-outcome
+  or out-of-scope blocker remains; that evidence requirement is procedural and
+  operator-checked, not enforced by the completion transition. The transition checks
+  identity, drift, pending outcomes and out-of-scope paths only. Inspect the evidence
+  yourself, and use `boundary --require-evidence` as the separate evidence gate.
+  Expiry alone does not prevent that bookkeeping step. `begin`, active-phase advances
+  and boundary checks still stop on expiry.
+  Never initialize a replacement record to bypass expiry.
 - **Publication:** record readiness and the exact candidate/approval scope; retain
   the separate user approval gate. After approval, record unique attempts and
   evidence for the authorized publication operations. Approval text in a state
