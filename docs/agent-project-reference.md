@@ -421,8 +421,16 @@ python3 scripts/task-state.py --dir <external-state-dir> --task <id> init --repo
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> show
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> resume
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> boundary --expect <revision> --require-evidence "host tests" --require-evidence "reviewer closure"
-python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json>
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json> [--event <event.json> ...]
 ```
+
+Repeat `--event` to apply several ordered events in one update: they share one
+observed snapshot and one timestamp, `--expect` checks only the initial revision,
+and a single atomic replacement writes the combined record. Each event still
+increments the revision and appends its history entry. If any event is invalid or
+conflicts, nothing is written and the record stays byte-identical, so a
+`resolve` followed by a `checkpoint` either both apply or neither does; the
+checkpoint's own guards are not bypassed.
 
 The versioned record stores immutable contract and baseline, an explicitly
 acknowledged expected snapshot, phase, operation attempts (unique ids), evidence
@@ -484,13 +492,20 @@ Event JSON objects:
   helper cannot authenticate the approval reference.
 - `{"type":"phase","value":"verifying"}` records a phase (`planned`,
   `implementing`, `verifying`, `reviewing`, `correcting`, `ready`, `complete`,
-  `blocked`). This is a label, not a review verdict. Drift/pending outcomes or an
-  expired budget prevent advancing; recording `blocked` remains possible.
+  `blocked`). This is a label, not a review verdict. Drift, pending outcomes,
+  out-of-scope paths or an expired budget prevent advancing to an active phase;
+  recording `blocked` remains possible. Recording `complete` is bookkeeping rather
+  than new work: an expired budget alone does not prevent it, but identity
+  mismatch, drift, pending outcomes and out-of-scope paths still do. It records
+  already-reconciled work after expiry; it does not authorize more. `begin` and
+  `boundary` continue to stop on expiry.
 
 `resume` does not write. It reports expected/current drift, identity, pending ids
 as unknown outcomes, new out-of-scope dirty paths, the amended paths now in scope,
-`state_directory_temporary`, and original/effective budget and remaining seconds. Exit 2
-means reconciliation or a budget stop is needed; exit 0 is not authorization to
+`state_directory_temporary`, and original/effective budget and remaining seconds.
+It also reports `blockers` (identity, drift, pending ids, out-of-scope paths and
+budget exhaustion) and `completion_blockers` (the same without the budget stop).
+Exit 2 means reconciliation or a budget stop is needed; exit 0 is not authorization to
 continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
 usage are retained, without a reset option. A backward clock cannot reduce usage
 already persisted, but time lost before any update cannot be reconstructed; this

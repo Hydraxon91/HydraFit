@@ -135,7 +135,11 @@ compliance. Never infer approval or an independent review verdict from a record.
   finite `add_seconds`, an `approval_reference` and a reason on the same record.
   Original budget, elapsed usage, history and unknown outcomes are preserved;
   pending outcomes still block new work. Expired nonterminal records may be extended,
-  terminal records may not. Never initialize a replacement record to bypass expiry.
+  terminal records may not. An expired record may be marked `complete` only after
+  required evidence and outcomes are recorded and no identity, drift, pending-outcome
+  or out-of-scope blocker remains; expiry alone does not prevent that bookkeeping
+  step. `begin`, active-phase advances and boundary checks still stop on expiry.
+  Never initialize a replacement record to bypass expiry.
 - **Publication:** record readiness and the exact candidate/approval scope; retain
   the separate user approval gate. After approval, record unique attempts and
   evidence for the authorized publication operations. Approval text in a state

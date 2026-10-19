@@ -1367,3 +1367,56 @@ declared doc and a mapping to a removed doc — are now checked on every validat
 run and covered by tests. It stops short of 8 because "this document should have
 been updated" and "this statement is still true" remain review-owned; the advisory
 map only narrows the review surface and has not yet been exercised in a live batch.
+
+## Task-state Phase 2 (2026-10-19)
+
+### What was implemented
+
+- **Atomic multi-event updates:** `update --expect N --event a.json --event b.json`
+  applies events in order against one observed snapshot and one timestamp, then
+  writes once through the existing atomic replacement. A failure in any event
+  leaves the record byte-identical; `--expect` checks only the initial revision.
+  A `resolve` followed by a `checkpoint` in one call works, and the checkpoint
+  still enforces its own identity, pending-outcome and scope guards.
+- **Actionable conflicts:** `begin`, `checkpoint`, `amend` and `phase` conflicts
+  name the blockers relevant to that action (identity mismatch, drift, pending
+  operation ids, out-of-scope paths, budget exhaustion). `resume` and other
+  reconcile output additively report `blockers` and `completion_blockers`; existing
+  fields and exit codes are unchanged.
+- **Completion after expiry:** `phase complete` refuses only on identity mismatch,
+  drift, pending outcomes or out-of-scope paths. Expiry alone no longer blocks
+  completion, which records already-reconciled work. `begin` still refuses on
+  expiry, `boundary` still reports it, `blocked` is unchanged, and other phases
+  retain the full check including expiry.
+
+### Verification
+
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_task_state.py'` —
+  **49 tests OK** (42 baseline plus 7 new multi-event, conflict-detail and
+  completion-after-expiry cases).
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` —
+  **237 tests OK**, including the unchanged boundary-expiry and terminal-phase
+  cases except the one assertion that encoded the old completion-after-expiry
+  behavior; that assertion now records the approved rule.
+- `python3 scripts/validate-agent-tooling.py` — 13 definitions and 30 surface
+  files, **0 findings**, exit 0.
+- `python3 scripts/check-living-docs.py` — exit 0, no findings.
+
+### Limits
+
+- Multi-event updates still hold the cooperative POSIX lock for the whole command;
+  they do not make two separate CLI invocations atomic together.
+- `resume` evidence is a report, not enforcement: nothing prevents a caller from
+  ignoring named blockers or running unrelated work.
+- Completion after expiry cannot prove the recorded evidence is current beyond the
+  snapshot checks; the operator still verifies artifacts and the reviewer verdict.
+- The task-state helper is still not wired into `/batch` as mandatory interception,
+  and has one live end-to-end journey (`n=1`), so conflict messages and the new
+  multi-event path are covered by offline tests rather than a live batch.
+
+**Task-state confidence: 8/10.** The conflict detail and one-round-trip
+resolve+checkpoint close a practical friction point without changing the approval
+or safety boundary, and the offline suite now covers the new failure modes.
+It stops at 8 because adoption is still cooperative and unproven in a live batch,
+and the completion-after-expiry rule depends on the operator recording evidence
+and outcomes before treating the record as finished.

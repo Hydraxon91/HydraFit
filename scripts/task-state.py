@@ -6,7 +6,7 @@ Usage: task-state.py --dir <external-directory> --task <id> <subcommand>
   show
   resume
   boundary --expect <revision> [--require-evidence <description> ...]
-  update --expect <revision> --event <json-file>
+  update --expect <revision> --event <json-file> [--event <json-file> ...]
 
 Events: begin (id, description), resolve (id, outcome, evidence), phase (value),
 evidence (description, outcome, reference), checkpoint (reason), amend
@@ -19,6 +19,11 @@ amend event whose paths join the effective allowed set. Amendments add scope onl
 never budget, and they record which already-dirty paths they legitimized.
 Budget extensions are appended separately; original budget and elapsed usage stay
 intact. Approval references are audit context, never authenticated user consent.
+
+Multiple --event files apply in the given order against one observed snapshot and one
+timestamp, then a single atomic replacement writes the combined result. If any event
+fails validation or conflicts, nothing is written. --expect checks the initial revision
+only.
 
 Atomic JSON replacement plus a nonblocking POSIX advisory lock serialize cooperating
 writers. Locks release on process exit; the permanent lock file is never removed.
@@ -381,6 +386,28 @@ def used_seconds(record: dict, now: float) -> float:
     return record["used_seconds"] + max(0, now - record["accounted_at"])
 
 
+def reconcile_blockers(report: dict, *, budget: bool = True, drift: bool = True,
+                       scope: bool = True) -> list[str]:
+    """Derive human-readable blockers from a reconcile report.
+
+    Budget, drift and scope are selectable because they are not blockers for every
+    action: a checkpoint acknowledges drift, an amendment may legitimize an
+    out-of-scope path, and completion may be bookkeeping after expiry.
+    """
+    blockers = []
+    if not report["identity_matches"]:
+        blockers.append("repository identity mismatch")
+    if drift and report["drift"]:
+        blockers.append("repository snapshot drift")
+    if report["unknown_operations"]:
+        blockers.append("pending operation(s): " + ", ".join(report["unknown_operations"]))
+    if scope and report["outside_allowed_paths"]:
+        blockers.append("out-of-scope path(s): " + ", ".join(report["outside_allowed_paths"]))
+    if budget and report["remaining_seconds"] <= 0:
+        blockers.append("budget exhausted")
+    return blockers
+
+
 def reconcile(record: dict, current: dict, now: float) -> dict:
     pending = [key for key, value in record["operations"].items() if value["outcome"] == "pending"]
     identity = all(current[key] == record["expected"][key] for key in ("repo", "common_dir"))
@@ -390,7 +417,7 @@ def reconcile(record: dict, current: dict, now: float) -> dict:
     allowed = effective_allowed_paths(record)
     # Baseline dirt is preserved context, not authority to modify it.
     outside = sorted(set(current["changed_paths"]) - set(record["baseline"]["changed_paths"]) - allowed)
-    return {"revision": record["revision"], "phase": record["phase"],
+    report = {"revision": record["revision"], "phase": record["phase"],
             "identity_matches": identity, "drift": drift,
             "unknown_operations": pending, "outside_allowed_paths": outside,
             "amended_paths": sorted(allowed - set(record["contract"]["allowed_paths"])),
@@ -398,6 +425,11 @@ def reconcile(record: dict, current: dict, now: float) -> dict:
              "effective_budget_seconds": budget, "remaining_seconds": remaining,
             "reconciliation_needed": drift or bool(pending) or bool(outside) or remaining <= 0,
              "authorization": "recorded approval is audit context only; verify actual user authorization"}
+    # Additive detail: blockers includes the budget stop; completion_blockers omits it
+    # because marking an otherwise-clean record complete is bookkeeping, not new work.
+    report["blockers"] = reconcile_blockers(report)
+    report["completion_blockers"] = reconcile_blockers(report, budget=False)
+    return report
 
 
 def boundary_report(record: dict, current: dict, now: float, expected: int, required: list[str]) -> dict:
@@ -456,8 +488,10 @@ def apply_event(record: dict, event: dict, current: dict, now: float) -> dict:
     report = reconcile(record, current, now)
     kind = event.get("type")
     if kind == "begin":
-        if record["phase"] in ("complete", "blocked") or report["reconciliation_needed"]:
-            raise Conflict("reconcile drift, pending outcomes and budget before beginning an operation")
+        if record["phase"] in ("complete", "blocked"):
+            raise Conflict("cannot begin: task is complete or blocked")
+        if report["reconciliation_needed"]:
+            raise Conflict("cannot begin: " + "; ".join(reconcile_blockers(report)))
         operation_id = event.get("id")
         if not isinstance(operation_id, str) or not ID_RE.fullmatch(operation_id) or not text(event.get("description")):
             raise Invalid("begin requires a unique id and description")
@@ -476,16 +510,16 @@ def apply_event(record: dict, event: dict, current: dict, now: float) -> dict:
     elif kind == "checkpoint":
         if not text(event.get("reason")):
             raise Invalid("checkpoint requires a reconciliation reason")
-        if report["unknown_operations"] or not report["identity_matches"] or report["outside_allowed_paths"]:
-            raise Conflict("cannot checkpoint unknown outcomes, wrong repository or out-of-scope paths")
+        blockers = reconcile_blockers(report, budget=False, drift=False)
+        if blockers:
+            raise Conflict("cannot checkpoint: " + "; ".join(blockers))
         result["expected"] = current
     elif kind == "amend":
         if not text(event.get("approval_reference")) or not text(event.get("note")):
             raise Invalid("amend requires an approval reference and a note")
-        if not report["identity_matches"]:
-            raise Conflict("cannot amend a contract against a different repository")
-        if report["unknown_operations"]:
-            raise Conflict("resolve unknown outcomes before amending scope")
+        blockers = reconcile_blockers(report, budget=False, drift=False, scope=False)
+        if blockers:
+            raise Conflict("cannot amend: " + "; ".join(blockers))
         if record["phase"] in ("complete", "blocked"):
             raise Conflict("a terminal record cannot admit more work")
         requested = event.get("add_allowed_paths", [])
@@ -520,11 +554,23 @@ def apply_event(record: dict, event: dict, current: dict, now: float) -> dict:
         result.setdefault("extensions", []).append(
             {"revision": record["revision"] + 1, "at": now, **fields})
     elif kind == "phase":
-        if event.get("value") not in PHASES:
+        value = event.get("value")
+        if value not in PHASES:
             raise Invalid("invalid phase")
-        if event["value"] != "blocked" and report["reconciliation_needed"]:
-            raise Conflict("reconcile before advancing phase")
-        result["phase"] = event["value"]
+        if value == "blocked":
+            result["phase"] = value
+        elif value == "complete":
+            # Completion is bookkeeping; an expired budget alone does not block it.
+            # Identity, drift, pending outcomes and out-of-scope paths still do.
+            blockers = reconcile_blockers(report, budget=False)
+            if blockers:
+                raise Conflict("cannot complete: " + "; ".join(blockers))
+            result["phase"] = value
+        else:
+            blockers = reconcile_blockers(report)
+            if blockers:
+                raise Conflict(f"cannot advance to {value}: " + "; ".join(blockers))
+            result["phase"] = value
     elif kind == "evidence":
         if not text(event.get("description")) or not text(event.get("reference")) or event.get("outcome") not in ("passed", "failed", "unknown", "unverified"):
             raise Invalid("evidence requires description, reference and explicit outcome")
@@ -561,7 +607,7 @@ def main(argv: list[str] | None = None) -> int:
     boundary.add_argument("--require-evidence", action="append", default=[])
     update = commands.add_parser("update")
     update.add_argument("--expect", type=int, required=True)
-    update.add_argument("--event", type=Path, required=True)
+    update.add_argument("--event", type=Path, action="append", required=True)
     try:
         args = parser.parse_args(argv)
         if not ID_RE.fullmatch(args.task):
@@ -624,7 +670,10 @@ def main(argv: list[str] | None = None) -> int:
                     raise Conflict("stale revision; reload instead of overwriting")
                 if current["repo"] != record["baseline"]["repo"]:
                     raise Conflict("repository identity changed")
-                record = apply_event(record, read_json(args.event), current, now)
+                # Ordered events share one observed snapshot and one timestamp; a
+                # failure aborts before the single atomic write below.
+                for event_path in args.event:
+                    record = apply_event(record, read_json(event_path), current, now)
             atomic_write(path, record)
         print(json.dumps({"task": args.task, "revision": record["revision"], "phase": record["phase"]}))
         return 0
