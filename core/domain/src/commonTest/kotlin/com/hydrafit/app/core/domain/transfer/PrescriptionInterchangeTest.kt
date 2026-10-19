@@ -1,6 +1,11 @@
 package com.hydrafit.app.core.domain.transfer
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -316,7 +321,124 @@ class PrescriptionInterchangeTest {
     }
 
     @Test
-    fun exportsATimedSlotAsSecondsAtVersionTwoAndStillReadsRepOnlyVersionOneDocuments() =
+    fun orderedTargetsRoundTripAndAPreVersionFourDocumentRejectsThem() = runBlocking {
+        val ordered = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 10, loadKind = LoadKind.EXTERNAL, weightKg = 60.0),
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 70.0, targetRir = 2)
+            )
+        )
+        val orderedRoutine = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Day 1",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "back-squat",
+                            sets = 2,
+                            reps = 10,
+                            weightKg = 60.0,
+                            loadKind = LoadKind.EXTERNAL,
+                            setTargets = ordered
+                        )
+                    )
+                )
+            )
+        )
+
+        val document =
+            ExportPrescriptionsUseCase(
+                repositoryOf(orderedRoutine),
+                catalog
+            )(listOf(7L), true, "t", 1L)
+
+        assertEquals(4, document.formatVersion)
+        val entry = document.routines.single().allEntries().single()
+        assertEquals(ordered, SlotSetTargetsJson.decode(requireNotNull(entry.setTargets)))
+        PrescriptionValidator.validate(document)
+        assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+        // A document that predates ordered targets is refused outright rather than adopting them.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(document.copy(formatVersion = 3))
+            }.failure
+        )
+    }
+
+    /** A read-only repository over one template, for the export paths under test. */
+    private fun repositoryOf(template: RoutineTemplate) = object : RoutineTemplateRepository {
+        override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(listOf(template))
+
+        override suspend fun get(id: Long): RoutineTemplate? = template.takeIf { it.id == id }
+
+        override suspend fun save(template: RoutineTemplate): Long = 0L
+        override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+        override suspend fun isReferencedByActivation(id: Long): Boolean = false
+        override suspend fun delete(id: Long) = Unit
+    }
+
+    @Test
+    fun aPolicyInAPreVersionThreeDocumentIsRejectedRatherThanRead() = runBlocking {
+        val policyRoutine = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Day 1",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "back-squat",
+                            sets = 3,
+                            reps = 5,
+                            weightKg = 100.0,
+                            loadKind = LoadKind.EXTERNAL,
+                            progressionPolicy = SlotProgressionPolicy(
+                                minReps = 5,
+                                maxReps = 8,
+                                incrementKg = 2.5
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        val policyRepository = object : RoutineTemplateRepository {
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(listOf(policyRoutine))
+
+            override suspend fun get(id: Long): RoutineTemplate? =
+                policyRoutine.takeIf { it.id == id }
+
+            override suspend fun save(template: RoutineTemplate): Long = 0L
+            override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+            override suspend fun isReferencedByActivation(id: Long): Boolean = false
+            override suspend fun delete(id: Long) = Unit
+        }
+
+        val document =
+            ExportPrescriptionsUseCase(policyRepository, catalog)(listOf(7L), true, "t", 1L)
+
+        assertEquals(4, document.formatVersion)
+        assertEquals(
+            2.5,
+            document.routines.single().allEntries().single().progressionPolicy?.let {
+                SlotProgressionPolicyJson.decode(it).incrementKg
+            }
+        )
+        PrescriptionValidator.validate(document)
+        // A document that predates the policy is refused outright rather than adopting one.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(document.copy(formatVersion = 2))
+            }.failure
+        )
+    }
+
+    @Test
+    fun exportsATimedSlotAtTheCurrentVersionAndStillReadsRepOnlyVersionOneDocuments() =
         runBlocking {
             val timedRoutine = routine.copy(
                 workouts = listOf(
@@ -353,12 +475,12 @@ class PrescriptionInterchangeTest {
             val document =
                 ExportPrescriptionsUseCase(timedRepository, catalog)(listOf(7L), true, "t", 1L)
 
-            assertEquals(2, document.formatVersion)
+            assertEquals(4, document.formatVersion)
             val timed = document.routines.single().allEntries().single()
             assertNull(timed.reps)
             assertEquals(90, timed.durationSeconds)
             PrescriptionValidator.validate(document)
-            // The seconds are part of the version-2 JSON contract, not just the object graph.
+            // The seconds are part of the timed-slot JSON contract, not just the object graph.
             assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
 
             // A version-1 document is rep-only: the same file read as version 1 is refused outright,

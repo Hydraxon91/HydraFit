@@ -21,7 +21,13 @@ import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.backup.SET_TARGETS_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.settings.WorkoutReminderPreferences
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -61,6 +67,78 @@ class SqlDelightBackupRepositoryTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun orderedTargetsSurviveExportAndRestore() = runTest {
+        val encoded = SlotSetTargetsJson.encode(
+            SlotSetTargets.of(
+                listOf(
+                    SetTarget(reps = 10, loadKind = LoadKind.EXTERNAL, weightKg = 60.0),
+                    SetTarget(
+                        reps = 8,
+                        loadKind = LoadKind.EXTERNAL,
+                        weightKg = 70.0,
+                        targetRir = 2
+                    )
+                )
+            )
+        )
+        database.routineTemplateQueries.insertTemplate("Block", 1, 1, 1, null, null)
+        val templateId = database.routineTemplateQueries.lastInsertedTemplateId().executeAsOne()
+        database.routineTemplateQueries.insertWorkout(templateId, 0, "Day", "FULL_BODY")
+        val workoutId = database.routineTemplateQueries.lastInsertedWorkoutId().executeAsOne()
+        database.routineTemplateQueries.insertEntry(
+            workoutId = workoutId,
+            position = 0,
+            exerciseId = "back-squat",
+            sets = 2,
+            reps = 10,
+            durationSeconds = null,
+            weightKg = 60.0,
+            loadKind = "EXTERNAL",
+            progressionPolicy = null,
+            setTargets = encoded
+        )
+
+        val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
+        repository.restore(exported)
+
+        assertEquals(SET_TARGETS_FORMAT_VERSION, exported.formatVersion)
+        val restored = database.routineTemplateQueries.selectEntriesForWorkout(workoutId)
+            .executeAsOne()
+        assertEquals(encoded, restored.setTargets)
+    }
+
+    @Test
+    fun aSlotProgressionPolicySurvivesExportAndRestore() = runTest {
+        val encoded = SlotProgressionPolicyJson.encode(
+            SlotProgressionPolicy(minReps = 5, maxReps = 8, incrementKg = 2.5, equipmentId = "bar")
+        )
+        database.routineTemplateQueries.insertTemplate("Block", 1, 1, 1, null, null)
+        val templateId = database.routineTemplateQueries.lastInsertedTemplateId().executeAsOne()
+        database.routineTemplateQueries.insertWorkout(templateId, 0, "Day", "FULL_BODY")
+        val workoutId = database.routineTemplateQueries.lastInsertedWorkoutId().executeAsOne()
+        database.routineTemplateQueries.insertEntry(
+            workoutId = workoutId,
+            position = 0,
+            exerciseId = "back-squat",
+            sets = 3,
+            reps = 5,
+            durationSeconds = null,
+            weightKg = 100.0,
+            loadKind = "EXTERNAL",
+            progressionPolicy = encoded,
+            setTargets = null
+        )
+
+        val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
+        repository.restore(exported)
+
+        assertEquals(BACKUP_FORMAT_VERSION, exported.formatVersion)
+        val restored = database.routineTemplateQueries.selectEntriesForWorkout(workoutId)
+            .executeAsOne()
+        assertEquals(encoded, restored.progressionPolicy)
     }
 
     @Test
@@ -589,7 +667,9 @@ class SqlDelightBackupRepositoryTest {
             movementPattern = "CORE",
             suggestedWeightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            progressionPolicy = null,
+            setTargets = null
         )
 
         val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
@@ -1263,7 +1343,9 @@ class SqlDelightBackupRepositoryTest {
             movementPattern = "SQUAT",
             suggestedWeightKg = 100.0,
             loadCapability = "EXTERNAL",
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            progressionPolicy = null,
+            setTargets = null
         )
         database.routineTemplateQueries.insertTemplate("Block", 1, 1, 1, null, null)
         val templateId = database.routineTemplateQueries.lastInsertedTemplateId().executeAsOne()
@@ -1277,7 +1359,9 @@ class SqlDelightBackupRepositoryTest {
             reps = 5,
             durationSeconds = null,
             weightKg = 100.0,
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            progressionPolicy = null,
+            setTargets = null
         )
         database.equipmentQueries.insert("CUSTOM-1", "Custom Rack", 0)
         database.planVolumeExplanationQueries.insert(
@@ -1377,7 +1461,9 @@ class SqlDelightBackupRepositoryTest {
             durationSeconds = null,
             weightKg = 100.0,
             loadCapability = "EXTERNAL",
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            progressionPolicy = null,
+            setTargets = null
         )
         val activationEntryId =
             database.trainingScheduleQueries.lastInsertedActivationEntryId().executeAsOne()
@@ -1418,7 +1504,9 @@ class SqlDelightBackupRepositoryTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",
             remainingDisposition = null,
-            terminalRemainingSets = null
+            terminalRemainingSets = null,
+            progressionPolicy = null,
+            setTargets = null
         )
         val occurrenceEntryId =
             database.trainingScheduleQueries.lastInsertedOccurrenceEntryId().executeAsOne()

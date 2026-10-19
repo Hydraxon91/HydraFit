@@ -1,5 +1,8 @@
 package com.hydrafit.app.feature.routines
 
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
@@ -29,7 +32,11 @@ data class EditorEntry(
     /** The selected measurement; only its field is shown and only its value is saved. */
     val metric: EntryMetric = EntryMetric.REPETITIONS,
     /** Whole seconds as text, used when [metric] is [EntryMetric.DURATION]. */
-    val durationSeconds: String = ""
+    val durationSeconds: String = "",
+    /** The approved progression policy for this slot, or null when the user has not set one. */
+    val progressionPolicy: SlotProgressionPolicy? = null,
+    /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
+    val setTargets: SlotSetTargets? = null
 ) {
     /** The prescribed rep count, or null when the slot is timed. */
     val repsValue: Int?
@@ -55,6 +62,45 @@ data class RoutineEditorState(
     val name: String,
     val unit: WeightUnit,
     val workouts: List<EditorWorkout> = emptyList()
+)
+
+/** Which progression-policy field is invalid; the dialog shows the matching localized message. */
+enum class ProgressionPolicyError { REPS_RANGE, INCREMENT, EQUIPMENT_ID }
+
+/** The progression-policy dialog draft for one slot; numbers stay as text until save. */
+data class ProgressionPolicyEditorState(
+    val workoutIndex: Int,
+    val entryIndex: Int,
+    val minReps: String,
+    val maxReps: String,
+    val incrementKg: String,
+    val equipmentId: String,
+    val error: ProgressionPolicyError? = null
+)
+
+/** Which per-set-prescription input is invalid; the dialog shows the matching localized message. */
+enum class SetTargetsError { SETS_RANGE, REPS_RANGE, LOAD, ROUNDING, RIR_RANGE }
+
+/**
+ * The ordered-prescription dialog draft for one slot; numbers stay as text until apply so partial
+ * input is allowed. [preview] is the result the current inputs would build, or null while they are
+ * not yet a valid request, so the dialog can show the targets before anything is applied.
+ */
+data class SetTargetsEditorState(
+    val workoutIndex: Int,
+    val entryIndex: Int,
+    val shape: SetPrescriptionShape = SetPrescriptionShape.STRAIGHT,
+    val sets: String,
+    val startReps: String,
+    val endReps: String,
+    val startLoadKg: String,
+    val endLoadKg: String,
+    val roundToKg: String,
+    val targetRir: String,
+    val error: SetTargetsError? = null,
+    val preview: SlotSetTargets? = null,
+    /** The slot's current prescription, shown when the inputs do not yet build a valid one. */
+    val storedTargets: SlotSetTargets? = null
 )
 
 /** Which workout/entry the exercise picker is filling; [replaceEntryIndex] null means "add". */
@@ -106,6 +152,8 @@ data class RoutinesUiState(
     val exercises: List<RoutineExerciseOption> = emptyList(),
     val editor: RoutineEditorState? = null,
     val picker: ExercisePickerState? = null,
+    val progressionPolicyEditor: ProgressionPolicyEditorState? = null,
+    val setTargetsEditor: SetTargetsEditorState? = null,
     /** Active EX-01 exclusions, so routine entries can be marked in place. */
     val excludedExerciseIds: Set<String> = emptySet(),
     val activation: ActivationUiState? = null,

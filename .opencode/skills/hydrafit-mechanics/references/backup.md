@@ -3,8 +3,22 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 21), restored by whole replacement.
-The reader accepts versions 1–21; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 23), restored by whole replacement.
+The reader accepts versions 1–23; version 1 defaults the guided-workout preference to off.
+Format 23 adds a prescription slot's ordered per-set targets (`setTargets` on the same four
+entry kinds) and permits a format-3 recorded target that carries a slot index and a
+prescribed RIR. A pre-23 file must not carry either, an ordered list must decode, and its
+length must equal the slot's own set count, so a corrupt or contradictory prescription is
+rejected before any write; formats 1–22 restore every slot with no ordered targets.
+Format 22 adds a prescription slot's approved progression policy
+(`progressionPolicy` on `routineEntries`, `planEntries`, `activationEntries` and
+`occurrenceEntries`) and permits a format-2 recorded target that carries the same policy.
+A pre-22 file must not carry a policy on a slot or on a recorded target, and a policy that
+is present must decode, so a corrupt or mislabelled rule is rejected before any write;
+formats 1–21 restore every slot with no policy configured. Whole replacement carries a
+slot's policy verbatim. Merge is add-only and inserts no routine, plan, activation or
+occurrence slots, so a slot-level policy travels only through restore; a merged set's own
+recorded target still carries its policy.
 Format 21 adds a performed set's recorded prescription target
 (`workoutSets[].prescriptionSnapshot`, the encoded `WorkoutPrescriptionSnapshot`).
 The validator rejects a target in a pre-21 file rather than reinterpreting it, and
@@ -128,8 +142,12 @@ Unknown exercise/equipment references and other invalid sections remain rejected
 ## Prescription interchange (0.9.2-S1)
 
 `transfer/PrescriptionModels.kt` + `PrescriptionJson` in `:core/domain` define the versioned
-`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 1`) used to share plans/routines between
-installs or people. It carries ordered routines and the custom exercise definitions they reference —
+`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 4`) used to share plans/routines between
+installs or people. Version 4 adds a slot's encoded ordered per-set targets; version 3 added its
+approved progression policy; version 2 added timed slots and version 1 remains readable for counted
+slots carrying neither, so a policy or ordered list in a document that predates it is rejected rather
+than read, and an ordered list must match the slot's own set count. It carries ordered routines and the
+custom exercise definitions they reference —
 nothing else. The codec encodes defaults, rejects unknown fields, and enforces `PrescriptionLimits`
 (2 MiB, depth 24, 16 KiB per string, 20,000 records). `PrescriptionValidator` enforces the format and
 version, the shared `PrescriptionBounds` per slot, valid movement/load/kind/focus enums, valid

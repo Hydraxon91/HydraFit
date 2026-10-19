@@ -42,8 +42,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
@@ -59,6 +64,8 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionImportIssue
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
 import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
 import hydrafit.feature.routines.generated.resources.focus_legs
@@ -153,12 +160,53 @@ import hydrafit.feature.routines.generated.resources.routines_prescription_impor
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_unsupported
 import hydrafit.feature.routines.generated.resources.routines_prescription_import_used_by
 import hydrafit.feature.routines.generated.resources.routines_prescription_section
+import hydrafit.feature.routines.generated.resources.routines_progression_action
+import hydrafit.feature.routines.generated.resources.routines_progression_clear
+import hydrafit.feature.routines.generated.resources.routines_progression_equipment_label
+import hydrafit.feature.routines.generated.resources.routines_progression_error_equipment
+import hydrafit.feature.routines.generated.resources.routines_progression_error_increment
+import hydrafit.feature.routines.generated.resources.routines_progression_error_reps_range
+import hydrafit.feature.routines.generated.resources.routines_progression_increment_label
+import hydrafit.feature.routines.generated.resources.routines_progression_max_reps_label
+import hydrafit.feature.routines.generated.resources.routines_progression_min_reps_label
+import hydrafit.feature.routines.generated.resources.routines_progression_summary
+import hydrafit.feature.routines.generated.resources.routines_progression_summary_equipment
+import hydrafit.feature.routines.generated.resources.routines_progression_title
 import hydrafit.feature.routines.generated.resources.routines_remove
 import hydrafit.feature.routines.generated.resources.routines_repeat_block
 import hydrafit.feature.routines.generated.resources.routines_reps_label
 import hydrafit.feature.routines.generated.resources.routines_save
 import hydrafit.feature.routines.generated.resources.routines_search_label
 import hydrafit.feature.routines.generated.resources.routines_seconds_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_action
+import hydrafit.feature.routines.generated.resources.routines_set_targets_apply
+import hydrafit.feature.routines.generated.resources.routines_set_targets_end_load_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_end_reps_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_error_load
+import hydrafit.feature.routines.generated.resources.routines_set_targets_error_reps
+import hydrafit.feature.routines.generated.resources.routines_set_targets_error_rir
+import hydrafit.feature.routines.generated.resources.routines_set_targets_error_rounding
+import hydrafit.feature.routines.generated.resources.routines_set_targets_error_sets
+import hydrafit.feature.routines.generated.resources.routines_set_targets_load_single
+import hydrafit.feature.routines.generated.resources.routines_set_targets_load_span
+import hydrafit.feature.routines.generated.resources.routines_set_targets_preview_no_load
+import hydrafit.feature.routines.generated.resources.routines_set_targets_preview_set
+import hydrafit.feature.routines.generated.resources.routines_set_targets_preview_title
+import hydrafit.feature.routines.generated.resources.routines_set_targets_reps_single
+import hydrafit.feature.routines.generated.resources.routines_set_targets_reps_span
+import hydrafit.feature.routines.generated.resources.routines_set_targets_rir
+import hydrafit.feature.routines.generated.resources.routines_set_targets_rir_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_round_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_sets_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_shape_ascending_load
+import hydrafit.feature.routines.generated.resources.routines_set_targets_shape_descending_load
+import hydrafit.feature.routines.generated.resources.routines_set_targets_shape_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_shape_pyramid
+import hydrafit.feature.routines.generated.resources.routines_set_targets_shape_straight
+import hydrafit.feature.routines.generated.resources.routines_set_targets_start_load_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_start_reps_label
+import hydrafit.feature.routines.generated.resources.routines_set_targets_summary
+import hydrafit.feature.routines.generated.resources.routines_set_targets_title
 import hydrafit.feature.routines.generated.resources.routines_sets_label
 import hydrafit.feature.routines.generated.resources.routines_switch_mode
 import hydrafit.feature.routines.generated.resources.routines_title
@@ -270,6 +318,44 @@ fun RoutinesScreen(
             onQueryChanged = viewModel::onPickerQueryChanged,
             onSelected = viewModel::onPickerExerciseSelected,
             onDismiss = viewModel::onPickerDismissed
+        )
+    }
+    state.progressionPolicyEditor?.let { policyEditor ->
+        val hasExistingPolicy = state.editor
+            ?.workouts?.getOrNull(policyEditor.workoutIndex)
+            ?.entries?.getOrNull(policyEditor.entryIndex)
+            ?.progressionPolicy != null
+        ProgressionPolicyDialog(
+            state = policyEditor,
+            hasExistingPolicy = hasExistingPolicy,
+            onMinRepsChanged = viewModel::onProgressionPolicyMinRepsChanged,
+            onMaxRepsChanged = viewModel::onProgressionPolicyMaxRepsChanged,
+            onIncrementChanged = viewModel::onProgressionPolicyIncrementChanged,
+            onEquipmentIdChanged = viewModel::onProgressionPolicyEquipmentIdChanged,
+            onSave = viewModel::onProgressionPolicySave,
+            onClear = viewModel::onProgressionPolicyClear,
+            onDismiss = viewModel::onProgressionPolicyDismissed
+        )
+    }
+    state.setTargetsEditor?.let { setTargetsEditor ->
+        val hasExistingTargets = state.editor
+            ?.workouts?.getOrNull(setTargetsEditor.workoutIndex)
+            ?.entries?.getOrNull(setTargetsEditor.entryIndex)
+            ?.setTargets != null
+        SetTargetsDialog(
+            state = setTargetsEditor,
+            hasExistingTargets = hasExistingTargets,
+            onShapeChanged = viewModel::onSetTargetsShapeChanged,
+            onSetsChanged = viewModel::onSetTargetsSetsChanged,
+            onStartRepsChanged = viewModel::onSetTargetsStartRepsChanged,
+            onEndRepsChanged = viewModel::onSetTargetsEndRepsChanged,
+            onStartLoadChanged = viewModel::onSetTargetsStartLoadChanged,
+            onEndLoadChanged = viewModel::onSetTargetsEndLoadChanged,
+            onRoundToChanged = viewModel::onSetTargetsRoundToChanged,
+            onRirChanged = viewModel::onSetTargetsRirChanged,
+            onApply = viewModel::onSetTargetsApply,
+            onClear = viewModel::onSetTargetsClear,
+            onDismiss = viewModel::onSetTargetsDismissed
         )
     }
     state.activation?.let { activation ->
@@ -802,7 +888,57 @@ private fun EntryRow(
             TextButton(onClick = { viewModel.onMoveEntry(workoutIndex, entryIndex, 1) }) {
                 Text(stringResource(Res.string.routines_move_down))
             }
+            // Progression applies to counted slots; a timed slot works to seconds, not reps.
+            if (entry.metric == EntryMetric.REPETITIONS) {
+                TextButton(
+                    onClick = { viewModel.onEditProgressionPolicy(workoutIndex, entryIndex) }
+                ) {
+                    Text(stringResource(Res.string.routines_progression_action))
+                }
+                // Ordered per-set targets need a numeric load; bodyweight and added-load slots have
+                // no per-set numeric target to prescribe.
+                if (entry.loadKind == LoadKind.EXTERNAL) {
+                    TextButton(
+                        onClick = { viewModel.onEditSetTargets(workoutIndex, entryIndex) }
+                    ) {
+                        Text(stringResource(Res.string.routines_set_targets_action))
+                    }
+                }
+            }
         }
+        entry.progressionPolicy?.let { policy ->
+            Text(
+                text = progressionSummary(policy),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        entry.setTargets?.let { targets ->
+            Text(
+                text = setTargetsSummary(targets),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun progressionSummary(policy: SlotProgressionPolicy): String {
+    val equipmentId = policy.equipmentId
+    return if (equipmentId == null) {
+        stringResource(
+            Res.string.routines_progression_summary,
+            policy.minReps,
+            policy.maxReps,
+            formatWeight(policy.incrementKg)
+        )
+    } else {
+        stringResource(
+            Res.string.routines_progression_summary_equipment,
+            policy.minReps,
+            policy.maxReps,
+            formatWeight(policy.incrementKg),
+            equipmentId
+        )
     }
 }
 
@@ -884,6 +1020,327 @@ private fun ExercisePickerDialog(
                 Text(stringResource(Res.string.routines_cancel))
             }
         }
+    )
+}
+
+@Composable
+private fun ProgressionPolicyDialog(
+    state: ProgressionPolicyEditorState,
+    hasExistingPolicy: Boolean,
+    onMinRepsChanged: (String) -> Unit,
+    onMaxRepsChanged: (String) -> Unit,
+    onIncrementChanged: (String) -> Unit,
+    onEquipmentIdChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.routines_progression_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.minReps,
+                    onValueChange = onMinRepsChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_min_reps_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.maxReps,
+                    onValueChange = onMaxRepsChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_max_reps_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.incrementKg,
+                    onValueChange = onIncrementChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_increment_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.equipmentId,
+                    onValueChange = onEquipmentIdChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_progression_equipment_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                state.error?.let { error ->
+                    Text(
+                        text = progressionPolicyErrorText(error),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text(stringResource(Res.string.routines_save))
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasExistingPolicy) {
+                    TextButton(onClick = onClear) {
+                        Text(stringResource(Res.string.routines_progression_clear))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.routines_cancel))
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun progressionPolicyErrorText(error: ProgressionPolicyError): String = when (error) {
+    ProgressionPolicyError.REPS_RANGE -> stringResource(
+        Res.string.routines_progression_error_reps_range,
+        SlotProgressionPolicy.MIN_REPS,
+        SlotProgressionPolicy.MAX_REPS
+    )
+    ProgressionPolicyError.INCREMENT ->
+        stringResource(Res.string.routines_progression_error_increment)
+    ProgressionPolicyError.EQUIPMENT_ID -> stringResource(
+        Res.string.routines_progression_error_equipment,
+        SlotProgressionPolicy.MAX_ID_LENGTH
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SetTargetsDialog(
+    state: SetTargetsEditorState,
+    hasExistingTargets: Boolean,
+    onShapeChanged: (SetPrescriptionShape) -> Unit,
+    onSetsChanged: (String) -> Unit,
+    onStartRepsChanged: (String) -> Unit,
+    onEndRepsChanged: (String) -> Unit,
+    onStartLoadChanged: (String) -> Unit,
+    onEndLoadChanged: (String) -> Unit,
+    onRoundToChanged: (String) -> Unit,
+    onRirChanged: (String) -> Unit,
+    onApply: () -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.routines_set_targets_title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(Res.string.routines_set_targets_shape_label),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SetPrescriptionShape.entries.forEach { shape ->
+                        FilterChip(
+                            selected = state.shape == shape,
+                            onClick = { onShapeChanged(shape) },
+                            label = { Text(setTargetsShapeLabel(shape)) }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = state.sets,
+                    onValueChange = onSetsChanged,
+                    label = { Text(stringResource(Res.string.routines_set_targets_sets_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.startReps,
+                    onValueChange = onStartRepsChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_set_targets_start_reps_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.endReps,
+                    onValueChange = onEndRepsChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_set_targets_end_reps_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.startLoadKg,
+                    onValueChange = onStartLoadChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_set_targets_start_load_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.endLoadKg,
+                    onValueChange = onEndLoadChanged,
+                    label = {
+                        Text(stringResource(Res.string.routines_set_targets_end_load_label))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.roundToKg,
+                    onValueChange = onRoundToChanged,
+                    label = { Text(stringResource(Res.string.routines_set_targets_round_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.targetRir,
+                    onValueChange = onRirChanged,
+                    label = { Text(stringResource(Res.string.routines_set_targets_rir_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                state.error?.let { error ->
+                    Text(
+                        text = setTargetsErrorText(error),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Text(
+                    text = stringResource(Res.string.routines_set_targets_preview_title),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                // The live inputs win; otherwise the stored targets stay visible so a slot's
+                // prescription is never hidden just because its recipe fields are not filled in.
+                (state.preview ?: state.storedTargets)?.let { preview ->
+                    preview.targets.forEachIndexed { index, target ->
+                        Text(
+                            text = setTargetsPreviewLine(index, target),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onApply) {
+                Text(stringResource(Res.string.routines_set_targets_apply))
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (hasExistingTargets) {
+                    TextButton(onClick = onClear) {
+                        Text(stringResource(Res.string.routines_progression_clear))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.routines_cancel))
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun setTargetsShapeLabel(shape: SetPrescriptionShape): String = when (shape) {
+    SetPrescriptionShape.STRAIGHT -> stringResource(Res.string.routines_set_targets_shape_straight)
+    SetPrescriptionShape.ASCENDING_LOAD ->
+        stringResource(Res.string.routines_set_targets_shape_ascending_load)
+    SetPrescriptionShape.DESCENDING_LOAD ->
+        stringResource(Res.string.routines_set_targets_shape_descending_load)
+    SetPrescriptionShape.PYRAMID -> stringResource(Res.string.routines_set_targets_shape_pyramid)
+}
+
+@Composable
+private fun setTargetsPreviewLine(index: Int, target: SetTarget): String {
+    val load = target.weightKg?.let {
+        stringResource(Res.string.routines_set_targets_load_single, formatWeight(it))
+    } ?: stringResource(Res.string.routines_set_targets_preview_no_load)
+    return stringResource(
+        Res.string.routines_set_targets_preview_set,
+        index + 1,
+        target.reps ?: 0,
+        load
+    )
+}
+
+@Composable
+private fun setTargetsErrorText(error: SetTargetsError): String = when (error) {
+    SetTargetsError.SETS_RANGE -> stringResource(
+        Res.string.routines_set_targets_error_sets,
+        PrescriptionBounds.MIN_SETS,
+        PrescriptionBounds.MAX_SETS
+    )
+    SetTargetsError.REPS_RANGE -> stringResource(
+        Res.string.routines_set_targets_error_reps,
+        PrescriptionBounds.MIN_REPS,
+        PrescriptionBounds.MAX_REPS
+    )
+    SetTargetsError.LOAD -> stringResource(Res.string.routines_set_targets_error_load)
+    SetTargetsError.ROUNDING -> stringResource(Res.string.routines_set_targets_error_rounding)
+    SetTargetsError.RIR_RANGE -> stringResource(
+        Res.string.routines_set_targets_error_rir,
+        SetTarget.MIN_RIR,
+        SetTarget.MAX_RIR
+    )
+}
+
+/** A compact one-line description of an ordered prescription, built from localized fragments. */
+@Composable
+private fun setTargetsSummary(targets: SlotSetTargets): String {
+    val list = targets.targets
+    val first = list.first()
+    val last = list.last()
+    val parts = mutableListOf<String>()
+    if (first.reps == last.reps) {
+        parts.add(stringResource(Res.string.routines_set_targets_reps_single, first.reps ?: 0))
+    } else {
+        parts.add(
+            stringResource(
+                Res.string.routines_set_targets_reps_span,
+                first.reps ?: 0,
+                last.reps ?: 0
+            )
+        )
+    }
+    val firstLoad = first.weightKg
+    if (firstLoad != null) {
+        val lastLoad = last.weightKg
+        parts.add(
+            if (lastLoad != null && lastLoad != firstLoad) {
+                stringResource(
+                    Res.string.routines_set_targets_load_span,
+                    formatWeight(firstLoad),
+                    formatWeight(lastLoad)
+                )
+            } else {
+                stringResource(Res.string.routines_set_targets_load_single, formatWeight(firstLoad))
+            }
+        )
+    }
+    val rir = list.mapNotNull { it.targetRir }.distinct().singleOrNull()
+    if (rir != null) {
+        parts.add(stringResource(Res.string.routines_set_targets_rir, rir))
+    }
+    return stringResource(
+        Res.string.routines_set_targets_summary,
+        targets.sets,
+        parts.joinToString(" · ")
     )
 }
 

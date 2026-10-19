@@ -626,3 +626,470 @@ cost that a formatting pre-pass should remove.
   under real concurrent sessions). Evidence discipline 6.5 → 8.5 (rule plus a tool
   that shows the split). Authoring cost is unrated until the format pass is used on a
   real Kotlin chunk.
+
+## 0.10.1 batch — first boundary (2026-10-18)
+
+First boundary of the `0.10.1-0.10.2` batch (folded target `v0.10.1`), base
+`45ac019d`, branch `feature/0.10.1-progression-policies`. State and evidence:
+`batch-0.10.1-0.10.2` under the agreed OpenCode temporary root, task
+`batch-0.10.1-0.10.2`. Entry covers 0.10.1 only; 0.10.2 is not implemented.
+
+### What this boundary actually exercised
+
+- **Durable state, live, including the new amendment path.** `init` with a 14,400-second
+  budget, then `begin`/`resolve` around the domain chunk, then an `amend` for four
+  version-pinned migration tests the approved schema change mechanically touches. The
+  amendment was **refused** with `resolve unknown outcomes before amending scope` because
+  the domain attempt was still pending — the first live exercise of that guard, and it
+  worked exactly as designed. After `resolve`, the same amendment applied.
+- **The fresh-run rule (B010-07 fix), live on a real release.** `full-matrix-01.log` was
+  green, but its summary read 82 executed / 704 up-to-date and three key tasks —
+  `:core:domain:testAndroidHostTest`, `:feature:routines:testAndroidHostTest` and
+  `:androidApp:assembleDebug` — were `UP-TO-DATE`. Re-running with `--rerun-tasks` produced
+  `full-matrix-02.log`: **787 executed / 0 up-to-date**, exit 0, 133.2 s. Without the rule
+  and the `gradle_tasks` field, a mostly-inherited run would have been reported as the
+  release gate.
+- **The `ktlintFormat` pre-pass (B010-03 fix), measured at last.** It ran three times. It
+  did auto-correct imports and wrapping, but it **could not complete** on the first attempt
+  because of a 101-character line in a new file, and again on the delegated chunk for the
+  same reason in another new file. Each remaining violation was a line-length case that is
+  explicitly not auto-correctable.
+- **Delegation scope containment.** The `coder` brief named five exact paths; the child
+  modified exactly those five, refused to touch a main-owned file that blocked its
+  repo-wide format pass, and reported that refusal as a blocker instead of editing it.
+- **Not exercised:** `git-ops` (this batch performs Git directly, so the permission-prompt
+  datapoint stays unmeasured), the lease (all writes were serialized), and the UI preflight
+  (no device acceptance ran in this boundary). Missing observations remain unknown, not zero.
+
+### Findings
+
+- **B011-01 [tooling, confirmed] — the repo-wide format pre-pass is unsafe on a dirty tree.**
+  `./gradlew ktlintFormat` runs over the whole working tree, aborts on a non-auto-correctable
+  violation in **any** file, and rewrites files outside the current chunk. On a shared tree
+  with pre-existing changes this both blocks the step (a file the chunk does not own) and
+  risks unattributable formatting edits. Observed twice, in two different files.
+  *Improvement:* scope the pre-pass to the affected modules, or require a clean tree first;
+  and treat "the pass could not complete" as a distinct outcome from "my files had
+  violations". Today both surface as the same non-zero exit.
+- **B011-02 [delegation, confirmed] — the brief's tool-call cap was exceeded.** The child
+  reported roughly 25+ calls against a 25-call cap, honestly and without silently
+  extending. The cap is advisory in practice; it did not change behaviour, only the report.
+  *Improvement:* state the cap as a soft target with an explicit stop condition, or set it
+  from the observed cost of comparable chunks.
+- **B011-03 [protocol, verified] — the amendment guard works.** See above: a pending
+  outcome correctly blocked a scope amendment.
+- **B011-04 [evidence, verified] — the freshness rule earns its rating.** See above.
+- **B011-05 [contract, confirmed] — the same under-listing as B010-02 recurred, three times.**
+  The approved `allowed_paths` did not name files the approved change mechanically touches.
+  **Seven** files needed three amendment rounds: four found by the parent while compiling
+  (`CustomExerciseDedupeTest.kt`, `PrescriptionDurationMigrationTest.kt`,
+  `PlanEntryDurationMigrationTest.kt`, `SqlDelightWorkoutPlanSourcesRepositoryTest.kt` —
+  SQLDelight's generated insert functions take every column without a default); two found by
+  the independent reviewer (`BodyWeightMigrationTest.kt`, `EquipmentProfileMigrationTest.kt`,
+  both pinning `HydraFitDatabase.Schema.version` to 57); and one caught by the **boundary gate
+  itself** (`TrainingBlockUseCases.kt`, which re-prescribes occurrence slots and therefore had
+  to preserve an approved policy). Two things are worth separating here: the manifest class
+  was under-enumerated, and the gate is what found the last instance — `resume` reported the
+  path as outside the allowed set and refused the checkpoint, so the miss surfaced before the
+  commit rather than after it.
+  *Improvement:* when an accepted contract includes a schema or stored-encoding change,
+  enumerate the generated-query consumers, every test pinning the schema version, and the
+  domain use cases that rewrite the affected records — or state up front that mechanical
+  consumer, version-pin and re-prescription-path updates are pre-approved with disclosure.
+- **B011-06 [flake, new] — `test_run_bounded` has its own sentinel race.** The full offline
+  suite failed once on `test_cleanup_log_failures_do_not_skip_signals_to_resistant_descendant`
+  (`step=2, method='flush'`): `ready.exists()` was false, so the child's readiness sentinel
+  never appeared within the test's window. The same test passed in a re-run of its module
+  (17 tests OK) and the full suite then passed (185 tests OK). Nothing in this batch touched
+  `run-bounded.py`, so this is an independent timing-sensitive flake in the harness's own
+  test, most likely load-dependent — it surfaced immediately after a 133-second Gradle
+  matrix. Left unfixed and out of scope. This is exactly the class `flake-repeat.py` exists
+  to measure, and it is a candidate for that harness rather than for a speculative fix.
+- **B011-07 [flake recurrence, confirmed] — the known app flake reached a release gate.** The
+  fresh `--rerun-tasks` release matrix failed once on the documented pre-existing
+  `ExerciseProgressRecordsIntegrationTest.multiExerciseOccurrenceKeepsStableIdentityOrderAndEarlierBaselines`
+  (`org.sqlite.SQLiteException`, the `cannot start a transaction within a transaction` class
+  already recorded as B010-08). The immediate rerun on the identical tree passed with 787
+  executed / 0 up-to-date. This is the first observed occurrence in a release-gate run, and it
+  cost one full 118-second re-run plus the diagnosis. Still unfixed and out of scope, but the
+  cost estimate in B010-08 ("passes in isolation and on a full rerun") should now include
+  "and can invalidate a gate run, so budget one re-run at a release boundary". A future
+  dedicated fix would need its own approved scope; `flake-repeat.py` can now measure it on
+  demand rather than waiting for it to appear.
+
+### Ratings at this boundary
+
+- **Task state 9 → 9 (held).** The amendment path, the pending-outcome guard and the
+  begin/resolve cycle all worked live on a real scope. Held rather than raised because the
+  tool still cannot verify that a recorded approval was actually given, and this boundary
+  needed an amendment at all.
+- **Bounded-run 9 → 9 (held).** The `gradle_tasks` field did the job it was added for. No
+  timeout or interruption path was exercised, so the unproven live timeout containment
+  remains the limit.
+- **Evidence discipline 8.5 → 9.** The fresh-run rule converted a misleading green run into
+  an explicit one, on a release gate, and the boundary recorded the distinction instead of
+  the headline. Raised on that observed use, not on intent.
+- **Authoring cost — now measured, and the expected saving did not appear.** The format
+  pre-pass converted a long tail of style corrections into one bounded pass, but it did not
+  remove them: two of the three passes still needed a manual line-length fix, and one of
+  those cost a blocked delegation round. B010-03's "expected rather than measured" saving is
+  therefore **not confirmed** at this boundary.
+- **Unchanged and unmeasured:** `git-ops` 7.5, lease 8, UI preflight 6.5, coder workflow 6,
+  validator 8.5 (not yet run this boundary), batch workflow 9, review discipline 9.
+- **Guard pilot 3.5 — untouched.** Nothing in this boundary exercised it.
+
+## 0.10.2 batch — second boundary (2026-10-18)
+
+Second release scope of the `0.10.1-0.10.2` batch, under the accepted extension record
+`batch-0.10.2` (the `batch-0.10.1-0.10.2` record is preserved at revision 19). Base
+`ee71aa40`. Entry covers 0.10.2 only.
+
+### What this boundary actually exercised
+
+- **Three scope amendments, two of them caught by the gate.** The enumerated manifest again
+  under-listed files the approved change touches: SplitBuilder's five files, `PlanRequest.kt`
+  and `DeterministicWorkoutPlannerEngine.kt`, and `ObserveWorkoutPlanInputsUseCase.kt`. The
+  first was recorded by the parent; the other two were **found by `resume`**, which named
+  `PlanRequest.kt` and `DeterministicWorkoutPlannerEngine.kt` as outside the allowed set and
+  refused the checkpoint before any commit. The gate is doing the job the parent's own
+  enumeration keeps failing at.
+- **The fresh-run rule, again.** Every acceptance matrix was run with `--rerun-tasks`; the
+  accepted evidence is `d102-full-matrix-04.log` at 787 executed / 0 up-to-date. Two earlier
+  green-looking attempts were rejected as evidence — one on a corrected assertion, one on the
+  known app flake.
+- **A full-range independent review that returned REJECTED.** See B012-02.
+- **Two delegated coder chunks plus one correction brief.** Scope containment held across all
+  three: the child modified exactly its allowed paths, refused to edit a main-owned file, and
+  in one case disclosed a design weakness in its own work.
+- **Not exercised:** `git-ops` (direct Git), the lease (serialized writes), and the UI
+  preflight (no device acceptance ran). Missing observations remain unknown, not zero.
+
+### Findings
+
+- **B012-02 [review value, confirmed] — the review found two major defects a green matrix could
+  not.** The parent reported 787 executed tasks, 0 up-to-date, exit 0, and still shipped two
+  confirmed majors in the ordered write path: an unenforced `sets == setTargets.sets` invariant
+  that made the Logger address the wrong slots, and an override baseline that silently discarded
+  the ordered targets in the ordinary case. The parent's own tests could not have caught either:
+  the only ordered fixture hand-built internally consistent snapshots. **A green matrix measures
+  what the tests assert, not what the code does.** The review also found a third unmet
+  acceptance item (F-01) that the parent had reported as delivered.
+- **B012-03 [self-report, confirmed] — the parent overstated delivered scope.** The parent's
+  own summary claimed automatic per-set generation "applied to model output by the shared
+  sanitizer"; only the manual recipe builder existed. The reviewer's F-01 caught it. The
+  durable lesson: an acceptance criterion that names a *consumer* (here the sanitizer) needs a
+  test that exercises that consumer, or it will be reported as done when only the producer
+  exists.
+- **B012-04 [delegation, confirmed] — the coder disclosed a design weakness in its own work.**
+  Its first Routines chunk reconstructed the reopen inputs by fitting candidate shapes to the
+  stored targets and said so explicitly. That is an inference about user input in a feature
+  about not inventing prescriptions, so the parent corrected it by persisting the recipe. Good
+  behaviour: the disclosure is what made the fix cheap.
+- **B012-05 [flake, recurrence] — the known app flake failed two release-gate attempts.** Same
+  class as B011-07; it passed on rerun each time. The cost is now measured across two releases.
+- **B012-06 [budget, confirmed] — no supported extension path.** The helper has no extension
+  command and amendments never extend the budget, so an accepted mid-task extension can only be
+  recorded as a checkpoint while the helper's own bound stays put. That leaves the recorded
+  bound and the user's accepted budget disagreeing, which a future operator would have to
+  reconcile by hand. *Improvement:* an explicit, audited extension event that preserves elapsed
+  usage and history.
+- **B012-07 [tooling, confirmed] — exact-match edits are fragile against the format pass.** The
+  mandated `ktlintFormat` rewrites the same regions an author is editing, so several edits
+  failed on exact-match and had to be re-read and retried. Twice an edit whose `oldString` ended
+  in a newline removed that newline and produced a syntax error, which the next compile caught.
+  *Improvement:* state in the tooling guidance that `oldString` must not include a trailing
+  newline, and expect to re-read a region after a format pass.
+- **B012-08 [flake, confirmed] — a second pre-existing flake in the Koin graph test.**
+  `KoinModulesVerificationTest.theOnboardingViewModelsResolveAtRuntime` failed one release-gate
+  attempt with `java.lang.IllegalStateException: Dispatchers.Main is used concurrently with
+  setting it`. This is the same class as the documented 0.7.7 CI corrective (a runtime binding
+  test resetting `Main` while a ViewModel is still reading on a real dispatcher), not a
+  regression from this release: nothing in 0.10.2 changes the Koin graph, and the run passed on
+  rerun. Left unfixed and out of scope. Together with B012-05 this release needed three
+  release-gate reruns, two for flakes and one for a corrected assertion.
+
+### Closure
+
+The independent review returned REJECTED and closure needed three rounds: the first found the
+missing regression test, a contradictory documentation line and a new recipe-endpoint defect; the
+second found two more endpoint defects; the third closed everything after the automatic path stopped
+recording a manual recipe it could not honour. Round 2 also confirmed the flake classification for
+B012-08: no `shared/` path is in the change set, nothing alters the Koin graph, and
+`:shared:testAndroidHostTest` passes 273/273 in isolation. The lesson worth keeping from this release
+is B012-02 — the parent reported a green 787-task matrix while shipping two majors, because the only
+ordered fixture hand-built consistent data and could not exercise the invariant it violated.
+
+### Ratings at this boundary
+
+- **Review discipline 9 → 9.5.** The independent review found two majors, an unmet acceptance
+  item and four smaller findings in work the parent had already declared verified. Raised on
+  that observed value, not on intent.
+- **Evidence discipline 9 → 9 (held).** The freshness rule kept working, but this boundary is
+  the clearest evidence yet that a fresh green matrix is not coverage. Held rather than raised.
+- **Coder workflow 6 → 6.5.** Three briefs, all delivered within scope, one self-disclosed
+  design weakness, no crossing edits. The tool-call cap was exceeded again (reported honestly),
+  which keeps this well below the other tools.
+- **Batch workflow 9 → 9 (held).** The boundary gate caught two out-of-manifest paths and
+  blocked the commit; the batch's amendment and boundary discipline did the work. Held because
+  the same enumeration failure has now recurred across two releases.
+- **Task state 9 → 9 (held).** Amendments, checkpoints and the pending-outcome guard all
+  behaved correctly. Held because B012-06 shows a real gap at the extension boundary.
+- **Unchanged and unmeasured:** `git-ops` 7.5, lease 8, UI preflight 6.5, validator 8.5.
+- **Guard pilot 3.5 — untouched.**
+
+## Automation hardening A–D (2026-10-19)
+
+One Authorized Autonomous Task covering four phases, accepted in chat on 2026-10-19: acceptance and
+authorization integrity (A), audited budget extensions (B), scoped formatting and delegation (C),
+and flake corrections (D). Base `93043d25`, branch `feature/0.10.1-progression-policies`, six-hour
+budget, state `automation-ad` under the agreed external root. Owners: main agent for A/B/D, `coder`
+for C. Local commits only; no publication. This entry is parent-owned evidence consolidation, not a
+reviewer verdict — the independent checkpoint for this task is recorded separately once it closes.
+
+### What was implemented
+
+- **A — acceptance is consumer-backed.** `docs/agent-project-reference.md` gains an *Acceptance and
+  authorization evidence* section: a criterion-to-consumer ledger, regression evidence that names
+  the assertion failing against the defect, missing verification that stays unverified unless the
+  user approves changed expectations, design findings that need the user's actual decision, and the
+  statement that a clear state boundary proves record consistency rather than permission. `AGENTS.md`,
+  `.opencode/commands/task.md` and `.opencode/commands/batch.md` reference it. The validator gained
+  `acceptance_workflow_findings`, with mutation scenarios covering each failure mode and one test
+  that demonstrates the structural-only boundary.
+- **B — audited budget extensions.** `scripts/task-state.py` accepts an `extend` event
+  (`add_seconds`, `approval_reference`, `reason`). The original `budget_seconds`, contract, baseline,
+  expected snapshot, operations and prior history stay intact; effective budget is the original plus
+  validated extensions and must stay finite. Extensions are refused while a record is `complete` or
+  `blocked`, permitted after expiry on nonterminal ones, and — deliberately — permitted while an outcome is
+  pending without resolving it or admitting new work. `resume` now reports original and effective
+  budget. Six regressions cover preservation, the expired-record path, rejection of invalid amounts
+  and terminal phases, tampering/overflow failing closed, and a test stating plainly that a fabricated
+  approval reference passes because the helper cannot authenticate consent.
+- **C — scoped formatting and delegation.** The repo-wide format pre-pass is replaced by a
+  module/source-set scoped one, with its source stated: `build.gradle.kts` applies the ktlint plugin to
+  every subproject, so a root `./gradlew ktlintFormat` is repo-wide. An ownership-delta rule (inspect
+  the diff; a path changed outside the approved chunk is a blocker to report, not to fix) and a
+  hard-stop delegation budget were added, plus `format_pass_findings` and five structural regressions.
+  The "no explicit maximum line length" claim was corrected to the effective 100-character limit:
+  `.editorconfig` selects `ktlint_code_style = android_studio` and sets no `max_line_length`, and that
+  code style defaults `max_line_length` to 100 in the bundled ktlint (1.5.0, verified in its
+  `MaxLineLengthEditorConfigProperty`), which is why diagnostics enforced a limit the docs denied.
+- **D — flake corrections.** See the dispositions below.
+
+### Findings
+
+- **B013-01 [contract, verified] — pre-enumerating mechanically-touched files worked.** Unlike
+  B010-02, B011-05 and B012-01, this contract's `allowed_paths` covered every file the work touched:
+  `resume` reported an empty `outside_allowed_paths` at every checkpoint and **no amendment was
+  needed**. The improvement those findings asked for (enumerate the consumers and version pins up
+  front) was applied at planning time here and the gate never had to catch anything.
+- **B013-02 [process, verified] — the unknown-outcome discipline handled a harness abort.** The phase
+  C delegation call was aborted by the harness before it returned a child session id. The parent did
+  not replay it: it recomputed the tracked binary diff and confirmed it was byte-identical to the
+  preserved pre-delegation baseline (`8e30aee7…` for both), resolved the attempt as `not-performed`
+  with that evidence, and re-issued under a fresh operation id. This is the first live exercise of the
+  "pending after interruption is unknown" rule against a *dropped tool call* rather than a process
+  kill.
+- **B013-03 [environment, confirmed] — the `patch` tool was unavailable mid-session.** A `patch` call
+  returned `Tool is not available for this request: patch` after earlier `patch` calls had succeeded,
+  so the parent switched to `write`/`edit`. No work was lost and no state was misreported; recorded
+  because a silently missing tool could otherwise look like a dropped call.
+- **B013-04 [flake, fixed] — the bounded-run readiness race.** The harness test's readiness sentinel
+  was written by the *grandchild*, so it depended on that process being scheduled inside a one-second
+  window; under load the window expired first. The leader now records the descendant's pid itself
+  immediately after `Popen` returns, making readiness deterministic once the leader runs, and the
+  window is three seconds — proportionate to a setup that spawns two nested interpreters. Escalation
+  to SIGKILL remains the claim under test. Verified: `test_run_bounded.py`, 17 tests OK.
+- **B013-05 [flake, fixed by trace] — the shared-test Main lifecycle.** Five `runTest` bodies and one
+  plain test installed their own Main dispatcher and reset it immediately after `koin.close()`, so a
+  scope-cancellation handler could still be dispatching to Main when the reset ran. That matches both
+  recorded symptoms: `Dispatchers.Main is used concurrently with setting it` in this class, and the
+  `UncaughtExceptionsBeforeTest` that surfaced in the *next* class as the victim of the leak. All six
+  sites now drain before resetting. **Not reproduced**: the fix is source-traced, and `:shared`
+  passes 273/273 in isolation either way, so it is disclosed as a trace-backed correction rather than
+  a reproduced-and-fixed one.
+- **B013-06 [flake, escalated — blocker] — the exercise-progress transaction collision is a product
+  question, not a test defect.** `ObserveOccurrenceRecordsUseCase` combines one `observeProgress`
+  reader per exercise, and each reader runs `transactionWithResult` on the same single-connection
+  driver, so two readers can hold that connection's transaction simultaneously; the `first()`
+  cancellation widens the window. That makes it reachable from any two-exercise consumer, and the
+  recorded diagnosis in `docs/qa.md` named only the cancellation half. Fixing it means deciding
+  persistence concurrency (serialize the readers, limit their parallelism, or change the transaction
+  shape), so it is **not fixed here**. Reproduction was not achieved and is not claimed; the mechanism
+  is source-traced against the recorded exception. Whether the production Android driver has the same
+  single-connection semantics is **unverified**.
+- **B013-07 [claim accuracy, fixed] — a doc claim contradicted observed behaviour.** Two files
+  asserted there is no maximum line length while diagnostics enforced 100 characters. The wording now
+  names the effective limit and its source. The old claim was the kind of unsourced assertion this
+  task exists to remove.
+- **B013-08 [verification, verified] — the scoped format pass was exercised live.** During D the
+  parent ran `:shared:ktlintAndroidHostTestSourceSetFormat` with the affected source set named; it
+  modified only the intended file, which the root invocation could not have guaranteed. That is the
+  first live use of the corrected guidance, not only a declaration.
+
+### Ratings at this boundary
+
+**Re-baseline note.** The starting values below are not always the last recorded boundary's, and that
+is stated rather than implied. On 2026-10-19 the user asked for a re-assessment of this tooling against
+the 0.10.1–0.10.2 evidence, and that review deliberately lowered several tools — batch workflow 9 → 6,
+task state 9 → 8, review discipline 9.5 → 9, `git-ops` 7.5 → 7 — because containment successes had been
+counted as execution successes. This entry adopts that re-based scale, so a value here can sit below
+the 2026-10-18 entry with no new failure behind it. A line that says "held" is held against the re-based
+value. "Acceptance completeness", "formatting workflow" and "publication controls" had no prior
+recorded number; their starting values are this entry's own re-based estimates, not continuations.
+
+- **Task state 8 → 8.5** (recorded 9 on 2026-10-18, re-based to 8). The extension event closes
+  B012-06's gap and the amendment/unknown-outcome guards held live again, including against a dropped
+  tool call. Not raised to 9: extensions are covered by regressions but were not needed in this run, so
+  the feature still lacks live use, and the helper still cannot authenticate an approval reference (a
+  test now says so explicitly).
+- **Acceptance completeness 5 → 6** (re-based starting estimate, no prior recorded number). A canonical
+  procedure and a structural check now exist, and the failure modes each have a named declaration.
+  Raised only one point because there is no live adoption yet: this is the *capability* to require
+  consumer evidence, not evidence that a future run will produce it.
+- **Formatting workflow 5 → 7** (re-based starting estimate, no prior recorded number). The scoping
+  claim is now source-backed, the ownership-delta rule is explicit, and the scoped invocation was used
+  live and touched only its target. Still short of a measured saving in correction rounds.
+- **Coder workflow 6.5 → 7.** Phase C was delivered inside its five declared paths with no crossing
+  edits, no cap breach, an honest declaration-only caveat and a self-reported environment quirk. The
+  brief and the report both improved on the earlier rounds.
+- **Publication controls 4 → 5** (re-based starting estimate, no prior recorded number). The
+  report-before-approval rule is in place and committed; it has not yet been exercised against a real
+  publication, so the demonstrated rating stays low.
+- **Bounded-run 9 → 9 (held).** The wrapper was not changed; its own test's race was. The unproven live
+  timeout containment remains the limit.
+- **Review discipline 9 → 9 (held, provisional; recorded 9.5 on 2026-10-18, re-based to 9).** This
+  task's own independent checkpoint and closure had not run when this entry was written; the rating is
+  not raised on the strength of this task's implementation.
+- **Batch workflow 6 → 6 (held; recorded 9 on 2026-10-18, re-based to 6).** The procedure improved, but
+  no batch has run under the new rules.
+- **Unchanged and unmeasured:** `git-ops` 7 (recorded 7.5, re-based to 7; provisional, still no
+  permission-prompt measurement), lease 8, UI preflight 6.5, validator 8.5 (it gained checks and
+  mutation tests but remains a structural checker).
+- **Guard pilot 3.5 — untouched.** Nothing in this task exercised it.
+
+### Verification at this boundary
+
+- Offline suite: **201 tests, OK** (`abcd-offline-suite-02.log`, run after the review corrections). The
+  baseline is **185** test methods at HEAD, not 196: `test_validate_tooling.py` went 29 → 39 (+10 — five
+  acceptance tests for A, one of which holds six mutation sub-scenarios, and five format-pass scenarios
+  for C) and `test_task_state.py` 34 → 40 (+6 extension regressions for B). The 196 measured mid-task was
+  the A+B intermediate, and an earlier version of this entry mislabelled it as the baseline. Validator:
+  13 definitions, 30 surface files, **0 findings**.
+- Harness suite: 17 tests OK (`d-runbounded-tests.log`).
+- `:shared:testAndroidHostTest --rerun-tasks`: **273 executed / 0 up-to-date**, zero failures
+  (`d-shared-tests.log`), after the scoped format pass `d-format-shared.log` — "5 actionable tasks:
+  3 executed, 1 from cache, 1 up-to-date" — which touched only the intended file.
+- Full matrix `--rerun-tasks`: **787 executed / 0 up-to-date**, exit 0, zero failures
+  (`abcd-matrix-01.log`) — clean on the first attempt, with none of the three flake classes appearing.
+- **Not established:** no live adoption of the acceptance ledger, the extension event or the
+  ownership-delta rule; no reproduction of B013-05 or B013-06; no emulator or device interaction; no
+  publication.
+
+## B013-06 flake fix (2026-10-19)
+
+The escalated blocker from the A–D boundary, taken as its own bounded Authorized Autonomous Task.
+Base `d3a29a19`, branch `feature/0.10.1-progression-policies`, three-hour budget, state `b013-06`
+under the agreed external root, main-agent ownership. Local commits only; no publication. This entry
+supersedes the "no reproduction of B013-06" line above.
+
+### What was implemented
+
+The user chose option A of the four presented: serialize the replay transaction. `SqlDelightExerciseProgressRepository`
+now holds a repository-owned `Mutex` across each replay's `transactionWithResult`, so a second replay
+waits — including for a cancelled reader's rollback — instead of opening a second transaction on a
+driver that exposes one connection. The transaction itself is kept, so cross-page consistency is
+unchanged. Because the repository is a Koin singleton, one lock covers every consumer, and the single
+change fixes both affected paths: the occurrence list's per-exercise `combine` and the chart
+selector's `collectLatest` cancellation.
+
+### Findings
+
+- **B014-01 [adoption, verified] — the acceptance ledger was used for the first time.** A–D's own
+  boundary noted that the new procedure had not been self-applied. This task's completion report maps
+  every criterion to its consumer and the artifact that exercises it, which changed what was actually
+  run: the "regression fails before the fix" criterion forced an empirical pre-fix run rather than a
+  claim, and the sweep criterion forced a real repeat sweep. Caveat: the same agent wrote the
+  criteria and the evidence, so this is adoption, not independent assurance.
+- **B014-02 [evidence, verified] — the pre-fix failure was observed, not argued.** The lock was
+  temporarily neutralised, the regression was run, and it failed with the instrument's own assertion
+  (`expected:<0> but was:<1>`); the lock was then restored and the restore confirmed by reading the
+  file and the diff. The new rule "identify the assertion that fails against the defect" was satisfied
+  by observation.
+- **B014-03 [instrument, confirmed] — the first instrument was itself the defect.** The initial
+  overlap detector counted *any* second transaction request, so it failed against the **fixed** code
+  by flagging a normal sequential replay. Running it is what caught that; the detector now counts only
+  requests that arrive while the first transaction is still held. A test can be wrong in the direction
+  that looks like a product failure.
+- **B014-04 [tooling, confirmed] — a sweep marker must be something a passing run prints.** The first
+  `flake-repeat` sweep returned exit 3 (inconclusive) with six green runs because
+  `--require-log-match` was given a test *class* name, which Gradle prints only for failures. The
+  documented form is the task name (`:core:database:testAndroidHostTest`). The harness behaved
+  correctly — it refused to call an unmatched sweep fresh — but the marker choice cost one sweep.
+- **B014-05 [contract, verified] — conditional paths removed the usual amendment churn.** The manifest
+  listed the three docs that *might* describe the replay's transaction, and all three needed the sync;
+  no amendment was required. That is the second consecutive task with no amendment, against three in
+  0.10.1 and three in 0.10.2.
+- **B014-06 [workflow, confirmed] — format and check in one Gradle invocation can report a stale
+  lint failure.** Running `ktlint…Format` and `ktlint…Check` in a single invocation produced an
+  import-ordering failure that the format pass had already fixed; re-running the check alone passed.
+  The scoped pass itself worked, and it touched only the intended file.
+- **B014-07 [contract, verified] — pre-classifying the fix as a decision paid off.** A–D recorded
+  B013-06 as needing the user's behavioral choice rather than guessing one. That meant the decision was
+  asked once, up front, with four options and a recommendation, and implementation then ran without a
+  pause.
+- **B014-08 [test design, confirmed] — the first regression raced instead of forcing the overlap.**
+  The initial version launched both readers together and relied on them interleaving inside the
+  instrument's hold. With the lock neutralised it failed on the first attempt and **passed on a later
+  one**, so it was not a reliable regression at all. The independent review had already flagged that
+  the counter is time-bounded (its F4). Fixed by starting the second reader only after the first
+  transaction is already open (`awaitFirstTransaction`), which makes the causal order deterministic
+  instead of racing, plus a wider hold; three consecutive pre-fix runs now fail. This is the
+  "identify the assertion that fails against the defect" rule doing real work — the first version
+  would have shipped as a regression that only sometimes regressed.
+- **B014-09 [review, verified] — the review found the regression-reliability gap and three hygiene
+  items.** Its findings were F1 (a missing blank line merged two `qa.md` paragraphs), F2 (the quoted
+  pre-fix assertion message was not in the saved log, only the failure), F3 (the lock serializes this
+  repository's replays but not against another repository's write transactions — out of scope, left
+  as a recorded residual), F4 (the instrument's undercount window, lenient, no action) and F5 (the
+  cancellation path was covered by construction but not by a test). F1, F2 and F5 are fixed; F2 is now
+  backed by the retained test report `prefix-test-report.xml`.
+
+### Ratings at this boundary
+
+- **Acceptance completeness 6 → 8.** The ledger was adopted live and it changed what was run, not just
+  what was written. Held below 9 because it is still self-applied: the same agent authored the
+  criteria and the evidence, and no independent check has yet tested whether a ledger with a missing
+  criterion would be caught.
+- **Formatting workflow 7 → 7 (held).** The scoped pass worked again and stayed inside its module, but
+  B014-06 shows the format-then-check ordering needs care in one invocation.
+- **Task state 8.5 → 8.5 (held).** Contract, begin/resolve, checkpoint and boundary all behaved; no
+  amendment and no extension were needed, so the extension path still lacks live use.
+- **Flake measurement 7 → 7 (held).** The sweep correctly refused to pass on an unmatched marker,
+  which is the safe behaviour, but B014-04 is a usability cost.
+- **Bounded-run 9 → 9 (held).** Unchanged; no timeout path was exercised.
+- **Review discipline — provisional.** This task's own independent review and closure had not run when
+  this entry was written.
+- **Coder workflow 7 (unchanged).** Not exercised: this task was main-agent only.
+- **Unchanged and unmeasured:** `git-ops` 7 (provisional; the commit delegation itself is not a
+  permission-prompt measurement), lease 8, UI preflight 6.5, validator 8.5.
+- **Guard pilot 3.5 — untouched.**
+
+### Verification at this boundary
+
+- `:core:database:testAndroidHostTest` and `:core:domain:testAndroidHostTest` with `--rerun-tasks`,
+  plus both scoped ktlint checks: exit 0, 27 executed / 0 up-to-date, zero failures
+  (`final-module-tests.log`); the repository test class reports **11 tests, 0 failures**, one more
+  than before the review because the cancellation guard was added.
+- Pre-fix regression runs: with the replay lock neutralised, the new test fails with
+  `expected:<0> but was:<1>` in **three consecutive runs** (`prefix-repeat-1..3.log`), the report is
+  retained as `prefix-test-report.xml`, and it still failed after the instrument's ordering was
+  tightened (`prefix-after-n1.log`). An earlier attempt that raced instead of forcing the order is
+  recorded as B014-08.
+- `flake-repeat` sweep of the previously flaky class: **6 fresh runs, 19 tasks executed each, zero
+  failures, marker matched every run** (`sweep-04/summary.json`).
+- Full matrix `--rerun-tasks`: **787 executed / 0 up-to-date**, exit 0, zero failures
+  (`matrix-final.log`), with the flake absent on the first attempt.
+- **Not established:** whether the production Android driver actually collides is still unverified —
+  the fix was chosen to be correct either way, so this does not block, but it is not resolved. No
+  emulator or device interaction; no publication.

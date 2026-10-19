@@ -46,7 +46,10 @@ bound without an optional-cursor `OR` predicate: a first-page query plus two dis
 reads (equal timestamp/id range, then strictly earlier/later time) that `SqlDelightExerciseProgressRepository`
 concatenates. That keeps every page a direct index seek instead of rescanning the prefix earlier pages
 already read. `SqlDelightExerciseProgressRepository` replays one exercise through the request instant
-in one off-main transaction, retaining derived outputs rather than all raw rows. Chart day bounds do not
+in one off-main transaction, retaining derived outputs rather than all raw rows. Replays are serialized
+by a repository-owned lock, because a driver may expose a single connection and two consumers routinely
+have two replays in flight: the occurrence record list combines one reader per exercise, and the chart
+selector cancels one reader before starting the next. Chart day bounds do not
 limit all-time record comparisons. The set-count query is an invalidation anchor, not a revision:
 do not apply `distinctUntilChanged` to its count, since correction/restore can keep counts unchanged.
 The repository is bound by `databaseModule` and consumed read-only by `:feature:progress` and the
@@ -82,8 +85,15 @@ instead of recreating a deleted set.
 `workoutSet.prescriptionSnapshot` text column that records the target a set was
 performed against (additive `ALTER TABLE`, no rebuild and no high-water repair);
 existing rows keep `NULL`, which stays "unknown target" rather than inheriting
-today's accepted plan. `ProgressionHistory.sq` is query-only: it registers
-`workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
+today's accepted plan. `57.sqm` adds the nullable `progressionPolicy` text column to
+`routineEntry`, `planHistoryEntry`, `activationEntry` and `occurrenceEntry` (additive
+`ALTER TABLE` on all four, no rebuild and no high-water repair); existing rows keep `NULL`,
+which stays "no policy configured" rather than adopting a rule the user never approved.
+`58.sqm` adds the nullable `setTargets` text column to the same four tables (again additive
+`ALTER TABLE`, no rebuild); existing rows keep `NULL`, which stays "this slot's sets share
+one repeated prescription" rather than being read as an ordered one, so no historical set is
+given an invented slot identity.
+`ProgressionHistory.sq` is query-only: it registers `workoutSet`, `workoutSession`, `occurrenceEntry`, `workoutOccurrence` and
 `trainingActivation` as one invalidation anchor, so a set write, a session
 boundary, a replacement or an activation change re-emits. `SqlDelightWorkoutPlanSourcesRepository`
 reads sets, sessions and unambiguously attributed occurrence targets in one

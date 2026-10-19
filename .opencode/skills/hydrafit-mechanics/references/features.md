@@ -20,6 +20,39 @@ disclosure (built-in planner only, recorded-history decay only, no future workou
 clock time and current offset, unknown dates keep prior behavior, and these dates do not move an
 existing block). UI strings live in the feature's `strings.xml`.
 
+## Ordered per-set prescription surfaces (0.10.2)
+
+The routine editor's counted **external** slots carry a **Per-set targets** action opening a
+dialog that chooses a shape (Straight / Ascending load / Descending load / Pyramid), a set
+count, start/end reps, start/end loads, a rounding step and an optional prescribed RIR, with
+a live preview of the resulting targets. Applying the prescription also writes the slot's own
+set count, because the list and the count are one value. A slot with a stored prescription
+reopens from its recorded recipe; a slot whose targets have no recipe opens with empty inputs
+and still shows what is stored, rather than a shape the app inferred.
+
+SplitBuilder owns the **automatic per-set generation** opt-in: a shape, a lowest and highest
+rep count and an optional prescribed RIR, off by default, validated through
+`AutomaticSetPrescription.requireValid()` and fed to plan generation as
+`ObserveWorkoutPlanInputsUseCase(automaticSetPrescription = ...)`. The Logger shows a draft's
+prescribed effort (RIR and its `equivalentRpe` presentation, labelled as the same
+closeness-to-failure scale) separately from the actual-RIR input, and a compact per-set
+summary that includes each set's prescribed RIR.
+
+## Approved progression policy editor (0.10.1)
+
+The routine editor's counted slots carry a **Progression** action and a compact summary line
+when a policy is set. `RoutinesUiState.ProgressionPolicyEditorState` holds the in-progress
+edit with its numbers as text, plus a `ProgressionPolicyError` the screen resolves through
+`stringResource` — no user-facing message is built in Kotlin. A slot with no policy opens the
+dialog **empty**; the app never pre-fills a rep range or an increment, because both are user
+inputs. Save validates through `SlotProgressionPolicy.requireValid()` and maps the failure to
+the matching error; Clear removes the policy; Cancel writes nothing. Timed slots offer no
+action. `EditorEntry.progressionPolicy` is carried in both directions through `toEditor` and
+the save mapping, so a saved `RoutineEntry` keeps the approved rule.
+
+`RoutinesViewModel` deliberately gains no constructor dependency for this: authoring needs no
+history, and the resolver's next-target suggestion has no UI surface in 0.10.1.
+
 ## Timed prescription authoring
 
 Routines provides a repetitions/seconds choice per slot; only the selected measure is saved.

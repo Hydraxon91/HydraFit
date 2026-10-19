@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.workout
 import com.hydrafit.app.core.domain.engine.ProgressionConfig
 import com.hydrafit.app.core.domain.engine.ProgressionExposureOutcome
 import com.hydrafit.app.core.domain.engine.ProgressionHistory
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -24,12 +25,56 @@ class WorkoutPrescriptionSnapshotTest {
             val encoded = WorkoutPrescriptionSnapshotJson.encode(snapshot)
             assertEquals(snapshot, WorkoutPrescriptionSnapshotJson.decode(encoded))
         }
-        assertFailsWith<IllegalArgumentException> { target.copy(version = 2).requireValid() }
+        assertFailsWith<IllegalArgumentException> { target.copy(version = 4).requireValid() }
+        // An ordered slot index and a prescribed RIR belong to format 3; earlier formats reject them.
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 2, setIndex = 0).requireValid()
+        }
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 2, targetRir = 2).requireValid()
+        }
+        // An ordered index must address one of the slot's own sets.
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 3, setIndex = 3).requireValid()
+        }
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 3, targetRir = 5).requireValid()
+        }
         assertFailsWith<IllegalArgumentException> { target.copy(reps = null).requireValid() }
         assertFailsWith<IllegalArgumentException> { target.copy(sets = 0).requireValid() }
         assertFailsWith<IllegalArgumentException> {
             target.copy(weightKg = Double.NaN).requireValid()
         }
+    }
+
+    @Test
+    fun aFormatOneTargetCannotCarryAnApprovedPolicy() {
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(
+                version = 1,
+                progressionPolicy = SlotProgressionPolicy(
+                    minReps = 5,
+                    maxReps = 8,
+                    incrementKg = 2.5
+                )
+            ).requireValid()
+        }
+    }
+
+    @Test
+    fun aFormatTwoTargetRoundTripsWithItsPolicy() {
+        val withPolicy = target.copy(
+            progressionPolicy = SlotProgressionPolicy(
+                minReps = 5,
+                maxReps = 8,
+                incrementKg = 1.25,
+                equipmentId = "bar"
+            )
+        )
+
+        val encoded = WorkoutPrescriptionSnapshotJson.encode(withPolicy)
+
+        assertEquals(withPolicy, WorkoutPrescriptionSnapshotJson.decode(encoded))
     }
 
     @Test

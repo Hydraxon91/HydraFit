@@ -74,11 +74,21 @@ implement; ask the user to switch to Build mode when they accept the contract.
 - On resume, run the read-only `resume` report and reconcile repository drift,
   pending operations and remaining budget before more work. An expired budget is
   a stop, not a reset. These helpers do not execute the task or enforce a sandbox.
+- A separately approved budget extension uses an `extend` event on the existing
+  record (`add_seconds`, `approval_reference`, `reason`), never a replacement record
+  or a checkpoint pretending to add time. Expired nonterminal records may be
+  extended; pending outcomes, drift and scope still need reconciliation. Original
+  budget, usage and history stay intact; terminal records cannot be extended.
 - Work within the accepted contract; preserve pre-existing and concurrent work.
 - Implement file by file, with required tests and living docs in the same scope.
 - Verify each step with bounded commands and external logs, preferring
   `python3 scripts/run-bounded.py <seconds> <log> -- <command>`. Report unavailable
   checks instead of implying success.
+- Before claiming completion, follow `docs/agent-project-reference.md` Acceptance
+  and authorization evidence: map each criterion to its actual consumer and
+  assertion/artifact. Missing required checks remain unverified unless the user
+  approves changed expectations; design findings need the actual user decision.
+  A clear state boundary and recorded approval references are not authorization.
 - When implementation is verified, finish writes and hand the pinned revision to
   `reviewer` with the full Subagent brief contract. Do not review your own work.
 - Apply only pre-authorized mechanical corrections that restore approved behavior;

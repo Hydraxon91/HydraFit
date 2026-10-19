@@ -1,0 +1,9 @@
+-- 57 -> 58: a prescription slot's approved progression policy.
+--
+-- Additive nullable columns only: no table rebuild, no high-water repair and no backfill. Existing
+-- rows keep NULL, which stays "no policy configured" rather than inheriting a rule the user never
+-- approved, and a slot without a policy receives no automatic progression suggestion.
+ALTER TABLE routineEntry ADD COLUMN progressionPolicy TEXT;
+ALTER TABLE planHistoryEntry ADD COLUMN progressionPolicy TEXT;
+ALTER TABLE activationEntry ADD COLUMN progressionPolicy TEXT;
+ALTER TABLE occurrenceEntry ADD COLUMN progressionPolicy TEXT;

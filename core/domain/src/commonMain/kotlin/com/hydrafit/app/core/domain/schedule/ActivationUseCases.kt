@@ -99,7 +99,9 @@ class ActivateRoutineUseCase(
                         durationSeconds = entry.durationSeconds,
                         weightKg = weightKg,
                         loadCapability = exercise.loadCapability,
-                        loadKind = kind
+                        loadKind = kind,
+                        progressionPolicy = entry.progressionPolicy,
+                        setTargets = entry.setTargets
                     )
                 }
             )

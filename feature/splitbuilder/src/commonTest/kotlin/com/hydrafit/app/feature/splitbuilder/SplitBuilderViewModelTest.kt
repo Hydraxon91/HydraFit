@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
+import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
@@ -21,6 +22,7 @@ import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -1605,6 +1607,97 @@ class SplitBuilderViewModelTest {
         // Only the regenerated, valid Confirm activates the block, exactly once.
         assertEquals(1, activations)
     }
+
+    @Test
+    fun automaticSetPrescriptionIsOffByDefault() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests)
+        )
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.automaticSetPrescription)
+        assertTrue(requests.isNotEmpty())
+        assertTrue(requests.all { it.automaticSetPrescription == null })
+    }
+
+    @Test
+    fun enablingAutomaticSetPrescriptionPutsItOnTheRequest() = runTest(dispatcher) {
+        val requests = mutableListOf<PlanRequest>()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            engine = recordingEngine(requests)
+        )
+        advanceUntilIdle()
+
+        viewModel.onAutomaticSetPrescriptionRequested()
+        viewModel.onAutomaticSetPrescriptionShapeChanged(SetPrescriptionShape.ASCENDING_LOAD)
+        viewModel.onAutomaticSetPrescriptionMinRepsChanged("8")
+        viewModel.onAutomaticSetPrescriptionMaxRepsChanged("12")
+        viewModel.onAutomaticSetPrescriptionRirChanged("2")
+        viewModel.onAutomaticSetPrescriptionApply()
+        advanceUntilIdle()
+
+        val expected = AutomaticSetPrescription(
+            shape = SetPrescriptionShape.ASCENDING_LOAD,
+            minReps = 8,
+            maxReps = 12,
+            targetRir = 2
+        )
+        assertEquals(expected, viewModel.state.value.automaticSetPrescription)
+        assertEquals(expected, requests.last().automaticSetPrescription)
+    }
+
+    @Test
+    fun invalidAutomaticSetPrescriptionIsRefusedAndLeavesGenerationUnchanged() =
+        runTest(dispatcher) {
+            val requests = mutableListOf<PlanRequest>()
+            val viewModel = viewModel(
+                availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                engine = recordingEngine(requests)
+            )
+            advanceUntilIdle()
+            val requestsBefore = requests.size
+
+            viewModel.onAutomaticSetPrescriptionRequested()
+            viewModel.onAutomaticSetPrescriptionShapeChanged(SetPrescriptionShape.PYRAMID)
+
+            // Highest below lowest.
+            viewModel.onAutomaticSetPrescriptionMinRepsChanged("12")
+            viewModel.onAutomaticSetPrescriptionMaxRepsChanged("8")
+            viewModel.onAutomaticSetPrescriptionApply()
+            assertEquals(
+                AutomaticSetPrescriptionError.REPS_RANGE,
+                assertNotNull(viewModel.state.value.automaticSetPrescriptionDialog).error
+            )
+            assertNull(viewModel.state.value.automaticSetPrescription)
+
+            // Lowest below the shared floor is refused the same way.
+            viewModel.onAutomaticSetPrescriptionMinRepsChanged("0")
+            viewModel.onAutomaticSetPrescriptionMaxRepsChanged("8")
+            viewModel.onAutomaticSetPrescriptionApply()
+            assertEquals(
+                AutomaticSetPrescriptionError.REPS_RANGE,
+                assertNotNull(viewModel.state.value.automaticSetPrescriptionDialog).error
+            )
+
+            // A prescribed RIR outside 0–4 has its own message.
+            viewModel.onAutomaticSetPrescriptionMinRepsChanged("8")
+            viewModel.onAutomaticSetPrescriptionMaxRepsChanged("12")
+            viewModel.onAutomaticSetPrescriptionRirChanged("9")
+            viewModel.onAutomaticSetPrescriptionApply()
+            assertEquals(
+                AutomaticSetPrescriptionError.RIR_RANGE,
+                assertNotNull(viewModel.state.value.automaticSetPrescriptionDialog).error
+            )
+            assertNull(viewModel.state.value.automaticSetPrescription)
+
+            advanceUntilIdle()
+            // Nothing was applied, so no new generation ran and no request carries a prescription.
+            assertEquals(requestsBefore, requests.size)
+            assertTrue(requests.all { it.automaticSetPrescription == null })
+        }
 
     private fun recordingEngine(requests: MutableList<PlanRequest>): WorkoutPlannerEngine =
         object : WorkoutPlannerEngine {

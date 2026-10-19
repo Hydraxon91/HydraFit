@@ -1,7 +1,13 @@
 package com.hydrafit.app.feature.routines
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.BuildSetPrescriptionUseCase
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SetPrescriptionRequest
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
@@ -561,6 +567,663 @@ class RoutinesViewModelTest {
         model.onReplaceExercise(0, 0)
         assertFalse(model.state.value.exercises.first { it.id == "bench-press" }.isExcluded)
     }
+
+    @Test
+    fun openingTheProgressionDialogIsEmptyForASlotWithoutAPolicy() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        val dialog = assertNotNull(viewModel.state.value.progressionPolicyEditor)
+        assertEquals("", dialog.minReps)
+        assertEquals("", dialog.maxReps)
+        assertEquals("", dialog.incrementKg)
+        assertEquals("", dialog.equipmentId)
+        assertNull(dialog.error)
+    }
+
+    @Test
+    fun openingTheProgressionDialogPrefillsAnExistingPolicy() = runTest(dispatcher) {
+        routines.seed(templateWithProgressionPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        val dialog = assertNotNull(viewModel.state.value.progressionPolicyEditor)
+        assertEquals("5", dialog.minReps)
+        assertEquals("8", dialog.maxReps)
+        assertEquals("2.5", dialog.incrementKg)
+        assertEquals("barbell", dialog.equipmentId)
+    }
+
+    @Test
+    fun aStoredFractionalIncrementReopensAndResavesWithoutBeingRounded() = runTest(dispatcher) {
+        routines.seed(templateWithFractionalIncrementPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        assertEquals(
+            "1.25",
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).incrementKg
+        )
+
+        viewModel.onProgressionPolicySave()
+
+        // Reopening and saving without an edit must not rewrite the user's stored step.
+        assertEquals(1.25, assertNotNull(editorEntry(viewModel).progressionPolicy).incrementKg)
+    }
+
+    @Test
+    fun savingAValidProgressionPolicyWritesItAndClosesTheDialog() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicyEquipmentIdChanged("barbell")
+        viewModel.onProgressionPolicySave()
+
+        assertNull(viewModel.state.value.progressionPolicyEditor)
+        val policy = assertNotNull(editorEntry(viewModel).progressionPolicy)
+        assertEquals(5, policy.minReps)
+        assertEquals(8, policy.maxReps)
+        assertEquals(2.5, policy.incrementKg)
+        assertEquals("barbell", policy.equipmentId)
+    }
+
+    @Test
+    fun anInvalidRepRangeKeepsTheProgressionDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        viewModel.onProgressionPolicyMinRepsChanged("10")
+        viewModel.onProgressionPolicyMaxRepsChanged("5")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+
+        // A non-numeric bound fails the same way rather than writing a partial policy.
+        viewModel.onProgressionPolicyMinRepsChanged("abc")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun aNonPositiveIncrementKeepsTheProgressionDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("0")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.INCREMENT,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun anInvalidEquipmentIdKeepsTheProgressionDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditProgressionPolicy(0, 0)
+
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicyEquipmentIdChanged("   ")
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.EQUIPMENT_ID,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+
+        viewModel.onProgressionPolicyEquipmentIdChanged("x".repeat(81))
+        viewModel.onProgressionPolicySave()
+
+        assertEquals(
+            ProgressionPolicyError.EQUIPMENT_ID,
+            assertNotNull(viewModel.state.value.progressionPolicyEditor).error
+        )
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun clearingRemovesTheProgressionPolicyAndClosesTheDialog() = runTest(dispatcher) {
+        routines.seed(templateWithProgressionPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyClear()
+
+        assertNull(viewModel.state.value.progressionPolicyEditor)
+        assertNull(editorEntry(viewModel).progressionPolicy)
+    }
+
+    @Test
+    fun dismissingTheProgressionDialogWritesNothing() = runTest(dispatcher) {
+        routines.seed(templateWithProgressionPolicy())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyMinRepsChanged("6")
+        viewModel.onProgressionPolicyDismissed()
+
+        assertNull(viewModel.state.value.progressionPolicyEditor)
+        assertEquals(5, assertNotNull(editorEntry(viewModel).progressionPolicy).minReps)
+    }
+
+    @Test
+    fun aSavedProgressionPolicyRoundTripsThroughRoutineSave() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditProgressionPolicy(0, 0)
+        viewModel.onProgressionPolicyMinRepsChanged("5")
+        viewModel.onProgressionPolicyMaxRepsChanged("8")
+        viewModel.onProgressionPolicyIncrementChanged("2.5")
+        viewModel.onProgressionPolicyEquipmentIdChanged("barbell")
+        viewModel.onProgressionPolicySave()
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(
+            SlotProgressionPolicy(
+                minReps = 5,
+                maxReps = 8,
+                incrementKg = 2.5,
+                equipmentId = "barbell"
+            ),
+            saved.progressionPolicy
+        )
+    }
+
+    @Test
+    fun openingTheSetTargetsDialogIsEmptyForASlotWithoutTargets() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditSetTargets(0, 0)
+
+        val dialog = assertNotNull(viewModel.state.value.setTargetsEditor)
+        assertEquals(SetPrescriptionShape.STRAIGHT, dialog.shape)
+        assertEquals("", dialog.sets)
+        assertEquals("", dialog.startReps)
+        assertEquals("", dialog.endReps)
+        assertEquals("", dialog.startLoadKg)
+        assertEquals("", dialog.endLoadKg)
+        assertEquals("2.5", dialog.roundToKg)
+        assertEquals("", dialog.targetRir)
+        assertNull(dialog.error)
+        assertNull(dialog.preview)
+    }
+
+    @Test
+    fun savingValidSetTargetsStoresThemAndClosesTheDialog() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsShapeChanged(SetPrescriptionShape.ASCENDING_LOAD)
+        viewModel.onSetTargetsSetsChanged("3")
+        viewModel.onSetTargetsStartRepsChanged("8")
+        viewModel.onSetTargetsEndRepsChanged("6")
+        viewModel.onSetTargetsStartLoadChanged("60")
+        viewModel.onSetTargetsEndLoadChanged("70")
+        viewModel.onSetTargetsRirChanged("2")
+
+        viewModel.onSetTargetsApply()
+
+        assertNull(viewModel.state.value.setTargetsEditor)
+        assertEquals(
+            BuildSetPrescriptionUseCase()(
+                SetPrescriptionRequest(
+                    shape = SetPrescriptionShape.ASCENDING_LOAD,
+                    sets = 3,
+                    startReps = 8,
+                    endReps = 6,
+                    startLoadKg = 60.0,
+                    endLoadKg = 70.0,
+                    roundToKg = 2.5,
+                    targetRir = 2
+                )
+            ),
+            assertNotNull(editorEntry(viewModel).setTargets)
+        )
+    }
+
+    @Test
+    fun theSetTargetsPreviewMatchesTheBuilderForAKnownRequest() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsShapeChanged(SetPrescriptionShape.PYRAMID)
+        viewModel.onSetTargetsSetsChanged("5")
+        viewModel.onSetTargetsStartRepsChanged("10")
+        viewModel.onSetTargetsEndRepsChanged("4")
+        viewModel.onSetTargetsStartLoadChanged("50")
+        viewModel.onSetTargetsEndLoadChanged("80")
+        viewModel.onSetTargetsRoundToChanged("1")
+
+        val preview = assertNotNull(viewModel.state.value.setTargetsEditor?.preview)
+
+        assertEquals(
+            BuildSetPrescriptionUseCase()(
+                SetPrescriptionRequest(
+                    shape = SetPrescriptionShape.PYRAMID,
+                    sets = 5,
+                    startReps = 10,
+                    endReps = 4,
+                    startLoadKg = 50.0,
+                    endLoadKg = 80.0,
+                    roundToKg = 1.0,
+                    targetRir = null
+                )
+            ),
+            preview
+        )
+    }
+
+    @Test
+    fun anUnparsableSetCountKeepsTheDialogOpenAndShowsTheSetsError() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        openValidSetTargetsDialog(viewModel)
+
+        viewModel.onSetTargetsSetsChanged("")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.SETS_RANGE,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+
+        viewModel.onSetTargetsSetsChanged("0")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.SETS_RANGE,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun anOutOfRangeRepCountKeepsTheDialogOpenAndShowsTheRepsError() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        openValidSetTargetsDialog(viewModel)
+
+        viewModel.onSetTargetsStartRepsChanged("abc")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+
+        viewModel.onSetTargetsStartRepsChanged("0")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun aNegativeLoadKeepsTheDialogOpenAndShowsTheLoadError() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        openValidSetTargetsDialog(viewModel)
+
+        viewModel.onSetTargetsStartLoadChanged("-5")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.LOAD,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun aNonPositiveRoundingStepKeepsTheDialogOpenAndShowsTheRoundingError() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        openValidSetTargetsDialog(viewModel)
+
+        viewModel.onSetTargetsRoundToChanged("0")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.ROUNDING,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun anOutOfRangeRirKeepsTheDialogOpenAndShowsTheRirError() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        openValidSetTargetsDialog(viewModel)
+
+        viewModel.onSetTargetsRirChanged("9")
+        viewModel.onSetTargetsApply()
+
+        assertEquals(
+            SetTargetsError.RIR_RANGE,
+            assertNotNull(viewModel.state.value.setTargetsEditor).error
+        )
+        assertNull(editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun clearingRemovesTheSetTargetsAndClosesTheDialog() = runTest(dispatcher) {
+        routines.seed(templateWithSetTargets(orderedAscendingSetTargets()))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsClear()
+
+        assertNull(viewModel.state.value.setTargetsEditor)
+        assertNull(editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun dismissingTheSetTargetsDialogWritesNothing() = runTest(dispatcher) {
+        val stored = orderedAscendingSetTargets()
+        routines.seed(templateWithSetTargets(stored))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsSetsChanged("5")
+        viewModel.onSetTargetsDismissed()
+
+        assertNull(viewModel.state.value.setTargetsEditor)
+        assertEquals(stored, editorEntry(viewModel).setTargets)
+    }
+
+    @Test
+    fun reopeningASlotSeedsTheDialogFromItsRecipe() = runTest(dispatcher) {
+        val stored = orderedAscendingSetTargets()
+        assertNotNull(stored.recipe)
+        routines.seed(templateWithSetTargets(stored))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+        viewModel.onEditSetTargets(0, 0)
+
+        val dialog = assertNotNull(viewModel.state.value.setTargetsEditor)
+        assertEquals(SetPrescriptionShape.ASCENDING_LOAD, dialog.shape)
+        assertEquals("3", dialog.sets)
+        assertEquals("8", dialog.startReps)
+        assertEquals("6", dialog.endReps)
+        assertEquals("60", dialog.startLoadKg)
+        assertEquals("70", dialog.endLoadKg)
+        assertEquals("2.5", dialog.roundToKg)
+        assertEquals("", dialog.targetRir)
+        assertEquals(stored, dialog.storedTargets)
+        assertEquals(stored, dialog.preview)
+    }
+
+    @Test
+    fun reopeningARecipeLessSlotKeepsTheFieldsEmptyAndShowsTheStoredTargets() =
+        runTest(dispatcher) {
+            val stored = SlotSetTargets.of(
+                listOf(SetTarget(reps = 8, weightKg = 60.0, targetRir = 2))
+            )
+            assertNull(stored.recipe)
+            routines.seed(templateWithSetTargets(stored))
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            viewModel.onEditRoutine(viewModel.state.value.templates.single())
+
+            viewModel.onEditSetTargets(0, 0)
+
+            val dialog = assertNotNull(viewModel.state.value.setTargetsEditor)
+            assertEquals("", dialog.sets)
+            assertEquals("", dialog.startReps)
+            assertEquals("", dialog.endReps)
+            assertEquals("", dialog.startLoadKg)
+            assertEquals("", dialog.endLoadKg)
+            assertEquals("", dialog.roundToKg)
+            assertEquals("", dialog.targetRir)
+            assertNull(dialog.preview)
+            assertEquals(stored, dialog.storedTargets)
+
+            // Apply is refused while the recipe fields are empty and writes nothing.
+            viewModel.onSetTargetsApply()
+            assertEquals(
+                SetTargetsError.SETS_RANGE,
+                assertNotNull(viewModel.state.value.setTargetsEditor).error
+            )
+            assertEquals(stored, editorEntry(viewModel).setTargets)
+
+            // Entering valid inputs builds a preview that can then be applied.
+            viewModel.onSetTargetsSetsChanged("1")
+            viewModel.onSetTargetsStartRepsChanged("8")
+            viewModel.onSetTargetsEndRepsChanged("8")
+            viewModel.onSetTargetsStartLoadChanged("60")
+            viewModel.onSetTargetsEndLoadChanged("60")
+            viewModel.onSetTargetsRoundToChanged("2.5")
+            assertNotNull(viewModel.state.value.setTargetsEditor?.preview)
+        }
+
+    @Test
+    fun savedSetTargetsRoundTripThroughRoutineSave() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsSetsChanged("2")
+        viewModel.onSetTargetsStartRepsChanged("8")
+        viewModel.onSetTargetsEndRepsChanged("8")
+        viewModel.onSetTargetsStartLoadChanged("60")
+        viewModel.onSetTargetsEndLoadChanged("60")
+        viewModel.onSetTargetsApply()
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(
+            BuildSetPrescriptionUseCase()(
+                SetPrescriptionRequest(
+                    shape = SetPrescriptionShape.STRAIGHT,
+                    sets = 2,
+                    startReps = 8,
+                    endReps = 8,
+                    startLoadKg = 60.0,
+                    endLoadKg = 60.0
+                )
+            ),
+            saved.setTargets
+        )
+        // The slot's own set count is one value with the ordered list; the save proved it validates.
+        assertEquals(2, saved.sets)
+        assertEquals(saved.sets, assertNotNull(saved.setTargets).sets)
+    }
+
+    @Test
+    fun applyingOrderedTargetsKeepsTheSlotSetCountInSyncAndSaves() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        // The slot opens at three sets; the ordered prescription will have two.
+        assertEquals("3", editorEntry(viewModel).sets)
+
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsSetsChanged("2")
+        viewModel.onSetTargetsStartRepsChanged("8")
+        viewModel.onSetTargetsEndRepsChanged("8")
+        viewModel.onSetTargetsStartLoadChanged("60")
+        viewModel.onSetTargetsEndLoadChanged("60")
+        viewModel.onSetTargetsApply()
+
+        // Apply rewrites the slot's own set count to match its ordered list.
+        assertEquals("2", editorEntry(viewModel).sets)
+        assertEquals(2, assertNotNull(editorEntry(viewModel).setTargets).sets)
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        // Saving runs SaveRoutineTemplateUseCase, whose RoutineTemplateValidator rejects a slot whose
+        // ordered-list size disagrees with its set count. A persisted entry here is the proof it
+        // passed; RoutineTemplateValidator is internal to :core:domain, so this real save path — not a
+        // direct call — is what the feature test can exercise.
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        val targets = assertNotNull(saved.setTargets)
+        assertEquals(saved.sets, targets.sets)
+        assertEquals(2, saved.sets)
+    }
+
+    private fun openValidSetTargetsDialog(viewModel: RoutinesViewModel) {
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsSetsChanged("3")
+        viewModel.onSetTargetsStartRepsChanged("8")
+        viewModel.onSetTargetsEndRepsChanged("6")
+        viewModel.onSetTargetsStartLoadChanged("60")
+        viewModel.onSetTargetsEndLoadChanged("70")
+    }
+
+    private fun orderedAscendingSetTargets(): SlotSetTargets = BuildSetPrescriptionUseCase()(
+        SetPrescriptionRequest(
+            shape = SetPrescriptionShape.ASCENDING_LOAD,
+            sets = 3,
+            startReps = 8,
+            endReps = 6,
+            startLoadKg = 60.0,
+            endLoadKg = 70.0
+        )
+    )
+
+    private fun templateWithSetTargets(targets: SlotSetTargets) = RoutineTemplate(
+        name = "Upper",
+        revision = 1,
+        workouts = listOf(
+            RoutineWorkout(
+                name = "Day 1",
+                entries = listOf(
+                    RoutineEntry(
+                        exerciseId = "bench-press",
+                        sets = targets.sets,
+                        reps = targets.targets.first().reps,
+                        setTargets = targets
+                    )
+                )
+            )
+        )
+    )
+
+    private fun openNewRoutineWithBenchSlot(viewModel: RoutinesViewModel) {
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+    }
+
+    private fun editorEntry(viewModel: RoutinesViewModel): EditorEntry = requireNotNull(
+        viewModel.state.value.editor
+    ).workouts.single().entries.single()
+
+    private fun templateWithProgressionPolicy() = RoutineTemplate(
+        name = "Upper",
+        revision = 1,
+        workouts = listOf(
+            RoutineWorkout(
+                name = "Day 1",
+                entries = listOf(
+                    RoutineEntry(
+                        exerciseId = "bench-press",
+                        sets = 3,
+                        reps = 8,
+                        progressionPolicy = SlotProgressionPolicy(
+                            minReps = 5,
+                            maxReps = 8,
+                            incrementKg = 2.5,
+                            equipmentId = "barbell"
+                        )
+                    )
+                )
+            )
+        )
+    )
+
+    private fun templateWithFractionalIncrementPolicy() = RoutineTemplate(
+        name = "Fractional",
+        revision = 1,
+        workouts = listOf(
+            RoutineWorkout(
+                name = "Day 1",
+                entries = listOf(
+                    RoutineEntry(
+                        exerciseId = "bench-press",
+                        sets = 3,
+                        reps = 5,
+                        progressionPolicy = SlotProgressionPolicy(
+                            minReps = 5,
+                            maxReps = 8,
+                            incrementKg = 1.25
+                        )
+                    )
+                )
+            )
+        )
+    )
 
     private fun viewModel(
         weightUnitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),

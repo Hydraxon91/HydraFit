@@ -13,6 +13,8 @@ import com.hydrafit.app.core.domain.engine.FrozenPlanExplanation
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -211,7 +213,10 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                     explanationsBySlot[
                                         day.dayIndex.toInt() to row.position.toInt()
                                     ]?.toExplanation()
-                                }
+                                },
+                                progressionPolicy = row.progressionPolicy
+                                    ?.let(SlotProgressionPolicyJson::decode),
+                                setTargets = row.setTargets?.let(SlotSetTargetsJson::decode)
                             )
                         }
                 )

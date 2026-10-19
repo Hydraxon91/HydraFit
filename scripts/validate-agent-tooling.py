@@ -58,7 +58,7 @@ CODER_WORKFLOW_HEADING = "### Coder workflow"
 CODER_WORKFLOW_STEPS = ("Style sources", "Lint first", "Consumer map", "Structured report")
 CODER_WORKFLOW_TOKENS = (
     "android_studio",
-    "no explicit maximum line length",
+    "defaults the limit to 100",
     "ktlint before",
     "no Gradle tasks",
     "producer",
@@ -247,7 +247,7 @@ def batch_state_findings(root: pathlib.Path) -> list[str]:
     findings = [f"{path}: durable state missing lifecycle step {label}"
                 for label in labels if f"- **{label}:**" not in section]
     for token in ("scripts/task-state.py", "`begin`", "`resolve`", "`resume`", "`checkpoint`",
-                  "`evidence`", "`amend`", "boundary --expect", "--require-evidence"):
+                  "`evidence`", "`amend`", "`extend`", "boundary --expect", "--require-evidence"):
         if token not in section:
             findings.append(f"{path}: durable state missing protocol reference {token}")
     return findings
@@ -270,6 +270,50 @@ def coder_workflow_findings(root: pathlib.Path) -> list[str]:
     return findings
 
 
+ACCEPTANCE_HEADING = "### Acceptance and authorization evidence"
+ACCEPTANCE_STEPS = ("Consumer evidence", "Regression evidence", "Missing verification",
+                    "Design decisions", "Record consistency", "Publication")
+
+
+def acceptance_workflow_findings(root: pathlib.Path) -> list[str]:
+    """Declaration checks only: cannot evaluate tests, prose semantics or actual consent."""
+    path = root / "docs/agent-project-reference.md"
+    if not path.exists():
+        return []
+    body = path.read_text()
+    if ACCEPTANCE_HEADING not in body:
+        return [f"{path}: missing acceptance and authorization evidence section"]
+    section = re.split(r"\n#{1,3} ", body.split(ACCEPTANCE_HEADING, 1)[1], maxsplit=1)[0]
+    findings = [f"{path}: acceptance evidence missing step {step}"
+                for step in ACCEPTANCE_STEPS if f"- **{step}:**" not in section]
+    for relative in ("AGENTS.md", ".opencode/commands/task.md", ".opencode/commands/batch.md"):
+        consumer = root / relative
+        if consumer.exists() and "Acceptance and authorization evidence" not in " ".join(consumer.read_text().split()):
+            findings.append(f"{consumer}: missing acceptance evidence procedure reference")
+    return findings
+
+
+FORMAT_PASS_HEADING = "### Scoped Kotlin format pass"
+FORMAT_PASS_STEPS = ("Module-scoped invocation", "Ownership delta", "Incomplete pass")
+
+
+def format_pass_findings(root: pathlib.Path) -> list[str]:
+    """Declaration checks only: cannot tell which paths a format pass actually rewrote."""
+    path = root / "docs/agent-project-reference.md"
+    if not path.exists():
+        return []
+    body = path.read_text()
+    if FORMAT_PASS_HEADING not in body:
+        return [f"{path}: missing scoped Kotlin format pass section"]
+    section = re.split(r"\n#{1,3} ", body.split(FORMAT_PASS_HEADING, 1)[1], maxsplit=1)[0]
+    findings = [f"{path}: scoped format pass missing step {step}"
+                for step in FORMAT_PASS_STEPS if f"- **{step}:**" not in section]
+    consumer = root / "AGENTS.md"
+    if consumer.exists() and "Scoped Kotlin format pass" not in " ".join(consumer.read_text().split()):
+        findings.append(f"{consumer}: missing scoped format pass procedure reference")
+    return findings
+
+
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     root = pathlib.Path(arguments[0]).resolve() if arguments else ROOT
@@ -282,6 +326,8 @@ def main(argv: list[str] | None = None) -> int:
         findings.extend(reference_findings(root, path))
     findings.extend(batch_state_findings(root))
     findings.extend(coder_workflow_findings(root))
+    findings.extend(acceptance_workflow_findings(root))
+    findings.extend(format_pass_findings(root))
     for finding in findings:
         print(finding)
     print(

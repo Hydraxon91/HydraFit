@@ -48,8 +48,8 @@ Intro text.
 
 ### Coder workflow
 
-- **Style sources:** follow `.editorconfig` with `ktlint_code_style = android_studio`
-  and no explicit maximum line length.
+- **Style sources:** follow `.editorconfig` with `ktlint_code_style = android_studio`,
+  which defaults the limit to 100 columns.
 - **Lint first:** run ktlint before the heavier test task; agent tooling adds no Gradle tasks.
 - **Consumer map:** trace producer to consumers and their tests; check scheduler/clock.
 - **Structured report:** classify each correction round and record elapsed and remaining.
@@ -247,6 +247,96 @@ class CoderWorkflowTests(unittest.TestCase):
         self.assertEqual([], vt.coder_workflow_findings(self._root_with_coder(VALID_CODER_WORKFLOW)))
 
 
+class AcceptanceWorkflowTests(unittest.TestCase):
+    """Mutation scenarios check declaration loss, not agent behavior or real approval."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = pathlib.Path(self.tmp.name)
+        self.body = (MODULE_PATH.parents[1] / "docs/agent-project-reference.md").read_text()
+        self.path = write(self.root, "docs/agent-project-reference.md", self.body)
+
+    def test_complete_declarations_pass(self):
+        self.assertEqual([], vt.acceptance_workflow_findings(self.root))
+
+    def test_missing_procedure_is_reported(self):
+        self.path.write_text(self.body.replace(vt.ACCEPTANCE_HEADING, "### Removed"))
+        self.assertIn("missing acceptance and authorization", vt.acceptance_workflow_findings(self.root)[0])
+
+    def test_failure_scenarios_require_their_declarations(self):
+        scenarios = {
+            "builder mistaken for connected feature": "Consumer evidence",
+            "guard mistaken for reproduced regression": "Regression evidence",
+            "reviewer silently waives missing check": "Missing verification",
+            "full scope mistaken for behavioral decision": "Design decisions",
+            "approval reference laundered as consent": "Record consistency",
+            "earlier publish instruction treated as report approval": "Publication",
+        }
+        for scenario, label in scenarios.items():
+            with self.subTest(scenario=scenario):
+                self.path.write_text(self.body.replace(f"- **{label}:**", f"- **Omitted {label}:**"))
+                self.assertTrue(any(f"step {label}" in finding
+                                    for finding in vt.acceptance_workflow_findings(self.root)))
+
+    def test_commands_and_agents_reference_the_canonical_procedure(self):
+        for relative in ("AGENTS.md", ".opencode/commands/task.md", ".opencode/commands/batch.md"):
+            with self.subTest(path=relative):
+                consumer = write(self.root, relative, "No reference here")
+                self.assertTrue(any(str(consumer) in finding
+                                    for finding in vt.acceptance_workflow_findings(self.root)))
+                consumer.write_text("Acceptance\n  and authorization evidence")
+                self.assertEqual([], vt.acceptance_workflow_findings(self.root))
+
+    def test_labels_do_not_authenticate_consent_or_validate_coverage(self):
+        # Arbitrary content with the required labels still passes: this intentionally
+        # demonstrates the boundary instead of claiming semantic/runtime enforcement.
+        self.path.write_text(vt.ACCEPTANCE_HEADING + "\n" + "\n".join(
+            f"- **{label}:** operator claim only" for label in vt.ACCEPTANCE_STEPS))
+        self.assertEqual([], vt.acceptance_workflow_findings(self.root))
+
+
+class FormatPassTests(unittest.TestCase):
+    """Mutation scenarios check declaration loss, not which paths a format pass rewrote."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = pathlib.Path(self.tmp.name)
+        source = MODULE_PATH.parents[1]
+        self.reference = (source / "docs/agent-project-reference.md").read_text()
+        self.agents = (source / "AGENTS.md").read_text()
+        self.path = write(self.root, "docs/agent-project-reference.md", self.reference)
+        write(self.root, "AGENTS.md", self.agents)
+
+    def test_complete_declarations_pass(self):
+        self.assertEqual([], vt.format_pass_findings(self.root))
+
+    def test_missing_procedure_is_reported(self):
+        self.path.write_text(self.reference.replace(vt.FORMAT_PASS_HEADING, "### Removed"))
+        self.assertIn("missing scoped Kotlin format pass", vt.format_pass_findings(self.root)[0])
+
+    def test_each_required_step_removal_is_reported(self):
+        for step in vt.FORMAT_PASS_STEPS:
+            with self.subTest(step=step):
+                self.path.write_text(self.reference.replace(f"- **{step}:**", f"- **Omitted {step}:**"))
+                self.assertTrue(any(f"step {step}" in item for item in vt.format_pass_findings(self.root)))
+
+    def test_agents_md_references_the_canonical_procedure(self):
+        write(self.root, "AGENTS.md", "No reference here")
+        self.assertTrue(any("scoped format pass procedure reference" in item
+                            for item in vt.format_pass_findings(self.root)))
+        write(self.root, "AGENTS.md", "Scoped Kotlin format\npass")
+        self.assertEqual([], vt.format_pass_findings(self.root))
+
+    def test_labels_do_not_prove_scope_or_validate_ownership(self):
+        # Arbitrary content carrying the required labels still passes: this
+        # demonstrates the structural boundary instead of claiming enforcement.
+        self.path.write_text(vt.FORMAT_PASS_HEADING + "\n" + "\n".join(
+            f"- **{label}:** operator claim only" for label in vt.FORMAT_PASS_STEPS))
+        self.assertEqual([], vt.format_pass_findings(self.root))
+
+
 class MainTests(unittest.TestCase):
     def test_batch_lifecycle_structure_and_missing_steps_are_checked(self):
         source = MODULE_PATH.parents[1] / ".opencode/commands/batch.md"
@@ -271,7 +361,7 @@ class MainTests(unittest.TestCase):
             root = pathlib.Path(tmp)
             path = write(root, ".opencode/commands/batch.md", body)
             self.assertEqual([], vt.batch_state_findings(root))
-            for token in ("scripts/task-state.py", "`amend`", "`checkpoint`", "`resume`",
+            for token in ("scripts/task-state.py", "`amend`", "`extend`", "`checkpoint`", "`resume`",
                           "boundary --expect", "--require-evidence"):
                 with self.subTest(token=token):
                     path.write_text(body.replace(token, "removed reference"))

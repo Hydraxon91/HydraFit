@@ -25,7 +25,9 @@ class ConvertPlanToTemplateUseCase {
                         reps = exercise.reps,
                         durationSeconds = exercise.durationSeconds,
                         weightKg = exercise.suggestedWeightKg,
-                        loadKind = exercise.loadKind
+                        loadKind = exercise.loadKind,
+                        progressionPolicy = exercise.progressionPolicy,
+                        setTargets = exercise.setTargets
                     )
                 }
             )
@@ -48,7 +50,9 @@ class ConvertPlanToTemplateUseCase {
                         reps = exercise.reps,
                         durationSeconds = exercise.durationSeconds,
                         weightKg = exercise.suggestedWeightKg,
-                        loadKind = exercise.loadKind
+                        loadKind = exercise.loadKind,
+                        progressionPolicy = exercise.progressionPolicy,
+                        setTargets = exercise.setTargets
                     )
                 }
             )

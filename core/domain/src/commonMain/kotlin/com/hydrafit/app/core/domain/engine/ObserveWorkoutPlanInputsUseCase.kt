@@ -22,14 +22,20 @@ class ObserveWorkoutPlanInputsUseCase(
         setsPerExercise: Flow<Int?> = flowOf(null),
         accessorySetsPerExercise: Flow<Int?> = flowOf(null),
         refreshRequests: Flow<Unit> = emptyFlow(),
-        workoutEpochDays: Flow<List<Long>> = flowOf(emptyList())
+        workoutEpochDays: Flow<List<Long>> = flowOf(emptyList()),
+        automaticSetPrescription: Flow<AutomaticSetPrescription?> = flowOf(null)
     ): Flow<WorkoutPlanInputs> = combine(
         sources.observe().distinctUntilChanged(),
         setsPerExercise.distinctUntilChanged(),
         accessorySetsPerExercise.distinctUntilChanged(),
         refreshRequests.onStart { emit(Unit) },
-        workoutEpochDays.distinctUntilChanged()
-    ) { current, sets, accessorySets, _, requestedDates ->
+        // Folded into one flow so the outer combine keeps its five-flow shape rather than dropping
+        // to an untyped vararg combine.
+        combine(
+            workoutEpochDays.distinctUntilChanged(),
+            automaticSetPrescription.distinctUntilChanged()
+        ) { dates, automatic -> dates to automatic }
+    ) { current, sets, accessorySets, _, (requestedDates, automatic) ->
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
         val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
@@ -89,7 +95,8 @@ class ObserveWorkoutPlanInputsUseCase(
                 isDeload = periodization.isDeload(weekNumber),
                 loadExplanations = loadInputs.loadExplanations,
                 workoutEpochDays = dates,
-                fatigueByWorkout = projectedFatigue
+                fatigueByWorkout = projectedFatigue,
+                automaticSetPrescription = automatic
             ),
             requestedEngine = current.selectedEngine,
             exercisePreferences = current.exercisePreferences,

@@ -126,9 +126,11 @@ compliance. Never infer approval or an independent review verdict from a record.
 - **Budget stop:** a finite accepted budget is a hard stop for new work;
   "continue until finished" is not an extension. After expiry, read-only inspection,
   outcome reconciliation, necessary safety cleanup and blocked reporting remain
-  allowed. No reset/extension API is provided. A separately accepted extension
-  contract must preserve prior usage and unknown outcomes; do not initialize a
-  replacement record to bypass expiry.
+  allowed. After explicit user approval, append an `extend` event with positive
+  finite `add_seconds`, an `approval_reference` and a reason on the same record.
+  Original budget, elapsed usage, history and unknown outcomes are preserved;
+  pending outcomes still block new work. Expired nonterminal records may be extended,
+  terminal records may not. Never initialize a replacement record to bypass expiry.
 - **Publication:** record readiness and the exact candidate/approval scope; retain
   the separate user approval gate. After approval, record unique attempts and
   evidence for the authorized publication operations. Approval text in a state
@@ -168,6 +170,11 @@ Apply these standing defaults unless the user explicitly overrides them:
   and restrictions. Follow both review guides and
   their bounded reopen rules. No routine Plan/Build switch or fresh review request
   is needed, but harness-enforced Plan mode still prevents implementation.
+  Follow `docs/agent-project-reference.md` Acceptance and authorization evidence:
+  name each criterion's actual consumer and assertion/artifact before declaring it
+  complete. A fresh matrix or a clear record boundary cannot replace that evidence;
+  missing required checks need the user's explicit changed expectations, and design
+  findings need the user's actual behavioral decision, not a reviewer's waiver.
 - **Corrections:** pre-authorize only localized, evidence-backed mechanical fixes
   restoring approved behavior within the named release paths, including regression
   tests and required living-doc updates. Record finding IDs, classification,
@@ -188,11 +195,16 @@ Apply these standing defaults unless the user explicitly overrides them:
   push/PR/merge/tag/Release-workflow/artifact steps. Until approved, do not
   push, open a PR, merge, tag, build/upload a release artifact or run a publication
   workflow. Required debug builds and non-publishing verification remain allowed.
-  A single approval covers the enumerated sequence; do not re-ask unless
-  scope/revisions change, a failure occurs or another approval is missing. Execute
-  the approved steps with applicable CI and artifact checks and stop on failure. If
-  the user explicitly overrides folding and requests several publications, publish
-  in version order, oldest first, and stop before subsequent releases if a step
+  The approval must follow that report rather than replace it: a general instruction
+  to publish ("you can push", "publish them together as Y") asks for the report, it is
+  not the approval, so present the steps as a list and wait. A single approval then
+  covers the enumerated sequence; do not re-ask unless scope/revisions change, a
+  failure occurs or another approval is missing. Unless the user explicitly asks for
+  the sequence to run unattended, the user is present for the publication steps:
+  execute them one at a time, report each result, and let the user review before the
+  next. Execute the approved steps with applicable CI and artifact checks and stop on
+  failure. If the user explicitly overrides folding and requests several publications,
+  publish in version order, oldest first, and stop before subsequent releases if a step
   fails.
 - **Reports:** authorize the parent to consolidate per-release review evidence in
   `docs/review-<release>-snapshot.md`, substituting the actual agreed version.

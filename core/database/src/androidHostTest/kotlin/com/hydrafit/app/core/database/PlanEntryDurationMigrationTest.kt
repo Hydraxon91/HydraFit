@@ -61,7 +61,9 @@ class PlanEntryDurationMigrationTest {
             movementPattern = "CORE",
             suggestedWeightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            progressionPolicy = null,
+            setTargets = null
         )
         val timed = database.planHistoryQueries.selectEntriesForDay(7L)
             .executeAsList().first { it.durationSeconds != null }
@@ -95,7 +97,9 @@ class PlanEntryDurationMigrationTest {
             movementPattern = "CORE",
             suggestedWeightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            progressionPolicy = null,
+            setTargets = null
         )
         assertEquals(1001L, database.planHistoryQueries.lastInsertedPlanId().executeAsOne())
     }
@@ -133,7 +137,9 @@ class PlanEntryDurationMigrationTest {
             movementPattern = "CORE",
             suggestedWeightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            progressionPolicy = null,
+            setTargets = null
         )
         assertEquals(1001L, database.planHistoryQueries.lastInsertedPlanId().executeAsOne())
     }
@@ -159,7 +165,9 @@ class PlanEntryDurationMigrationTest {
             movementPattern = "CORE",
             suggestedWeightKg = null,
             loadCapability = "BODYWEIGHT_ONLY",
-            loadKind = "BODYWEIGHT"
+            loadKind = "BODYWEIGHT",
+            progressionPolicy = null,
+            setTargets = null
         )
         database.planHistoryQueries.insertEntry(
             dayId = dayId,
@@ -172,7 +180,9 @@ class PlanEntryDurationMigrationTest {
             movementPattern = "SQUAT",
             suggestedWeightKg = null,
             loadCapability = "EXTERNAL",
-            loadKind = "EXTERNAL"
+            loadKind = "EXTERNAL",
+            progressionPolicy = null,
+            setTargets = null
         )
 
         val entries = database.planHistoryQueries.selectEntriesForDay(dayId).executeAsList()

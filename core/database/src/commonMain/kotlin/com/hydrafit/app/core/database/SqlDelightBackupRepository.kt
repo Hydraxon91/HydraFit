@@ -181,7 +181,9 @@ class SqlDelightBackupRepository(
                         movementPattern = it.movementPattern,
                         suggestedWeightKg = it.suggestedWeightKg,
                         loadCapability = it.loadCapability,
-                        loadKind = it.loadKind
+                        loadKind = it.loadKind,
+                        progressionPolicy = it.progressionPolicy,
+                        setTargets = it.setTargets
                     )
                 },
                 volumeExplanations = database.planVolumeExplanationQueries.selectAll()
@@ -349,7 +351,9 @@ class SqlDelightBackupRepository(
                             reps = it.reps?.toInt(),
                             durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
-                            loadKind = it.loadKind
+                            loadKind = it.loadKind,
+                            progressionPolicy = it.progressionPolicy,
+                            setTargets = it.setTargets
                         )
                     },
                 activations = database.trainingScheduleQueries.selectAllActivations()
@@ -399,7 +403,9 @@ class SqlDelightBackupRepository(
                             durationSeconds = it.durationSeconds?.toInt(),
                             weightKg = it.weightKg,
                             loadCapability = it.loadCapability,
-                            loadKind = it.loadKind
+                            loadKind = it.loadKind,
+                            progressionPolicy = it.progressionPolicy,
+                            setTargets = it.setTargets
                         )
                     },
                 occurrences = database.trainingScheduleQueries.selectAllOccurrences()
@@ -437,7 +443,9 @@ class SqlDelightBackupRepository(
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind,
                             remainingDisposition = it.remainingDisposition,
-                            terminalRemainingSets = it.terminalRemainingSets?.toInt()
+                            terminalRemainingSets = it.terminalRemainingSets?.toInt(),
+                            progressionPolicy = it.progressionPolicy,
+                            setTargets = it.setTargets
                         )
                     },
                 scheduleState = database.trainingScheduleQueries.selectScheduleState()
@@ -881,7 +889,9 @@ class SqlDelightBackupRepository(
                     movementPattern = entry.movementPattern,
                     suggestedWeightKg = entry.suggestedWeightKg,
                     loadCapability = entry.loadCapability,
-                    loadKind = entry.loadKind
+                    loadKind = entry.loadKind,
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
             file.volumeExplanations.forEach { explanation ->
@@ -1039,7 +1049,9 @@ class SqlDelightBackupRepository(
                     reps = entry.reps?.toLong(),
                     durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
-                    loadKind = entry.loadKind
+                    loadKind = entry.loadKind,
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
 
@@ -1087,7 +1099,9 @@ class SqlDelightBackupRepository(
                     durationSeconds = entry.durationSeconds?.toLong(),
                     weightKg = entry.weightKg,
                     loadCapability = entry.loadCapability,
-                    loadKind = entry.loadKind
+                    loadKind = entry.loadKind,
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
             file.occurrences.forEach { occurrence ->
@@ -1123,7 +1137,9 @@ class SqlDelightBackupRepository(
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,
                     remainingDisposition = entry.remainingDisposition,
-                    terminalRemainingSets = entry.terminalRemainingSets?.toLong()
+                    terminalRemainingSets = entry.terminalRemainingSets?.toLong(),
+                    progressionPolicy = entry.progressionPolicy,
+                    setTargets = entry.setTargets
                 )
             }
             val state = file.scheduleState

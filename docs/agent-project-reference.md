@@ -45,6 +45,43 @@ A compact planning table is sufficient:
 | --- | --- | --- |
 | Observable guarantee | Producer → storage → consumer, where applicable | Evidence that exercises the guarantee |
 
+### Acceptance and authorization evidence
+
+Use this ledger before declaring a task or release implemented and verified. It
+extends the planning table rather than creating a second task record. Keep it in
+the external task artifacts; consolidate outcomes in the boundary report.
+
+- **Consumer evidence:** for each acceptance criterion, name the actual producer,
+  persistence path and consumer where applicable, the test/assertion that exercises
+  that path, and the revision-specific artifact. A pure builder test does not prove
+  sanitizer wiring; a manually valid row does not prove the logger writes it.
+  Report each criterion as completed, failed, unknown or unverified. A fresh green
+  matrix proves execution of its checks, not completeness of the promised behavior.
+- **Regression evidence:** for each fix, identify the assertion that fails against
+  the defect and why. Distinguish an actually observed failing-before check from
+  source reasoning. A test that also passed before the correction is a useful guard,
+  but not evidence that the regression was reproduced.
+- **Missing verification:** an unavailable required check remains unverified and
+  blocks completion unless the user explicitly approves changed completion
+  expectations. Reviewer acceptance of a disclosed limit is not the user's waiver.
+- **Design decisions:** a reviewer finding classified as a design decision remains
+  blocked until the user decides the behavior, unless that exact behavior was
+  already approved. "Finish the full scope" does not choose between alternatives.
+  Record the actual decision and approval before implementing; do not relabel it
+  mechanical merely to continue an autonomous run.
+- **Record consistency:** `boundary_clear` means the supplied records and source
+  fingerprints satisfy the helper's consistency checks. Evidence labels and an
+  `approval_reference` are operator assertions, not artifact verification, an
+  authenticated user approval, a reviewer verdict or permission to continue.
+- **Publication:** present the candidate, verification limits, review verdicts,
+  release notes and enumerated operations before requesting approval. An earlier
+  general instruction to publish is not approval of that report. Keep the user
+  present for each publication step unless explicitly authorized to run unattended.
+
+The tooling validator checks that these declarations and their command references
+exist. Its scenario regressions remove declarations to detect structural drift;
+they do not execute an agent, authenticate approval or enforce these rules at runtime.
+
 ### During implementation
 
 - Read current targets, helpers and relevant consumers; keep changes within the
@@ -93,11 +130,15 @@ chunk; this extends the procedure above rather than replacing it.
 
 - **Style sources:** name the affected module's `.editorconfig` and a nearby
   example file as the style references. `.editorconfig` selects
-  `ktlint_code_style = android_studio` and sets no explicit maximum line length, so
-  a universal 100-character limit must not be claimed. Cite any further style
-  source the chunk relies on.
-- **Lint-first order:** for Kotlin changes, run `ktlintFormat` and then the affected
-  module's ktlint before the heavier test task, then the module host tests. Agent-tooling-only
+  `ktlint_code_style = android_studio` with no explicit `max_line_length`; that
+  code style defaults the limit to 100 columns (Android Kotlin Style Guide), so 100
+  is this repository's effective limit rather than a universal rule. Cite any
+  further style source the chunk relies on.
+- **Lint-first order:** for Kotlin changes, run the affected module's (or source
+  set's) `ktlintFormat`, not the root task, then that module's ktlint before the
+  heavier test task, then the module host tests. `build.gradle.kts` applies the
+  ktlint plugin to every subproject, so the root `./gradlew ktlintFormat` is
+  repo-wide and can rewrite or block on files outside the approved chunk. Agent-tooling-only
   changes (Python scripts, docs) use the offline validator and unittest commands
   and add no Gradle tasks. State when a lint or test check is unavailable or not
   applicable instead of implying it passed.
@@ -107,8 +148,10 @@ chunk; this extends the procedure above rather than replacing it.
   changed constructor or dispatcher also inspects the affected tests for
   scheduler/clock consistency and runs them before closure.
 - **Structured report:** classify correction rounds (mechanical, product, tool or
-  budget) with counts, and record elapsed and remaining budget. Stop at the brief's
-  caps.
+  budget) with counts, and record elapsed and remaining budget. The brief's cap and
+  its tool-call limit are hard stops, not targets: exceeding either means stopping
+  at a clean point and reporting what remains, not continuing and mentioning it
+  afterwards.
 
 A compact map is sufficient:
 
@@ -237,7 +280,9 @@ python3 scripts/flake-repeat.py 300 3 /external/sweep-dir -- ./gradlew :core:dat
 python3 scripts/flake-repeat.py --require-log-match ':core:database:testAndroidHostTest' 300 3 /external/sweep-dir -- ./gradlew :core:database:testAndroidHostTest --rerun-tasks
 
 # Mechanical format pass for Kotlin changes (run before the first test run)
-python3 scripts/run-bounded.py 600 format-output.log -- ./gradlew ktlintFormat
+# Scope it to the affected module/source set: build.gradle.kts applies ktlint to
+# every subproject, so the root ./gradlew ktlintFormat is repo-wide.
+python3 scripts/run-bounded.py 600 format-output.log -- ./gradlew :core:domain:ktlintFormat
 
 # Run lint/static analysis
 python3 scripts/run-bounded.py 600 lint-output.log -- ./gradlew ktlintCheck
@@ -256,9 +301,13 @@ python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 
 `ktlintFormat` is the mechanical pre-pass: it rewrites imports and expression-body
 wrapping, which are the two defects that otherwise cost repeated correction rounds.
-It runs before the first test run and its own diff is inspected, then `ktlintCheck`
-confirms. A task reported `UP-TO-DATE` was not executed in that run — re-run it with
-`--rerun-tasks` or report the result as inherited, naming the inputs it came from.
+It runs before the first test run, scoped to the affected module or source set, and
+its own diff is inspected, then `ktlintCheck` confirms. The root
+`./gradlew ktlintFormat` is repo-wide — `build.gradle.kts` applies the ktlint plugin
+to every subproject — so it can rewrite or block on files outside the approved
+chunk; see Scoped Kotlin format pass below for the ownership delta. A task reported
+`UP-TO-DATE` was not executed in that run — re-run it with `--rerun-tasks` or report
+the result as inherited, naming the inputs it came from.
 `run-bounded.py` records Gradle's executed/up-to-date split in its result JSON
 (`gradle_tasks`) and summary line whenever the log carries one.
 
@@ -279,6 +328,25 @@ and a sweep directory that already holds results is refused, so an earlier sweep
 pass is never consumed as this one's. It reports an observation, not a verdict about a
 flake's existence: failing to reproduce one proves only that it did not occur in those
 runs.
+
+### Scoped Kotlin format pass
+
+The mechanical format pass is mandatory before the first test run, but its scope is
+the affected module or source set. The root `./gradlew ktlintFormat` matches the
+task name in every subproject because `build.gradle.kts` applies the ktlint plugin
+to all of them, so on a shared working tree it can block on a violation in a file
+the chunk does not own and rewrite files outside the approved chunk.
+
+- **Module-scoped invocation:** run `./gradlew :module:ktlintFormat` (or a
+  per-source-set task such as `:core:database:ktlintCommonMainSourceSetFormat`), not
+  the root `ktlintFormat`. The module's `ktlint<SourceSet>Check` then confirms.
+- **Ownership delta:** after the pass, inspect `git status --short` and the affected
+  module's diff. If the pass modified any path outside the approved chunk, stop and
+  report it instead of committing it.
+- **Incomplete pass:** a reported violation in a file the chunk does not own is a
+  blocker, not a style failure in the chunk's own work, and must not be "fixed" by
+  editing that file. Distinguish "the pass could not complete" from "the chunk's own
+  files had violations".
 
 ### Bounded command results
 
@@ -341,7 +409,7 @@ python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --ex
 
 The versioned record stores immutable contract and baseline, an explicitly
 acknowledged expected snapshot, phase, operation attempts (unique ids), evidence
-with source snapshots, append-only approved amendments, append-only update history
+with source snapshots, append-only approved amendments and budget extensions, append-only update history
 and budget accounting. Each
 accepted update increments the revision. Stale revisions and active writers fail
 with exit 2 rather than overwriting another writer. A cooperative POSIX lock
@@ -383,6 +451,20 @@ Event JSON objects:
   records `passed`, `failed`, `unknown` or `unverified` evidence with the observed
   source snapshot. A log reference is not proof the check ran; the reviewer must
   inspect the artifact and its revision.
+- `{"type":"extend","approval_reference":"user approved another 90 minutes","reason":"finish verification","add_seconds":5400}`
+  appends approved positive finite time without changing the original `budget_seconds`,
+  contract, baseline, expected snapshot, operations or prior history. The optional
+  `extensions` array restates each extension's revision, timestamp, amount, approval
+  reference and reason against its history event; mismatches fail closed. Effective
+  budget is the original plus validated extensions; the sum must remain finite.
+  Existing v1 records without extensions remain readable. An extension is permitted
+  after expiry on a nonterminal record, including while an outcome is pending; it
+  does not resolve that outcome, acknowledge drift, widen scope or admit new work
+  until those preconditions are reconciled. `complete`/`blocked` records cannot be
+  extended while they are terminal; moving such a record back to an active phase is
+  the pre-existing reopen, a separate action that no extension performs. As with
+  amendments, consistently rewriting both representations is not detectable: the
+  helper cannot authenticate the approval reference.
 - `{"type":"phase","value":"verifying"}` records a phase (`planned`,
   `implementing`, `verifying`, `reviewing`, `correcting`, `ready`, `complete`,
   `blocked`). This is a label, not a review verdict. Drift/pending outcomes or an
@@ -390,7 +472,7 @@ Event JSON objects:
 
 `resume` does not write. It reports expected/current drift, identity, pending ids
 as unknown outcomes, new out-of-scope dirty paths, the amended paths now in scope,
-and remaining seconds. Exit 2
+and original/effective budget and remaining seconds. Exit 2
 means reconciliation or a budget stop is needed; exit 0 is not authorization to
 continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
 usage are retained, without a reset option. A backward clock cannot reduce usage
@@ -409,9 +491,9 @@ list, authenticate a reviewer or authorize execution. The operator supplies the
 accepted check list and inspects the evidence. No descriptions means only the
 base reconciliation checks, not acceptance coverage.
 
-Finite budgets stop new work even under "continue until finished". Extensions
-need a separately accepted contract preserving elapsed usage and history; there
-is no reset or extension command. Unlimited budgets are not represented by the
+Finite budgets stop new work even under "continue until finished". A user-approved
+extension is recorded with `extend` on the same record; never reset usage or create
+a replacement to bypass expiry. Unlimited budgets are not represented by the
 current finite-budget state format; resolve that mismatch before implementation.
 
 Fingerprints combine HEAD, Git common directory, porcelain status, staged/unstaged

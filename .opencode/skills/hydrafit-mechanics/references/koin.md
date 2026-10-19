@@ -79,7 +79,8 @@ presentation state; lifecycle and Android notification behavior still require ru
 
 `databaseModule` binds `ExerciseProgressRepository` (`SqlDelightExerciseProgressRepository`), the
 read-only seam behind `:feature:progress`. It has no write path: `observeHistory` pages a bounded
-keyset, `observeProgress` replays bounded pages through `ExerciseProgressCalculator`,
+keyset, `observeProgress` replays bounded pages through `ExerciseProgressCalculator` under a
+repository-owned lock that serializes replays,
 `observeOccurrenceExerciseIds` returns one occurrence's distinct recorded exercise ids live, and
 `observeSet` resolves one exercise-scoped set id. `progressModule` registers `ProgressViewModel`
 over that repository, the `ExerciseCatalog` and `WeightUnitRepository` ports plus `TimeProvider`;

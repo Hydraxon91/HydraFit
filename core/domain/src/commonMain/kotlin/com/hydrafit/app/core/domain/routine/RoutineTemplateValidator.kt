@@ -45,6 +45,27 @@ internal object RoutineTemplateValidator {
         if (entry.loadKind == LoadKind.BODYWEIGHT && entry.weightKg != null) {
             throw RoutineTemplateException("Bodyweight work cannot record a numeric load")
         }
+        entry.setTargets?.let { targets ->
+            try {
+                targets.requireValid()
+            } catch (error: IllegalArgumentException) {
+                throw RoutineTemplateException(
+                    error.message ?: "An ordered prescription is not valid"
+                )
+            }
+            // The slot's set count and its ordered prescription are one value: a mismatch would let
+            // logging address the wrong slots.
+            if (targets.sets != entry.sets) {
+                throw RoutineTemplateException(
+                    "An ordered prescription must have one target per prescribed set"
+                )
+            }
+            if (targets.targets.any { it.loadKind != entry.loadKind }) {
+                throw RoutineTemplateException(
+                    "An ordered prescription must keep the slot's own load kind"
+                )
+            }
+        }
         return entry
     }
 }

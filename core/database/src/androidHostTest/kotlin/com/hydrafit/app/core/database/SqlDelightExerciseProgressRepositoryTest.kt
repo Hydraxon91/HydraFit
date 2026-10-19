@@ -1,5 +1,8 @@
 package com.hydrafit.app.core.database
 
+import app.cash.sqldelight.Transacter
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -16,12 +19,15 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 class SqlDelightExerciseProgressRepositoryTest {
     private lateinit var driver: JdbcSqliteDriver
@@ -287,6 +293,72 @@ class SqlDelightExerciseProgressRepositoryTest {
         }
     }
 
+    @Test
+    fun concurrentReplaysNeverHoldTwoTransactionsOnTheSharedConnection() = runBlocking {
+        // The occurrence record list combines one replay per exercise, and the chart selector cancels
+        // one replay before starting the next, so two replays are routinely in flight together. On a
+        // single-connection driver the second transaction is rejected outright, which is the recorded
+        // intermittent failure. This asserts the repository serializes them instead.
+        database.exerciseQueries.insertCustom(
+            "bench",
+            "Bench press",
+            "BARBELL",
+            "PUSH",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        writer.add(set(time = 1, weight = 50.0))
+        writer.add(set(time = 1, weight = 80.0).copy(exerciseId = "bench"))
+
+        val detecting = OverlapDetectingDriver(driver)
+        val detectingRepository = SqlDelightExerciseProgressRepository(HydraFitDatabase(detecting))
+
+        // The second reader starts only once the first transaction is already open, so the overlap is
+        // forced by ordering rather than by racing two launches and hoping they interleave.
+        val squat = async(Dispatchers.Default) {
+            detectingRepository.observeProgress(progressRequest()).first()
+        }
+        detecting.awaitFirstTransaction()
+        val bench = async(Dispatchers.Default) {
+            detectingRepository
+                .observeProgress(ExerciseProgressRequest("bench", 0, 2, 2 * DAY))
+                .first()
+        }
+        val results = withTimeout(30_000) { listOf(squat.await(), bench.await()) }
+
+        assertEquals(0, detecting.overlaps)
+        assertEquals(
+            listOf(50.0, 80.0),
+            results.map { it.days.single().bestLoads.single().value }
+        )
+    }
+
+    @Test
+    fun aCancelledReplayReleasesTheLockBeforeTheNextOneBegins() = runBlocking {
+        // The chart selector cancels one replay and starts another, so a cancelled replay must release
+        // the lock and finish its rollback rather than leaving the next reader waiting on a transaction
+        // that never ends. This is a guard, not a pre-fix regression: the cancellation is joined before
+        // the next replay starts, so the pre-fix code passes it too.
+        writer.add(set(time = 1, weight = 50.0))
+        val detecting = OverlapDetectingDriver(driver)
+        val detectingRepository = SqlDelightExerciseProgressRepository(HydraFitDatabase(detecting))
+
+        val cancelled = launch(Dispatchers.Default) {
+            detectingRepository.observeProgress(progressRequest()).collect { }
+        }
+        detecting.awaitFirstTransaction()
+        cancelled.cancel()
+        cancelled.join()
+
+        val after = withTimeout(30_000) {
+            detectingRepository.observeProgress(progressRequest()).first()
+        }
+
+        assertEquals(0, detecting.overlaps)
+        assertEquals(50.0, after.days.single().bestLoads.single().value)
+    }
+
     private fun progressRequest() = ExerciseProgressRequest("squat", 0, 2, 2 * DAY)
 
     private fun set(time: Long, weight: Double) = WorkoutSet(
@@ -299,5 +371,52 @@ class SqlDelightExerciseProgressRepositoryTest {
     private companion object {
         const val DAY = 86_400_000L
         const val OCCURRENCE = 7L
+    }
+}
+
+/**
+ * Delegating driver that records whether two transactions were ever requested at the same time.
+ *
+ * It holds the first transaction open — the delegate has already begun it when this returns — until a
+ * second one is requested, bounded by [HOLD_TIMEOUT_MILLIS]. That forces an overlap rather than hoping
+ * for one: without the repository's serialization the second request arrives while the first
+ * transaction is still open and [overlaps] counts it, while with it the second reader is still
+ * suspended on the lock and the counter stays zero. The hold is a timing budget, not the assertion —
+ * what is asserted is the counter, and only the serialization decides its value.
+ */
+private class OverlapDetectingDriver(private val delegate: SqlDriver) : SqlDriver by delegate {
+    private val lock = Any()
+    private val secondAttempt = CompletableDeferred<Unit>()
+    private val firstTransaction = CompletableDeferred<Unit>()
+    private var attempts = 0
+    private var holding = false
+
+    var overlaps = 0
+        private set
+
+    /** Completes once the first transaction is open, so a test can act while a replay is in flight. */
+    suspend fun awaitFirstTransaction() = firstTransaction.await()
+
+    override fun newTransaction(): QueryResult<Transacter.Transaction> {
+        val isFirst = synchronized(lock) {
+            attempts += 1
+            // Only a request that lands while the first transaction is still held is an overlap. A
+            // second request after that hold ends is a normal sequential replay and must not count.
+            if (attempts > 1 && holding) overlaps += 1
+            attempts == 1
+        }
+        if (!isFirst) secondAttempt.complete(Unit)
+        val transaction = delegate.newTransaction()
+        if (isFirst) {
+            synchronized(lock) { holding = true }
+            firstTransaction.complete(Unit)
+            runBlocking { withTimeoutOrNull(HOLD_TIMEOUT_MILLIS) { secondAttempt.await() } }
+            synchronized(lock) { holding = false }
+        }
+        return transaction
+    }
+
+    private companion object {
+        const val HOLD_TIMEOUT_MILLIS = 2_000L
     }
 }
