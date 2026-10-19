@@ -1,0 +1,59 @@
+# Contract and verification status: see README.md. Reopens the fixture routine's stored
+# prescription, asserts the recorded recipe round-tripped into the fields, adds a prescribed
+# RIR and saves. Writes only to the fixture routine created by the apply journey, which must
+# not yet have been archived by the cleanup flow.
+appId: com.hydrafit.app
+name: Routine per-set targets reopen from recipe and add prescribed RIR
+tags:
+  - smoke
+  - routines
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^HF UI accept per-set$'
+- tapOn:
+    text: '^Edit$'
+    below: '^HF UI accept per-set$'
+    retryTapIfNoChange: false
+- assertVisible: '^Routine name$'
+- assertVisible: '.*Per-set targets: 3 sets.*'
+- tapOn:
+    text: '^Per-set targets$'
+    retryTapIfNoChange: false
+- assertVisible: '^Shape$'
+# The dialog reopens from the recorded recipe, not from an inferred shape.
+- assertVisible: '^3$'
+- assertVisible: '^10$'
+- assertVisible: '^6$'
+- assertVisible: '^60$'
+- assertVisible: '^80$'
+- tapOn:
+    text: '^Prescribed RIR \(optional\)$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '2'
+- assertVisible: '^2$'
+- hideKeyboard
+- assertVisible: '^Shape$'
+- tapOn:
+    text: '^Apply$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Shape$'
+- assertVisible: '.*Per-set targets: 3 sets.*'
+- scrollUntilVisible:
+    element:
+      text: '^Save$'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: '^Save$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- assertVisible: '^HF UI accept per-set$'

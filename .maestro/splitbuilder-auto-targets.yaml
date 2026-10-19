@@ -1,0 +1,66 @@
+# Contract and verification status: see README.md. Opens the automatic per-set targets
+# dialog, refuses an inverted rep range, accepts a corrected one, then turns the opt-in back
+# off so the generation preference is left as found.
+appId: com.hydrafit.app
+name: SplitBuilder automatic per-set targets dialog validates and applies
+tags:
+  - smoke
+  - splitbuilder
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Plan$'
+    retryTapIfNoChange: false
+- assertVisible: '^Automatic per-set targets$'
+- assertVisible: '^Off$'
+- tapOn:
+    text: '^Set up$'
+    retryTapIfNoChange: false
+- assertVisible: '^Shape$'
+- assertVisible: '^Lowest reps$'
+- assertVisible: '^Highest reps$'
+- assertVisible: '^Prescribed RIR \(optional\)$'
+- assertVisible: '^Apply$'
+# An inverted range is refused with its own message rather than silently accepted.
+- tapOn:
+    text: '^Lowest reps$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '10'
+- assertVisible: '^10$'
+- hideKeyboard
+- assertVisible: '^Shape$'
+- tapOn:
+    text: '^Highest reps$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '6'
+- assertVisible: '^6$'
+- hideKeyboard
+- assertVisible: '^Shape$'
+- tapOn:
+    text: '^Apply$'
+    retryTapIfNoChange: false
+- assertVisible: 'Reps must be .*the highest at least the lowest\..*'
+# Corrected, the same dialog applies and the opt-in reports its range.
+- tapOn:
+    text: '^Highest reps$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '12'
+- assertVisible: '^12$'
+- hideKeyboard
+- assertVisible: '^Shape$'
+- tapOn:
+    text: '^Apply$'
+    retryTapIfNoChange: false
+- assertVisible: '.*· 10–12 reps.*'
+# Restore the baseline the flow found.
+- tapOn:
+    text: '^Turn off$'
+    retryTapIfNoChange: false
+- assertVisible: '^Off$'

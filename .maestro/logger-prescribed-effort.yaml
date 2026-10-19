@@ -1,0 +1,58 @@
+# Contract and verification status: see README.md. Requires the fixture block to be ACTIVE
+# (the routine "HF UI accept per-set" started, its workout "Day 1" pending today); starting
+# and cancelling that block is fixture management, not part of this flow. Read-only: it
+# asserts the Logger renders the prescribed effort and the per-set summary, and logs no set.
+# The Logger keeps its scroll position between runs, so the flow normalises to the top first
+# and then scrolls down; every swipe stays in a band above the nested exercise picker.
+appId: com.hydrafit.app
+name: Logger shows prescribed effort and per-set targets for an ordered slot
+tags:
+  - logger
+  - not-passing
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- swipe:
+    start: '540,200'
+    end: '540,900'
+- swipe:
+    start: '540,200'
+    end: '540,900'
+- swipe:
+    start: '540,200'
+    end: '540,900'
+- swipe:
+    start: '540,200'
+    end: '540,900'
+- swipe:
+    start: '540,200'
+    end: '540,900'
+- swipe:
+    start: '540,200'
+    end: '540,900'
+- assertVisible: '^Log workout$'
+- swipe:
+    start: '540,900'
+    end: '540,200'
+- swipe:
+    start: '540,900'
+    end: '540,200'
+- swipe:
+    start: '540,900'
+    end: '540,200'
+- swipe:
+    start: '540,900'
+    end: '540,200'
+- swipe:
+    start: '540,900'
+    end: '540,200'
+- assertVisible: '^Current workout: Day 1$'
+- assertVisible: '^0 of 3 sets$'
+- assertVisible: 'Prescribed RIR 2.*RPE 8.*'
+- assertVisible: '.*Per-set targets:.*'

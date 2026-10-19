@@ -1,0 +1,113 @@
+# Contract and verification status: see README.md. Creates one routine with a per-set
+# prescription, applies it and saves it; the routine is archived by the cleanup flow, because
+# the app refuses to delete a routine a training block references.
+appId: com.hydrafit.app
+name: Routine per-set targets apply, preview and persist
+tags:
+  - smoke
+  - routines
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Routines$'
+- assertNotVisible: '^Routine name$'
+- tapOn:
+    text: '^New routine$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Add workout$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Add exercise$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Back Squat$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Per-set targets$'
+    retryTapIfNoChange: false
+- assertVisible: '^Shape$'
+# Type the endpoints. Each field is cleared first so a prefilled value cannot be appended to.
+- tapOn:
+    text: '^Sets$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '3'
+- assertVisible: '^3$'
+- tapOn:
+    text: '^Start reps$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '10'
+- assertVisible: '^10$'
+- tapOn:
+    text: '^End reps$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '6'
+- assertVisible: '^6$'
+- tapOn:
+    text: '^Start load \(kg\)$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '60'
+- assertVisible: '^60$'
+# The keyboard now covers the last load field; dismiss it and confirm the dialog survives.
+- hideKeyboard
+- assertVisible: '^Shape$'
+- tapOn:
+    text: '^End load \(kg\)$'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '80'
+- assertVisible: '^80$'
+- hideKeyboard
+- assertVisible: '^Shape$'
+# The live preview renders the sets before anything is applied.
+- scrollUntilVisible:
+    element:
+      text: 'Set 1: 10 reps · 60 kg'
+    direction: DOWN
+    timeout: 30000
+- assertVisible: 'Set 2: 10 reps · 60 kg'
+# Choosing the pyramid changes the prescription: the middle set becomes the peak.
+- tapOn:
+    text: '^Pyramid$'
+    retryTapIfNoChange: false
+- assertVisible: 'Set 2: 6 reps · 80 kg'
+- tapOn:
+    text: '^Apply$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Shape$'
+- assertVisible: '.*Per-set targets: 3 sets.*'
+# Name and save, so the prescription is stored rather than only edited.
+- tapOn:
+    text: '^Routine name$'
+    retryTapIfNoChange: false
+- inputText: 'HF UI accept per-set'
+- assertVisible: '^HF UI accept per-set$'
+- hideKeyboard
+# The workout section needs its own name or Save is refused.
+- tapOn:
+    text: '^Workout name$'
+    retryTapIfNoChange: false
+- inputText: 'Day 1'
+- assertVisible: '^Day 1$'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: '^Save$'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: '^Save$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- assertVisible: '^HF UI accept per-set$'

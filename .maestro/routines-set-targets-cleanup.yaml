@@ -1,0 +1,27 @@
+# Contract and verification status: see README.md. Cleanup for the per-set targets fixture.
+# The fixture routine cannot be deleted while a training block references it (the app says so),
+# so it is archived, which is the documented disposition for a referenced routine. Requires
+# the fixture block to be cancelled first; that is fixture management, not part of this flow.
+appId: com.hydrafit.app
+name: Per-set targets fixture cleanup archives the referenced routine
+tags:
+  - smoke
+  - routines
+  - cleanup
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^No active training block\.$'
+- assertVisible: '^HF UI accept per-set$'
+- tapOn:
+    text: '^Archive$'
+    below: '^HF UI accept per-set$'
+    retryTapIfNoChange: false
+- assertVisible: '^Archived$'
+- assertVisible: '^Restore$'

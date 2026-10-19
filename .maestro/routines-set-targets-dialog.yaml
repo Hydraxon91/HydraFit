@@ -1,0 +1,68 @@
+# Contract and verification status: see README.md. Opens the per-set targets dialog and
+# cancels it; never taps Apply or Save, so no routine is written.
+appId: com.hydrafit.app
+name: Routine per-set targets dialog renders and cancels
+tags:
+  - smoke
+  - routines
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Routines$'
+- assertNotVisible: '^Routine name$'
+- tapOn:
+    text: '^New routine$'
+    retryTapIfNoChange: false
+- assertVisible: '^Routine name$'
+- tapOn:
+    text: '^Add workout$'
+    retryTapIfNoChange: false
+- assertVisible: '^Add exercise$'
+- tapOn:
+    text: '^Add exercise$'
+    retryTapIfNoChange: false
+- assertVisible: '^Choose exercise$'
+- tapOn:
+    text: '^Back Squat$'
+    retryTapIfNoChange: false
+- assertVisible: '^Per-set targets$'
+- tapOn:
+    text: '^Per-set targets$'
+    retryTapIfNoChange: false
+# The dialog renders its shape choices, every endpoint field and both actions.
+- assertVisible: '^Shape$'
+- assertVisible: '^Straight$'
+- assertVisible: '^Ascending load$'
+- assertVisible: '^Descending load$'
+- assertVisible: '^Pyramid$'
+- assertVisible: '^Sets$'
+- assertVisible: '^Start reps$'
+- assertVisible: '^End reps$'
+- assertVisible: '^Start load \(kg\)$'
+- assertVisible: '^End load \(kg\)$'
+- assertVisible: '^Round to \(kg\)$'
+- assertVisible: '^Prescribed RIR \(optional\)$'
+- assertVisible: '^Apply$'
+- assertVisible: '^Cancel$'
+# Cancel the dialog, then the unsaved editor: nothing is written and the slot is untouched.
+- tapOn:
+    text: '^Cancel$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Shape$'
+- assertVisible: '^Per-set targets$'
+- scrollUntilVisible:
+    element:
+      text: '^Cancel$'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: '^Cancel$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- assertNotVisible: '^Routine name$'
