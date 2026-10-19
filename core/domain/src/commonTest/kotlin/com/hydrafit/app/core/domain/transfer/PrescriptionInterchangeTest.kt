@@ -354,7 +354,7 @@ class PrescriptionInterchangeTest {
                 catalog
             )(listOf(7L), true, "t", 1L)
 
-        assertEquals(4, document.formatVersion)
+        assertEquals(PRESCRIPTION_FORMAT_VERSION, document.formatVersion)
         val entry = document.routines.single().allEntries().single()
         assertEquals(ordered, SlotSetTargetsJson.decode(requireNotNull(entry.setTargets)))
         PrescriptionValidator.validate(document)
@@ -366,6 +366,52 @@ class PrescriptionInterchangeTest {
                 PrescriptionValidator.validate(document.copy(formatVersion = 3))
             }.failure
         )
+    }
+
+    @Test
+    fun supersetRoundTripsAndOldFormatOrBrokenPairIsRejected(): Unit = runBlocking {
+        val pair = com.hydrafit.app.core.domain.routine.Superset("arms", 0, 120)
+        val paired = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    name = "Day",
+                    entries = listOf("barbell-curl", "dumbbell-curl").mapIndexed { index, id ->
+                        RoutineEntry(
+                            position = index,
+                            exerciseId = id,
+                            sets = 3,
+                            reps = 10,
+                            superset = pair
+                        )
+                    }
+                )
+            )
+        )
+        val document =
+            ExportPrescriptionsUseCase(repositoryOf(paired), catalog)(listOf(7L), false, "t", 1)
+        PrescriptionValidator.validate(document)
+        assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+        assertEquals(
+            listOf(pair, pair),
+            document.routines.single().allEntries().map {
+                com.hydrafit.app.core.domain.routine.SupersetJson.decode(
+                    requireNotNull(it.superset)
+                )
+            }
+        )
+        assertFailsWith<PrescriptionException> {
+            PrescriptionValidator.validate(document.copy(formatVersion = 4))
+        }
+        val broken = document.copy(
+            routines = document.routines.map { exported ->
+                exported.copy(
+                    workouts = exported.workouts.map {
+                        it.copy(entries = it.entries.take(1))
+                    }
+                )
+            }
+        )
+        assertFailsWith<PrescriptionException> { PrescriptionValidator.validate(broken) }
     }
 
     /** A read-only repository over one template, for the export paths under test. */
@@ -420,7 +466,7 @@ class PrescriptionInterchangeTest {
         val document =
             ExportPrescriptionsUseCase(policyRepository, catalog)(listOf(7L), true, "t", 1L)
 
-        assertEquals(4, document.formatVersion)
+        assertEquals(PRESCRIPTION_FORMAT_VERSION, document.formatVersion)
         assertEquals(
             2.5,
             document.routines.single().allEntries().single().progressionPolicy?.let {
@@ -475,7 +521,7 @@ class PrescriptionInterchangeTest {
             val document =
                 ExportPrescriptionsUseCase(timedRepository, catalog)(listOf(7L), true, "t", 1L)
 
-            assertEquals(4, document.formatVersion)
+            assertEquals(PRESCRIPTION_FORMAT_VERSION, document.formatVersion)
             val timed = document.routines.single().allEntries().single()
             assertNull(timed.reps)
             assertEquals(90, timed.durationSeconds)

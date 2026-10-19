@@ -192,6 +192,9 @@ class SqlDelightWorkoutScheduleRepository(
 
         val occurrenceIds = mutableListOf<Long>()
         activation.workouts.forEachIndexed { index, workout ->
+            com.hydrafit.app.core.domain.routine.validateSupersets(
+                workout.entries.sortedBy { it.position }.map { it.exerciseId to it.superset }
+            )
             queries.insertActivationWorkout(
                 activationId = activationId,
                 sourceWorkoutId = null,
@@ -224,6 +227,11 @@ class SqlDelightWorkoutScheduleRepository(
                     setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode)
                 )
                 val entryId = queries.lastInsertedActivationEntryId().executeAsOne()
+                queries.setActivationSuperset(
+                    entry.superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
+                    workoutId,
+                    entry.position.toLong()
+                )
                 writeEntryExplanation(ACTIVATION_ENTRY_KIND, entryId, entry.explanation)
                 entryId
             }
@@ -264,6 +272,11 @@ class SqlDelightWorkoutScheduleRepository(
                     setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
                     remainingDisposition = null,
                     terminalRemainingSets = null
+                )
+                queries.setOccurrenceSuperset(
+                    entry.superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
+                    occurrenceId,
+                    entry.position.toLong()
                 )
                 // The occurrence copy inherits the frozen slot's reasoning at creation; a later
                 // replacement or edit clears it (see applyEntryChanges and the entry update path).
@@ -551,6 +564,10 @@ class SqlDelightWorkoutScheduleRepository(
             terminalRemainingSets = terminalRemainingSets?.toLong()
         )
         val entryId = queries.lastInsertedOccurrenceEntryId().executeAsOne()
+        queries.setOccurrenceSupersetById(
+            superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
+            entryId
+        )
         writeEntryExplanation(OCCURRENCE_ENTRY_KIND, entryId, explanation)
         return copy(
             id = entryId,
@@ -578,6 +595,10 @@ class SqlDelightWorkoutScheduleRepository(
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong(),
             id = id
+        )
+        queries.setOccurrenceSupersetById(
+            superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
+            id
         )
         // Always written: a null explanation clears the stored reason, so a replaced or edited slot
         // never keeps the reason of the prescription it replaced.
@@ -653,7 +674,8 @@ class SqlDelightWorkoutScheduleRepository(
         loadKind = decodeLoadKind(loadKind),
         explanation = explanation,
         progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
-        setTargets = setTargets?.let(SlotSetTargetsJson::decode)
+        setTargets = setTargets?.let(SlotSetTargetsJson::decode),
+        superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode)
     )
 
     private fun WorkoutOccurrence.toDomain(
@@ -696,6 +718,7 @@ class SqlDelightWorkoutScheduleRepository(
         explanation = explanation,
         progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
         setTargets = setTargets?.let(SlotSetTargetsJson::decode),
+        superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
         remainingDisposition = remainingDisposition?.toRemainingDisposition(),
         terminalRemainingSets = terminalRemainingSets?.toInt()
     )

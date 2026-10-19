@@ -89,7 +89,8 @@ data class ActivationEntry(
     /** The slot's approved progression policy, frozen with the rest of the prescription. */
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, frozen with the rest of the prescription. */
-    val setTargets: SlotSetTargets? = null
+    val setTargets: SlotSetTargets? = null,
+    val superset: com.hydrafit.app.core.domain.routine.Superset? = null
 )
 
 data class WorkoutOccurrence(
@@ -143,6 +144,7 @@ data class OccurrenceEntry(
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, copied with the rest of the frozen prescription. */
     val setTargets: SlotSetTargets? = null,
+    val superset: com.hydrafit.app.core.domain.routine.Superset? = null,
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null
 )

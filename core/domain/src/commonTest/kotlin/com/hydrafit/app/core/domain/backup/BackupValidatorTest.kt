@@ -1211,6 +1211,21 @@ class BackupValidatorTest {
         )
     }
 
+    @Test
+    fun rejectsSupersetMetadataBeforeItsFormatAndRejectsOrphanMembership() {
+        val encoded = com.hydrafit.app.core.domain.routine.SupersetJson.encode(
+            com.hydrafit.app.core.domain.routine.Superset("arms", 0, 120)
+        )
+        val file = orderedFile(BACKUP_FORMAT_VERSION, null)
+        val paired = file.copy(
+            routineEntries = file.routineEntries.map {
+                it.copy(superset = encoded)
+            }
+        )
+        assertFailure(BackupFailure.INVALID_VALUE) { paired }
+        assertFailure(BackupFailure.INVALID_VALUE) { paired.copy(formatVersion = 23) }
+    }
+
     private fun encodedOrderedTargets() = SlotSetTargetsJson.encode(
         SlotSetTargets.of(
             listOf(

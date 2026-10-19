@@ -1,0 +1,4 @@
+ALTER TABLE routineEntry ADD COLUMN superset TEXT;
+ALTER TABLE planHistoryEntry ADD COLUMN superset TEXT;
+ALTER TABLE activationEntry ADD COLUMN superset TEXT;
+ALTER TABLE occurrenceEntry ADD COLUMN superset TEXT;

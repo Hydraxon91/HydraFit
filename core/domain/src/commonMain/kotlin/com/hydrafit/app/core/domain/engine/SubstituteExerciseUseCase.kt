@@ -102,7 +102,10 @@ class SubstituteExerciseUseCase(
             movementPattern = chosen.movementPattern,
             suggestedWeightKg = weight,
             loadCapability = chosen.loadCapability,
-            loadKind = kind
+            loadKind = kind,
+            // A swap re-prescribes only this slot; the frozen pair is rest configuration, not an
+            // exercise property, so it stays with the slot the user paired.
+            superset = context.entry.superset
         )
     }
 

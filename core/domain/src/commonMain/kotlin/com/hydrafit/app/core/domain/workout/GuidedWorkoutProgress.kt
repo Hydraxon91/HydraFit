@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.workout
 
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 
 /**
@@ -25,7 +26,8 @@ data class GuidedExerciseProgress(
      * The frozen slot's recorded reasoning, or null when none was recorded or a replacement cleared
      * it. Inert: it never affects progress or the prescription.
      */
-    val explanation: ExerciseTargetExplanation? = null
+    val explanation: ExerciseTargetExplanation? = null,
+    val superset: Superset? = null
 ) {
     /** Prescribed working sets still unrecorded for this entry. */
     val remainingSets: Int get() = (prescribedSets - performedWorkingSets).coerceAtLeast(0)
@@ -48,6 +50,21 @@ data class GuidedWorkoutProgress(
         get() = exercises.sumOf { it.performedWorkingSets.coerceAtMost(it.prescribedSets) }
 
     val allComplete: Boolean get() = exercises.all { it.isComplete }
+
+    /** Outstanding work is never counted as complete by temporarily skipping its turn. */
+    fun nextExercise(
+        skippedEntryIds: Set<Long> = emptySet(),
+        unpairedKeys: Set<String> = emptySet()
+    ): GuidedExerciseProgress? {
+        val available = exercises.filterNot {
+            it.isComplete ||
+                it.occurrenceEntryId in skippedEntryIds
+        }
+        val first = available.firstOrNull() ?: return null
+        val pair = first.superset?.takeIf { it.key !in unpairedKeys } ?: return first
+        return available.filter { it.superset?.key == pair.key }
+            .minByOrNull { it.performedWorkingSets }
+    }
 }
 
 /**
@@ -73,7 +90,8 @@ fun buildGuidedWorkoutProgress(
                 weightKg = entry.weightKg,
                 loadKind = entry.loadKind,
                 loadCapability = entry.loadCapability,
-                explanation = entry.explanation
+                explanation = entry.explanation,
+                superset = entry.superset
             )
         }
 )

@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.workout.LoadKind
 
 data class PlannedExercise(
@@ -32,7 +33,8 @@ data class PlannedExercise(
      * The slot's ordered per-set targets, or null when its sets share one repeated prescription. An
      * ordered slot's [sets] always equals [SlotSetTargets.sets].
      */
-    val setTargets: SlotSetTargets? = null
+    val setTargets: SlotSetTargets? = null,
+    val superset: Superset? = null
 ) {
     init {
         require((reps == null) != (durationSeconds == null)) {

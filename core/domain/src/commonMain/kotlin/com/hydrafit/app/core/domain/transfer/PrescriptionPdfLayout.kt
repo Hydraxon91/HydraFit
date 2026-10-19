@@ -59,7 +59,18 @@ object PrescriptionPdfLayout {
             routine.workouts.forEach { workout ->
                 val focus = workout.focus?.let { " — $it" }.orEmpty()
                 lines += PrescriptionLine(workout.name + focus, PrescriptionLineRole.BODY)
-                workout.entries.forEach { entry ->
+                workout.entries.forEachIndexed { index, entry ->
+                    entry.superset?.let { encoded ->
+                        val pair = com.hydrafit.app.core.domain.routine.SupersetJson.decode(encoded)
+                        val previous = workout.entries.getOrNull(index - 1)?.superset
+                        if (previous != encoded) {
+                            lines += PrescriptionLine(
+                                "Superset: alternate the next two exercises; transition " +
+                                    "${pair.transitionSeconds} s; pair rest ${pair.pairRestSeconds} s.",
+                                PrescriptionLineRole.BODY
+                            )
+                        }
+                    }
                     lines +=
                         PrescriptionLine(
                             entry.describe(document.includesWeights),

@@ -29,6 +29,7 @@ CREATE TABLE planHistoryEntry (
     loadKind TEXT NOT NULL DEFAULT 'LEGACY_UNSPECIFIED',
     progressionPolicy TEXT,
     setTargets TEXT,
+    superset TEXT,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -67,6 +68,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
+
+setEntrySuperset:
+UPDATE planHistoryEntry SET superset = ? WHERE dayId = ? AND position = ?;
 
 selectEntriesForDay:
 SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;

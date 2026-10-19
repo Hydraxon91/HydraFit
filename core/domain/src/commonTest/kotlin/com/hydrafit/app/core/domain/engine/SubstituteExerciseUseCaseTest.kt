@@ -296,6 +296,33 @@ class SubstituteExerciseUseCaseTest {
         assertTrue(repository.substitutions.isEmpty())
     }
 
+    @Test
+    fun aSwapKeepsTheSlotSupersetSoNoHalfPairIsCreated() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+        val pair = com.hydrafit.app.core.domain.routine.Superset("arms", 10, 120)
+        val paired = plan().let { plan ->
+            plan.copy(
+                days = plan.days.map { day ->
+                    day.copy(exercises = day.exercises.map { it.copy(superset = pair) })
+                }
+            )
+        }
+
+        val result = useCase(
+            plan = paired,
+            dayIndex = 0,
+            position = 0,
+            request = request(equipment = setOf(EquipmentTag.DUMBBELL)),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        // A swap re-prescribes the exercise only; dropping the group here would leave the stored
+        // partner unpaired and make Save-as-routine / Start block reject a malformed half pair.
+        assertEquals("dumbbell-bench", result?.exerciseId)
+        assertEquals(pair, result?.superset)
+    }
+
     private fun useCase(repository: PlanHistoryRepository) =
         SubstituteExerciseUseCase(catalog, repository, DeterministicWorkoutPlannerEngine(catalog))
 

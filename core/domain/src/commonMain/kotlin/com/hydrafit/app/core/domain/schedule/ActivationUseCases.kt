@@ -101,7 +101,8 @@ class ActivateRoutineUseCase(
                         loadCapability = exercise.loadCapability,
                         loadKind = kind,
                         progressionPolicy = entry.progressionPolicy,
-                        setTargets = entry.setTargets
+                        setTargets = entry.setTargets,
+                        superset = entry.superset
                     )
                 }
             )

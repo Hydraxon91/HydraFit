@@ -53,5 +53,6 @@ data class RoutineEntry(
      */
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
-    val setTargets: SlotSetTargets? = null
+    val setTargets: SlotSetTargets? = null,
+    val superset: Superset? = null
 )

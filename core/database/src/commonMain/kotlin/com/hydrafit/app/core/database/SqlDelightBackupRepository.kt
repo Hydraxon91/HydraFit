@@ -183,7 +183,8 @@ class SqlDelightBackupRepository(
                         loadCapability = it.loadCapability,
                         loadKind = it.loadKind,
                         progressionPolicy = it.progressionPolicy,
-                        setTargets = it.setTargets
+                        setTargets = it.setTargets,
+                        superset = it.superset
                     )
                 },
                 volumeExplanations = database.planVolumeExplanationQueries.selectAll()
@@ -353,7 +354,8 @@ class SqlDelightBackupRepository(
                             weightKg = it.weightKg,
                             loadKind = it.loadKind,
                             progressionPolicy = it.progressionPolicy,
-                            setTargets = it.setTargets
+                            setTargets = it.setTargets,
+                            superset = it.superset
                         )
                     },
                 activations = database.trainingScheduleQueries.selectAllActivations()
@@ -405,7 +407,8 @@ class SqlDelightBackupRepository(
                             loadCapability = it.loadCapability,
                             loadKind = it.loadKind,
                             progressionPolicy = it.progressionPolicy,
-                            setTargets = it.setTargets
+                            setTargets = it.setTargets,
+                            superset = it.superset
                         )
                     },
                 occurrences = database.trainingScheduleQueries.selectAllOccurrences()
@@ -445,7 +448,8 @@ class SqlDelightBackupRepository(
                             remainingDisposition = it.remainingDisposition,
                             terminalRemainingSets = it.terminalRemainingSets?.toInt(),
                             progressionPolicy = it.progressionPolicy,
-                            setTargets = it.setTargets
+                            setTargets = it.setTargets,
+                            superset = it.superset
                         )
                     },
                 scheduleState = database.trainingScheduleQueries.selectScheduleState()
@@ -894,6 +898,13 @@ class SqlDelightBackupRepository(
                     setTargets = entry.setTargets
                 )
             }
+            file.planEntries.forEach { entry ->
+                database.planHistoryQueries.setEntrySuperset(
+                    entry.superset,
+                    entry.dayId,
+                    entry.position.toLong()
+                )
+            }
             file.volumeExplanations.forEach { explanation ->
                 database.planVolumeExplanationQueries.insert(
                     planId = explanation.planId,
@@ -1055,6 +1066,13 @@ class SqlDelightBackupRepository(
                 )
             }
 
+            file.routineEntries.forEach { entry ->
+                database.routineTemplateQueries.setEntrySuperset(
+                    entry.superset,
+                    entry.workoutId,
+                    entry.position.toLong()
+                )
+            }
             file.activations.forEach { activation ->
                 database.trainingScheduleQueries.insertActivationWithId(
                     id = activation.id,
@@ -1104,6 +1122,13 @@ class SqlDelightBackupRepository(
                     setTargets = entry.setTargets
                 )
             }
+            file.activationEntries.forEach { entry ->
+                database.trainingScheduleQueries.setActivationSuperset(
+                    entry.superset,
+                    entry.workoutId,
+                    entry.position.toLong()
+                )
+            }
             file.occurrences.forEach { occurrence ->
                 database.trainingScheduleQueries.insertOccurrenceWithId(
                     id = occurrence.id,
@@ -1140,6 +1165,13 @@ class SqlDelightBackupRepository(
                     terminalRemainingSets = entry.terminalRemainingSets?.toLong(),
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets
+                )
+            }
+            file.occurrenceEntries.forEach { entry ->
+                database.trainingScheduleQueries.setOccurrenceSuperset(
+                    entry.superset,
+                    entry.occurrenceId,
+                    entry.position.toLong()
                 )
             }
             val state = file.scheduleState

@@ -57,12 +57,18 @@ data class PlanRequest(
      * The user's opt-in for generating ordered per-set prescriptions at plan time, or null for none.
      * Absent leaves every existing plan shape exactly as it was.
      */
-    val automaticSetPrescription: AutomaticSetPrescription? = null
+    val automaticSetPrescription: AutomaticSetPrescription? = null,
+    /**
+     * The user's opt-in for curated, adjacent biceps/triceps pairing, or null to leave generated days
+     * exactly as the engine produced them.
+     */
+    val plannerSupersetPreference: PlannerSupersetPreference? = null
 ) {
     init {
         require(workoutEpochDays.isEmpty() || workoutEpochDays.size == daysPerWeek)
         require(fatigueByWorkout.size == workoutEpochDays.size)
         require(workoutEpochDays.zipWithNext().all { (first, second) -> first < second })
+        plannerSupersetPreference?.requireValid()
     }
 
     fun fatigueForWorkout(dayIndex: Int): Map<MuscleGroup, Double> =

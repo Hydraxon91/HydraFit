@@ -14,7 +14,10 @@ import kotlinx.serialization.Serializable
 const val PRESCRIPTION_FORMAT: String = "hydrafit-routines"
 
 /** The interchange version this build writes. */
-const val PRESCRIPTION_FORMAT_VERSION: Int = 4
+const val PRESCRIPTION_FORMAT_VERSION: Int = 5
+
+/** The first interchange format with explicit superset membership and rest. */
+const val PRESCRIPTION_SUPERSET_FORMAT_VERSION: Int = 5
 
 /**
  * The versions a reader accepts. Version 1 carries a rep-only slot; version 2 may carry a timed slot
@@ -106,7 +109,8 @@ data class PrescriptionEntryRecord(
      * The encoded ordered per-set targets for this slot (format 4 and later), or null when its sets
      * share one repeated prescription. Earlier formats must not carry one.
      */
-    val setTargets: String? = null
+    val setTargets: String? = null,
+    val superset: String? = null
 )
 
 /** A custom exercise definition the document's routines need, in resolved form (not a stored blob). */
@@ -174,6 +178,22 @@ object PrescriptionValidator {
             routine.workouts.forEach { workout ->
                 if (workout.name.isBlank()) fail(PrescriptionFailure.INVALID_VALUE)
                 workout.focus?.let { enumName(it, SplitFocus.entries) }
+                if (document.formatVersion < PRESCRIPTION_SUPERSET_FORMAT_VERSION &&
+                    workout.entries.any { it.superset != null }
+                ) {
+                    fail(PrescriptionFailure.INVALID_VALUE)
+                }
+                try {
+                    com.hydrafit.app.core.domain.routine.validateSupersets(
+                        workout.entries.map { entry ->
+                            entry.exerciseId to entry.superset?.let(
+                                com.hydrafit.app.core.domain.routine.SupersetJson::decode
+                            )
+                        }
+                    )
+                } catch (_: IllegalArgumentException) {
+                    fail(PrescriptionFailure.INVALID_VALUE)
+                }
                 workout.entries.forEach { entry ->
                     if (entry.exerciseId.isBlank() || entry.exerciseName.isBlank()) {
                         fail(PrescriptionFailure.INVALID_VALUE)

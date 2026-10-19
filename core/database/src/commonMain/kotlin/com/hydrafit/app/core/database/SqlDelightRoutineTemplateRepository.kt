@@ -111,6 +111,13 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                         )
                         entry.id
                     }
+                    queries.setEntrySuperset(
+                        superset = entry.superset?.let(
+                            com.hydrafit.app.core.domain.routine.SupersetJson::encode
+                        ),
+                        workoutId = workoutId,
+                        position = entryIndex.toLong()
+                    )
                     keptEntryIds += entryId
                 }
                 queries.selectEntryIdsForWorkout(workoutId).executeAsList()
@@ -172,7 +179,10 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                                 loadKind = decodeLoadKind(entry.loadKind),
                                 progressionPolicy = entry.progressionPolicy
                                     ?.let(SlotProgressionPolicyJson::decode),
-                                setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode)
+                                setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode),
+                                superset = entry.superset?.let(
+                                    com.hydrafit.app.core.domain.routine.SupersetJson::decode
+                                )
                             )
                         }
                 )

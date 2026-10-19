@@ -216,7 +216,10 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                 },
                                 progressionPolicy = row.progressionPolicy
                                     ?.let(SlotProgressionPolicyJson::decode),
-                                setTargets = row.setTargets?.let(SlotSetTargetsJson::decode)
+                                setTargets = row.setTargets?.let(SlotSetTargetsJson::decode),
+                                superset = row.superset?.let(
+                                    com.hydrafit.app.core.domain.routine.SupersetJson::decode
+                                )
                             )
                         }
                 )

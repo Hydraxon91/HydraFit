@@ -51,7 +51,8 @@ class AcceptWeeklyPlanUseCase(
                             suggestedWeightKg = planned.suggestedWeightKg,
                             loadCapability = planned.loadCapability,
                             loadKind = planned.loadKind,
-                            explanation = planned.explanation
+                            explanation = planned.explanation,
+                            superset = planned.superset
                         )
                     }
                 )

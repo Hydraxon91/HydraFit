@@ -7,7 +7,10 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 23
+const val BACKUP_FORMAT_VERSION: Int = 24
+
+/** Format 24 carries explicit two-entry superset membership and user-configured rest. */
+const val SUPERSET_FORMAT_VERSION: Int = 24
 
 /**
  * Format 22 adds a prescription slot's approved progression policy to routine, accepted-plan,
@@ -398,7 +401,8 @@ data class BackupPlanEntryRecord(
      */
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
-    val setTargets: String? = null
+    val setTargets: String? = null,
+    val superset: String? = null
 )
 
 @Serializable
@@ -558,7 +562,8 @@ data class BackupRoutineEntryRecord(
      */
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
-    val setTargets: String? = null
+    val setTargets: String? = null,
+    val superset: String? = null
 )
 
 @Serializable
@@ -611,7 +616,8 @@ data class BackupActivationEntryRecord(
     /** The encoded slot progression policy, format 22 and later; null when none is configured. */
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
-    val setTargets: String? = null
+    val setTargets: String? = null,
+    val superset: String? = null
 )
 
 @Serializable
@@ -653,7 +659,8 @@ data class BackupOccurrenceEntryRecord(
     /** The encoded slot progression policy, format 22 and later; null when none is configured. */
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
-    val setTargets: String? = null
+    val setTargets: String? = null,
+    val superset: String? = null
 )
 
 @Serializable
