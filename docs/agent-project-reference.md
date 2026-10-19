@@ -22,7 +22,11 @@ produce the evidence for the pre-requested independent checkpoint.
 - Record the starting commit and relevant pre-existing working-tree changes;
   identify the requested scope, affected modules and explicit exclusions.
 - State observable acceptance criteria and invariants. Trace changed behavior
-  through relevant producers, persistence and downstream consumers.
+  through relevant producers, persistence and downstream consumers. For
+  interface, schema, shared-state or DI/navigation changes, use
+  `scripts/plan-file-closure.py` to list predictable consumers, test doubles,
+  migration tests and living docs as an advisory checklist that does not replace
+  consumer inspection.
 - Identify applicable failure cases, such as cancellation, retry, repeated
   submission, stale context, transaction failure or legacy data. Do not turn this
   into an exhaustive checklist when a case is irrelevant to the change.
@@ -308,6 +312,13 @@ python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
 python3 scripts/check-living-docs.py
 # Advisory: docs to review for changes since a revision, including untracked files
 python3 scripts/check-living-docs.py --changed-from <revision>
+
+# Advisory change-closure candidates for planned interface/schema/DI work
+python3 scripts/plan-file-closure.py --repo . \
+  --seed core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/PlanHistoryRepository.kt \
+  --seed core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/PlanHistory.sq \
+  --seed core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/AcceptWeeklyPlanUseCase.kt \
+  --seed feature/logger/src/commonMain/kotlin/com/hydrafit/app/feature/logger/WorkoutLoggerUiState.kt
 ```
 
 `ktlintFormat` is the mechanical pre-pass: it rewrites imports and expression-body

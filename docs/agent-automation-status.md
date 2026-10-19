@@ -1485,3 +1485,70 @@ not exercised against a real Maestro installation or device in this phase.
 specific gap where a contract could claim screenshots the flow never takes, while
 v1 stays valid and exit codes/output remain stable. It stops below 9 because the
 check is textual (not YAML semantics) and cannot prove screenshot content or review.
+
+## Change-closure report for batch pre-flight (2026-10-19)
+
+### What was added
+
+- **`scripts/plan-file-closure.py`:** read-only, standard-library helper that parses
+  top-level `interface`, `class` and `object` declarations from seed files
+  (including simple modifiers and annotations; indented/nested declarations are
+  ignored), scans `.kt`, `.kts`, `.sq` and `.sqm` files for whole-word matches, and
+  reports consumers, test doubles and regression coverage, DI/navigation files,
+  migration/schema coverage and living docs in deterministic Markdown. Function and
+  method names are not inferred: `--symbol` adds explicit names such as
+  `substitute` or `setTargets`. `--repo` defaults to the checkout; `--seed` is
+  repeatable and required. Invalid input exits 125.
+- **Batch pre-flight step:** `.opencode/commands/batch.md` now requires the report
+  for planned interface, schema/stored-encoding, shared-state or DI/navigation
+  changes, and requires every surfaced candidate to be marked include or exclude
+  with a reason. It remains advisory and does not grant approval or replace
+  consumer inspection.
+- **Reference example:** `docs/agent-project-reference.md` lists the helper under
+  Key Commands and points Implementation Readiness at it for consumer mapping.
+
+### 0.10.3 validation
+
+Run against four seeds: `PlanHistoryRepository.kt`, `PlanHistory.sq`,
+`AcceptWeeklyPlanUseCase.kt` and `WorkoutLoggerUiState.kt`. The report surfaced
+**5 of 5** known amendment-set files: `BodyWeightMigrationTest.kt`,
+`EquipmentProfileMigrationTest.kt`, `AcceptWeeklyPlanUseCase.kt` (seed),
+`SubstituteExerciseUseCase.kt` (consumer) and `SubstituteExerciseUseCaseTest.kt`
+(test double). Group counts in that run: 4 seeds, 16 consumers, 11 test
+double/regression files, 2 DI/navigation files, 40 migration tests and a
+`verifySqlDelightMigration` build file, and 4 living docs.
+
+### Verification
+
+- `python3 scripts/plan-file-closure.py --help` — exit 0.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_plan_file_closure.py'`
+  — **13 tests OK**.
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **261
+  tests OK** (248 baseline plus 13).
+- `python3 scripts/validate-agent-tooling.py` — 13 definitions, 30 surface files,
+  **0 findings**, exit 0.
+- `python3 scripts/check-living-docs.py` — exit 0, no findings.
+- No Gradle run, device or emulator interaction.
+
+### Limits
+
+- The report is advisory. Symbol matching is textual: it does not resolve types,
+  aliases, inheritance, reflection, generated code or dynamic dispatch, and it
+  cannot prove that every consumer was found or changed.
+- By default only top-level type declarations are extracted from seeds. Nested
+  types, functions and methods require explicit `--symbol` entries, so the report
+  is narrower than a full grep but can miss a symbol nobody names.
+- A group being empty is not evidence that no consumer exists. The seed is
+  excluded from its own matches, and only `.kt`, `.kts`, `.sq` and `.sqm` files are
+  scanned.
+- Migration coverage lists all `*MigrationTest.kt` files under
+  `core/database/src/*Test/` for any schema seed, not only the tests related to
+  that specific schema change.
+- Living-doc mapping depends on `AGENTS.md` and `docs/doc-impact.json`; a missing
+  declaration or mapping produces an advisory warning rather than a failure.
+
+**Change-closure report confidence: 8/10.** The 0.10.3 run found the full known
+amendment set and the deterministic group/test coverage is exercised offline. It
+stops below 9 because the match is textual and cannot establish semantic closure,
+and it has been validated against one known change set rather than repeated live
+batch runs.

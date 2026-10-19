@@ -36,6 +36,14 @@ sequencing, folding and publication remain batch-specific.
   `.sqm`, module graph, dependencies, secrets, CI); exclusions and stop conditions;
   and the budget split, proposing one when the invocation omitted `--budget`. Label
   each open decision ANSWER-NOW or NEEDS-EVIDENCE. Then stop and wait for feedback.
+- **Change-closure report (advisory, required for interface/schema/shared-state/DI
+  changes):** before presenting the plan, run
+  `python3 scripts/plan-file-closure.py --seed <path>` for each intended seed when a
+  release changes an interface, schema or stored encoding, shared state, or a
+  DI/navigation registration. List every surfaced consumer, test double,
+  migration test, DI/navigation file and living doc in the plan, and mark each
+  **include** or **exclude** with a reason. The report is heuristic symbol matching:
+  it grants no approval and does not replace inspecting consumers, tests or wiring.
 - **Fold (one publication per batch):** a batch publishes once, under its lowest
   requested version — `/batch 0.9.0-0.9.1` combines both scopes into 0.9.0. State
   the folded target in this plan and do not create one release per requested version.
