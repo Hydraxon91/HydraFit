@@ -98,3 +98,33 @@ inspected tracked-delta SHA-256 was
 The builder stopped under the two-unsuccessful-fixes rule for the remaining
 blockers. No third correction attempt, final commit or publication occurred.
 All legitimate implementation work remains preserved for explicit next action.
+
+## Device acceptance — 2026-10-25 (S10e, debug build)
+
+User-run acceptance on a physical Galaxy S10e, throwaway routine with a paired
+superset (`Barbell Curl` + `Dumbbell Triceps Overhead Extension`):
+
+| Check | Result |
+| --- | --- |
+| 1. Rest survives editing a logged set | **Pass** |
+| 2. Finish ends the current session | **Pass** |
+| 3. Draft Apply edits without logging | **Pass** |
+| 4. Completed exercise collapses; removal re-expands | **Pass** |
+| 5. One superset control set + Skip moves the turn without logging | **Pass** |
+| 6. Per-implement load basis and withheld-load explanations | **Unverified** — no imported history, so no numeric estimate to label |
+
+Reported during check 5: neither paired member showed controls until every
+earlier prescribed set was complete. Traced to
+`GuidedWorkoutProgress.nextExercise`, which selects the first incomplete,
+unskipped slot, and `WorkoutLoggerUiState.showsGuidedActions`, which grants a
+paired member controls only while it owns the turn. This is **intentional
+sequential guidance**, not a regression; it is a UX note (a later pair looks
+inert until reached), not an acceptance failure.
+
+Check 6 closed on 2026-10-25: after two logged dumbbell sets (about 12 kg × 10),
+the per-hand/per-dumbbell labels and the withheld-reason copy rendered as
+intended. **Device acceptance is 6 of 6.** The full matrix at
+`0105-repair-full-matrix.log` covers the committed source; only documentation
+changed afterwards, so no further Gradle run is required for these edits.
+Publication remains unapproved; the branch is a local candidate.
+
