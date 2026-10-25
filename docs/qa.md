@@ -3944,3 +3944,32 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
 - **Limits.** No plan/activation/occurrence backup restore round-trip test yet; no ViewModel-level
   test of the restored countdown path; no device check of the disabled move controls or the wrapping
   label; Save path and Logger guidance remain device-unverified.
+
+## 0.10.5 — post-0.10.3 live-use fixes (LF-01…LF-11)
+
+- **Scope.** Guided logging: rest survives set/workout edits, finish or skip-with-work closes its own
+  session, completed exercises collapse and re-expand after a set removal, one control set for the
+  active superset member, draft Apply edits the pending set without logging. Loads: replacements
+  come from the candidate's own history with recorded provenance, per-hand/per-dumbbell labels
+  without halving history, suggestions round down to reachable inventory with an explicit reason,
+  session-balanced median baseline, low-rep manual PR cannot raise the floor for ≥3-rep
+  prescriptions. `/batch` gained a feasibility pre-check.
+- **Verification.** `0105-repair-full-matrix.log`: 787 tasks executed, 0 inherited (host suite,
+  migration verification, ktlint, debug assembly, both iOS compiles). Independent targeted closure
+  found every reviewed source defect closed; the only outstanding item was UI acceptance.
+- **Device acceptance (2026-10-25, S10e, debug build, throwaway routine with a paired superset).**
+  Six checks passed: rest survives a logged-set edit, Finish ends the session, draft Apply records
+  nothing until the separate log action, a completed exercise collapses and re-expands after a set
+  removal, one superset control set with Skip moving the turn without logging, and dumbbell loads
+  labelled per hand/per dumbbell with an explicit withheld reason. Sequential guided ordering (no
+  controls on a later pair until earlier prescribed work is complete) was confirmed as intended.
+- **Publication.** `v0.10.5`: PR #38, merge `01c0ac02`, tag on that merge. Primary CI passed all four
+  checks; the release workflow built and signed the APK. The downloaded asset verifies with
+  `apksigner` (`versionName 0.10.5`, `versionCode 100500`, SHA-256
+  `de7e5c2aa4ea0736cde9e802208e005423e3ec575a019eabe37bdd01613a517d`); it was not installed on any
+  device, so signed-upgrade and on-device release behaviour stay unverified.
+- **Limits.** Live sessions still carry no stored occurrence link, so session-to-workout attribution
+  relies on recorded sets. Machine and cable-stack suggestions are not inventory-rounded (0.11.x
+  equipment identity). No host render assertion covers the SplitBuilder/Logger disclosure strings;
+  their evidence is device-observed.
+
