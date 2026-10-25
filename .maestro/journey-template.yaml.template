@@ -1,0 +1,23 @@
+# Template only. Copy this file to `.maestro/<journey>.yaml` before use; the
+# `.template` suffix keeps a directory run from collecting it as a flow. Do not
+# run the template in place.
+#
+# The prepared contract's `screenshot_evidence` list must name the same
+# screenshot(s) this flow takes with `takeScreenshot:`, or be `"none"` when the
+# flow takes none and `screenshot_checkpoints` is exactly `none`.
+appId: com.hydrafit.app
+name: <journey-name>
+tags:
+  - <journey-tag>
+---
+- launchApp:
+    clearState: false
+    stopApp: false
+# Assert the approved starting state; establish any fixture separately.
+- assertVisible: '<starting-state assertion>'
+# Replace with the bounded, approved actions for this journey.
+- tapOn: '<approved action>'
+# Name this checkpoint in the contract's screenshot_evidence.
+- takeScreenshot: <checkpoint-name>
+# Assert the durable postcondition the journey is accepted against.
+- assertVisible: '<durable postcondition>'

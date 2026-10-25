@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Read-only prepared-journey declaration checks, not authorization or YAML analysis.
 
-Usage: ui-journey-preflight.py CONTRACT --max-age-seconds SECONDS
+Usage: ui-journey-preflight.py CONTRACT --max-age-seconds SECONDS [--brief]
 Paths in artifacts/flows are absolute. Exit 0 clear, 2 findings, 125 invalid input.
+--brief prints a stable Markdown declaration brief instead of JSON: fixed field
+format and order for fixed inputs and time, with baseline age varying with the clock.
 """
 import argparse
 import hashlib
@@ -30,6 +32,70 @@ def artifact(value):
             value.get("sha256") == hashlib.sha256(path.read_bytes()).hexdigest())
 
 
+SCREENSHOT_COMMAND = re.compile(
+    r"^\s*(?:-\s*)?(?:takeScreenshot|assertScreenshot)\s*:\s*(.*?)\s*$")
+INLINE_SCREENSHOT_PATH = re.compile(
+    r"^\{\s*path\s*:\s*(?:\"([^\"]*)\"|'([^']*)'|([^}\s,]+))\s*\}(?:\s+#.*)?\s*$")
+
+
+def screenshot_name(value):
+    """Parse the declaration value, not full YAML: scalar or inline { path: name }."""
+    if value.startswith("{"):
+        match = INLINE_SCREENSHOT_PATH.match(value)
+        if not match:
+            return None
+        return next(item for item in match.groups() if item is not None).strip()
+    if value[:1] in ("'", '"'):
+        quote = value[0]
+        end = value.find(quote, 1)
+        return value[1:end].strip() if end > 0 else None
+    return value.split()[0] if value else None
+
+
+def screenshot_names(text):
+    """Collect screenshot names from takeScreenshot/assertScreenshot command lines."""
+    names = set()
+    for line in text.splitlines():
+        match = SCREENSHOT_COMMAND.match(line)
+        if not match:
+            continue
+        name = screenshot_name(match.group(1))
+        if name:
+            names.add(name)
+    return names
+
+
+def check_screenshot_evidence(contract, flow_artifacts, errors):
+    evidence = contract.get("screenshot_evidence")
+    if evidence == "none":
+        checkpoints = contract.get("screenshot_checkpoints")
+        if not nonempty(checkpoints) or checkpoints.strip().lower() != "none":
+            errors.append("screenshot_evidence: 'none' requires screenshot_checkpoints 'none'")
+        return
+    if not isinstance(evidence, list) or not evidence:
+        errors.append("screenshot_evidence: 'none' or a nonempty list of unique names required")
+        return
+    names = []
+    for index, name in enumerate(evidence):
+        if not nonempty(name):
+            errors.append(f"screenshot_evidence[{index}]: nonempty screenshot name required")
+        elif name in names:
+            errors.append(f"screenshot_evidence[{index}]: duplicate screenshot name")
+        else:
+            names.append(name)
+    if flow_artifacts is None:
+        return
+    available = set()
+    for item in flow_artifacts:
+        try:
+            available |= screenshot_names(Path(item["path"]).read_text())
+        except (OSError, UnicodeError) as error:
+            errors.append(f"flows: cannot read {item['path']}: {error}")
+    for name in names:
+        if name not in available:
+            errors.append(f"screenshot_evidence: {name} is not taken or asserted by a referenced flow")
+
+
 def same_fact(left, right):
     """JSON booleans are not numbers; numeric int/float representations may agree."""
     if type(left) in (int, float) and type(right) in (int, float):
@@ -47,8 +113,9 @@ def findings(contract, max_age, now):
     errors = []
     if not isinstance(contract, dict):
         return ["contract must be an object"]
-    if type(contract.get("version")) is not int or contract["version"] != 1:
-        errors.append("version must be 1")
+    version = contract.get("version")
+    if type(version) is not int or version not in (1, 2):
+        errors.append("version must be 1 or 2")
     if not re.fullmatch(r"emulator-[0-9]+", str(contract.get("device", ""))):
         errors.append("device must be an explicit emulator serial")
     for field in ("build", "starting_state", "approval_reference", "allowed_interactions",
@@ -77,8 +144,11 @@ def findings(contract, max_age, now):
     if not isinstance(budgets, dict) or not all(positive(budgets.get(k)) for k in ("exploration", "execution")):
         errors.append("budgets: positive exploration and execution seconds required")
     flows = contract.get("flows")
-    if not isinstance(flows, list) or not flows or not all(artifact(item) for item in flows):
+    flows_valid = isinstance(flows, list) and bool(flows) and all(artifact(item) for item in flows)
+    if not flows_valid:
         errors.append("flows: nonempty list of matching absolute-path SHA256 artifacts required")
+    if version == 2:
+        check_screenshot_evidence(contract, flows if flows_valid else None, errors)
     writes = contract.get("planned_writes")
     if not isinstance(writes, list) or not all(nonempty(item) for item in writes):
         errors.append("planned_writes: string list required (empty means no writes)")
@@ -122,6 +192,79 @@ def findings(contract, max_age, now):
     return errors
 
 
+def display(value):
+    if value is None:
+        return "none"
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, sort_keys=True, ensure_ascii=False)
+
+
+def brief(contract, now, errors):
+    """Stable declarations-only Markdown: fixed format/order for fixed inputs and time.
+
+    No writes; the reported baseline age is the only time-dependent field.
+    """
+    contract = contract if isinstance(contract, dict) else {}
+    lines = [
+        "# Prepared-journey preflight brief",
+        "",
+        f"- Status: {'clear' if not errors else f'findings ({len(errors)})'}",
+        f"- Contract version: {display(contract.get('version'))}",
+        f"- Device: {display(contract.get('device'))}",
+        f"- Build: {display(contract.get('build'))}",
+        f"- Starting state: {display(contract.get('starting_state'))}",
+        f"- Approval reference: {display(contract.get('approval_reference'))}",
+        f"- Allowed interactions: {display(contract.get('allowed_interactions'))}",
+        f"- Prior writes: {display(contract.get('prior_writes'))}",
+        f"- Planned writes: {display(contract.get('planned_writes'))}",
+        f"- Unknown writes: {display(contract.get('unknown_writes'))}",
+        f"- Safeguard: {display(contract.get('safeguard'))}",
+        f"- Cleanup: {display(contract.get('cleanup'))}",
+        f"- Restoration: {display(contract.get('restoration'))}",
+        f"- Budgets: {display(contract.get('budgets'))}",
+    ]
+    baseline = contract.get("baseline")
+    observed = baseline.get("observed_at") if isinstance(baseline, dict) else None
+    age = f"{now - observed:g}s" if positive(observed) else "unknown"
+    lines.append(f"- Baseline observed at: {display(observed)} (age {age})")
+    lines.append("- Flows:")
+    flows = contract.get("flows")
+    if isinstance(flows, list) and flows:
+        for item in flows:
+            if isinstance(item, dict) and nonempty(item.get("path")):
+                sha = str(item.get("sha256", ""))[:12] or "unknown"
+                lines.append(f"  - {item['path']} (sha256 {sha})")
+            else:
+                lines.append(f"  - {display(item)}")
+    else:
+        lines.append("  - none")
+    lines.append(f"- Fixture expectations: {display(contract.get('fixture_expectations'))}")
+    lines.append("- Durable assertions:")
+    assertions = contract.get("assertions")
+    if isinstance(assertions, list) and assertions:
+        for item in assertions:
+            if isinstance(item, dict):
+                expected = display(item.get("expected"))
+                downstream = display(item.get("downstream_check"))
+                lines.append(f"  - {expected} -> {downstream}")
+            else:
+                lines.append(f"  - {display(item)}")
+    else:
+        lines.append("  - none")
+    lines.append(f"- Screenshot checkpoints: {display(contract.get('screenshot_checkpoints'))}")
+    lines.append(f"- Screenshot evidence: {display(contract.get('screenshot_evidence'))}")
+    lines.extend([
+        "",
+        "This brief lists declarations only; it is not approval and does not verify device "
+        "state, YAML semantics or authorization.",
+    ])
+    if errors:
+        lines.extend(["", "## Findings"])
+        lines.extend(f"- {error}" for error in errors)
+    return "\n".join(lines)
+
+
 def unique_pairs(items):
     result = {}
     for key, value in items:
@@ -135,15 +278,23 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("contract", type=Path)
     parser.add_argument("--max-age-seconds", type=float, required=True)
+    parser.add_argument("--brief", action="store_true",
+                        help="print a Markdown declaration brief instead of JSON")
     args = parser.parse_args(argv)
     try:
         if not positive(args.max_age_seconds):
             raise ValueError("max age must be positive and finite")
         contract = json.loads(args.contract.read_text(), object_pairs_hook=unique_pairs,
                               parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
-        errors = findings(contract, args.max_age_seconds, time.time())
-        print(json.dumps({"version": 1, "preflight_clear": not errors, "findings": errors,
-                          "coverage": "declarations only; no device state, YAML or approval verified"}))
+        now = time.time()
+        errors = findings(contract, args.max_age_seconds, now)
+        if args.brief:
+            print(brief(contract, now, errors))
+        else:
+            version = contract.get("version") if isinstance(contract, dict) else None
+            print(json.dumps({"version": version if type(version) is int else None,
+                              "preflight_clear": not errors, "findings": errors,
+                              "coverage": "declarations only; no device state, YAML or approval verified"}))
         return 2 if errors else 0
     except (OSError, ValueError, UnicodeError) as error:
         print(f"invalid preflight input: {error}", file=sys.stderr)

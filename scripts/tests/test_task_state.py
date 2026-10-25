@@ -64,6 +64,18 @@ class TaskStateTests(unittest.TestCase):
         revision = self.record()["revision"] if revision is None else revision
         return self.cli("update", "--expect", str(revision), "--event", str(self.event))
 
+    def update_many(self, events, revision=None):
+        files = []
+        for index, event in enumerate(events):
+            path = self.root / f"event-{index}.json"
+            path.write_text(json.dumps(event))
+            files.append(path)
+        revision = self.record()["revision"] if revision is None else revision
+        arguments = ["update", "--expect", str(revision)]
+        for path in files:
+            arguments += ["--event", str(path)]
+        return self.cli(*arguments)
+
     def test_init_show_resume_and_duplicate_init(self):
         self.assertEqual(0, self.init()[0])
         record = self.record()
@@ -332,7 +344,9 @@ class TaskStateTests(unittest.TestCase):
             self.assertEqual(2, self.cli("resume")[0])
             self.assertEqual(0, self.update({"type": "resolve", "id": "op", "outcome": "not-performed",
                                             "evidence": "observed no execution"})[0])
-            self.assertEqual(2, self.update({"type": "phase", "value": "complete"})[0])
+            # Expiry alone no longer blocks completion: it is bookkeeping once outcomes
+            # and the tree are reconciled. `begin` and `boundary` still stop.
+            self.assertEqual(0, self.update({"type": "phase", "value": "complete"})[0])
             self.assertEqual(0, self.update({"type": "phase", "value": "blocked"})[0])
         with mock.patch.object(ts.time, "time", return_value=90):
             self.assertEqual(2, self.cli("resume")[0])
@@ -618,6 +632,105 @@ class TaskStateTests(unittest.TestCase):
         amendment = self.record()["amendments"][0]
         self.assertEqual([], amendment["add_allowed_paths"])
         self.assertEqual(["extra check"], amendment["add_acceptance"])
+
+    def test_multi_event_update_is_ordered_and_writes_once(self):
+        self.init()
+        self.update({"type": "begin", "id": "op", "description": "synthetic effect"})
+        (self.repo / "new.txt").write_text("observed result\n")
+        resolve = {"type": "resolve", "id": "op", "outcome": "completed",
+                   "evidence": "fresh read of the allowed path"}
+        checkpoint = {"type": "checkpoint", "reason": "inspected intended addition"}
+        with mock.patch.object(ts, "atomic_write", wraps=ts.atomic_write) as write:
+            code, _, err = self.update_many([resolve, checkpoint])
+        self.assertEqual(0, code, err)
+        self.assertEqual(1, write.call_count, "ordered events must share one write")
+        record = self.record()
+        self.assertEqual(3, record["revision"])
+        self.assertEqual(["begin", "resolve", "checkpoint"],
+                         [entry["event"]["type"] for entry in record["history"]])
+        self.assertEqual("completed", record["operations"]["op"]["outcome"])
+        self.assertEqual(ts.snapshot(self.repo), record["expected"])
+
+    def test_multi_event_update_second_invalid_leaves_file_bytes_unchanged(self):
+        self.init()
+        before = self.record_path.read_bytes()
+        code, _, err = self.update_many([{"type": "phase", "value": "implementing"},
+                                         {"type": "phase", "value": "nonsense"}])
+        self.assertEqual(125, code)
+        self.assertIn("invalid phase", err)
+        self.assertEqual(before, self.record_path.read_bytes())
+
+    def test_multi_event_resolve_then_checkpoint_still_enforces_its_guards(self):
+        self.init()
+        self.update({"type": "begin", "id": "op", "description": "pending"})
+        (self.repo / "outside.txt").write_text("not approved\n")
+        before = self.record_path.read_bytes()
+        code, _, err = self.update_many([
+            {"type": "resolve", "id": "op", "outcome": "completed", "evidence": "observed"},
+            {"type": "checkpoint", "reason": "cannot acknowledge unapproved scope"}])
+        self.assertEqual(2, code)
+        self.assertIn("outside.txt", err)
+        self.assertEqual(before, self.record_path.read_bytes())
+        self.assertEqual("pending", self.record()["operations"]["op"]["outcome"])
+
+    def test_expired_record_may_complete_but_begin_still_stops_on_budget(self):
+        with mock.patch.object(ts.time, "time", return_value=100):
+            self.init("5")
+        with mock.patch.object(ts.time, "time", return_value=110):
+            code, out, _ = self.cli("resume")
+            report = json.loads(out)
+            self.assertEqual(2, code)
+            self.assertIn("budget exhausted", report["blockers"])
+            self.assertNotIn("budget exhausted", report["completion_blockers"])
+            code, _, err = self.update({"type": "begin", "id": "later", "description": "expired"})
+            self.assertEqual(2, code)
+            self.assertIn("budget exhausted", err)
+            self.assertEqual(0, self.update({"type": "phase", "value": "complete"})[0])
+            self.assertEqual("complete", self.record()["phase"])
+            self.assertEqual(2, self.cli("boundary", "--expect", str(self.record()["revision"]))[0])
+
+    def test_completion_still_blocked_by_pending_outcomes_and_drift(self):
+        with mock.patch.object(ts.time, "time", return_value=100):
+            self.init("5")
+            self.update({"type": "begin", "id": "save-1", "description": "pending save"})
+        with mock.patch.object(ts.time, "time", return_value=110):
+            code, _, err = self.update({"type": "phase", "value": "complete"})
+            self.assertEqual(2, code)
+            self.assertIn("save-1", err)
+            self.assertEqual(0, self.update({"type": "resolve", "id": "save-1", "outcome": "completed",
+                                             "evidence": "observed outcome"})[0])
+            (self.repo / "new.txt").write_text("dirty but allowed\n")
+            code, _, err = self.update({"type": "phase", "value": "complete"})
+            self.assertEqual(2, code)
+            self.assertIn("snapshot drift", err)
+            self.assertEqual(0, self.update({"type": "checkpoint", "reason": "inspected allowed addition"})[0])
+            self.assertEqual(0, self.update({"type": "phase", "value": "complete"})[0])
+
+    def test_resume_reports_blockers_and_completion_blockers(self):
+        with mock.patch.object(ts.time, "time", return_value=100):
+            self.init("5")
+            self.update({"type": "begin", "id": "save-1", "description": "pending"})
+        with mock.patch.object(ts.time, "time", return_value=110):
+            (self.repo / "outside.txt").write_text("unexpected\n")
+            code, out, _ = self.cli("resume")
+        report = json.loads(out)
+        self.assertEqual(2, code)
+        self.assertEqual(["repository snapshot drift", "pending operation(s): save-1",
+                          "out-of-scope path(s): outside.txt", "budget exhausted"],
+                         report["blockers"])
+        self.assertEqual(report["blockers"][:-1], report["completion_blockers"])
+
+    def test_conflict_messages_name_specific_blockers(self):
+        self.init()
+        self.update({"type": "begin", "id": "save-1", "description": "pending"})
+        code, _, err = self.update({"type": "checkpoint", "reason": "cannot hide pending"})
+        self.assertEqual(2, code)
+        self.assertIn("save-1", err)
+        self.update({"type": "resolve", "id": "save-1", "outcome": "completed", "evidence": "observed"})
+        (self.repo / "outside.txt").write_text("unexpected\n")
+        code, _, err = self.update({"type": "checkpoint", "reason": "cannot hide scope"})
+        self.assertEqual(2, code)
+        self.assertIn("outside.txt", err)
 
     def test_amendment_refused_with_pending_outcome_or_terminal_phase(self):
         self.init()

@@ -64,6 +64,26 @@ def write(root: pathlib.Path, relative: str, text: str) -> pathlib.Path:
     return path
 
 
+LIVING_DOCS = (
+    "docs/one.md",
+    "docs/two.md",
+    "docs/three.md",
+    "docs/four.md",
+    "docs/five.md",
+)
+
+
+def write_living_doc_tree(root: pathlib.Path) -> pathlib.Path:
+    """A minimal alternate root meeting the living-doc declaration and mapping checks."""
+    declarations = ", ".join(f"`{relative}`" for relative in LIVING_DOCS)
+    body = f"# Fixture\n\n**Living docs (keep current):** {declarations}\n"
+    agents = write(root, "AGENTS.md", body)
+    for relative in LIVING_DOCS:
+        write(root, relative, f"# {pathlib.PurePosixPath(relative).stem}\n")
+    write(root, "docs/doc-impact.json", '{"docs/": ["docs/one.md"]}\n')
+    return agents
+
+
 class DefinitionTests(unittest.TestCase):
     def test_valid_agent_passes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -437,11 +457,38 @@ class MainTests(unittest.TestCase):
     def test_main_passes_a_clean_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            write(root, "AGENTS.md", "See `docs/notes.md`.\n")
+            write_living_doc_tree(root)
             write(root, "docs/notes.md", "notes\n")
             write(root, ".opencode/agents/worker.md", VALID_AGENT)
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(0, vt.main([str(root)]))
+
+    def test_main_checks_living_docs_for_the_supplied_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_living_doc_tree(root)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, vt.main([str(root)]))
+
+    def test_main_reports_duplicate_numbered_heading_in_alternate_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_living_doc_tree(root)
+            write(root, "docs/two.md", "## 1. First\n\n## 1. Second\n")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(1, vt.main([str(root)]))
+            self.assertIn("docs/two.md: duplicate numbered heading 1", output.getvalue())
+
+    def test_main_reports_missing_declared_doc_in_alternate_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            write_living_doc_tree(root)
+            (root / "docs/five.md").unlink()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(1, vt.main([str(root)]))
+            self.assertIn("docs/five.md: missing living doc", output.getvalue())
 
     def test_main_reports_findings_for_a_broken_tree(self):
         with tempfile.TemporaryDirectory() as tmp:

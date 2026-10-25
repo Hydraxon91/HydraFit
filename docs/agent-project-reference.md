@@ -22,7 +22,11 @@ produce the evidence for the pre-requested independent checkpoint.
 - Record the starting commit and relevant pre-existing working-tree changes;
   identify the requested scope, affected modules and explicit exclusions.
 - State observable acceptance criteria and invariants. Trace changed behavior
-  through relevant producers, persistence and downstream consumers.
+  through relevant producers, persistence and downstream consumers. For
+  interface, schema, shared-state or DI/navigation changes, use
+  `scripts/plan-file-closure.py` to list predictable consumers, test doubles,
+  migration tests and living docs as an advisory checklist that does not replace
+  consumer inspection.
 - Identify applicable failure cases, such as cancellation, retry, repeated
   submission, stale context, transaction failure or legacy data. Do not turn this
   into an exhaustive checklist when a case is irrelevant to the change.
@@ -303,6 +307,18 @@ for f in scripts/*.sh; do bash -n "$f" || exit 1; done
 shellcheck --severity=warning scripts/*.sh
 python3 scripts/validate-agent-tooling.py
 python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
+
+# Living-doc drift (also included in validate-agent-tooling.py)
+python3 scripts/check-living-docs.py
+# Advisory: docs to review for changes since a revision, including untracked files
+python3 scripts/check-living-docs.py --changed-from <revision>
+
+# Advisory change-closure candidates for planned interface/schema/DI work
+python3 scripts/plan-file-closure.py --repo . \
+  --seed core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/PlanHistoryRepository.kt \
+  --seed core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/PlanHistory.sq \
+  --seed core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/AcceptWeeklyPlanUseCase.kt \
+  --seed feature/logger/src/commonMain/kotlin/com/hydrafit/app/feature/logger/WorkoutLoggerUiState.kt
 ```
 
 `ktlintFormat` is the mechanical pre-pass: it rewrites imports and expression-body
@@ -416,8 +432,16 @@ python3 scripts/task-state.py --dir <external-state-dir> --task <id> init --repo
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> show
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> resume
 python3 scripts/task-state.py --dir <external-state-dir> --task <id> boundary --expect <revision> --require-evidence "host tests" --require-evidence "reviewer closure"
-python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json>
+python3 scripts/task-state.py --dir <external-state-dir> --task <id> update --expect <revision> --event <event.json> [--event <event.json> ...]
 ```
+
+Repeat `--event` to apply several ordered events in one update: they share one
+observed snapshot and one timestamp, `--expect` checks only the initial revision,
+and a single atomic replacement writes the combined record. Each event still
+increments the revision and appends its history entry. If any event is invalid or
+conflicts, nothing is written and the record stays byte-identical, so a
+`resolve` followed by a `checkpoint` either both apply or neither does; the
+checkpoint's own guards are not bypassed.
 
 The versioned record stores immutable contract and baseline, an explicitly
 acknowledged expected snapshot, phase, operation attempts (unique ids), evidence
@@ -479,13 +503,24 @@ Event JSON objects:
   helper cannot authenticate the approval reference.
 - `{"type":"phase","value":"verifying"}` records a phase (`planned`,
   `implementing`, `verifying`, `reviewing`, `correcting`, `ready`, `complete`,
-  `blocked`). This is a label, not a review verdict. Drift/pending outcomes or an
-  expired budget prevent advancing; recording `blocked` remains possible.
+  `blocked`). This is a label, not a review verdict. Drift, pending outcomes,
+  out-of-scope paths or an expired budget prevent advancing to an active phase;
+  recording `blocked` remains possible. Recording `complete` is bookkeeping rather
+  than new work: an expired budget alone does not prevent it, but identity
+  mismatch, drift, pending outcomes and out-of-scope paths still do. That check
+  covers identity, drift, pending outcomes and out-of-scope paths; it does not
+  reconcile evidence or require each acceptance check to be recorded. Evidence
+  remains operator-owned: inspect the referenced artifacts, and treat `boundary
+  --require-evidence` as the separate evidence gate. It records already-reconciled
+  work after expiry; it does not authorize more. `begin` and `boundary` continue to
+  stop on expiry.
 
 `resume` does not write. It reports expected/current drift, identity, pending ids
 as unknown outcomes, new out-of-scope dirty paths, the amended paths now in scope,
-`state_directory_temporary`, and original/effective budget and remaining seconds. Exit 2
-means reconciliation or a budget stop is needed; exit 0 is not authorization to
+`state_directory_temporary`, and original/effective budget and remaining seconds.
+It also reports `blockers` (identity, drift, pending ids, out-of-scope paths and
+budget exhaustion) and `completion_blockers` (the same without the budget stop).
+Exit 2 means reconciliation or a budget stop is needed; exit 0 is not authorization to
 continue. Downtime consumes budget: wall-clock elapsed time and already-accounted
 usage are retained, without a reset option. A backward clock cannot reduce usage
 already persisted, but time lost before any update cannot be reconstructed; this

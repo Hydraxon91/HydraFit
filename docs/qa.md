@@ -3669,6 +3669,9 @@ Implemented on `feature/0.10.1-progression-policies` (base `45ac019d`) and verif
 release-integration boundaries. Independent review and the folded `v0.10.1` publication were still
 pending at this entry.
 
+**Release status (2026-10-19).** Published as `v0.10.1` (PR #34, merge `49d10003`, Release run
+`39244615752`); 0.10.2 is folded into this publication. The limits below remain.
+
 **What was built.** A `SlotProgressionPolicy` (rep range, load step, optional explicit bar/dumbbell
 identity) authored per routine slot and stored on `routineEntry`, `planHistoryEntry`,
 `activationEntry` and `occurrenceEntry`; additive migration `57.sqm` (schema 57→58, four nullable
@@ -3743,6 +3746,9 @@ code-inspected only.
 Implemented on the same branch and verified at the release-integration gate. Independent review and
 closure are recorded in `docs/review-0.10.2-snapshot.md`; the folded `v0.10.1` publication was still
 pending at this entry.
+
+**Release status (2026-10-19).** Published as part of `v0.10.1` (PR #34, merge `49d10003`, Release
+run `39244615752`). The limits below remain.
 
 **What was built.** A slot may carry an ordered `SlotSetTargets` — per-set reps or seconds, load kind,
 load and optional prescribed RIR, plus an **optional** `SetPrescriptionRecipeSnapshot` recorded only
@@ -3885,6 +3891,10 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   rule, before it was stopped; each attempt was read-only.
 
 ## 0.10.3 / 0.10.4 — supersets and effort/readiness disposition
+
+**Release status (2026-10-19).** Published as `v0.10.3` (PR #36, merge `13d50ee6`, Release run
+`39300575035`); 0.10.4 is folded into this publication.
+
 - **Verification (fresh, 2026-10-19).** `full-matrix-05.log`: 787 Gradle tasks executed, 0 inherited —
   `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
   `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
@@ -3910,6 +3920,8 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   the pairing action, dialog, Logger superset guidance and SplitBuilder toggle remain device-unverified.
   A pre-existing 0.10.2 layout defect was observed and deliberately left for later: the
   **Per-set targets** action label wraps to "Per-se t targets" in the slot action row.
+  Post-release hardening later passed pinned superset acceptance 32/32 on `emulator-5554`; the
+  remaining limits are recorded in the next section.
   This evidence section was appended with a shell heredoc rather than the edit tool; the content is
   accurate, but the write method did not follow the file-edit rule.
 
