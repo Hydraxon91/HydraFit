@@ -111,7 +111,7 @@ superset (`Barbell Curl` + `Dumbbell Triceps Overhead Extension`):
 | 3. Draft Apply edits without logging | **Pass** |
 | 4. Completed exercise collapses; removal re-expands | **Pass** |
 | 5. One superset control set + Skip moves the turn without logging | **Pass** |
-| 6. Per-implement load basis and withheld-load explanations | **Unverified** — no imported history, so no numeric estimate to label |
+| 6. Per-implement load basis and withheld-load explanations | **Pass** (after logging two dumbbell sets; see below) |
 
 Reported during check 5: neither paired member showed controls until every
 earlier prescribed set was complete. Traced to
