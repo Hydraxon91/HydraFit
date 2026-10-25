@@ -164,6 +164,8 @@ import hydrafit.feature.logger.generated.resources.logger_finish
 import hydrafit.feature.logger.generated.resources.logger_finish_partial
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_guided_all_done
+import hydrafit.feature.logger.generated.resources.logger_guided_collapse_sets
+import hydrafit.feature.logger.generated.resources.logger_guided_expand_sets
 import hydrafit.feature.logger.generated.resources.logger_guided_log_completed_now
 import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
 import hydrafit.feature.logger.generated.resources.logger_guided_set_started
@@ -465,6 +467,7 @@ fun WorkoutLoggerRoute(
         onSkipSupersetTurn = viewModel::skipSupersetTurn,
         onResumeSupersetTurn = viewModel::resumeSupersetTurn,
         onUnpairSuperset = viewModel::unpairSuperset,
+        onToggleGuidedExpanded = viewModel::toggleGuidedEntryExpanded,
         nextGuidedEntryId = state.nextGuidedEntryId,
         supersetSkippedEntryId = state.supersetSkippedEntryId,
         onRestDurationChanged = viewModel::onRestDurationChanged,
@@ -631,6 +634,7 @@ fun WorkoutLoggerScreen(
     onSkipSupersetTurn: (Long) -> Unit = {},
     onResumeSupersetTurn: () -> Unit = {},
     onUnpairSuperset: (Long) -> Unit = {},
+    onToggleGuidedExpanded: (Long) -> Unit = {},
     nextGuidedEntryId: Long? = null,
     supersetSkippedEntryId: Long? = null,
     onRestDurationChanged: (String) -> Unit,
@@ -1243,6 +1247,19 @@ fun WorkoutLoggerScreen(
                         onReplace = onReplaceOccurrenceEntry,
                         onInstructions = onGuidedInstructions,
                         onLoadingCalculator = onGuidedLoadingCalculator,
+                        expandedEntryIds = guided.exercises
+                            .filter(state::isGuidedEntryExpanded)
+                            .map { it.occurrenceEntryId }
+                            .toSet(),
+                        actionEntryIds = guided.exercises
+                            .filter(state::showsGuidedActions)
+                            .map { it.occurrenceEntryId }
+                            .toSet(),
+                        supersetControlEntryIds = guided.exercises
+                            .filter(state::showsSupersetControls)
+                            .map { it.occurrenceEntryId }
+                            .toSet(),
+                        onToggleExpanded = onToggleGuidedExpanded,
                         nextEntryId = nextGuidedEntryId,
                         skippedEntryId = supersetSkippedEntryId,
                         onSkipTurn = onSkipSupersetTurn,
@@ -2531,7 +2548,9 @@ private fun WarmupAction.labelResource(): StringResource = when (this) {
 
 /**
  * The ordered guided view of the active workout: each prescribed exercise with its frozen target
- * and recorded progress. One set is confirmed per action; the remaining sets stay pending.
+ * and recorded progress. One set is confirmed per action; the remaining sets stay pending. A
+ * completed exercise collapses to its summary until the user expands it, and a superset shows one
+ * control set on the member whose turn it is.
  */
 @Composable
 private fun GuidedWorkoutSection(
@@ -2556,6 +2575,10 @@ private fun GuidedWorkoutSection(
     onReplace: (Long) -> Unit,
     onInstructions: (Long) -> Unit,
     onLoadingCalculator: (GuidedExerciseProgress) -> Unit,
+    expandedEntryIds: Set<Long>,
+    actionEntryIds: Set<Long>,
+    supersetControlEntryIds: Set<Long>,
+    onToggleExpanded: (Long) -> Unit,
     nextEntryId: Long?,
     skippedEntryId: Long?,
     onSkipTurn: (Long) -> Unit,
@@ -2660,8 +2683,18 @@ private fun GuidedWorkoutSection(
                     text = stringResource(Res.string.logger_guided_all_done),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                guided.exercises.forEach { exercise ->
-                    Column {
+            }
+            guided.exercises.forEach { exercise ->
+                // A complete exercise collapses to its name and completion summary until the user
+                // expands it; unfinished work always keeps its rows visible.
+                val collapsed = exercise.isComplete &&
+                    exercise.occurrenceEntryId !in expandedEntryIds
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(exercise.exerciseName)
                         if (showsTechniqueConsiderations(exercise.exerciseId)) {
                             Text(
@@ -2677,38 +2710,23 @@ private fun GuidedWorkoutSection(
                         ) {
                             Text(stringResource(Res.string.logger_instructions))
                         }
-                        TargetExplanationDisclosure(
-                            key = exercise.occurrenceEntryId,
-                            explanation = exercise.explanation,
-                            weightUnit = weightUnit
+                        Text(
+                            text = stringResource(
+                                Res.string.logger_active_progress,
+                                exercise.performedWorkingSets.coerceAtMost(
+                                    exercise.prescribedSets
+                                ),
+                                exercise.prescribedSets
+                            ),
+                            style = MaterialTheme.typography.bodySmall
                         )
-                    }
-                }
-            } else {
-                guided.exercises.forEach { exercise ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(exercise.exerciseName)
-                            if (showsTechniqueConsiderations(exercise.exerciseId)) {
-                                Text(
-                                    text = stringResource(
-                                        Res.string.logger_technique_considerations
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
+                        if (collapsed) {
                             TextButton(
-                                onClick = { onInstructions(exercise.occurrenceEntryId) },
-                                modifier = Modifier.testTag(
-                                    LoggerTestTags.guidedInstructions(exercise.occurrenceEntryId)
-                                )
+                                onClick = { onToggleExpanded(exercise.occurrenceEntryId) }
                             ) {
-                                Text(stringResource(Res.string.logger_instructions))
+                                Text(stringResource(Res.string.logger_guided_expand_sets))
                             }
+                        } else {
                             // A slot that already holds recorded work, or the slot currently started,
                             // cannot be swapped: hide the action instead of offering a refused one.
                             if (exercise.occurrenceEntryId !in frozenEntryIds &&
@@ -2768,16 +2786,6 @@ private fun GuidedWorkoutSection(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
-                            Text(
-                                text = stringResource(
-                                    Res.string.logger_active_progress,
-                                    exercise.performedWorkingSets.coerceAtMost(
-                                        exercise.prescribedSets
-                                    ),
-                                    exercise.prescribedSets
-                                ),
-                                style = MaterialTheme.typography.bodySmall
-                            )
                             exercise.superset?.let { group ->
                                 Text(
                                     text = stringResource(
@@ -2793,68 +2801,90 @@ private fun GuidedWorkoutSection(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                Row {
-                                    if (skippedEntryId == exercise.occurrenceEntryId) {
-                                        TextButton(onClick = onResumeTurn) {
-                                            Text(
-                                                stringResource(
-                                                    Res.string.logger_superset_resume_turn
-                                                )
-                                            )
+                                if (exercise.occurrenceEntryId in supersetControlEntryIds) {
+                                    // The pair owns one control set. Resume appears here when any
+                                    // member is skipped, so it stays reachable from the active one.
+                                    val pairSkipped = skippedEntryId != null &&
+                                        guided.exercises.any {
+                                            it.occurrenceEntryId == skippedEntryId &&
+                                                it.superset?.key == group.key
                                         }
-                                    } else {
+                                    Row {
+                                        if (pairSkipped) {
+                                            TextButton(onClick = onResumeTurn) {
+                                                Text(
+                                                    stringResource(
+                                                        Res.string.logger_superset_resume_turn
+                                                    )
+                                                )
+                                            }
+                                        } else {
+                                            TextButton(
+                                                onClick = {
+                                                    onSkipTurn(exercise.occurrenceEntryId)
+                                                },
+                                                enabled = !writeInProgress
+                                            ) {
+                                                Text(
+                                                    stringResource(
+                                                        Res.string.logger_superset_skip_turn
+                                                    )
+                                                )
+                                            }
+                                        }
                                         TextButton(
-                                            onClick = { onSkipTurn(exercise.occurrenceEntryId) },
+                                            onClick = { onUnpair(exercise.occurrenceEntryId) },
                                             enabled = !writeInProgress
                                         ) {
-                                            Text(
-                                                stringResource(Res.string.logger_superset_skip_turn)
-                                            )
+                                            Text(stringResource(Res.string.logger_superset_unpair))
                                         }
-                                    }
-                                    TextButton(
-                                        onClick = { onUnpair(exercise.occurrenceEntryId) },
-                                        enabled = !writeInProgress
-                                    ) {
-                                        Text(stringResource(Res.string.logger_superset_unpair))
                                     }
                                 }
                             }
-                            TargetExplanationDisclosure(
-                                key = exercise.occurrenceEntryId,
-                                explanation = exercise.explanation,
-                                weightUnit = weightUnit
-                            )
+                            if (exercise.isComplete) {
+                                TextButton(
+                                    onClick = { onToggleExpanded(exercise.occurrenceEntryId) }
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_collapse_sets))
+                                }
+                            }
                         }
-                        if (!exercise.isComplete) {
-                            Column {
-                                val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
-                                TextButton(
-                                    onClick = { onStartSet(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress && !isStartedSlot
-                                ) {
-                                    Text(stringResource(Res.string.logger_guided_start_set))
-                                }
-                                TextButton(
-                                    // A live start owns the completion: an ordinary log is only
-                                    // available when no guided set is started.
-                                    onClick = { onLogSet(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress && startedSetEntryId == null
-                                ) {
-                                    Text(stringResource(Res.string.logger_log_button))
-                                }
-                                TextButton(
-                                    onClick = { onLogSetNow(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress && isStartedSlot
-                                ) {
-                                    Text(stringResource(Res.string.logger_guided_log_completed_now))
-                                }
-                                TextButton(
-                                    onClick = { onEditSet(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress
-                                ) {
-                                    Text(stringResource(Res.string.logger_draft_edit))
-                                }
+                        TargetExplanationDisclosure(
+                            key = exercise.occurrenceEntryId,
+                            explanation = exercise.explanation,
+                            weightUnit = weightUnit
+                        )
+                    }
+                    // Only the paired member whose turn it is gets set controls, so the same round
+                    // cannot be logged twice from the group. A single exercise keeps its controls.
+                    if (exercise.occurrenceEntryId in actionEntryIds) {
+                        Column {
+                            val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
+                            TextButton(
+                                onClick = { onStartSet(exercise.occurrenceEntryId) },
+                                enabled = !writeInProgress && !isStartedSlot
+                            ) {
+                                Text(stringResource(Res.string.logger_guided_start_set))
+                            }
+                            TextButton(
+                                // A live start owns the completion: an ordinary log is only
+                                // available when no guided set is started.
+                                onClick = { onLogSet(exercise.occurrenceEntryId) },
+                                enabled = !writeInProgress && startedSetEntryId == null
+                            ) {
+                                Text(stringResource(Res.string.logger_log_button))
+                            }
+                            TextButton(
+                                onClick = { onLogSetNow(exercise.occurrenceEntryId) },
+                                enabled = !writeInProgress && isStartedSlot
+                            ) {
+                                Text(stringResource(Res.string.logger_guided_log_completed_now))
+                            }
+                            TextButton(
+                                onClick = { onEditSet(exercise.occurrenceEntryId) },
+                                enabled = !writeInProgress
+                            ) {
+                                Text(stringResource(Res.string.logger_draft_edit))
                             }
                         }
                     }

@@ -248,6 +248,7 @@ class WorkoutLoggerViewModel(
                             confirmingAllDrafts = false,
                             draftWriteRetries = emptyList(),
                             guidedProgress = null,
+                            guidedExpandedEntries = emptyMap(),
                             appliedGuidedEdits = emptyMap(),
                             frozenEntryIds = emptySet(),
                             guidedSetWriteFailed = false,
@@ -1887,6 +1888,7 @@ class WorkoutLoggerViewModel(
                     appliedGuidedEdits = emptyMap(),
                     todayFocus = null,
                     guidedProgress = null,
+                    guidedExpandedEntries = emptyMap(),
                     frozenEntryIds = emptySet(),
                     guidedSetWriteFailed = false,
                     // A removed occurrence leaves the context a manual-set failure described, and the
@@ -1998,6 +2000,7 @@ class WorkoutLoggerViewModel(
         // Publish the occurrence only once its performed-set read has finished, so the guidance shown
         // and the occurrence a ramp write resolves against can never describe different prescriptions.
         currentOccurrence = occurrence
+        val progress = buildGuidedWorkoutProgress(occurrence, performed)
         _state.update {
             it.copy(
                 activeOccurrence = ActiveOccurrence(
@@ -2021,7 +2024,6 @@ class WorkoutLoggerViewModel(
                     sameOccurrence &&
                     displayDrafts.isNotEmpty(),
                 todayFocus = workout?.focus,
-                guidedProgress = buildGuidedWorkoutProgress(occurrence, performed),
                 frozenEntryIds = frozenEntryIds,
                 warmupGuidance = nextGuidance,
                 // Readiness and guidance share the snapshot and publication: a superseded refresh
@@ -2055,7 +2057,7 @@ class WorkoutLoggerViewModel(
                 // stored prescription: switching occurrence forgets both.
                 supersetSkippedEntryId = it.supersetSkippedEntryId.takeIf { sameOccurrence },
                 supersetUnpairedKeys = if (sameOccurrence) it.supersetUnpairedKeys else emptySet()
-            )
+            ).withGuidedProgress(progress, sameOccurrence)
         }
         warmupGuidancePublishedGeneration = generation
     }
@@ -2375,6 +2377,17 @@ class WorkoutLoggerViewModel(
         val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
         editDraft(draft)
+    }
+
+    /**
+     * Expands or collapses a completed guided exercise. Only a complete exercise collapses, so an
+     * unfinished one ignores this; the expansion is session-local and lasts for the recorded
+     * completion it was made against.
+     */
+    fun toggleGuidedEntryExpanded(occurrenceEntryId: Long) {
+        val entry = _state.value.guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == occurrenceEntryId } ?: return
+        _state.update { it.withGuidedExpansionToggled(entry) }
     }
 
     /**

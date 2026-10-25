@@ -111,6 +111,8 @@
     <string name="logger_guided_log_completed_now">Set completed now</string>
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
+    <string name="logger_guided_expand_sets">Show sets</string>
+    <string name="logger_guided_collapse_sets">Hide sets</string>
     <string name="logger_superset_pair_note">Superset: alternate with the paired exercise. Transition %1$d s, pair rest %2$d s.</string>
     <string name="logger_superset_next">Next in this superset</string>
     <string name="logger_superset_skip_turn">Skip turn</string>
