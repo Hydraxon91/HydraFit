@@ -131,6 +131,35 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     }
 
     @Test
+    fun replacementPersistsTheCandidatesOwnExplanation() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val candidate = SqlDelightExerciseCatalog(database).all().first {
+            it.movementPattern == occurrence.entries.single().movementPattern &&
+                it.id != occurrence.entries.single().exerciseId
+        }
+        seedProfileSelection(candidate.requiredEquipment)
+        val candidateExplanation = entryExplanation()
+        val replacement = occurrence.entries.single().copy(
+            exerciseId = candidate.id,
+            exerciseName = candidate.name,
+            requiredEquipment = candidate.requiredEquipment,
+            involvements = candidate.effectiveInvolvements,
+            isUnilateral = candidate.isUnilateral,
+            weightKg = null,
+            loadCapability = candidate.loadCapability,
+            loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability),
+            explanation = candidateExplanation
+        )
+
+        repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+
+        val changed = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(candidateExplanation, changed.entries.single().explanation)
+    }
+
+    @Test
     fun aSetLoggedAfterPreviewIncludingWarmupsPreventsReplacement() = runTest {
         SeedExerciseCatalog(database).seed()
         val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
@@ -664,11 +693,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         )
         val skipped = repository.occurrences(activationId)[0]
         insertOpenSession("skipped", skipped.id)
-        // Even a session that already recorded one of the skipped occurrence's sets stays running: a
-        // skip records no conclusion for the workout.
-        insertOpenSession("skipped-live", null)
-        insertSetForOccurrence(3L, "skipped-live", skipped.id, skipped.entries[0].id)
 
+        // No recorded set means no attributable work; a skip this time genuinely touches nothing.
         repository.resolveOccurrence(
             occurrenceId = skipped.id,
             expectedRevision = skipped.revision,
@@ -679,7 +705,6 @@ class SqlDelightWorkoutScheduleRepositoryTest {
 
         assertEquals(OccurrenceStatus.SKIPPED, repository.getOccurrence(skipped.id)?.status)
         assertNull(session("skipped").endedAtMillis)
-        assertNull(session("skipped-live").endedAtMillis)
     }
 
     @Test

@@ -12,6 +12,11 @@
     <string name="logger_rir_label">RIR (optional)</string>
     <string name="logger_rir_explanation">Reps in reserve: how many more reps you think you could complete with similar technique and range of motion. Leave blank if unsure.</string>
     <string name="logger_per_hand">Per hand</string>
+    <string name="logger_load_basis">%1$s · %2$s</string>
+    <string name="logger_load_basis_per_hand">per hand</string>
+    <string name="logger_load_basis_per_dumbbell">per dumbbell</string>
+    <string name="logger_no_load_inventory">No saved bar or dumbbell can make a load at or below this target.</string>
+    <string name="logger_no_load_history">Not enough recent workout history for an automatic weight.</string>
     <string name="logger_warmup">Warm-up set</string>
     <string name="logger_log_button">Log set</string>
     <string name="logger_today">Today: %1$s</string>

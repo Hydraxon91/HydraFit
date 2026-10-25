@@ -186,6 +186,10 @@
     <string name="weekday_saturday">Sat</string>
     <string name="weekday_sunday">Sun</string>
 
+    <string name="split_load_inventory_rounded">Weights are rounded down to loads your saved bars and dumbbells can make.</string>
+    <string name="split_load_inventory_estimate">Some weights use a standard estimate: save a matching bar or dumbbell in your equipment profile to round them to real loads.</string>
+    <string name="split_load_inventory_unreachable">Some weights are left blank because your saved bars and dumbbells cannot make a load at or below the target.</string>
+    <string name="split_load_inventory_insufficient">Some weights are left blank because there is not enough recent workout history yet.</string>
     <string name="split_plan_export">Export plan</string>
     <string name="split_plan_export_print">Print / save PDF</string>
     <string name="split_plan_export_weights">Include prescribed weights</string>

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 
@@ -25,6 +26,13 @@ data class PlanRequest(
     val recentWeightCaps: Map<String, Double> = emptyMap(),
     val withheldWeightExerciseIds: Set<String> = emptySet(),
     /**
+     * Progressed manual PR floors from records below [BuildPlannerLoadInputsUseCase]'s rep-range
+     * threshold. They supply a floor only for a short prescription (fewer than three reps) and are
+     * reference-only for a rep-range prescription. Missing evidence stays represented by
+     * [withheldWeightExerciseIds].
+     */
+    val lowRepManualFloorsKg: Map<String, Double> = emptyMap(),
+    /**
      * Explicit user preference per exercise id, used only as a soft ordering tier among candidates
      * that already passed the equipment, EX-01, soreness and coverage gates. Absence means
      * [ExercisePreference.NEUTRAL]. It never makes an exercise required and never excludes one.
@@ -38,6 +46,12 @@ data class PlanRequest(
     val excludedExerciseIds: Set<String> = emptySet(),
     /** Heaviest weight each piece of equipment can provide; equipment absent here is unlimited. */
     val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+    /**
+     * The active profile's saved bars, plates and dumbbells, used to round an automatic working
+     * load down onto a real reachable value. Null or an empty inventory keeps the generic increment
+     * rounding; machines are not represented here.
+     */
+    val loadingInventory: LoadingInventory? = null,
     val includeWorkoutData: Boolean = false,
     val recentWeights: List<WeightHistoryEntry> = emptyList(),
     val weekNumber: Int = 1,

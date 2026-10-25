@@ -49,17 +49,36 @@ class WeeklyPlanSanitizer(
                     // resistance keeps one. A bodyweight or added-load exercise is sanitized to a
                     // typed no-number prescription without discarding the selection.
                     val allowed = WorkoutLoadPolicy.allowsAutomaticLoad(capability)
+                    val lowRepFloor = if (allowed &&
+                        reps < BuildPlannerLoadInputsUseCase.MIN_MANUAL_PR_REPS_FOR_FLOOR
+                    ) {
+                        request.lowRepManualFloorsKg[exercise.id]
+                    } else {
+                        null
+                    }
+                    // A low-rep PR supplies evidence for a short prescription, so it lifts the
+                    // evidence gate only there; it never becomes a rep-range prescription's floor.
+                    val withheldForEvidence = exercise.id in request.withheldWeightExerciseIds &&
+                        lowRepFloor == null
                     val proposed = planned.suggestedWeightKg
                         ?.takeIf {
                             request.includeWorkoutData &&
-                                exercise.id !in request.withheldWeightExerciseIds &&
+                                !withheldForEvidence &&
                                 it > 0.0 &&
                                 it <= MAX_SUGGESTED_WEIGHT_KG
                         }
                         ?.let { weight -> weight * intensityScale }
-                    val bound = request.recentWeightCaps[exercise.id]?.let {
-                        weightConfig.workingWeightFor(it, reps, intensityScale)
+                    val progressedCap = request.recentWeightCaps[exercise.id]
+                    val effectiveOneRepMax = when {
+                        !allowed -> null
+                        lowRepFloor != null &&
+                            (progressedCap == null || lowRepFloor > progressedCap) -> lowRepFloor
+                        else -> progressedCap
                     }
+                    val rawBound = effectiveOneRepMax?.let {
+                        it * weightConfig.intensityForReps(reps) * intensityScale
+                    }
+                    val bound = rawBound?.let(weightConfig::roundToIncrement)
                     val ceiling = EquipmentWeightLimit.ceilingFor(
                         exercise,
                         request.equipmentMaxWeights
@@ -71,8 +90,35 @@ class WeeklyPlanSanitizer(
                     } else {
                         minOf(proposed, bound)
                     }
+                    // Inventory parity needs the raw bound: re-rounding an already-rounded value
+                    // could keep 27.5 kg on a grid whose reachable load is 25 kg.
+                    val rawUncapped = if (proposed == null) {
+                        null
+                    } else if (rawBound == null) {
+                        proposed
+                    } else {
+                        minOf(proposed, rawBound)
+                    }
+                    // A saved implement re-rounds the accepted bound down onto a real load; without
+                    // one the model's own value keeps its existing treatment.
                     val suggestedWeightKg = if (allowed) {
-                        uncapped?.let { EquipmentWeightLimit.clamp(it, ceiling) }
+                        rawUncapped?.let { bound ->
+                            when (
+                                val resolution = resolveInventoryLoad(
+                                    inventory = request.loadingInventory,
+                                    equipmentId = null,
+                                    requiredEquipment = exercise.requiredEquipment,
+                                    boundKg = bound,
+                                    ceilingKg = ceiling
+                                )
+                            ) {
+                                InventoryLoadResolution.NoApplicableInventory ->
+                                    uncapped?.let { EquipmentWeightLimit.clamp(it, ceiling) }
+
+                                is InventoryLoadResolution.Reachable -> resolution.weightKg
+                                InventoryLoadResolution.NoReachableLoad -> null
+                            }
+                        }
                     } else {
                         null
                     }
@@ -85,7 +131,7 @@ class WeeklyPlanSanitizer(
                     val unavailableReason = when {
                         !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
                         !request.includeWorkoutData -> LoadUnavailableReason.AI_DATA_NOT_SHARED
-                        exercise.id in request.withheldWeightExerciseIds ->
+                        exercise.id in request.withheldWeightExerciseIds && lowRepFloor == null ->
                             LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
                         planned.suggestedWeightKg == null ->
                             LoadUnavailableReason.AI_PROPOSAL_OMITTED
@@ -99,16 +145,35 @@ class WeeklyPlanSanitizer(
                     }
                     // The app's own ordered-prescription stage runs after the model's numbers are
                     // settled, so every engine reaches the same shape and a model cannot bypass it.
+                    // A manual low-rep PR can supply the short targets even when the slot-level
+                    // bound is absent; each target's eligibility is decided by its own reps.
+                    val orderedFloor = if (allowed) {
+                        request.lowRepManualFloorsKg[exercise.id]
+                    } else {
+                        null
+                    }
+                    val orderedGenerationBound = effectiveOneRepMax ?: orderedFloor
                     val setTargets = request.automaticSetPrescription?.let { automatic ->
-                        applySetPrescription(
-                            AutomaticSetPrescriptionRequest(
-                                automatic = automatic,
-                                sets = sets,
-                                reps = reps,
-                                loadKind = slotKind,
-                                estimatedOneRepMaxKg = request.recentWeightCaps[exercise.id],
-                                intensityScale = intensityScale
-                            )
+                        roundOrderedTargetsToInventory(
+                            targets = applySetPrescription(
+                                AutomaticSetPrescriptionRequest(
+                                    automatic = automatic,
+                                    sets = sets,
+                                    reps = reps,
+                                    loadKind = slotKind,
+                                    estimatedOneRepMaxKg = orderedGenerationBound,
+                                    intensityScale = intensityScale
+                                )
+                            ),
+                            inventory = request.loadingInventory,
+                            equipmentId = null,
+                            requiredEquipment = exercise.requiredEquipment,
+                            estimatedOneRepMaxKg = progressedCap ?: 0.0,
+                            intensityScale = intensityScale,
+                            ceilingKg = ceiling,
+                            weightConfig = weightConfig,
+                            lowRepOneRepMaxKg = orderedFloor,
+                            generatedFromOneRepMaxKg = orderedGenerationBound
                         )
                     }
                     PlannedExercise(

@@ -345,10 +345,16 @@ class BuildPlannerLoadInputsUseCaseTest {
             nowMillis = NOW_MILLIS
         )
 
-        // The stored record is untouched but is not usable evidence for the automatic baseline.
+        // The stored record is untouched and still cannot seed a rep-range baseline, but it is
+        // carried as the floor a short (1–2 rep) prescription may use.
         assertTrue("bench-press" in result.withheldWeightExerciseIds)
         assertTrue("bench-press" !in result.suggestedWeightsKg)
         assertTrue("bench-press" !in result.loadExplanations)
+        assertEquals(
+            OneRepMax.estimate(140.0, 2),
+            result.lowRepManualFloorsKg.getValue("bench-press"),
+            1e-9
+        )
     }
 
     @Test

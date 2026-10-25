@@ -149,7 +149,9 @@ internal fun replacementOccurrenceEntry(
         request = request,
         equipmentCeilingKg = ceiling,
         intensityScale = intensityScale,
-        weightConfig = weights
+        weightConfig = weights,
+        requiredEquipment = candidate.requiredEquipment,
+        equipmentId = original.progressionPolicy?.equipmentId
     )
     return original.copy(
         exerciseId = candidate.id,
@@ -161,8 +163,9 @@ internal fun replacementOccurrenceEntry(
         weightKg = load.weightKg,
         loadCapability = candidate.loadCapability,
         loadKind = load.loadKind,
-        // A replacement never inherits the replaced exercise's recorded reasoning.
-        explanation = null,
+        // The candidate's own conversion reasoning replaces the old slot's; the replaced exercise's
+        // reasons are never inherited.
+        explanation = load.explanation,
         setTargets = recalculatedOrderedTargets(
             targets = original.setTargets,
             capability = candidate.loadCapability,
@@ -170,7 +173,9 @@ internal fun replacementOccurrenceEntry(
             request = request,
             equipmentCeilingKg = ceiling,
             intensityScale = intensityScale,
-            weightConfig = weights
+            weightConfig = weights,
+            requiredEquipment = candidate.requiredEquipment,
+            equipmentId = original.progressionPolicy?.equipmentId
         )
     )
 }

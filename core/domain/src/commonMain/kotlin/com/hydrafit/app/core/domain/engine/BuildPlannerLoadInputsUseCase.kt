@@ -14,7 +14,13 @@ data class PlannerLoadInputs(
     /** External-load exercises without sufficient evidence must not receive model-invented loads. */
     val withheldWeightExerciseIds: Set<String> = emptySet(),
     /** Recorded baseline/progression provenance per exercise id; never affects selection. */
-    val loadExplanations: Map<String, LoadOriginExplanation> = emptyMap()
+    val loadExplanations: Map<String, LoadOriginExplanation> = emptyMap(),
+    /**
+     * A manual PR of fewer than [MIN_MANUAL_PR_REPS_FOR_FLOOR] reps, progressed like the baseline.
+     * It is reference-only for rep-range prescriptions and only supplies a short prescription's
+     * floor, so it is kept apart from the baseline instead of being dropped.
+     */
+    val lowRepManualFloorsKg: Map<String, Double> = emptyMap()
 )
 
 /**
@@ -58,15 +64,24 @@ class BuildPlannerLoadInputsUseCase(
         val recentEstimates = recentQualifyingSets
             .filterValues { it.size >= MIN_RECENT_SETS }
             .mapValues { (_, group) -> sessionBalancedEstimate(group) }
-        val manualRecords = sources.personalRecords
+        val eligibleManualRecords = sources.personalRecords
             .filter { record ->
                 record.loadKind == LoadKind.EXTERNAL &&
                     contributesToLoadMath(record.exerciseId, record.loadKind) &&
                     record.weightKg.isFinite() &&
                     record.weightKg > 0.0 &&
-                    record.reps >= MIN_MANUAL_PR_REPS_FOR_FLOOR &&
                     weightConfig.hasUsableEstimate(record.reps)
             }
+        val manualRecords = eligibleManualRecords
+            .filter { it.reps >= MIN_MANUAL_PR_REPS_FOR_FLOOR }
+            .groupBy { it.exerciseId }
+            .mapValues { (_, records) ->
+                records.maxOf { OneRepMax.estimate(it.weightKg, it.reps) }
+            }
+        // A ≤2-rep PR stays reference-only for a 3+-rep prescription, but it is the floor a short
+        // prescription may legitimately use. It is carried separately instead of being dropped.
+        val lowRepManualRecords = eligibleManualRecords
+            .filter { it.reps < MIN_MANUAL_PR_REPS_FOR_FLOOR }
             .groupBy { it.exerciseId }
             .mapValues { (_, records) ->
                 records.maxOf { OneRepMax.estimate(it.weightKg, it.reps) }
@@ -119,6 +134,14 @@ class BuildPlannerLoadInputsUseCase(
         } else {
             emptyList()
         }
+        // The short-prescription floor follows the same progression rule as the baseline, so a
+        // low-rep PR and the rep-range prescription cannot disagree about earned increments.
+        val lowRepManualFloorsKg = progressWeights.resolve(
+            baseline = lowRepManualRecords,
+            history = sources.progressionHistory,
+            pauseIncrements = pauseIncrements,
+            nowMillis = nowMillis
+        ).mapValues { (_, value) -> value.progressedKg }
         // The progressed estimate is the same bound used by deterministic and model-backed engines.
         val recentWeightCaps = progressed
         val withheldWeightExerciseIds = externalExerciseIds - progressed.keys
@@ -127,7 +150,8 @@ class BuildPlannerLoadInputsUseCase(
             recentWeights = recentWeights,
             recentWeightCaps = recentWeightCaps,
             withheldWeightExerciseIds = withheldWeightExerciseIds,
-            loadExplanations = loadExplanations
+            loadExplanations = loadExplanations,
+            lowRepManualFloorsKg = lowRepManualFloorsKg
         )
     }
 

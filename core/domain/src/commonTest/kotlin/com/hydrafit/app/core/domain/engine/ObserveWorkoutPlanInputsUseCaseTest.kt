@@ -4,6 +4,8 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -56,6 +58,31 @@ class ObserveWorkoutPlanInputsUseCaseTest {
 
         assertEquals(TrainingGoal.STRENGTH, inputs.request.goal)
         assertEquals(TrainingGoal.STRENGTH.defaultSets, inputs.request.setsPerExercise)
+    }
+
+    @Test
+    fun passesTheSavedLoadingInventoryIntoThePlanRequest() = runTest {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(25_000))
+            )
+        )
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList(),
+                    loadingInventory = inventory
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        assertEquals(inventory, useCase().first().request.loadingInventory)
     }
 
     @Test

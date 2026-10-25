@@ -67,6 +67,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -179,6 +180,9 @@ import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_instructions
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
+import hydrafit.feature.logger.generated.resources.logger_load_basis
+import hydrafit.feature.logger.generated.resources.logger_load_basis_per_dumbbell
+import hydrafit.feature.logger.generated.resources.logger_load_basis_per_hand
 import hydrafit.feature.logger.generated.resources.logger_load_bodyweight
 import hydrafit.feature.logger.generated.resources.logger_load_confirm_body
 import hydrafit.feature.logger.generated.resources.logger_load_confirm_title
@@ -191,6 +195,8 @@ import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_log_failed
 import hydrafit.feature.logger.generated.resources.logger_log_refresh_failed
 import hydrafit.feature.logger.generated.resources.logger_new_session
+import hydrafit.feature.logger.generated.resources.logger_no_load_history
+import hydrafit.feature.logger.generated.resources.logger_no_load_inventory
 import hydrafit.feature.logger.generated.resources.logger_note_clear
 import hydrafit.feature.logger.generated.resources.logger_note_failed
 import hydrafit.feature.logger.generated.resources.logger_note_label
@@ -1228,6 +1234,7 @@ fun WorkoutLoggerScreen(
                     GuidedWorkoutSection(
                         guided = guided,
                         weightUnit = state.weightUnit,
+                        exerciseLoadBasis = state.exerciseLoadBasis,
                         writeFailed = state.guidedSetWriteFailed,
                         writeInProgress = state.draftWriteInProgress,
                         restTimer = state.restTimer,
@@ -1288,7 +1295,12 @@ fun WorkoutLoggerScreen(
                 }
             }
             items(state.draftSets) { draft ->
-                val weight = loadWeightText(draft.loadKind, draft.weightKg, state.weightUnit)
+                val weight = loadWeightText(
+                    draft.loadKind,
+                    draft.weightKg,
+                    state.weightUnit,
+                    state.exerciseLoadBasis[draft.exerciseId]
+                )
                 var expanded by remember(draft) { mutableStateOf(false) }
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1330,7 +1342,11 @@ fun WorkoutLoggerScreen(
                                 )
                             }
                             Text(
-                                text = setTargetsSummaryLine(targets, state.weightUnit),
+                                text = setTargetsSummaryLine(
+                                    targets,
+                                    state.weightUnit,
+                                    state.exerciseLoadBasis[draft.exerciseId]
+                                ),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -1653,7 +1669,9 @@ fun WorkoutLoggerScreen(
             val capability = edit.draft.loadCapability
             DraftEditDialog(
                 edit = edit,
-                weightUnit = state.weightUnit,
+                // The label follows the unit the editor captured, exactly as its parser does, so a
+                // preference change never relabels the same digits as another unit.
+                weightUnit = edit.weightUnit,
                 utcOffsetMillis = state.utcOffsetMillis,
                 nowMillis = nowMillis(),
                 canRevealWeight = capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE,
@@ -2015,12 +2033,16 @@ private fun TargetExplanationReason.labelResource(): StringResource = when (this
  * the draft the screen already renders; a prescribed target is never written back as actual effort.
  */
 @Composable
-private fun setTargetsSummaryLine(targets: SlotSetTargets, unit: WeightUnit): String {
+private fun setTargetsSummaryLine(
+    targets: SlotSetTargets,
+    unit: WeightUnit,
+    basis: LoadBasis? = null
+): String {
     val list = targets.targets
     val parts = mutableListOf<String>()
     for (index in list.indices) {
         val target = list[index]
-        val load = loadWeightText(target.loadKind, target.weightKg, unit)
+        val load = loadWeightText(target.loadKind, target.weightKg, unit, basis)
         val rir = target.targetRir
         parts.add(
             if (rir == null) {
@@ -2046,26 +2068,72 @@ private fun setTargetsSummaryLine(targets: SlotSetTargets, unit: WeightUnit): St
 
 /** Renders a recorded weight with honest load semantics (external vs added vs bodyweight vs legacy). */
 @Composable
-internal fun loadWeightText(loadKind: LoadKind, weightKg: Double?, unit: WeightUnit): String =
-    when (val display = loadDisplayFor(loadKind, weightKg)) {
-        LoadDisplay.None -> stringResource(Res.string.logger_weight_none)
-        is LoadDisplay.External ->
-            formatWeight(unit.kilogramsToDisplay(display.weightKg)) + " " + unit.label
-        is LoadDisplay.Added -> display.weightKg?.let {
-            stringResource(
-                Res.string.logger_load_added,
-                formatWeight(unit.kilogramsToDisplay(it)),
-                unit.label
-            )
-        } ?: stringResource(Res.string.logger_load_added_none)
-        LoadDisplay.Bodyweight -> stringResource(Res.string.logger_load_bodyweight)
-        is LoadDisplay.LegacyUnconfirmed -> display.weightKg?.let {
-            stringResource(
-                Res.string.logger_load_legacy,
-                formatWeight(unit.kilogramsToDisplay(it)),
-                unit.label
-            )
-        } ?: stringResource(Res.string.logger_weight_none)
+internal fun loadWeightText(
+    loadKind: LoadKind,
+    weightKg: Double?,
+    unit: WeightUnit,
+    basis: LoadBasis? = null
+): String = when (val display = loadDisplayFor(loadKind, weightKg)) {
+    LoadDisplay.None -> stringResource(Res.string.logger_weight_none)
+    is LoadDisplay.External -> {
+        val weight = formatWeight(unit.kilogramsToDisplay(display.weightKg)) + " " + unit.label
+        basis?.let { label ->
+            stringResource(Res.string.logger_load_basis, weight, basisLabel(label))
+        } ?: weight
+    }
+    is LoadDisplay.Added -> display.weightKg?.let {
+        stringResource(
+            Res.string.logger_load_added,
+            formatWeight(unit.kilogramsToDisplay(it)),
+            unit.label
+        )
+    } ?: stringResource(Res.string.logger_load_added_none)
+    LoadDisplay.Bodyweight -> stringResource(Res.string.logger_load_bodyweight)
+    is LoadDisplay.LegacyUnconfirmed -> display.weightKg?.let {
+        stringResource(
+            Res.string.logger_load_legacy,
+            formatWeight(unit.kilogramsToDisplay(it)),
+            unit.label
+        )
+    } ?: stringResource(Res.string.logger_weight_none)
+}
+
+@Composable
+private fun basisLabel(basis: LoadBasis): String = stringResource(
+    when (basis) {
+        LoadBasis.PER_HAND -> Res.string.logger_load_basis_per_hand
+        LoadBasis.PER_DUMBBELL -> Res.string.logger_load_basis_per_dumbbell
+    }
+)
+
+/**
+ * The known reason a numeric target is absent, or null when the recorded explanation does not
+ * distinguish one. Absence alone never becomes a claim about inventory or history.
+ */
+internal enum class NoLoadReason { INVENTORY, INSUFFICIENT_HISTORY }
+
+/**
+ * Classifies [explanation] for the missing-load line. A converted working number and a sanitized
+ * AI number that was accepted and then withheld by the saved implement are both the inventory's
+ * limit; missing history stays its own reason, and everything else stays silent.
+ */
+internal fun noLoadReason(explanation: ExerciseTargetExplanation?): NoLoadReason? = when {
+    explanation == null -> null
+    explanation.unavailableReason == LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE ->
+        NoLoadReason.INSUFFICIENT_HISTORY
+
+    explanation.conversion != null || explanation.aiAdjustment?.proposedAccepted == true ->
+        NoLoadReason.INVENTORY
+
+    else -> null
+}
+
+@Composable
+internal fun noLoadReasonText(explanation: ExerciseTargetExplanation?): String? =
+    when (noLoadReason(explanation)) {
+        NoLoadReason.INVENTORY -> stringResource(Res.string.logger_no_load_inventory)
+        NoLoadReason.INSUFFICIENT_HISTORY -> stringResource(Res.string.logger_no_load_history)
+        null -> null
     }
 
 @Composable
@@ -2556,6 +2624,7 @@ private fun WarmupAction.labelResource(): StringResource = when (this) {
 private fun GuidedWorkoutSection(
     guided: GuidedWorkoutProgress,
     weightUnit: WeightUnit,
+    exerciseLoadBasis: Map<String, LoadBasis>,
     writeFailed: Boolean,
     writeInProgress: Boolean,
     restTimer: RestTimerState?,
@@ -2740,30 +2809,38 @@ private fun GuidedWorkoutSection(
                                 }
                             }
                             val targetSeconds = exercise.durationSeconds
+                            val loadText = loadWeightText(
+                                exercise.loadKind,
+                                exercise.weightKg,
+                                weightUnit,
+                                exerciseLoadBasis[exercise.exerciseId]
+                            )
                             Text(
                                 text = if (targetSeconds != null) {
                                     stringResource(
                                         Res.string.logger_guided_target_timed,
                                         targetSeconds,
-                                        loadWeightText(
-                                            exercise.loadKind,
-                                            exercise.weightKg,
-                                            weightUnit
-                                        )
+                                        loadText
                                     )
                                 } else {
                                     stringResource(
                                         Res.string.logger_guided_target,
                                         exercise.reps ?: 0,
-                                        loadWeightText(
-                                            exercise.loadKind,
-                                            exercise.weightKg,
-                                            weightUnit
-                                        )
+                                        loadText
                                     )
                                 },
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            if (exercise.loadKind == LoadKind.EXTERNAL &&
+                                exercise.weightKg == null
+                            ) {
+                                noLoadReasonText(exercise.explanation)?.let { reason ->
+                                    Text(
+                                        text = reason,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
                             if (loggerLoadingTargetEligible(exercise.loadKind, exercise.weightKg)) {
                                 TextButton(
                                     onClick = { onLoadingCalculator(exercise) },

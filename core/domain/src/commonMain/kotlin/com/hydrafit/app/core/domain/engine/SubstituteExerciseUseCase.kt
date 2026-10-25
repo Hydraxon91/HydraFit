@@ -18,7 +18,12 @@ data class SwapCandidate(
     /** True when the candidate requires dumbbells, so a numeric load is per implement. */
     val requiresDumbbell: Boolean = false,
     /** True for one-side-at-a-time work, whose dumbbell load is per hand. */
-    val isUnilateral: Boolean = false
+    val isUnilateral: Boolean = false,
+    /**
+     * Why this candidate's own numeric target is present, uses the generic estimate, or is absent.
+     * Derived from the candidate's prescription and the request's inventory; null means unknown.
+     */
+    val loadInventoryOutcome: LoadInventoryOutcome? = null
 )
 
 /**
@@ -57,7 +62,16 @@ class SubstituteExerciseUseCase(
                 suggestedWeightKg = load.weightKg,
                 loadKind = load.loadKind,
                 requiresDumbbell = EquipmentTag.DUMBBELL in candidate.requiredEquipment,
-                isUnilateral = candidate.isUnilateral
+                isUnilateral = candidate.isUnilateral,
+                loadInventoryOutcome = loadInventoryOutcome(
+                    suggestedWeightKg = load.weightKg,
+                    unavailableReason = load.explanation.unavailableReason,
+                    hasConvertedWorkingLoad = load.explanation.conversion != null,
+                    applicableInventory = hasApplicableLoadingInventory(
+                        request.loadingInventory,
+                        candidate.requiredEquipment
+                    )
+                )
             )
         }
     }
@@ -96,7 +110,9 @@ class SubstituteExerciseUseCase(
                 request.equipmentMaxWeights
             ),
             intensityScale = intensityScale(plan),
-            weightConfig = weightConfig
+            weightConfig = weightConfig,
+            requiredEquipment = chosen.requiredEquipment,
+            equipmentId = context.entry.progressionPolicy?.equipmentId
         )
         planHistory.substituteWithProvenance(
             planId = plan.id,
@@ -241,7 +257,9 @@ class SubstituteExerciseUseCase(
             request.equipmentMaxWeights
         ),
         intensityScale = intensityScale(plan),
-        weightConfig = weightConfig
+        weightConfig = weightConfig,
+        requiredEquipment = candidate.requiredEquipment,
+        equipmentId = entry.progressionPolicy?.equipmentId
     )
 
     /**

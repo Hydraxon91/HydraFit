@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -76,7 +77,9 @@ class DeterministicWorkoutPlannerEngine(
                     request.suggestedWeightsKg,
                     request.recentWeightCaps,
                     request.withheldWeightExerciseIds,
+                    request.lowRepManualFloorsKg,
                     request.equipmentMaxWeights,
+                    request.loadingInventory,
                     request.exercisePreferences,
                     request.loadExplanations,
                     skippedForSoreness,
@@ -129,7 +132,9 @@ class DeterministicWorkoutPlannerEngine(
         suggestedWeightsKg: Map<String, Double>,
         recentWeightCaps: Map<String, Double>,
         withheldWeightExerciseIds: Set<String>,
+        lowRepManualFloorsKg: Map<String, Double>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
+        loadingInventory: LoadingInventory?,
         exercisePreferences: Map<String, ExercisePreference>,
         loadExplanations: Map<String, LoadOriginExplanation>,
         skippedForSoreness: MutableSet<String>,
@@ -165,7 +170,9 @@ class DeterministicWorkoutPlannerEngine(
                 suggestedWeightsKg,
                 recentWeightCaps,
                 withheldWeightExerciseIds,
+                lowRepManualFloorsKg,
                 equipmentMaxWeights,
+                loadingInventory,
                 loadExplanations,
                 isDeload,
                 automaticSetPrescription
@@ -290,7 +297,9 @@ class DeterministicWorkoutPlannerEngine(
         suggestedWeightsKg: Map<String, Double>,
         recentWeightCaps: Map<String, Double>,
         withheldWeightExerciseIds: Set<String>,
+        lowRepManualFloorsKg: Map<String, Double>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
+        loadingInventory: LoadingInventory?,
         loadExplanations: Map<String, LoadOriginExplanation>,
         isDeload: Boolean,
         automaticSetPrescription: AutomaticSetPrescription? = null
@@ -312,7 +321,7 @@ class DeterministicWorkoutPlannerEngine(
         // exists for its id.
         val allowed = WorkoutLoadPolicy.allowsAutomaticLoad(capability)
         val withheld = candidate.id in withheldWeightExerciseIds
-        val oneRepMax = if (allowed && !withheld) {
+        val progressedBaseline = if (allowed && !withheld) {
             suggestedWeightsKg[candidate.id]?.let { suggestedOneRepMax ->
                 recentWeightCaps[candidate.id]?.let { minOf(suggestedOneRepMax, it) }
                     ?: suggestedOneRepMax
@@ -320,26 +329,76 @@ class DeterministicWorkoutPlannerEngine(
         } else {
             null
         }
+        val lowRepFloor = if (allowed &&
+            reps < BuildPlannerLoadInputsUseCase
+                .MIN_MANUAL_PR_REPS_FOR_FLOOR
+        ) {
+            lowRepManualFloorsKg[candidate.id]
+        } else {
+            null
+        }
+        val oneRepMax = if (allowed) {
+            oneRepMaxBoundForReps(reps, progressedBaseline, lowRepFloor)
+        } else {
+            null
+        }
         val ceiling = EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
-        val working = oneRepMax?.let { weightConfig.workingWeightFor(it, reps, scale) }
-        val suggestedWeightKg = working?.let { EquipmentWeightLimit.clamp(it, ceiling) }
+        // The conversion is recorded at the generic increment, while reachability is resolved from
+        // the unrounded working bound so an inventory load can never land above it.
+        val unroundedWorking = oneRepMax?.let {
+            it * weightConfig.intensityForReps(reps) * scale
+        }
+        val working = unroundedWorking?.let(weightConfig::roundToIncrement)
+        val suggestedWeightKg = unroundedWorking?.let { bound ->
+            when (
+                val resolution = resolveInventoryLoad(
+                    inventory = loadingInventory,
+                    equipmentId = null,
+                    requiredEquipment = candidate.requiredEquipment,
+                    boundKg = bound,
+                    ceilingKg = ceiling
+                )
+            ) {
+                InventoryLoadResolution.NoApplicableInventory ->
+                    working?.let { EquipmentWeightLimit.clamp(it, ceiling) }
+
+                is InventoryLoadResolution.Reachable -> resolution.weightKg
+                InventoryLoadResolution.NoReachableLoad -> null
+            }
+        }
         val slotKind = if (suggestedWeightKg != null) {
             LoadKind.EXTERNAL
         } else {
             WorkoutLoadPolicy.defaultKind(capability)
         }
         // The app's own ordered-prescription stage, shared with the sanitizer so both engines reach
-        // the same shape from the same conversion.
+        // the same shape from the same conversion. A slot-level bound may be absent while a manual
+        // low-rep PR still legitimately supplies the short targets of a mixed prescription.
+        val orderedFloor = if (allowed) lowRepManualFloorsKg[candidate.id] else null
+        val orderedGenerationBound = oneRepMax ?: orderedFloor
         val setTargets = automaticSetPrescription?.let { automatic ->
-            applySetPrescription(
-                AutomaticSetPrescriptionRequest(
-                    automatic = automatic,
-                    sets = sets,
-                    reps = reps,
-                    loadKind = slotKind,
-                    estimatedOneRepMaxKg = oneRepMax,
-                    intensityScale = scale
-                )
+            roundOrderedTargetsToInventory(
+                targets = applySetPrescription(
+                    AutomaticSetPrescriptionRequest(
+                        automatic = automatic,
+                        sets = sets,
+                        reps = reps,
+                        loadKind = slotKind,
+                        estimatedOneRepMaxKg = orderedGenerationBound,
+                        intensityScale = scale
+                    )
+                ),
+                inventory = loadingInventory,
+                equipmentId = null,
+                requiredEquipment = candidate.requiredEquipment,
+                estimatedOneRepMaxKg = progressedBaseline ?: 0.0,
+                intensityScale = scale,
+                ceilingKg = ceiling,
+                weightConfig = weightConfig,
+                // The raw floor is passed and gated per ordered target's own reps. The slot-level
+                // floor above describes only the scalar rep count and must not hide a short target.
+                lowRepOneRepMaxKg = orderedFloor,
+                generatedFromOneRepMaxKg = orderedGenerationBound
             )
         }
         return PlannedExercise(

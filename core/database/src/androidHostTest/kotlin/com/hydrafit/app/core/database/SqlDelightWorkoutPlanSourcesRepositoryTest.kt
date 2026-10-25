@@ -7,6 +7,9 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.LoadingBar
+import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -298,5 +301,49 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
             listOf(ExerciseExclusion("barbell-row")),
             result.exerciseExclusions
         )
+    }
+
+    @Test
+    fun theActiveEquipmentProfilesLoadingInventoryReachesThePlanSources() = runTest {
+        SeedEquipmentCatalog(database).seed()
+        val profiles = SqlDelightEquipmentProfileRepository(database)
+        val sources = SqlDelightWorkoutPlanSourcesRepository(
+            profiles,
+            SqlDelightEnginePreferenceRepository(database),
+            SqlDelightWorkoutLogRepository(database),
+            SqlDelightTrainingGoalRepository(database),
+            SqlDelightPersonalRecordRepository(database, TimeProvider { 0L }),
+            SqlDelightExercisePreferenceRepository(database),
+            SqlDelightExerciseExclusionRepository(database),
+            database
+        )
+        val saved = LoadingInventory(
+            bars = listOf(
+                LoadingBar(id = "bar", name = "Bar", weightTicks = 20_000, collarTicks = 0)
+            ),
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(20_000, 25_000, 30_000)
+                )
+            )
+        )
+        profiles.saveLoadingInventory(profiles.current().context, saved)
+        assertEquals(saved, sources.observe().first().loadingInventory)
+
+        // Rewriting the active profile's inventory is what the sources observe next.
+        val changed = saved.copy(
+            dumbbells = listOf(
+                LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(35_000))
+            )
+        )
+        profiles.saveLoadingInventory(profiles.current().context, changed)
+        assertEquals(changed, sources.observe().first().loadingInventory)
+
+        // A different active profile reports its own inventory, not the previous profile's.
+        val secondId = profiles.create("Home")
+        profiles.activate(profiles.current().context, secondId)
+        assertEquals(LoadingInventory(), sources.observe().first().loadingInventory)
     }
 }

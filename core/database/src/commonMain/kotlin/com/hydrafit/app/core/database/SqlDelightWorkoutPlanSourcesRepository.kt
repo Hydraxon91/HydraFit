@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.engine.ProgressionHistory
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -53,6 +54,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 progressionHistory = progression,
                 sharingEnabled = enabled,
                 equipmentMaxWeights = inventory.active.maxWeightsKg,
+                loadingInventory = inventory.active.loadingInventory,
                 selectedEquipment = inventory.active.selected,
                 equipmentContext = "${inventory.context.profileId}:${inventory.context.revision}",
                 personalRecords = records
@@ -80,6 +82,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 loggedWorkoutSets = context.loggedWorkoutSets,
                 workoutDataSharingEnabled = context.sharingEnabled,
                 equipmentMaxWeights = context.equipmentMaxWeights,
+                loadingInventory = context.loadingInventory,
                 personalRecords = context.personalRecords,
                 exercisePreferences = preferences,
                 exerciseExclusions = exclusions,
@@ -134,6 +137,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
         val progressionHistory: ProgressionHistory,
         val sharingEnabled: Boolean,
         val equipmentMaxWeights: Map<EquipmentTag, Double>,
+        val loadingInventory: LoadingInventory,
         val selectedEquipment: Set<EquipmentTag>,
         val equipmentContext: String,
         val personalRecords: List<PersonalRecord>

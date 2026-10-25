@@ -190,6 +190,16 @@ data class DraftEdit(
     val reps: String,
     val durationSeconds: String = "",
     val weightInput: String,
+    /**
+     * The display unit [weightInput] was typed in. The editor freezes it for its lifetime so a
+     * later preference change converts the text instead of reinterpreting the same digits.
+     */
+    val weightUnit: WeightUnit,
+    /**
+     * The exact stored kilograms behind an untouched weight field. Reopening converts it for
+     * display, and an unedited re-apply keeps this canonical value through unit changes.
+     */
+    val canonicalWeightKg: Double? = null,
     val rir: String,
     val weightRevealed: Boolean,
     val performedAtMillis: Long?,
@@ -205,6 +215,32 @@ data class DraftEdit(
         } else {
             (reps.toIntOrNull() ?: 0) > 0
         }
+
+    /**
+     * True when this editor still describes the same pending row: same occurrence entry, same
+     * exercise, same measure, the same remaining-set position and the same ordered target. A
+     * replacement in that entry, a measure edit, a consumed set (the remaining count/position
+     * changed) or a newly consumed set therefore expires the edit instead of showing stale values.
+     */
+    fun targetsPendingDraft(draft: DraftSet): Boolean = this.draft.occurrenceEntryId != null &&
+        this.draft.occurrenceEntryId == draft.occurrenceEntryId &&
+        this.draft.exerciseId == draft.exerciseId &&
+        this.draft.sets == draft.sets &&
+        isTimed == (draft.durationSeconds != null) &&
+        this.draft.orderedPrefill == draft.orderedPrefill
+}
+
+/**
+ * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work
+ * is per hand, other dumbbell work per dumbbell. It is never doubled or halved for display.
+ */
+enum class LoadBasis { PER_HAND, PER_DUMBBELL }
+
+/** Null for non-dumbbell equipment, whose loads stay unlabeled. */
+internal fun loadBasisFor(requiresDumbbell: Boolean, isUnilateral: Boolean): LoadBasis? = when {
+    !requiresDumbbell -> null
+    isUnilateral -> LoadBasis.PER_HAND
+    else -> LoadBasis.PER_DUMBBELL
 }
 
 /**
@@ -267,6 +303,8 @@ sealed interface WorkoutSummaryScreen {
 data class WorkoutLoggerUiState(
     val exerciseInstructions: LoggerExerciseInstructions? = null,
     val exercises: List<ExerciseOption> = emptyList(),
+    /** Dumbbell load basis per exercise id; non-dumbbell and unknown ids stay absent. */
+    val exerciseLoadBasis: Map<String, LoadBasis> = emptyMap(),
     val exerciseSearch: String = "",
     val selectedExerciseId: String? = null,
     /** Which metric the manual form records; the other entry field is never submitted. */
@@ -302,7 +340,8 @@ data class WorkoutLoggerUiState(
     /**
      * Guided drafts whose editor values were applied but not yet logged, keyed by occurrence entry.
      * In-memory only: they seed the pending row through ordinary refreshes and are dropped when the
-     * set is logged, the editor's draft is removed, or the workout context changes.
+     * set is logged, the editor's draft is removed, the slot's exercise or measure changes, the
+     * pending ordered target advances, or the workout context changes.
      */
     val appliedGuidedEdits: Map<Long, DraftEdit> = emptyMap(),
     /**

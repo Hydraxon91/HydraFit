@@ -8,10 +8,12 @@ import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.schedule.FinishMode
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
@@ -178,7 +180,8 @@ class WorkoutLoggerViewModel(
                 exerciseNames = catalog.associate { it.id to it.name }
                 _state.update { current ->
                     current.copy(
-                        exercises = prioritizedByToday(catalog, acceptedToday)
+                        exercises = prioritizedByToday(catalog, acceptedToday),
+                        exerciseLoadBasis = catalog.loadBases()
                     )
                 }
                 refreshRecentSets()
@@ -1131,23 +1134,37 @@ class WorkoutLoggerViewModel(
     fun editDraft(draft: DraftSet) {
         val current = _state.value
         val retry = retryFor(draft)
+        val applied = draft.occurrenceEntryId
+            ?.let { current.appliedGuidedEdits[it] }
+            ?.takeIf { it.targetsPendingDraft(draft) }
+        // A reopened editor shows the row as it stands (including an applied overlay) converted to
+        // the current display unit; the baseline weight stays canonical so a unit change cannot
+        // reinterpret it. Only a reset discards the overlay by rebuilding from the source entry.
         val base = retry?.draft ?: draft
-        val retryEdit = retry?.edit
+        val inherited = when {
+            retry?.edit != null -> retry?.edit
+            applied != null -> applied
+            else -> null
+        }
         _state.update {
             it.copy(
                 draftEdit = DraftEdit(
-                    draft = draft,
+                    draft = base,
                     reps = base.reps?.toString().orEmpty(),
                     durationSeconds = base.durationSeconds?.toString().orEmpty(),
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
-                    rir = retryEdit?.rir.orEmpty(),
+                    weightUnit = current.weightUnit,
+                    canonicalWeightKg = base.weightKg,
+                    rir = inherited?.rir.orEmpty(),
                     weightRevealed = base.loadKind == LoadKind.ADDED,
-                    performedAtMillis = if (retryEdit != null) {
-                        retryEdit.performedAtMillis
+                    // An inherited edit carries an explicit "use now" as a null time, which must
+                    // not be replaced by the screen's default time.
+                    performedAtMillis = if (inherited != null) {
+                        inherited.performedAtMillis
                     } else {
                         current.performedAtMillis
                     },
-                    performedAtExplicit = retryEdit?.performedAtExplicit ?: false
+                    performedAtExplicit = inherited?.performedAtExplicit ?: false
                 )
             )
         }
@@ -1191,8 +1208,24 @@ class WorkoutLoggerViewModel(
     }
 
     fun resetDraftEdit() {
-        val draft = _state.value.draftEdit?.draft ?: return
-        editDraft(draft)
+        val edit = _state.value.draftEdit ?: return
+        val base = sourceDraftFor(edit.draft)
+        _state.update { current ->
+            current.copy(
+                draftEdit = DraftEdit(
+                    draft = base,
+                    reps = base.reps?.toString().orEmpty(),
+                    durationSeconds = base.durationSeconds?.toString().orEmpty(),
+                    weightInput = weightInputFor(base.weightKg, current.weightUnit),
+                    weightUnit = current.weightUnit,
+                    canonicalWeightKg = base.weightKg,
+                    rir = "",
+                    weightRevealed = base.loadKind == LoadKind.ADDED,
+                    performedAtMillis = current.performedAtMillis,
+                    performedAtExplicit = false
+                )
+            )
+        }
     }
 
     /**
@@ -1208,7 +1241,11 @@ class WorkoutLoggerViewModel(
             _state.update { state ->
                 state.copy(
                     draftSets = state.draftSets.map { row ->
-                        if (row.occurrenceEntryId == entryId) appliedGuidedDraft(row, edit) else row
+                        if (row.occurrenceEntryId == entryId) {
+                            appliedGuidedDraft(sourceDraftFor(row), edit)
+                        } else {
+                            row
+                        }
                     },
                     appliedGuidedEdits = state.appliedGuidedEdits + (entryId to edit),
                     draftEdit = null
@@ -1335,8 +1372,14 @@ class WorkoutLoggerViewModel(
 
     private fun editedDraft(edit: DraftEdit): DraftSet {
         val capability = edit.draft.loadCapability
-        val typed = edit.weightInput.toDoubleOrNull()?.let {
-            _state.value.weightUnit.displayToKilograms(it)
+        val typed = if (edit.weightInput ==
+            weightInputFor(edit.canonicalWeightKg, edit.weightUnit)
+        ) {
+            edit.canonicalWeightKg
+        } else {
+            edit.weightInput.toDoubleOrNull()?.let {
+                edit.weightUnit.displayToKilograms(it)
+            }
         }
         val (kind, weight) = when (capability) {
             ExerciseLoadCapability.EXTERNAL -> LoadKind.EXTERNAL to typed
@@ -1358,6 +1401,52 @@ class WorkoutLoggerViewModel(
             loadKind = kind
         )
     }
+
+    /**
+     * The unedited pending row behind [draft]. The displayed row may already carry an applied
+     * editor overlay, so a reset or a reopened editor must rebuild from the frozen occurrence entry
+     * rather than reuse the overlaid values.
+     */
+    private fun sourceDraftFor(draft: DraftSet): DraftSet {
+        val entryId = draft.occurrenceEntryId ?: return draft
+        val occurrence = currentOccurrence ?: return draft
+        val entry = occurrence.entries.firstOrNull { it.id == entryId } ?: return draft
+        return draftForEntry(entry, occurrence.id, draft.sets)
+    }
+
+    /** One frozen entry's remaining prescribed sets as the pending draft it describes. */
+    private fun draftForEntry(
+        entry: OccurrenceEntry,
+        occurrenceId: Long,
+        remaining: Int
+    ): DraftSet {
+        // An ordered slot seeds the draft from its first remaining target, so an untouched
+        // draft matches what it will log and is never misread as an explicit override.
+        val prefill = entry.setTargets?.targets?.getOrNull(entry.sets - remaining)
+        return DraftSet(
+            entry.exerciseId,
+            entry.exerciseName,
+            remaining,
+            prefill?.reps ?: entry.reps,
+            prefill?.weightKg ?: entry.weightKg,
+            prefill?.loadKind ?: entry.loadKind,
+            loadCapability = entry.loadCapability,
+            occurrenceId = occurrenceId,
+            occurrenceEntryId = entry.id,
+            explanation = entry.explanation,
+            durationSeconds = prefill?.durationSeconds ?: entry.durationSeconds,
+            setTargets = entry.setTargets,
+            orderedPrefill = prefill
+        )
+    }
+
+    /** Dumbbell load basis per catalog id; non-dumbbell exercises stay unlabeled. */
+    private fun List<Exercise>.loadBases(): Map<String, LoadBasis> = mapNotNull { exercise ->
+        loadBasisFor(
+            requiresDumbbell = EquipmentTag.DUMBBELL in exercise.requiredEquipment,
+            isUnilateral = exercise.isUnilateral
+        )?.let { basis -> exercise.id to basis }
+    }.toMap()
 
     /**
      * Claims the single-submission guard, marking the write in progress. Returns false when a write
@@ -1420,7 +1509,7 @@ class WorkoutLoggerViewModel(
     ): Boolean {
         var completed = 0
         return try {
-            logDraft(resolved, edit, contextRevision) { completed++ }
+            logDraft(resolved, edit, contextRevision, onSetLogged = { completed++ })
             ensureDraftContext(contextRevision)
             true
         } catch (error: CancellationException) {
@@ -1534,7 +1623,7 @@ class WorkoutLoggerViewModel(
                     val (resolved, edit) = resolveForWrite(draft)
                     currentResolved = resolved
                     currentEdit = edit
-                    logDraft(resolved, edit, contextRevision) { completed++ }
+                    logDraft(resolved, edit, contextRevision, onSetLogged = { completed++ })
                 }
                 ensureDraftContext(contextRevision)
             } catch (error: CancellationException) {
@@ -1699,7 +1788,8 @@ class WorkoutLoggerViewModel(
         edit: DraftEdit? = null,
         contextRevision: Long = draftContextRevision,
         liveCompletion: Boolean = false,
-        onSetLogged: () -> Unit = {}
+        onSetLogged: () -> Unit = {},
+        orderedOffsetOverride: Int? = null
     ): String? {
         val link = if (draft.occurrenceId != null) {
             draft.occurrenceId to draft.occurrenceEntryId
@@ -1714,14 +1804,26 @@ class WorkoutLoggerViewModel(
         // is an explicit override and applies to every set; otherwise each set follows its own target.
         val ordered = draft.setTargets?.takeIf { !draft.isWarmup && it.sets >= draft.sets }
         // An explicit one-off edit is detected against the target the draft was actually seeded from,
-        // so an untouched draft always follows its own per-set targets.
+        // so an untouched draft always follows its own per-set targets. The frozen measure decides
+        // counted reps or timed seconds; comparing only reps would miss a timed edit entirely.
         val prefill = draft.orderedPrefill
+        val measureOverridden = prefill != null &&
+            if (draft.durationSeconds != null || prefill.durationSeconds != null) {
+                draft.durationSeconds != prefill.durationSeconds
+            } else {
+                draft.reps != prefill.reps
+            }
         val overridden = ordered != null &&
             prefill != null &&
-            (draft.reps != prefill.reps || draft.weightKg != prefill.weightKg)
-        // Sets already recorded for this slot were the earlier ordered entries.
-        val orderedOffset = if (ordered == null) 0 else (ordered.sets - draft.sets).coerceAtLeast(0)
-        repeat((ordered?.sets?.minus(orderedOffset) ?: draft.sets).coerceAtLeast(1)) { index ->
+            (measureOverridden || draft.weightKg != prefill.weightKg)
+        // Sets already recorded for this slot were the earlier ordered entries. A single-set guided
+        // submission keeps the slot's remaining position separate from the number it writes.
+        val orderedOffset = orderedOffsetOverride
+            ?: if (ordered == null) 0 else (ordered.sets - draft.sets).coerceAtLeast(0)
+        repeat(
+            minOf(ordered?.sets?.minus(orderedOffset) ?: draft.sets, draft.sets)
+                .coerceAtLeast(1)
+        ) { index ->
             if (contextRevision != draftContextRevision) {
                 throw CancellationException("Draft context changed")
             }
@@ -1930,40 +2032,20 @@ class WorkoutLoggerViewModel(
         if (generation != warmupGuidanceGeneration) return
         val drafts = occurrence.entries.mapNotNull { entry ->
             val remaining = entry.sets - (performed[entry.id] ?: 0)
-            if (remaining <= 0) {
-                null
-            } else {
-                // An ordered slot seeds the draft from its first remaining target, so an untouched
-                // draft matches what it will log and is never misread as an explicit override.
-                val prefill = entry.setTargets?.targets?.getOrNull(entry.sets - remaining)
-                DraftSet(
-                    entry.exerciseId,
-                    entry.exerciseName,
-                    remaining,
-                    prefill?.reps ?: entry.reps,
-                    prefill?.weightKg ?: entry.weightKg,
-                    prefill?.loadKind ?: entry.loadKind,
-                    loadCapability = entry.loadCapability,
-                    occurrenceId = occurrence.id,
-                    occurrenceEntryId = entry.id,
-                    explanation = entry.explanation,
-                    durationSeconds = prefill?.durationSeconds ?: entry.durationSeconds,
-                    setTargets = entry.setTargets,
-                    orderedPrefill = prefill
-                )
-            }
+            if (remaining <= 0) null else draftForEntry(entry, occurrence.id, remaining)
         }
         // Each partial-write retry keeps its own row and one-off values across a refresh.
         val retries = _state.value.draftWriteRetries.filter { retry ->
             drafts.any { it.sameSlotAs(retry.source) }
         }
         // An applied guided edit is pending, unwritten state: it seeds the refreshed row until the
-        // set is logged, reset, or the workout context changes.
-        val appliedEdits = _state.value.appliedGuidedEdits.filterKeys { entryId ->
-            drafts.any { it.occurrenceEntryId == entryId }
+        // set is logged, reset, the slot's exercise/measure/target changes, or the workout changes.
+        val appliedEdits = _state.value.appliedGuidedEdits.filterValues { edit ->
+            drafts.any { draft -> edit.targetsPendingDraft(draft) }
         }
         val displayDrafts = drafts.map { draft ->
             draft.occurrenceEntryId?.let { appliedEdits[it] }
+                ?.takeIf { edit -> edit.targetsPendingDraft(draft) }
                 ?.let { edit -> appliedGuidedDraft(draft, edit) }
                 ?: retries.firstOrNull { draft.sameSlotAs(it.source) }?.draft
                 ?: draft
@@ -2010,7 +2092,10 @@ class WorkoutLoggerViewModel(
                     prescribedSets = prescribed
                 ),
                 draftSets = displayDrafts,
-                draftEdit = it.draftEdit?.takeIf { edit -> edit.draft in displayDrafts },
+                draftEdit = it.draftEdit?.takeIf { edit ->
+                    edit.draft in displayDrafts ||
+                        displayDrafts.any { draft -> edit.targetsPendingDraft(draft) }
+                },
                 missingLoadPrompt = it.missingLoadPrompt?.takeIf { draft ->
                     draft in displayDrafts
                 },
@@ -2417,6 +2502,12 @@ class WorkoutLoggerViewModel(
         val supersetKey = entry.superset?.key ?: return
         if (entry.isComplete) return
         if (supersetKey in _state.value.supersetUnpairedKeys) return
+        // Skipping the member whose set is live cancels that start intent and its elapsed timing:
+        // the skipped work writes nothing and returns only after a fresh Start.
+        if (_state.value.startedSetEntryId == occurrenceEntryId) {
+            clearLiveSetStart()
+            resetShortRestCoaching()
+        }
         _state.update { it.copy(supersetSkippedEntryId = occurrenceEntryId) }
     }
 
@@ -2625,11 +2716,17 @@ class WorkoutLoggerViewModel(
             if (contextRevision != draftContextRevision) {
                 throw CancellationException("Draft context changed")
             }
+            // One guided confirmation writes one set. The slot's remaining target position comes
+            // from the full pending draft, not from the single written set.
+            val orderedOffset = resolved.setTargets
+                ?.takeIf { !resolved.isWarmup && it.sets >= resolved.sets }
+                ?.let { (it.sets - resolved.sets).coerceAtLeast(0) }
             val sessionId = logDraft(
                 resolved.copy(sets = 1, isWarmup = isWarmup),
                 edit,
                 contextRevision,
-                liveCompletion = liveCompletion
+                liveCompletion = liveCompletion,
+                orderedOffsetOverride = orderedOffset
             )
             ensureDraftContext(contextRevision)
             GuidedSetWriteResult(true, sessionId, isWarmup)

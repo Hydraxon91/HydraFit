@@ -135,9 +135,10 @@ data class OccurrenceEntry(
     /** What [weightKg] means on this occurrence entry. */
     val loadKind: LoadKind = LoadKind.EXTERNAL,
     /**
-     * The source entry's recorded reasoning, copied when this occurrence entry was created. Null when
-     * the slot was replaced or edited, or came from a manual routine: a replacement never inherits the
-     * original exercise's reasons.
+     * The source entry's recorded reasoning, copied when this occurrence entry was created. A
+     * replacement records its own candidate-derived reasoning and never inherits the replaced
+     * exercise's reasoning; an entry from a manual routine or one that never had planner reasons
+     * has none.
      */
     val explanation: ExerciseTargetExplanation? = null,
     /** The slot's approved progression policy, copied with the rest of the frozen prescription. */

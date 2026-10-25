@@ -4,13 +4,17 @@ import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.AiLoadExplanation
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
 import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
+import com.hydrafit.app.core.domain.engine.LoadConversionExplanation
+import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanAttribution
@@ -23,6 +27,8 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
@@ -37,6 +43,8 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -111,6 +119,223 @@ class SplitBuilderViewModelTest {
         assertEquals(setOf("goblet-squat", "dumbbell-press", "dumbbell-row"), ids)
         assertEquals("Goblet Squat", viewModel.state.value.exerciseNames["goblet-squat"])
     }
+
+    @Test
+    fun disclosesWhetherNumericLoadsUseSavedInventoryOrTheStandardEstimate() = runTest(dispatcher) {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(25_000))
+            )
+        )
+        val weightedPlan = acceptedPlan().let { plan ->
+            plan.copy(
+                days = plan.days.map { day ->
+                    day.copy(
+                        exercises = day.exercises.map { it.copy(suggestedWeightKg = 25.0) }
+                    )
+                }
+            )
+        }
+        val engine = object : WorkoutPlannerEngine {
+            override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+            override suspend fun generatePlan(request: PlanRequest): WeeklyPlan =
+                weightedPlan.toWeeklyPlan()
+        }
+        fun viewModelWith(inventory: LoadingInventory?): SplitBuilderViewModel {
+            val source = MutableStateFlow(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 4,
+                    loggedSets = emptyList(),
+                    loadingInventory = inventory
+                )
+            )
+            return viewModel(
+                availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                engine = engine,
+                sourcesRepository = object : WorkoutPlanSourcesRepository {
+                    override fun observe() = source
+                }
+            )
+        }
+
+        val rounded = viewModelWith(inventory)
+        advanceUntilIdle()
+        assertEquals(
+            LoadInventoryDisclosure.INVENTORY_ROUNDED,
+            rounded.state.value.loadInventoryDisclosure
+        )
+
+        val estimated = viewModelWith(inventory = null)
+        advanceUntilIdle()
+        assertEquals(
+            LoadInventoryDisclosure.ESTIMATE_WITHOUT_INVENTORY,
+            estimated.state.value.loadInventoryDisclosure
+        )
+    }
+
+    @Test
+    fun disclosesUnreachableInventoryAndInsufficientHistorySeparately() = runTest(dispatcher) {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(25_000))
+            )
+        )
+        fun viewModelFor(explanation: ExerciseTargetExplanation): SplitBuilderViewModel {
+            val plan = acceptedPlan().toWeeklyPlan().let { base ->
+                base.copy(
+                    days = base.days.map { day ->
+                        day.copy(
+                            exercises = day.exercises.map {
+                                it.copy(suggestedWeightKg = null, explanation = explanation)
+                            }
+                        )
+                    }
+                )
+            }
+            val engine = object : WorkoutPlannerEngine {
+                override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+                override suspend fun generatePlan(request: PlanRequest): WeeklyPlan = plan
+            }
+            val source = MutableStateFlow(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 4,
+                    loggedSets = emptyList(),
+                    loadingInventory = inventory
+                )
+            )
+            return viewModel(
+                availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                engine = engine,
+                sourcesRepository = object : WorkoutPlanSourcesRepository {
+                    override fun observe() = source
+                }
+            )
+        }
+
+        val unreachable = viewModelFor(
+            ExerciseTargetExplanation(
+                conversion = LoadConversionExplanation(
+                    reps = 6,
+                    intensityFraction = 0.7,
+                    uncappedWorkingKg = 27.5
+                )
+            )
+        )
+        advanceUntilIdle()
+        assertEquals(
+            LoadInventoryDisclosure.NO_REACHABLE_LOAD,
+            unreachable.state.value.loadInventoryDisclosure
+        )
+
+        val noHistory = viewModelFor(
+            ExerciseTargetExplanation(
+                unavailableReason = LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
+            )
+        )
+        advanceUntilIdle()
+        assertEquals(
+            LoadInventoryDisclosure.INSUFFICIENT_RECENT_EVIDENCE,
+            noHistory.state.value.loadInventoryDisclosure
+        )
+    }
+
+    @Test
+    fun orderedNumbersAndAnAcceptedAiNoMatchAreClassifiedByTheirActualCause() =
+        runTest(dispatcher) {
+            val inventory = LoadingInventory(
+                dumbbells = listOf(
+                    LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(25_000))
+                )
+            )
+            fun viewModelFor(
+                setTargets: SlotSetTargets?,
+                explanation: ExerciseTargetExplanation
+            ): SplitBuilderViewModel {
+                val plan = acceptedPlan().toWeeklyPlan().let { base ->
+                    base.copy(
+                        days = base.days.map { day ->
+                            day.copy(
+                                exercises = day.exercises.map {
+                                    it.copy(
+                                        suggestedWeightKg = null,
+                                        setTargets = setTargets,
+                                        explanation = explanation
+                                    )
+                                }
+                            )
+                        }
+                    )
+                }
+                val engine = object : WorkoutPlannerEngine {
+                    override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
+
+                    override suspend fun generatePlan(request: PlanRequest): WeeklyPlan = plan
+                }
+                val source = MutableStateFlow(
+                    WorkoutPlanSources(
+                        availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                        selectedEngine = PlannerEngineId.DETERMINISTIC,
+                        daysPerWeek = 4,
+                        loggedSets = emptyList(),
+                        loadingInventory = inventory
+                    )
+                )
+                return viewModel(
+                    availableEquipment = setOf(EquipmentTag.DUMBBELL),
+                    engine = engine,
+                    sourcesRepository = object : WorkoutPlanSourcesRepository {
+                        override fun observe() = source
+                    }
+                )
+            }
+
+            // A numeric ordered target is a reachable load; the missing scalar must not hide it.
+            val ordered = viewModelFor(
+                setTargets = SlotSetTargets.of(
+                    listOf(
+                        SetTarget(
+                            reps = 8,
+                            loadKind = LoadKind.EXTERNAL,
+                            weightKg = 25.0
+                        )
+                    )
+                ),
+                explanation = ExerciseTargetExplanation()
+            )
+            advanceUntilIdle()
+            assertEquals(
+                LoadInventoryDisclosure.INVENTORY_ROUNDED,
+                ordered.state.value.loadInventoryDisclosure
+            )
+
+            // A sanitized AI number that was accepted and withheld records aiAdjustment, not conversion.
+            val aiNoMatch = viewModelFor(
+                setTargets = null,
+                explanation = ExerciseTargetExplanation(
+                    aiAdjustment = AiLoadExplanation(
+                        proposedKg = 80.0,
+                        proposedAccepted = true,
+                        deloadScaled = false,
+                        deloadIntensityScale = 1.0,
+                        progressionBoundKg = null,
+                        boundedByProgression = false,
+                        equipmentCeilingKg = null,
+                        cappedByEquipment = false
+                    )
+                )
+            )
+            advanceUntilIdle()
+            assertEquals(
+                LoadInventoryDisclosure.NO_REACHABLE_LOAD,
+                aiNoMatch.state.value.loadInventoryDisclosure
+            )
+        }
 
     @Test
     fun changingDaysPerWeekRegeneratesThePlan() = runTest(dispatcher) {

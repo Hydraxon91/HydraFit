@@ -469,6 +469,57 @@ class SchedulingUseCasesTest {
     }
 
     @Test
+    fun skippingAWarmupOnlyWorkoutStillConcludesItsSession() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        startOccurrence(occurrence.id)
+        logRepository.add(
+            WorkoutSet(
+                exerciseId = occurrence.entries[0].exerciseId,
+                reps = occurrence.entries[0].reps,
+                weightKg = occurrence.entries[0].weightKg,
+                performedAtMillis = now,
+                isWarmup = true,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = occurrence.entries[0].id
+            )
+        )
+
+        skip(occurrence.id)
+
+        val resolved = requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+        // Warm-up-only work is recorded work: the workout concludes partially, so its closure is
+        // not bypassed, while the prescribed working sets keep their own completion count.
+        assertEquals(OccurrenceStatus.FINISHED_PARTIAL, resolved.status)
+        assertEquals(RemainingDisposition.SKIPPED, resolved.entries[0].remainingDisposition)
+        assertEquals(occurrence.entries[0].sets, resolved.entries[0].terminalRemainingSets)
+    }
+
+    @Test
+    fun skippingWorkWithoutAnEntryLinkStillConcludesItsSession() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        startOccurrence(occurrence.id)
+        logRepository.add(
+            WorkoutSet(
+                exerciseId = occurrence.entries[0].exerciseId,
+                reps = occurrence.entries[0].reps,
+                weightKg = occurrence.entries[0].weightKg,
+                performedAtMillis = now,
+                isWarmup = false,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = null
+            )
+        )
+
+        skip(occurrence.id)
+
+        val resolved = requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+        assertEquals(OccurrenceStatus.FINISHED_PARTIAL, resolved.status)
+        assertEquals(occurrence.entries[0].sets, resolved.entries[0].terminalRemainingSets)
+    }
+
+    @Test
     fun skippingAStartedWorkoutMarksTheRemainderSkipped() = runTest {
         val activationId = activateRoutine(routine(), request(replaceActive = false))
         val occurrence = scheduleRepository.occurrences(activationId).first()

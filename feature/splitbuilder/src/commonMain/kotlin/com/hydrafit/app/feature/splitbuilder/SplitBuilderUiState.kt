@@ -63,6 +63,24 @@ internal fun loadBasis(requiresDumbbell: Boolean, isUnilateral: Boolean): LoadBa
     else -> LoadBasis.PER_DUMBBELL
 }
 
+/**
+ * How the shown plan's numeric loads relate to the saved loading inventory. Derived when the plan
+ * is generated, never stored: a reopened plan has no recorded inventory provenance.
+ */
+enum class LoadInventoryDisclosure {
+    /** Every numeric load sits on a saved bar's or dumbbell's reachable grid. */
+    INVENTORY_ROUNDED,
+
+    /** At least one numeric load keeps the generic estimate because no compatible implement applies. */
+    ESTIMATE_WITHOUT_INVENTORY,
+
+    /** A compatible implement exists but cannot make a load at or below the target, so it stays blank. */
+    NO_REACHABLE_LOAD,
+
+    /** A numeric load is absent because there is not enough recorded evidence yet. */
+    INSUFFICIENT_RECENT_EVIDENCE
+}
+
 /** Why a slot measure edit was rejected; the UI maps each to a specific message. */
 enum class MeasureError { REPS_RANGE, SECONDS_RANGE, SECONDS_TOO_LARGE }
 
@@ -101,6 +119,8 @@ data class SplitBuilderUiState(
     val exerciseNames: Map<String, String> = emptyMap(),
     /** How each dumbbell exercise's numeric load is stated; ids absent here are unlabeled. */
     val exerciseLoadBasis: Map<String, LoadBasis> = emptyMap(),
+    /** Inventory-rounding provenance for a plan generated in this session; null otherwise. */
+    val loadInventoryDisclosure: LoadInventoryDisclosure? = null,
     val history: List<AcceptedPlan> = emptyList(),
     val requestedEngine: PlannerEngineId? = null,
     val isLoading: Boolean = true,

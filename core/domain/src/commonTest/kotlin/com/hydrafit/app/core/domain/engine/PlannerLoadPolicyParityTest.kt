@@ -3,6 +3,9 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.LoadingBar
+import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
@@ -14,6 +17,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -29,6 +33,7 @@ class PlannerLoadPolicyParityTest {
 
     private val engine = DeterministicWorkoutPlannerEngine(FakeCatalog)
     private val sanitizer = WeeklyPlanSanitizer(FakeCatalog)
+    private val dumbbellCatalog = LocalCatalog(DUMBBELL_CATALOG)
     private val builder = BuildPlannerLoadInputsUseCase(
         catalog = FakeCatalog,
         buildRecentWeights = BuildRecentWeightsUseCase(),
@@ -141,6 +146,537 @@ class PlannerLoadPolicyParityTest {
             assertEquals(previewed.loadKind, replaced.loadKind)
         }
     }
+
+    @Test
+    fun deterministicAndSanitizerBothDropAnAbsentDumbbellWeight() = runTest {
+        val request = dumbbellRequest(DUMBBELL_INVENTORY)
+        val plan = DeterministicWorkoutPlannerEngine(
+            dumbbellCatalog
+        ).plan(request, DUMBBELL_CATALOG)
+        val deterministic = plan.days.flatMap { it.exercises }
+            .first { it.exerciseId == DUMBBELL_ROW }
+            .suggestedWeightKg
+
+        val sanitized = WeeklyPlanSanitizer(dumbbellCatalog)
+            .sanitize(
+                modelPlan(proposedWeightKg = 500.0, row = DUMBBELL_ROW),
+                request.copy(daysPerWeek = 1)
+            )
+            ?.days?.single()?.exercises
+            ?.first { it.exerciseId == DUMBBELL_ROW }
+            ?.suggestedWeightKg
+
+        // 36 x 0.765 = 27.54; the generic step would say 27.5, which this grid does not own.
+        assertEquals(25.0, deterministic)
+        assertEquals(25.0, sanitized)
+    }
+
+    @Test
+    fun substitutionAndOccurrenceReplacementUseTheSameReachableDumbbellLoad() = runTest {
+        val request = dumbbellRequest(DUMBBELL_INVENTORY)
+        val substitute = SubstituteExerciseUseCase(
+            dumbbellCatalog,
+            UnusedPlanHistory,
+            DeterministicWorkoutPlannerEngine(dumbbellCatalog),
+            SuggestedWeightConfig()
+        )
+        val previewed = substitute.candidates(
+            acceptedDumbbellPrescription(),
+            dayIndex = 0,
+            position = 0,
+            request = request
+        ).first { it.exerciseId == DUMBBELL_CURL_ALT }
+        val replaced = replacementOccurrenceEntry(
+            original = OccurrenceEntry(
+                exerciseId = "dumbbell-curl",
+                exerciseName = "Dumbbell Curl",
+                movementPattern = MovementPattern.BICEPS_ISOLATION,
+                sets = 3,
+                reps = 6
+            ),
+            candidate = dumbbellExercise(
+                DUMBBELL_CURL_ALT,
+                MovementPattern.BICEPS_ISOLATION,
+                MuscleGroup.BICEPS
+            ),
+            request = request,
+            intensityScale = 1.0,
+            weights = SuggestedWeightConfig()
+        )
+
+        assertEquals(25.0, previewed.suggestedWeightKg)
+        assertEquals(25.0, replaced.weightKg)
+        // The candidate's own conversion reasoning is recorded; the replaced slot's is not copied.
+        assertEquals(27.5, replaced.explanation?.conversion?.uncappedWorkingKg)
+        assertNull(replaced.explanation?.baseline)
+    }
+
+    @Test
+    fun anUnreachableKnownInventoryWithholdsTheTargetInsteadOfRoundingUp() = runTest {
+        val request = dumbbellRequest(
+            LoadingInventory(
+                dumbbells = listOf(
+                    LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(40_000))
+                )
+            )
+        )
+        val plan = DeterministicWorkoutPlannerEngine(
+            dumbbellCatalog
+        ).plan(request, DUMBBELL_CATALOG)
+        val row = plan.days.flatMap { it.exercises }.first { it.exerciseId == DUMBBELL_ROW }
+
+        assertNull(row.suggestedWeightKg)
+        assertNull(row.explanation?.unavailableReason)
+    }
+
+    @Test
+    fun theSanitizerUsesTheRawProgressionBoundBeforeGenericRounding() = runTest {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(25_000, 27_500)
+                )
+            )
+        )
+        val request = dumbbellRequest(inventory).copy(
+            suggestedWeightsKg = mapOf(DUMBBELL_ROW to 35.5),
+            recentWeightCaps = mapOf(DUMBBELL_ROW to 35.5)
+        )
+        val sanitized = WeeklyPlanSanitizer(dumbbellCatalog)
+            .sanitize(
+                modelPlan(proposedWeightKg = 500.0, row = DUMBBELL_ROW),
+                request.copy(daysPerWeek = 1)
+            )
+            ?.days?.single()?.exercises
+            ?.first { it.exerciseId == DUMBBELL_ROW }
+            ?.suggestedWeightKg
+
+        // 35.5 x 0.765 = 27.1575 kg. The generic step would first say 27.5 kg, which this grid also
+        // owns; the raw bound must win and leave 25 kg, the highest reachable load below it.
+        assertEquals(25.0, sanitized)
+    }
+
+    @Test
+    fun aLowRepManualPrFloorOnlySuppliesAShortPrescriptionsLoad() = runTest {
+        val request = PlanRequest(
+            daysPerWeek = 2,
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            muscleFatigue = emptyMap(),
+            nowMillis = NOW,
+            suggestedWeightsKg = emptyMap(),
+            recentWeightCaps = emptyMap(),
+            withheldWeightExerciseIds = setOf(DUMBBELL_ROW),
+            lowRepManualFloorsKg = mapOf(DUMBBELL_ROW to 50.0),
+            includeWorkoutData = true
+        )
+
+        val short = resolveCandidatePrescribedLoad(
+            candidateId = DUMBBELL_ROW,
+            capability = ExerciseLoadCapability.EXTERNAL,
+            reps = 2,
+            request = request,
+            equipmentCeilingKg = null,
+            intensityScale = 1.0,
+            weightConfig = SuggestedWeightConfig()
+        )
+        val repRange = resolveCandidatePrescribedLoad(
+            candidateId = DUMBBELL_ROW,
+            capability = ExerciseLoadCapability.EXTERNAL,
+            reps = 5,
+            request = request,
+            equipmentCeilingKg = null,
+            intensityScale = 1.0,
+            weightConfig = SuggestedWeightConfig()
+        )
+
+        // 50 x 0.855 -> 42.5 kg generic, while a rep-range prescription has no eligible evidence.
+        assertEquals(42.5, short.weightKg)
+        assertNull(repRange.weightKg)
+        assertEquals(
+            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE,
+            repRange.explanation.unavailableReason
+        )
+    }
+
+    @Test
+    fun aLowRepFloorAppliesOnlyToTheShortTargetsOfAMixedPrescription() = runTest {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(25_000, 30_000, 35_000, 40_000)
+                )
+            )
+        )
+        val targets = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 2, loadKind = LoadKind.EXTERNAL, weightKg = 10.0),
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 10.0)
+            )
+        )
+
+        val rounded = roundOrderedTargetsToInventory(
+            targets = targets,
+            inventory = inventory,
+            equipmentId = null,
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            estimatedOneRepMaxKg = 40.0,
+            intensityScale = 1.0,
+            ceilingKg = null,
+            weightConfig = SuggestedWeightConfig(),
+            lowRepOneRepMaxKg = 50.0
+        )
+
+        // Short: 50 x 0.855 = 42.75 -> 40; range: 40 x 0.72 = 28.8 -> 25. A blanket floor would
+        // have put the 8-rep target on 35 kg instead.
+        assertEquals(listOf(40.0, 25.0), rounded?.targets?.map { it.weightKg })
+    }
+
+    @Test
+    fun mixedOrderedTargetsApplyTheLowRepFloorPerTargetWithAndWithoutInventory() = runTest {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000)
+                )
+            )
+        )
+
+        // Scalar slot reps are 6, so the slot-level floor is not eligible; only the 2-rep target is.
+        listOf(null, inventory).forEach { activeInventory ->
+            val request = mixedOrderedRequest(
+                inventory = activeInventory,
+                suggested = mapOf(DUMBBELL_ROW to 40.0),
+                caps = mapOf(DUMBBELL_ROW to 40.0),
+                floors = mapOf(DUMBBELL_ROW to 60.0)
+            )
+            val expected = if (activeInventory == null) {
+                listOf(52.5, 30.0)
+            } else {
+                listOf(50.0, 25.0)
+            }
+            val row = DeterministicWorkoutPlannerEngine(dumbbellCatalog)
+                .plan(request, DUMBBELL_CATALOG)
+                .days.flatMap { it.exercises }
+                .first { it.exerciseId == DUMBBELL_ROW }
+            assertEquals(listOf(2, 8), row.setTargets?.targets?.map { it.reps })
+            assertEquals(expected, row.setTargets?.targets?.map { it.weightKg })
+
+            val sanitized = WeeklyPlanSanitizer(dumbbellCatalog)
+                .sanitize(
+                    modelPlan(proposedWeightKg = 500.0, row = DUMBBELL_ROW),
+                    request.copy(daysPerWeek = 1)
+                )
+                ?.days?.single()?.exercises
+                ?.first { it.exerciseId == DUMBBELL_ROW }
+            assertEquals(expected, sanitized?.setTargets?.targets?.map { it.weightKg })
+        }
+    }
+
+    @Test
+    fun orderedLowRepTargetsNeverExceedTheEquipmentCeilingWithoutApplicableInventory() = runTest {
+        // No saved implement for the exercise's kind: the recalculated low-rep target keeps generic
+        // increment rounding, which must still respect the equipment's own maximum.
+        val cases = listOf(
+            "null inventory" to null,
+            "empty inventory" to LoadingInventory(),
+            "non-matching inventory" to LoadingInventory(
+                bars = listOf(LoadingBar(id = "bar", name = "Bar", weightTicks = 20_000))
+            )
+        )
+        val ceiling = mapOf(EquipmentTag.DUMBBELL to 40.0)
+        cases.forEach { (label, inventory) ->
+            val request = mixedOrderedRequest(
+                inventory = inventory,
+                suggested = mapOf(DUMBBELL_ROW to 40.0),
+                caps = mapOf(DUMBBELL_ROW to 40.0),
+                floors = mapOf(DUMBBELL_ROW to 60.0)
+            ).copy(equipmentMaxWeights = ceiling)
+            val row = DeterministicWorkoutPlannerEngine(dumbbellCatalog)
+                .plan(request, DUMBBELL_CATALOG)
+                .days.flatMap { it.exercises }
+                .first { it.exerciseId == DUMBBELL_ROW }
+            val weights = row.setTargets?.targets?.map { it.weightKg }
+            assertEquals(listOf(2, 8), row.setTargets?.targets?.map { it.reps }, label)
+            // 60 x 0.855 = 51.3 would round to 52.5 kg, above the 40 kg dumbbell maximum.
+            assertEquals(listOf(40.0, 30.0), weights, label)
+            assertTrue(weights.orEmpty().all { it == null || it <= 40.0 }, label)
+
+            val sanitized = WeeklyPlanSanitizer(dumbbellCatalog)
+                .sanitize(
+                    modelPlan(proposedWeightKg = 500.0, row = DUMBBELL_ROW),
+                    request.copy(daysPerWeek = 1)
+                )
+                ?.days?.single()?.exercises
+                ?.first { it.exerciseId == DUMBBELL_ROW }
+            val sanitizedWeights = sanitized?.setTargets?.targets?.map { it.weightKg }
+            assertEquals(listOf(40.0, 30.0), sanitizedWeights, label)
+        }
+    }
+
+    @Test
+    fun aManualOnlyShortTargetIsGeneratedWithoutAScalarBound() = runTest {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000)
+                )
+            )
+        )
+        val request = mixedOrderedRequest(
+            inventory = inventory,
+            suggested = emptyMap(),
+            caps = emptyMap(),
+            floors = mapOf(DUMBBELL_ROW to 60.0),
+            withheld = setOf(DUMBBELL_ROW)
+        )
+        val row = DeterministicWorkoutPlannerEngine(dumbbellCatalog)
+            .plan(request, DUMBBELL_CATALOG)
+            .days.flatMap { it.exercises }
+            .first { it.exerciseId == DUMBBELL_ROW }
+
+        // Thin evidence: no scalar number, but the recorded short-rep floor still supplies set 1.
+        assertNull(row.suggestedWeightKg)
+        assertEquals(
+            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE,
+            row.explanation?.unavailableReason
+        )
+        assertEquals(listOf(50.0, null), row.setTargets?.targets?.map { it.weightKg })
+
+        val sanitized = WeeklyPlanSanitizer(dumbbellCatalog)
+            .sanitize(
+                modelPlan(proposedWeightKg = null, row = DUMBBELL_ROW),
+                request.copy(daysPerWeek = 1)
+            )
+            ?.days?.single()?.exercises
+            ?.first { it.exerciseId == DUMBBELL_ROW }
+        assertEquals(listOf(50.0, null), sanitized?.setTargets?.targets?.map { it.weightKg })
+    }
+
+    @Test
+    fun swapCandidatesCarryTheirOwnLoadOutcomeRatherThanThePlans() = runTest {
+        val alternative = dumbbellExercise(
+            "dumbbell-curl-alt-2",
+            MovementPattern.BICEPS_ISOLATION,
+            MuscleGroup.BICEPS
+        )
+        val catalog = LocalCatalog(DUMBBELL_CATALOG + alternative)
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(40_000))
+            )
+        )
+        val request = dumbbellRequest(inventory).copy(
+            suggestedWeightsKg = mapOf(DUMBBELL_CURL_ALT to 40.0),
+            recentWeightCaps = mapOf(DUMBBELL_CURL_ALT to 40.0)
+        )
+        val candidates = SubstituteExerciseUseCase(
+            catalog,
+            UnusedPlanHistory,
+            DeterministicWorkoutPlannerEngine(catalog),
+            SuggestedWeightConfig()
+        ).candidates(acceptedDumbbellPrescription(), dayIndex = 0, position = 0, request = request)
+
+        val unreachable = candidates.first { it.exerciseId == DUMBBELL_CURL_ALT }
+        val noHistory = candidates.first { it.exerciseId == "dumbbell-curl-alt-2" }
+        assertNull(unreachable.suggestedWeightKg)
+        assertEquals(LoadInventoryOutcome.NO_REACHABLE_LOAD, unreachable.loadInventoryOutcome)
+        assertNull(noHistory.suggestedWeightKg)
+        assertEquals(
+            LoadInventoryOutcome.INSUFFICIENT_RECENT_EVIDENCE,
+            noHistory.loadInventoryOutcome
+        )
+    }
+
+    @Test
+    fun aSanitizedAiNumberWithheldByTheInventoryKeepsItsAcceptedAdjustment() = runTest {
+        val inventory = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(id = "db", name = "Dumbbells", fixedTicks = listOf(40_000))
+            )
+        )
+        val request = dumbbellRequest(inventory).copy(daysPerWeek = 1)
+        val row = WeeklyPlanSanitizer(dumbbellCatalog)
+            .sanitize(modelPlan(proposedWeightKg = 500.0, row = DUMBBELL_ROW), request)
+            ?.days?.single()?.exercises
+            ?.first { it.exerciseId == DUMBBELL_ROW }
+
+        // The model number was accepted and then withheld by the saved implement; the adjustment
+        // record is what proves the app had converted a number, not a conversion field.
+        assertNull(row?.suggestedWeightKg)
+        assertEquals(true, row?.explanation?.aiAdjustment?.proposedAccepted)
+        assertNull(row?.explanation?.conversion)
+    }
+
+    private fun mixedOrderedRequest(
+        inventory: LoadingInventory?,
+        suggested: Map<String, Double>,
+        caps: Map<String, Double>,
+        floors: Map<String, Double> = emptyMap(),
+        withheld: Set<String> = emptySet()
+    ) = PlanRequest(
+        daysPerWeek = 2,
+        availableEquipment = setOf(EquipmentTag.DUMBBELL),
+        muscleFatigue = emptyMap(),
+        splitPreference = SplitType.AUTO,
+        nowMillis = NOW,
+        goal = TrainingGoal.BALANCED,
+        setsPerExercise = 2,
+        accessorySetsPerExercise = 2,
+        suggestedWeightsKg = suggested,
+        recentWeightCaps = caps,
+        withheldWeightExerciseIds = withheld,
+        lowRepManualFloorsKg = floors,
+        loadingInventory = inventory,
+        includeWorkoutData = true,
+        automaticSetPrescription = AutomaticSetPrescription(
+            shape = SetPrescriptionShape.DESCENDING_LOAD,
+            minReps = 2,
+            maxReps = 8
+        )
+    )
+
+    @Test
+    fun bothReplacementConsumersWithholdACompatibleGridWhenTheNamedKindIsWrong() = runTest {
+        val inventory = LoadingInventory(
+            bars = listOf(LoadingBar(id = "bar", name = "Bar", weightTicks = 20_000)),
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(20_000, 25_000, 30_000)
+                )
+            )
+        )
+        val request = dumbbellRequest(inventory)
+        val policy = SlotProgressionPolicy(
+            minReps = 6,
+            maxReps = 8,
+            incrementKg = 2.5,
+            equipmentId = "bar"
+        )
+        val substitute = SubstituteExerciseUseCase(
+            dumbbellCatalog,
+            UnusedPlanHistory,
+            DeterministicWorkoutPlannerEngine(dumbbellCatalog),
+            SuggestedWeightConfig()
+        )
+        val plan = acceptedDumbbellPrescription().let { accepted ->
+            accepted.copy(
+                days = accepted.days.map { day ->
+                    day.copy(
+                        exercises = day.exercises.map { it.copy(progressionPolicy = policy) }
+                    )
+                }
+            )
+        }
+        val previewed = substitute.candidates(
+            plan,
+            dayIndex = 0,
+            position = 0,
+            request = request
+        ).first { it.exerciseId == DUMBBELL_CURL_ALT }
+        val replaced = replacementOccurrenceEntry(
+            original = OccurrenceEntry(
+                exerciseId = DUMBBELL_CURL,
+                exerciseName = "Dumbbell Curl",
+                movementPattern = MovementPattern.BICEPS_ISOLATION,
+                sets = 3,
+                reps = 6,
+                progressionPolicy = policy
+            ),
+            candidate = dumbbellExercise(
+                DUMBBELL_CURL_ALT,
+                MovementPattern.BICEPS_ISOLATION,
+                MuscleGroup.BICEPS
+            ),
+            request = request,
+            intensityScale = 1.0,
+            weights = SuggestedWeightConfig()
+        )
+
+        // The bar's grid is reachable numerically, but a dumbbell exercise cannot use it.
+        assertNull(previewed.suggestedWeightKg)
+        assertNull(replaced.weightKg)
+    }
+
+    private fun dumbbellRequest(inventory: LoadingInventory) = PlanRequest(
+        daysPerWeek = 2,
+        availableEquipment = setOf(EquipmentTag.DUMBBELL),
+        muscleFatigue = emptyMap(),
+        splitPreference = SplitType.AUTO,
+        nowMillis = NOW,
+        goal = TrainingGoal.BALANCED,
+        suggestedWeightsKg = mapOf(DUMBBELL_ROW to 36.0, DUMBBELL_CURL_ALT to 36.0),
+        recentWeightCaps = mapOf(DUMBBELL_ROW to 36.0, DUMBBELL_CURL_ALT to 36.0),
+        loadingInventory = inventory,
+        includeWorkoutData = true
+    )
+
+    private fun modelPlan(proposedWeightKg: Double?, row: String) = WeeklyPlan(
+        engine = PlannerEngineId.GEMINI_API,
+        days = listOf(
+            WorkoutDay(
+                dayIndex = 0,
+                focus = SplitFocus.FULL_BODY,
+                exercises = listOf(
+                    PlannedExercise(
+                        exerciseId = row,
+                        sets = 3,
+                        reps = 6,
+                        suggestedWeightKg = proposedWeightKg
+                    ),
+                    PlannedExercise(
+                        exerciseId = "dumbbell-curl",
+                        sets = 3,
+                        reps = 6,
+                        suggestedWeightKg = proposedWeightKg
+                    )
+                )
+            )
+        )
+    )
+
+    private fun acceptedDumbbellPrescription() = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        id = 1L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.PULL,
+                exercises = listOf(
+                    AcceptedExercise(
+                        exerciseId = DUMBBELL_CURL,
+                        sets = 3,
+                        reps = 6,
+                        name = "Dumbbell Curl",
+                        movementPattern = MovementPattern.BICEPS_ISOLATION,
+                        suggestedWeightKg = 10.0,
+                        loadCapability = ExerciseLoadCapability.EXTERNAL,
+                        loadKind = LoadKind.EXTERNAL
+                    )
+                )
+            )
+        )
+    )
+
+    private fun dumbbellExercise(id: String, pattern: MovementPattern, primary: MuscleGroup) =
+        Exercise(
+            id = id,
+            name = id,
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            primaryMuscles = setOf(primary),
+            movementPattern = pattern,
+            loadCapability = ExerciseLoadCapability.EXTERNAL
+        )
 
     private object UnusedPlanHistory : PlanHistoryRepository {
         override fun observeLatest(): Flow<AcceptedPlan?> = flowOf(null)
@@ -357,8 +893,59 @@ class PlannerLoadPolicyParityTest {
     private companion object {
         const val EXERCISE = "lat-pulldown"
         const val REPLACEMENT = "cable-pulldown"
+        const val DUMBBELL_ROW = "dumbbell-row"
+        const val DUMBBELL_CURL = "dumbbell-curl"
+        const val DUMBBELL_CURL_ALT = "dumbbell-curl-alt"
         const val DAY_MILLIS = 86_400_000L
         const val NOW = 100 * DAY_MILLIS
+
+        val DUMBBELL_INVENTORY = LoadingInventory(
+            dumbbells = listOf(
+                LoadingDumbbell(
+                    id = "db",
+                    name = "Dumbbells",
+                    fixedTicks = listOf(20_000, 22_500, 25_000, 30_000)
+                )
+            )
+        )
+
+        val DUMBBELL_CATALOG: List<Exercise> = listOf(
+            Exercise(
+                id = "dumbbell-squat",
+                name = "Dumbbell Squat",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.QUADS),
+                movementPattern = MovementPattern.SQUAT
+            ),
+            Exercise(
+                id = "dumbbell-press",
+                name = "Dumbbell Press",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                movementPattern = MovementPattern.HORIZONTAL_PUSH
+            ),
+            Exercise(
+                id = DUMBBELL_ROW,
+                name = "Dumbbell Row",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.UPPER_BACK),
+                movementPattern = MovementPattern.HORIZONTAL_PULL
+            ),
+            Exercise(
+                id = DUMBBELL_CURL,
+                name = "Dumbbell Curl",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.BICEPS),
+                movementPattern = MovementPattern.BICEPS_ISOLATION
+            ),
+            Exercise(
+                id = DUMBBELL_CURL_ALT,
+                name = "Dumbbell Curl Alt",
+                requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+                primaryMuscles = setOf(MuscleGroup.BICEPS),
+                movementPattern = MovementPattern.BICEPS_ISOLATION
+            )
+        )
 
         /** Higher than any converted bound here, so the sanitizer always clamps unless withheld. */
         const val ABOVE_ANY_BOUND = 500.0
