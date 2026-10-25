@@ -97,6 +97,7 @@ import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
 import hydrafit.feature.logger.generated.resources.logger_draft_edit
+import hydrafit.feature.logger.generated.resources.logger_draft_edit_apply
 import hydrafit.feature.logger.generated.resources.logger_draft_edit_title
 import hydrafit.feature.logger.generated.resources.logger_draft_load_enter
 import hydrafit.feature.logger.generated.resources.logger_draft_load_prompt_body
@@ -1644,6 +1645,8 @@ fun WorkoutLoggerScreen(
                     ExerciseLoadCapability.BODYWEIGHT_ADDABLE -> edit.weightRevealed
                     else -> true
                 },
+                // A guided draft's editor only applies values to the pending set; logging is separate.
+                appliesOnly = state.isGuidedActive && edit.draft.occurrenceEntryId != null,
                 onRepsChanged = onDraftRepsChanged,
                 onDurationSecondsChanged = onDraftDurationSecondsChanged,
                 onWeightChanged = onDraftWeightChanged,
@@ -1702,6 +1705,7 @@ private fun DraftEditDialog(
     nowMillis: Long,
     canRevealWeight: Boolean,
     showWeight: Boolean,
+    appliesOnly: Boolean,
     onRepsChanged: (String) -> Unit,
     onDurationSecondsChanged: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
@@ -1783,7 +1787,15 @@ private fun DraftEditDialog(
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = edit.enteredMetricIsPositive) {
-                Text(stringResource(Res.string.logger_confirm))
+                Text(
+                    stringResource(
+                        if (appliesOnly) {
+                            Res.string.logger_draft_edit_apply
+                        } else {
+                            Res.string.logger_confirm
+                        }
+                    )
+                )
             }
         },
         dismissButton = {

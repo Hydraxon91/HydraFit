@@ -84,6 +84,7 @@
     <string name="logger_load_added_none">Bodyweight + added load</string>
     <string name="logger_load_legacy">%1$s %2$s (recorded, unconfirmed)</string>
     <string name="logger_draft_edit">Edit draft</string>
+    <string name="logger_draft_edit_apply">Apply edit</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
     <string name="logger_draft_timed_line">%1$s  %2$d x %3$d s · ~%4$s</string>
     <string name="logger_draft_prescribed_effort">Prescribed RIR %1$d · RPE %2$d (RPE is the same closeness-to-failure scale, 10 − RIR)</string>

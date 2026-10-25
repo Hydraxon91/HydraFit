@@ -298,6 +298,12 @@ data class WorkoutLoggerUiState(
     val draftWriteInProgress: Boolean = false,
     /** Independent partially written drafts awaiting retry in the current context. */
     val draftWriteRetries: List<DraftWriteRetry> = emptyList(),
+    /**
+     * Guided drafts whose editor values were applied but not yet logged, keyed by occurrence entry.
+     * In-memory only: they seed the pending row through ordinary refreshes and are dropped when the
+     * set is logged, the editor's draft is removed, or the workout context changes.
+     */
+    val appliedGuidedEdits: Map<Long, DraftEdit> = emptyMap(),
     /** The current workout of the active block, or null when no block is active. */
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */

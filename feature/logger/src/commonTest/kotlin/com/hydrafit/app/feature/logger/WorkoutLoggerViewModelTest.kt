@@ -737,7 +737,93 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
-    fun editingAGuidedTimedSetWritesItsEditedSeconds() = runTimerTest {
+    fun anAppliedGuidedDraftEditSurvivesARefreshAndOneLogConsumesIt() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("10")
+        viewModel.onDraftWeightChanged("120")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        assertTrue(repository.all().isEmpty())
+        assertNull(viewModel.state.value.draftEdit)
+        assertEquals(10, viewModel.state.value.draftSets.single().reps)
+        assertEquals(120.0, viewModel.state.value.draftSets.single().weightKg)
+
+        // An ordinary re-read of the same occurrence keeps the applied values.
+        val refreshed = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(revision = occurrence.revision + 1)
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), refreshed, selectedOccurrenceId = 30L)
+        advanceUntilIdle()
+        assertEquals(10, viewModel.state.value.draftSets.single().reps)
+        assertEquals(120.0, viewModel.state.value.draftSets.single().weightKg)
+        assertEquals(1, viewModel.state.value.appliedGuidedEdits.size)
+
+        // The explicit logging action writes the edited values once.
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+        val logged = repository.all().single()
+        assertEquals(10, logged.reps)
+        assertEquals(120.0, logged.weightKg)
+
+        // The remaining set of the slot follows the plan again.
+        assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
+        assertEquals(8, viewModel.state.value.draftSets.single().reps)
+        assertEquals(100.0, viewModel.state.value.draftSets.single().weightKg)
+    }
+
+    @Test
+    fun cancellingAGuidedDraftEditWritesNothingAndKeepsThePlanValues() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("10")
+        viewModel.cancelDraftEdit()
+        runCurrent()
+
+        assertTrue(repository.all().isEmpty())
+        assertNull(viewModel.state.value.draftEdit)
+        assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
+        assertEquals(8, viewModel.state.value.draftSets.single().reps)
+    }
+
+    @Test
+    fun anAppliedGuidedDraftEditIsDiscardedWhenTheWorkoutChanges() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("10")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+        assertEquals(10, viewModel.state.value.draftSets.single().reps)
+
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 31L)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun applyingAGuidedTimedEditWritesNothingAndTheLaterLogWritesItsSeconds() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
         schedule.set(blockActivation(), timedOccurrences(), selectedOccurrenceId = 30L)
@@ -748,6 +834,14 @@ class WorkoutLoggerViewModelTest {
         assertEquals("90", viewModel.state.value.draftEdit?.durationSeconds)
         viewModel.onDraftDurationSecondsChanged("120")
         viewModel.confirmDraftEdit()
+        runCurrent()
+
+        // Apply only edits the pending set: no write has happened.
+        assertTrue(repository.all().isEmpty())
+        assertNull(viewModel.state.value.draftEdit)
+        assertEquals(120, viewModel.state.value.draftSets.single().durationSeconds)
+
+        viewModel.confirmGuidedSet(40L)
         runCurrent()
 
         val logged = repository.all().single()
@@ -6796,6 +6890,117 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun correctingASetKeepsTheRestTimerRunningOnItsRemainingTime() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        var elapsedNow = 50_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsedNow }
+        )
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        elapsedNow = 50_750L
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        viewModel.onLoggedSetRepsChanged("10")
+        viewModel.saveLoggedSetEdit()
+        runCurrent()
+
+        assertEquals(10, repository.all().single().reps)
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+    }
+
+    @Test
+    fun correctingAnUnrelatedSetLeavesTheRestTimerRunning() = runTimerTest {
+        val otherSet = WorkoutSet(
+            id = 900L,
+            exerciseId = "back-squat",
+            reps = 5,
+            weightKg = 100.0,
+            performedAtMillis = MONDAY,
+            sessionId = "other-session",
+            occurrenceId = 31L,
+            occurrenceEntryId = 41L
+        )
+        val repository = FakeWorkoutLogRepository(initial = listOf(otherSet))
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertNotNull(viewModel.state.value.restTimer)
+
+        viewModel.editLoggedSet(
+            LoggedSetRow(
+                id = otherSet.id,
+                performedAtMillis = otherSet.performedAtMillis,
+                exerciseId = otherSet.exerciseId,
+                exerciseName = "Back Squat",
+                reps = otherSet.reps,
+                weightKg = otherSet.weightKg,
+                isWarmup = false,
+                occurrenceId = otherSet.occurrenceId,
+                sessionId = otherSet.sessionId
+            )
+        )
+        viewModel.onLoggedSetRepsChanged("6")
+        viewModel.saveLoggedSetEdit()
+        runCurrent()
+
+        assertNotNull(viewModel.state.value.restTimer)
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+    }
+
+    @Test
+    fun anOccurrenceRefreshKeepsTheRestTimerButSwitchingWorkoutClearsIt() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.confirmGuidedSetNow(40L)
+        runCurrent()
+        assertNotNull(viewModel.state.value.restTimer)
+
+        // The same workout is re-read with changed data (e.g. progress or a correction upstream).
+        val refreshed = twoOccurrences().map { occurrence ->
+            if (occurrence.id == 30L) {
+                occurrence.copy(revision = occurrence.revision + 1)
+            } else {
+                occurrence
+            }
+        }
+        schedule.set(blockActivation(), refreshed, selectedOccurrenceId = 30L)
+        // A running countdown keeps scheduling ticks, so advance only the immediate refresh work.
+        runCurrent()
+
+        assertNotNull(viewModel.state.value.restTimer)
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
+
+        schedule.set(
+            blockActivation(),
+            refreshed.map { it.copy(revision = it.revision + 1) },
+            selectedOccurrenceId = 31L
+        )
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.restTimer)
+    }
+
+    @Test
     fun restoresPersistedCountdownThroughViewModelAfterSameBootRecreation() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -7104,10 +7309,15 @@ class WorkoutLoggerViewModelTest {
             elapsed = 3_000L
             viewModel.confirmDraftEdit()
             runCurrent()
+            // Applying the editor changes the pending set only; the explicit completion is the write,
+            // and its failure keeps the live start for the retry below.
+            assertTrue(repository.all().isEmpty())
+            viewModel.confirmGuidedSetNow(40L)
+            runCurrent()
             assertTrue(viewModel.state.value.guidedSetWriteFailed)
             assertTrue(repository.all().isEmpty())
             viewModel.onWarmupToggled(!warmup)
-            viewModel.confirmDraftEdit()
+            viewModel.confirmGuidedSetNow(40L)
             runCurrent()
 
             val logged = repository.all().single()
@@ -7251,6 +7461,14 @@ class WorkoutLoggerViewModelTest {
         elapsedNow = 10_400L
         viewModel.editGuidedSet(40L)
         viewModel.confirmDraftEdit()
+        runCurrent()
+
+        // Applying the editor changes the pending set only; the live start is still unconsumed.
+        assertTrue(repository.all().isEmpty())
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+        assertNull(viewModel.state.value.restTimer)
+
+        viewModel.confirmGuidedSetNow(40L)
         runCurrent()
 
         val recorded = repository.all().single()
@@ -7509,6 +7727,10 @@ class WorkoutLoggerViewModelTest {
         assertTrue(viewModel.onDraftPerformedAtChanged(MONDAY - 60_000L))
         viewModel.confirmDraftEdit()
         runCurrent()
+        // The editor only applies; the explicit completion records the backdated set.
+        assertTrue(repository.all().isEmpty())
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
 
         // An explicit performed time clears the live event, so the set is recorded as catch-up and
         // no prompt begins; the session-identity guard never has to reconcile a backdated write.
@@ -7687,7 +7909,7 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
-    fun successfulTimeCorrectionOfTimerOccurrenceCancelsPrompt() = runTimerTest {
+    fun successfulTimeCorrectionOfTimerOccurrenceKeepsThePrompt() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
         schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
@@ -7708,7 +7930,9 @@ class WorkoutLoggerViewModelTest {
         assertTrue(viewModel.correctSetTime(savedSet.id, MONDAY - 86_400_000L, 12, 0))
         runCurrent()
 
-        assertNull(viewModel.state.value.restTimer)
+        // Correcting a recorded set does not change which workout is being logged, so the running
+        // countdown keeps counting.
+        assertEquals(120_000L, viewModel.state.value.restTimer?.remainingMillis)
     }
 
     @Test
@@ -7722,6 +7946,11 @@ class WorkoutLoggerViewModelTest {
         viewModel.editGuidedSet(40L)
         viewModel.onDraftRepsChanged("7")
         viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        // Editing applies to the pending set; only the explicit completion records it.
+        assertTrue(repository.all().isEmpty())
+        viewModel.confirmGuidedSet(40L)
         advanceUntilIdle()
 
         assertEquals(1, repository.all().size)
@@ -7886,6 +8115,7 @@ class WorkoutLoggerViewModelTest {
                     viewModel.enterMissingLoad()
                     viewModel.onDraftWeightChanged("80")
                     viewModel.confirmDraftEdit()
+                    viewModel.confirmGuidedSetNow(40L)
                 }
                 "legacy" -> viewModel.resolveLegacyAsExternal()
             }

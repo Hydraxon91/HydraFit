@@ -248,6 +248,7 @@ class WorkoutLoggerViewModel(
                             confirmingAllDrafts = false,
                             draftWriteRetries = emptyList(),
                             guidedProgress = null,
+                            appliedGuidedEdits = emptyMap(),
                             frozenEntryIds = emptySet(),
                             guidedSetWriteFailed = false,
                             summary = null
@@ -682,10 +683,8 @@ class WorkoutLoggerViewModel(
                 _state.update { it.copy(savingLoggedSet = false) }
             }
             _state.update { it.copy(loggedSetEdit = null) }
+            // A correction edits recorded work; it neither ends the workout nor its running rest.
             resetShortRestCoaching()
-            if (timerOccurrenceId != null && edit.row.occurrenceId == timerOccurrenceId) {
-                cancelRestTimer()
-            }
             refreshRecentSets()
             if (activeActivation != null) refreshOccurrence()
             // A correction opened from the summary must be reflected there: re-read it rather than
@@ -711,15 +710,10 @@ class WorkoutLoggerViewModel(
             runtime.utcOffsetMillis()
         )
         if (millis > runtime.nowMillis()) return false
-        val correctedOccurrenceId = _state.value.recentSets
-            .firstOrNull { it.id == setId }
-            ?.occurrenceId
         viewModelScope.launch {
             logMutations.correctTime(setId, millis)
+            // Time corrections leave the workout and any running rest prompt untouched.
             resetShortRestCoaching()
-            if (timerOccurrenceId != null && correctedOccurrenceId == timerOccurrenceId) {
-                cancelRestTimer()
-            }
             refreshRecentSets()
         }
         return true
@@ -784,14 +778,9 @@ class WorkoutLoggerViewModel(
 
     fun deleteSet(id: Long) {
         viewModelScope.launch {
-            val deletedOccurrenceId = _state.value.recentSets
-                .firstOrNull { it.id == id }
-                ?.occurrenceId
             logMutations.delete(id)
+            // A deletion is an edit of recorded work, not a workout end: rest keeps counting down.
             resetShortRestCoaching()
-            if (timerOccurrenceId != null && deletedOccurrenceId == timerOccurrenceId) {
-                cancelRestTimer()
-            }
             refreshRecentSets()
             // A deleted set changes the active occurrence's remaining/progress, so refresh it too.
             if (activeActivation != null) refreshOccurrence()
@@ -1060,6 +1049,7 @@ class WorkoutLoggerViewModel(
                 missingLoadPrompt = if (rebuildDrafts) null else current.missingLoadPrompt,
                 legacyResolution = if (rebuildDrafts) null else current.legacyResolution,
                 draftWriteRetries = if (rebuildDrafts) emptyList() else current.draftWriteRetries,
+                appliedGuidedEdits = if (rebuildDrafts) emptyMap() else current.appliedGuidedEdits,
                 confirmingAllDrafts = if (rebuildDrafts) false else current.confirmingAllDrafts,
                 // A rebuilt plan/day changes the form's suggested values, so a manual-set failure
                 // from the previous context no longer describes what is on screen; a completed save's
@@ -1204,13 +1194,25 @@ class WorkoutLoggerViewModel(
         editDraft(draft)
     }
 
+    /**
+     * Applies the editor to its draft. In guided mode this only updates the pending set: the values
+     * stay unwritten until the separate logging action records them.
+     */
     fun confirmDraftEdit() {
         val edit = _state.value.draftEdit ?: return
         if (!edit.enteredMetricIsPositive) return
         val draft = edit.draft
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
-            confirmGuidedSet(entryId, liveCompletion = liveSetIntentEntryId == entryId)
+            _state.update { state ->
+                state.copy(
+                    draftSets = state.draftSets.map { row ->
+                        if (row.occurrenceEntryId == entryId) appliedGuidedDraft(row, edit) else row
+                    },
+                    appliedGuidedEdits = state.appliedGuidedEdits + (entryId to edit),
+                    draftEdit = null
+                )
+            }
             return
         }
         confirmDraft(draft)
@@ -1322,6 +1324,13 @@ class WorkoutLoggerViewModel(
     private fun updateDraftEdit(transform: DraftEdit.() -> DraftEdit) {
         _state.update { state -> state.copy(draftEdit = state.draftEdit?.transform()) }
     }
+
+    /**
+     * The pending row [base] with one editor's values applied, using [base] for the slot identity and
+     * measure so a refreshed row keeps its current remaining count.
+     */
+    private fun appliedGuidedDraft(base: DraftSet, edit: DraftEdit): DraftSet =
+        editedDraft(edit.copy(draft = base))
 
     private fun editedDraft(edit: DraftEdit): DraftSet {
         val capability = edit.draft.loadCapability
@@ -1457,6 +1466,9 @@ class WorkoutLoggerViewModel(
                 },
                 draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
                     retry.source == draft || retry.draft == draft
+                },
+                appliedGuidedEdits = it.appliedGuidedEdits.filterKeys { key ->
+                    key != draft.occurrenceEntryId
                 }
             )
         }
@@ -1851,6 +1863,10 @@ class WorkoutLoggerViewModel(
         // A new or removed occurrence replaces the logging context: the same change that invalidates
         // an in-flight submission's completion also drops the failure feedback it left behind.
         val occurrenceContextChanged = previousOccurrence != occurrence
+        // Only a different workout invalidates a running countdown. Re-reading or updating the same
+        // occurrence (progress, recorded sets) keeps it, so an edit never cancels rest.
+        val workoutIdentityChanged =
+            previousOccurrenceId != null && previousOccurrenceId != occurrence?.id
         if (occurrence == null) {
             if (occurrenceContextChanged) {
                 draftContextRevision++
@@ -1868,6 +1884,7 @@ class WorkoutLoggerViewModel(
                     legacyResolution = null,
                     draftWriteRetries = emptyList(),
                     confirmingAllDrafts = false,
+                    appliedGuidedEdits = emptyMap(),
                     todayFocus = null,
                     guidedProgress = null,
                     frozenEntryIds = emptySet(),
@@ -1888,11 +1905,20 @@ class WorkoutLoggerViewModel(
             // A replaced occurrence no longer matches the context a manual-set failure or a completed
             // save's refresh message described.
             _state.update {
-                it.copy(manualLogFailed = false, manualLogRefreshFailed = false)
+                it.copy(
+                    manualLogFailed = false,
+                    manualLogRefreshFailed = false,
+                    // Applied one-off values belong to their workout; a different workout discards them.
+                    appliedGuidedEdits = if (workoutIdentityChanged) {
+                        emptyMap()
+                    } else {
+                        it.appliedGuidedEdits
+                    }
+                )
             }
             if (previousOccurrence != null) {
-                invalidateRestTimer()
                 liveSetIntentEntryId = null
+                if (workoutIdentityChanged) invalidateRestTimer()
             }
         }
         val (performed, frozenEntryIds) = occurrenceRecordedSets(occurrence)
@@ -1929,8 +1955,16 @@ class WorkoutLoggerViewModel(
         val retries = _state.value.draftWriteRetries.filter { retry ->
             drafts.any { it.sameSlotAs(retry.source) }
         }
+        // An applied guided edit is pending, unwritten state: it seeds the refreshed row until the
+        // set is logged, reset, or the workout context changes.
+        val appliedEdits = _state.value.appliedGuidedEdits.filterKeys { entryId ->
+            drafts.any { it.occurrenceEntryId == entryId }
+        }
         val displayDrafts = drafts.map { draft ->
-            retries.firstOrNull { draft.sameSlotAs(it.source) }?.draft ?: draft
+            draft.occurrenceEntryId?.let { appliedEdits[it] }
+                ?.let { edit -> appliedGuidedDraft(draft, edit) }
+                ?: retries.firstOrNull { draft.sameSlotAs(it.source) }?.draft
+                ?: draft
         }
         val workout = activation.workouts.firstOrNull { it.id == occurrence.activationWorkoutId }
         val prescribed = occurrence.entries.sumOf { it.sets }
@@ -1981,6 +2015,7 @@ class WorkoutLoggerViewModel(
                     resolution.items.all { item -> item.draft in displayDrafts }
                 },
                 draftWriteRetries = retries,
+                appliedGuidedEdits = appliedEdits,
                 // A batch continuation is scoped to one occurrence: switching away ends it.
                 confirmingAllDrafts = it.confirmingAllDrafts &&
                     sameOccurrence &&
@@ -2448,9 +2483,14 @@ class WorkoutLoggerViewModel(
                 return
             }
         }
-        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
+        val openEdit = _state.value.draftEdit?.takeIf {
+            it.draft == draft || editedDraft(it) == draft
+        }
+        // An applied editor value is pending state: logging consumes it exactly once.
+        val appliedEdit = draft.occurrenceEntryId?.let { _state.value.appliedGuidedEdits[it] }
         val resolved = when {
-            edit != null -> editedDraft(edit)
+            openEdit != null -> editedDraft(openEdit)
+            appliedEdit != null -> appliedGuidedDraft(draft, appliedEdit)
             retry != null -> retry.draft
             else -> draft
         }
@@ -2460,7 +2500,7 @@ class WorkoutLoggerViewModel(
         }
         launchGuidedWrite(
             resolved,
-            edit ?: retry?.edit,
+            openEdit ?: appliedEdit ?: retry?.edit,
             liveCompletion = liveSetIntentEntryId == occurrenceEntryId
         )
     }
@@ -2513,6 +2553,15 @@ class WorkoutLoggerViewModel(
         forcedWarmup: Boolean? = null
     ) {
         if (writeResult.succeeded) {
+            // The logged set consumed its applied values. Clear them before the refresh below
+            // republishes the pending rows, so the remaining sets follow the plan again.
+            _state.update {
+                it.copy(
+                    appliedGuidedEdits = it.appliedGuidedEdits.filterKeys { key ->
+                        key != resolved.occurrenceEntryId
+                    }
+                )
+            }
             val contextStillCurrent = contextRevision == draftContextRevision &&
                 timerGeneration == liveTimerGeneration
             val supersetRest = supersetRestAfter(resolved.occurrenceEntryId)
@@ -2531,7 +2580,10 @@ class WorkoutLoggerViewModel(
             }
             applyGuidedWriteSuccess()
             _state.update {
-                it.copy(isWarmup = false, supersetSkippedEntryId = null)
+                it.copy(
+                    isWarmup = false,
+                    supersetSkippedEntryId = null
+                )
             }
             clearLiveSetStart()
         } else if (forcedWarmup == true) {

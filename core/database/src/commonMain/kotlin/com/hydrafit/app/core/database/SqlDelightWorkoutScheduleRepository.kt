@@ -336,6 +336,16 @@ class SqlDelightWorkoutScheduleRepository(
             id = occurrenceId
         )
 
+        // A concluded workout ends the session it opened at the same instant, in this transaction, so
+        // a failed or stale resolution leaves that session untouched. An untouched skip has no
+        // recorded work and must not close a session; a partial or skip-with-work is FINISHED_PARTIAL.
+        if (status != OccurrenceStatus.SKIPPED) {
+            database.workoutSessionQueries.endOpenSessionsForOccurrence(
+                endedAtMillis = resolvedAtMillis,
+                occurrenceId = occurrenceId
+            )
+        }
+
         val next = queries.selectOccurrencesForActivation(occurrence.activationId).executeAsList()
             .filter { it.id != occurrenceId && it.status !in RESOLVED_STATUS_NAMES }
             .minByOrNull { it.queuePosition }
