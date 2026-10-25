@@ -11,6 +11,7 @@
 | 0.10.3 — manual supersets and curated planner pairing | **PUBLISHED** 2026-10-19 as `v0.10.3` at `13d50ee6` (PR #36) — review closed; 0.10.4 folded; Release run `39300575035` green; notes at `docs/release-notes/v0.10.3.md` | OF-10B per the [roadmap 0.10.x table](docs/roadmap.md). Explicit adjacent two-slot groups stored on all four prescription stores through additive `59.sqm` (schema 59→60), carried by backup format 24 and prescription interchange v5. Domain validation requires exactly two adjacent distinct slots with identical transition/pair rest; legacy rows stay unpaired. Guided logging alternates by recorded working sets, uses transition rest between members and pair rest after a round, and offers session-local skip/resume/unpair without writing or completing anything. Curated biceps↔triceps planner pairing is opt-in, adjacent-only, never reorders or re-prescribes, and is applied after any engine so behavior is consistent. Grouping changes no fatigue or progression formula. Fresh full matrix `full-matrix-05.log` (787 tasks executed, 0 inherited; scoped fixes in `fix-check4.log`, 126 executed). **Limits:** `59.sqm` has no on-device upgrade exercise; mid-workout unpair is session-local (the stored occurrence keeps its group); planner pairing seldom triggers unless biceps/triceps slots are already adjacent. Post-release hardening passed pinned superset acceptance 32/32 on `emulator-5554`; its remaining limits are in `docs/qa.md` §Post-0.10.3 hardening. |
 | 0.10.4 — effort/readiness investigation and disposition | **DISPOSITIONED AND PUBLISHED** — folded into `v0.10.3`; no numeric feature ships | Item 9 B3; Item 8. No numerical effort inference or readiness adjustment ships. RIR self-report accuracy depends on proximity to failure and relative load (Russo et al. 2025), which does not establish an estimator from prescribed-versus-actual reps; subjective monitoring evidence (Saw et al. 2016) does not calibrate HydraFit fatigue scores or an endurance scalar. Reopening needs applicable calibration evidence plus an approved persistence and planner/heatmap consumer contract. |
 | 0.10.2 — ordered per-set prescriptions, presets and prescribed effort | **PUBLISHED** 2026-10-19 within `v0.10.1` at `49d10003` — folded into the 0.10.1 publication; review closed | PYR-01, Item 9 B2 / LT-07. A slot may carry an ordered `SlotSetTargets` (per-set measure, load and optional prescribed RIR, plus an optional recipe recorded only for the manual builder's own inputs) stored on the four prescription stores through additive `58.sqm` (schema 58→59), carried as recorded snapshot format 3 with a slot index, and ported by backup format 23 and interchange v4. The list and the set count are one value, enforced by the routine, interchange and backup validators. Manual shapes (straight, ascending, descending, pyramid) build ordered targets from the user's own endpoints with a recorded recipe; automatic generation uses the user's range and the planner's existing estimated-1RM conversion, is external-load-only, records no manual recipe, and is applied by both the deterministic engine and the shared sanitizer so no engine can bypass it. Ordered progression requires every prescribed slot to satisfy its own target. Prescribed RIR (0–4) is stored separately from actual effort, with `equivalentRpe` as a derived presentation. Independent review REJECTED on seven findings; F-01 (automatic generation) was implemented with its SplitBuilder opt-in, F-02/F-03 (the set-count invariant and the logger override baseline) and F-04/F-05/F-07 were corrected with regression tests, F-06 is the documentation, and the follow-up C-01/C-03/C-04 were resolved by recording no manual recipe for the automatic path. Targeted closure **CLOSED** (`docs/review-0.10.2-snapshot.md`). **Limits:** the Compose surfaces have only partial device acceptance — six flows passed and the prescribed-effort line was observed but not asserted (`docs/qa.md` §0.10.1 device acceptance for the new surfaces — partial); `57.sqm` and `58.sqm` have no on-device upgrade exercise; `resolveOrdered` has no production consumer yet and drops the recipe when it advances a prescription; an automatic prescription's generation inputs are not persisted. |
+| 0.10.5 — post-0.10.3 live-use fixes | **SCOPE APPROVED** 2026-10-25 — not started | LF-01…LF-11 in "0.10.5 — post-0.10.3 live-use fixes". Five guided/logger corrections (rest timer survives edits, finish ends the session, finished exercises collapse, one superset control set, guided draft editing), five load corrections (replacement loads from the candidate's own history, per-hand dumbbell loads, inventory-aware rounding, robust baseline and manual-PR floor guard) and the `/batch` feasibility pre-check. Scope came from the 2026-10-20…23 reports against `v0.10.3`, triaged 2026-10-25 against a copy of the user's phone database (schema 60, `DETERMINISTIC`, `STRENGTH`, 4 days/week, kg; aggregate findings only). Equipment load identity (`EQ-02`) and the cable-station split, added-load progression (`EX-02` follow-up), time-boxed unavailable equipment (`LT-09`) and onboarding inventory capture are **not** in this release; they carry their own gates below. No schema, catalog or backup-format change is expected. |
 | Accelerated release grouping | ADOPTED 2026-10-15 — versions assigned | [Combined-release grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15): 27 planned release scopes (`0.8.0`–`0.8.3`, `0.9.0`–`0.9.6`, `0.10.0`–`0.10.4`, `0.11.0`–`0.11.4`, `0.12.0`–`0.12.1`, `0.13.0`–`0.13.3`; folding may publish fewer tags), then 1.0.0. Former slice numbers were renumbered on 2026-10-15; backlog ids (M1–M8, OF, LT, CAT, EX, QL, PYR, EQ) and immutable history keep their original numbering. All scope and verification gates preserved; `0.8.0` scope/implementation plan unchanged. Small implementation steps, capability suites, reusable fixtures and shared-boundary journeys remain required; split oversized bundles before implementation. Detailed implementation and ownership remain approval-gated. |
 | Product roadmap — M1–M8 | IN PROGRESS | 0.2.0–0.6.1 shipped; M1 selected scope done in 0.2.3. [Approved pre-1.0 roadmap](docs/roadmap.md): 0.7.x context → 0.8.x progress → 0.9.x equipment/data → 0.10.x progression → 0.11.x advanced metrics → 0.12.x optional AI → provisional 0.13.x final UX/design → 1.0. Smaller published feature releases approved 2026-10-11; each has its own bounded scope, verification and separately requested review. 0.7.0 scope and its durable decisions were approved 2026-10-11 (see the OF-03 section). 0.7.0 explanations, 0.7.1 notes/history, 0.7.2 summaries, 0.7.3 warm-up guidance (WU-01), 0.7.4 offline exercise instructions and 0.7.5 informational cautions are shipped. `v0.7.5` tags `7789d579` (PR #12), with green PR/main CI and signed Release run `38521713529`; the offline APK was verified as version 0.7.5/code 20 with matching digest and signature. Signed-release runtime remains unverified. Completed release detail is archived; all remaining work is pre-1.0 except iOS shipping/desktop; research remains evidence-gated. |
 | Oct 13 follow-up — pre-0.7.4 correctives | DONE | OCT13-01/02/03/04/07 implementation and PE-01..04 post-review follow-ups are complete; both the post-execution review and targeted closure review are approved. Logger host tests, `ktlintCheck`, `assembleDebug`, migration verification and both iOS compiles passed; closure test evidence is in `docs/qa.md` §13. OCT13-03/07 emulator acceptance remains user-reported. OCT13-05 broader notification integration stays in 0.7.7; OCT14-01 rest-alert timing corrective is approved before 0.7.6 C4. OCT13-06 expired-prompt dismissal and LT-10 progression policy remain separate/open. Topic branch push only; PR/merge and release publication are not included. |
@@ -51,7 +52,7 @@
 | 0.2.4 review snapshot | DONE | bf959ee^..HEAD (`eb310de`); 12 findings (R4-01..R4-12): 2 minor docs drift + 1 nit deferred to VOL-01 + 9 nit-positive confirmations of Chunk A + Settings chunk. See `docs/review-0.2.4-snapshot.md`. RF (docs sync on R4-01) gated separately. |
 | M3 routines & scheduling (OF-11 + OF-12-P0/P1) | DONE | `v0.3.0`; bounded emulator flows and PER-17 rollback verified; [evidence](docs/plans-archive.md#2026-10-09-routines-m3). EX-01 later shipped in 0.4.0; optional EQ-01 remains future. |
 
-> **Next work sequence (combined-release grouping and version assignment adopted 2026-10-15).** Follow the [roadmap version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15), retaining small approved implementation chunks. Settle LT-10 before closing 0.7.x; LT-10 / OF-10A-P0 integrity is delivered and published as `v0.10.0` (2026-10-18); `0.8.x` and `0.9.x` are published; the `0.10.x` series is complete — `v0.10.0`, `v0.10.1` (0.10.2 folded) and `v0.10.3` (0.10.4 folded) are published, with the next series (`0.11.x`) still requiring its own approval gates. All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; `0.13.x` is the provisional final UX/design series. Recent load/volume changes do not replace LT-10 integrity. CATP7-R01 remains in 0.12.x/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. New ideas need explicit approval before becoming 1.0 blockers. No implementation or publication is authorized by release grouping.
+> **Next work sequence (combined-release grouping and version assignment adopted 2026-10-15).** Follow the [roadmap version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15), retaining small approved implementation chunks. Settle LT-10 before closing 0.7.x; LT-10 / OF-10A-P0 integrity is delivered and published as `v0.10.0` (2026-10-18); `0.8.x` and `0.9.x` are published; the `0.10.x` series is complete — `v0.10.0`, `v0.10.1` (0.10.2 folded) and `v0.10.3` (0.10.4 folded) are published, with the next series (`0.11.x`) still requiring its own approval gates. `0.10.5` (post-0.10.3 live-use fixes) is scope-approved 2026-10-25 and precedes that series; `0.11.x` gains the approved `EQ-02` and `EX-02-A` scopes with their own gates. All remaining features, extensions, quality work and investigations are pre-1.0 except iOS shipping/desktop; `0.13.x` is the provisional final UX/design series. Recent load/volume changes do not replace LT-10 integrity. CATP7-R01 remains in 0.12.x/M8; CATP7-R02 is closed. BACK calibration remains evidence-gated, LT-03 remains verification debt, and unresolved behavior still needs decisions. New ideas need explicit approval before becoming 1.0 blockers. No implementation or publication is authorized by release grouping.
 
 > **Archived 2026-10-03** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-03--v021-and-v022-released)): the complete 0.2.1 and 0.2.2 release plans (0.2.1 Q1–Q6; 0.2.2 review phases, RF triage, R0 inventory/slices). **Archived 2026-10-02** (into [docs/plans-archive.md](docs/plans-archive.md#2026-10-02--v020-feature-cycle-release-pipeline-and-dropped-item)): Roadmap 2b S1–S5, items 1/2/2b/3, release pipeline C1–C6, and the dropped item 5. Earlier archives: the BACK fatigue investigation and the fatigue-model redesign.
 
@@ -101,7 +102,7 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **0.8.x** | Progress & Recovery — **4 publications, `0.8.0`–`0.8.3`**: `0.8.0` charts + records (published 2026-10-15); `0.8.1` catalog corrections + forearm accessories + involvement controls; `0.8.2` anatomical map + performed coverage; `0.8.3` body-weight tracking — published 2026-10-15 as `v0.8.1`, `v0.8.2` and `v0.8.3` (the `v0.8.3` `versionCode` ordering issue is corrected by `v0.8.4`) ([grouping](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15); [completed detail](docs/plans-archive.md#2026-10-15-08x-cleanup)). |
 | **0.9.x** | Equipment & Data Freedom — **7 publications, `0.9.0`–`0.9.6`**: profiles + plate calculator + equipment increments; provider imports; sharing + PDF + CSV export; automatic backups; encryption; merge restore; storage/reset controls. |
 | **0.10.x** | Trustworthy Progression & Flexible Prescriptions — **5 publications, `0.10.0`–`0.10.4`**: integrity (published 2026-10-18 as `v0.10.0`); progression policies; manual per-set targets + presets + generation + RIR/RPE targets; manual + planner supersets; supported effort/readiness outcomes. |
-| **0.11.x** | Beyond Rep-Based Sets — **5 publications, `0.11.0`–`0.11.4`**: distance; force; supported drop-set + rest-pause clusters; supported cardio; remaining duration-adjacent content. **The duration slice — timed sets, timed prescriptions, accepted-plan slot durations and persisted timed preparation — was delivered 2026-10-17 by the unversioned merge to `main` above, so it is no longer part of this series.** Each metric ships its complete consumer/portability chain. |
+| **0.11.x** | Beyond Rep-Based Sets — **5 publications, `0.11.0`–`0.11.4`**: distance; force; supported drop-set + rest-pause clusters; supported cardio; remaining duration-adjacent content. **The duration slice — timed sets, timed prescriptions, accepted-plan slot durations and persisted timed preparation — was delivered 2026-10-17 by the unversioned merge to `main` above, so it is no longer part of this series.** Each metric ships its complete consumer/portability chain. **Added 2026-10-25 (approved scope, implementation gated):** `EQ-02` equipment load identity with its `CABLE_MACHINE` station split, and `EX-02-A` added-load progression for bodyweight exercises — see "0.11.x additions approved 2026-10-25". |
 | **0.12.x** | Optional AI Reliability — **2 publications, `0.12.0`–`0.12.1`**: identity recovery + validation; measured local improvements + lifecycle/resource improvements. M8 research/evaluation gates span the series, and also cover a planner-provider reconsideration (Gemini alternatives, including free/API-free options) and candidate on-device model families (e.g. Bonsai 2 2B/4B/9B). |
 | **0.13.x (provisional)** | Final UX & Design — **4 publications, `0.13.0`–`0.13.3`**: design/navigation + screen polish; tablet + foldable adaptation; accessibility + localization/content; recovery states + final integration. Basic UX checks apply throughout. |
 | **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
@@ -113,6 +114,176 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 - Provisional numbers are not promises; a small corrective item is not promoted to a minor version, and no dates or feature-completion claims are attached.
 - Future numbers are approved roadmap targets, not implementation/publication approvals. M8 now spans **0.12.x**, with CATP7-R01 targeting **0.12.0**, superseding the former provisional 0.6.0 placement. Further splitting remains possible at each scope gate.
 - Development builds use a `-dev` string; release versions still come from tags via the existing `release.yml` workflow.
+
+### 0.10.5 — post-0.10.3 live-use fixes (scope approved 2026-10-25; implementation gated)
+
+**Overnight decisions and ownership approved 2026-10-25; record first, do not start yet.**
+The user approved the seven refined recommendations and the eight-hour budget in chat, then
+requested that they be written down before execution. The rules below supersede the initial
+per-set median, unconditional "per hand" wording, machine-grid inclusion and speculative triage.
+The final exact-file/consumer closure and consolidated execution contract remain to be presented;
+this recording step does not initialize a running batch or authorize publication.
+
+**Single-batch sequence and owners (serial writers):**
+
+| Chunk | Approved outcome | Owner |
+| --- | --- | --- |
+| 1 | LF-01/02/05: correction-safe rest, pending-set-only draft edits, consistent workout/session completion | `coder`; settled asynchronous behavior with regressions |
+| 2 | LF-03/04: completed-section collapse and one active-member superset action area | `coder`; localized UI/state |
+| 3 | LF-06/07: candidate-history loads, safe ordered-target replacement, accurate known dumbbell load basis | `coder`; explicitly approved planner scope |
+| 4 | LF-09/10: session-balanced robust baseline and low-rep PR floor guard | `coder`; explicitly approved planner scope |
+| 5 | LF-08: existing dumbbell/bar inventory plumbing and reachable-load rounding | `coder`; shared-contract and downstream tests |
+| 6 | LF-11: feasibility pre-check and affected tooling/feature docs | `coder`; parent owns PLANS.md and QA evidence consolidation |
+| 7 | Prepared emulator acceptance, fresh full matrix, independent review and bounded mechanical corrections | `ui-runner`, parent and independent `reviewer`; original coder retains correction ownership |
+| 8 | Verified atomic local commits, release-note draft and readiness report | `git-ops` for Git; parent consolidates evidence |
+
+**Model selection (this session):** `coder`, `git-ops` and `ui-runner` use
+`opengateway/deepseek/deepseek-v4.1-flash-ultrafast`. High reasoning is approved for chunks 1 and
+3–5; remaining delegations use the default variant. The independent reviewer inherits the parent's
+model/variant. The user-selected Git helper is an explicit exception to the batch's default
+main-agent Git operator, not to commit or publication gates. No concurrent writers or Git mutations.
+
+**Budget and endpoint:** eight hours from execution start, provisionally split as five hours for
+implementation/checks, one for UI acceptance, one for integration matrix and one for review and
+corrections. End at implemented, verified, independently reviewed and locally committed 0.10.5,
+with draft release notes and a publication-readiness report. No push, PR, merge, tag, release
+artifact or publication is authorized. New design decisions, unexpected writes, unavailable
+required checks or two unsuccessful evidence-backed fixes to one blocker stop affected work;
+continue only independent approved work. Budget expiry stops new work, not safety reconciliation.
+
+**UI contract direction:** parent authors/diagnoses flows with a total exploration budget of
+30 minutes / 30 tool calls; `ui-runner` executes prepared coherent journeys. Use only a freshly
+verified running emulator and debug app, synthetic fixtures and bounded approved targeted cleanup;
+no phone interaction or real-database installation. Exact fixture writes/cleanup and flow paths
+belong in the final execution contract. A missing required check remains unverified, not waived.
+
+Reported 2026-10-20…23 against `v0.10.3` and triaged read-only 2026-10-25 from a copy of the
+user's phone database (schema 60, `DETERMINISTIC`, `STRENGTH`, 4 days/week, kg, guided on; copy
+outside the repository, aggregate findings only). This release corrects shipped behavior; it opens
+no metric, catalog or equipment scope.
+
+**Weight triage.** The load path is `baseline → progression → NSCA intensity (0.87 at 5 reps) × 0.9
+RIR buffer → 2.5 kg rounding → equipment ceiling`, where the baseline was the **maximum** Epley
+e1RM over the 42-day window, raised to an eligible manual PR. Recorded `planTargetExplanation` rows
+show the four failure modes: Lat Pulldown 4×5 @ 80 kg from one legacy 80 kg × 8 set (baseline
+101.3) while eight in-window sets estimated 88.0; Back Squat 4×5 @ 107.5 from a 2-rep manual PR
+floor of 138.7 that outranked eight recent sets at 126.7; Dumbbell Triceps 3×8 @ 27.5, a weight
+absent from the user's 5–32 kg dumbbell grid; and one accepted-plan slot (`user-machine--wide-grip-row`,
+4×5 @ 117.5) with **no logged sets and no explanation record**. Its exact origin is unproven;
+the earlier claim that it must have inherited a deadlift load was unsupported. Source inspection
+does establish that `SubstituteExerciseUseCase.preservedLoad` copies the source slot's number,
+which explains the identical "~40 kg" Barbell Curl replacement previews. Do not treat the copied
+database as a complete historical audit or infer a write's origin from a missing explanation.
+
+- **LF-01 — the rest timer survives set and workout edits.** `saveLoggedSetEdit` and `correctSetTime`
+  explicitly call `cancelRestTimer` for the timer's occurrence. Occurrence refresh also has
+  context-invalidation paths; these must be checked rather than assumed to be the sole cause.
+  Invalidate on workout
+  identity (session plus occurrence id) and on genuine context changes only. Acceptance: correcting
+  reps/weight/RIR/time/performed-at from history leaves a running countdown on its remaining time;
+  ending, replacing or switching the workout still clears it; both paths have regression tests.
+- **LF-02 — finishing a guided day ends the open session.** `finishWorkout`/`finishWorkoutPartially`
+  resolve the occurrence without closing the session, so the next logged set silently continues it.
+  Full and partial finish close the session belonging to that workout; skipping a workout with
+  recorded work does too. Skipping an untouched future workout must not close another session.
+  Occurrence resolution and session closure form one consistent persistence operation. Acceptance:
+  a finish ends the associated session and the next set starts a new one; failure cannot leave
+  half-applied completion; an unrelated session is preserved; the summary still renders.
+- **LF-03 — finished guided exercises collapse.** A guided exercise with all prescribed work complete
+  renders collapsed and re-expands when one of its sets is removed from history. Acceptance:
+  completed sections start collapsed, survive refresh, expand on removal, and never hide an
+  unfinished or partially logged exercise.
+- **LF-04 — one control set per superset round.** The paired render currently exposes start-set /
+  log-set / set-completed / edit-draft actions for both members at once. Show one action set for the
+  member whose turn it is, with the pair's transition and pair rest unchanged. Acceptance: each
+  visible action addresses exactly the active member, no action can double-log a round, and
+  skip/resume/unpair keep working.
+- **LF-05 — "Edit draft" edits the guided exercise.** Confirmed in source:
+  `confirmDraftEdit` calls `confirmGuidedSet`. Apply edits to the pending set only, preserving them
+  through ordinary refreshes until logged, reset or the workout context changes. Logging remains a
+  separate action. No historical set or frozen prescription is changed. Acceptance: Apply and Cancel
+  write no workout set; a later explicit logging action writes the edited values exactly once.
+- **LF-06 — replacements use the candidate's own history.** A swap/replacement load is computed from
+  the candidate exercise's own baseline at the slot's reps, never from the replaced slot's number;
+  insufficient evidence yields no numeric load, and the equipment ceiling still clamps. Replace
+  accepted-plan substitution's `preservedLoad`; occurrence replacement already uses candidate
+  history, so preserve and test that behavior rather than claiming it shares the defect. A swap records
+  its explanation so no slot carries an unprovenanced weight. Acceptance: every candidate row shows
+  its own estimate or none; the applied slot records provenance; a carried-over 117.5-style load is
+  impossible by test. For ordered targets, retain set count, reps/seconds and prescribed effort but
+  recalculate each numeric load from the candidate's history. Drop the old exercise's load ladder
+  and manual load recipe rather than misrepresenting them as the replacement's prescription.
+- **LF-07 — per-dumbbell load meaning.** Label known per-dumbbell loads and distinguish a
+  single-dumbbell movement from one using two dumbbells. Never inherit a barbell/implement total or
+  automatically halve historical numbers. A 40 kg Barbell Curl does not imply a 20 kg dumbbell
+  target: use the candidate's own usable history or no estimate. Ambiguous legacy totals require a
+  separate correction policy; this batch does not silently reinterpret them. Acceptance: Logger,
+  plan and replacement preview agree on the known load basis, and stored history is unchanged.
+- **LF-08 — round to the user's real inventory.** Automatic suggestions round to the active
+  equipment's existing dumbbell/bar inventory instead of only the global 2.5 kg step. Choose the
+  highest reachable load not above the calculated bound. Honor an explicit implement identity;
+  otherwise use compatible available inventory. With no applicable inventory, retain existing
+  rounding with an estimate/loading-availability disclosure. Acceptance: a configured dumbbell grid
+  never yields 27.5 kg when absent from that grid; known loads remain reachable and within the
+  bound and ceiling. Machine increments are not represented in `LoadingInventory`; machine-grid
+  setup and rounding move to the 0.11.x station work, not an invented 0.10.5 persistence contract.
+- **LF-09 — robust baseline.** Replace the best-of-window maximum with a robust central estimate of
+  the qualifying sets' e1RM: **median of per-session best qualifying e1RMs**, retaining the existing
+  ≥2-qualifying-set and 42-day rules. This supersedes the proposed per-set median: each session gets
+  one vote, not each set in a long or ascending workout. It remains an engineering default, not
+  proof of safe multi-set capacity; one session or multiple sessions with the same best set can
+  still produce a high estimate. Acceptance: a regression distinguishes session-balanced aggregation
+  from both a window maximum and a per-set median; producer/consumer tests pin the approved rule
+  without promising that every historical example must yield a particular lower number.
+- **LF-10 — manual-PR floor guard.** A manual PR of two reps or fewer may not raise the floor for a
+  rep-range prescription (three or more prescribed reps); it stays visible as a reference. Acceptance:
+  the triaged cases (`130 × 2 → 4×5 @ 107.5`, `150 × 1 → 4×5 @ 117.5`) no longer drive a prescription
+  from a near-max single alone; ≥3-rep PR eligibility is unchanged, while recent baselines follow
+  LF-09. A high recent baseline may independently produce the same numeric target.
+- **LF-11 — `/batch` feasibility pre-check.** Before forming a batch plan, review whether the named
+  releases are feasible as requested and propose alternative groupings when they are not, recording
+  the reasoning in the pre-flight plan.
+
+**Excluded from 0.10.5:** equipment load identity and station comparability (`EQ-02`, design first),
+the `CABLE_MACHINE` station split, added-load progression for bodyweight exercises (`EX-02`
+follow-up), time-boxed unavailable equipment (`LT-09`) and onboarding inventory capture (`EQ-03`).
+LF-01…LF-05 are UI/state; LF-06…LF-10 change suggestion inputs and replacement provenance without a
+stored-encoding change. Every behavior change updates `docs/fatigue-formula.md` and the
+`hydrafit-mechanics` Planning reference in the same change.
+
+**Verification:** select the applicable risk tier from the final consumer/file closure; shared
+persistence, contract and planner changes must not be blanket-classified as Tier B/C. Run the full
+matrix at release integration and Tier-A boundaries as required. The
+load items need a domain test per triaged case plus a replacement/swap parity test; LF-01…LF-05 need
+bounded `emulator-5554` acceptance (never a phone).
+
+### 0.11.x additions approved 2026-10-25 (implementation gated)
+
+- **EQ-02 — equipment-specific load identity.** Machine, cable and barbell loads are not
+  interchangeable (the same user rows 120 kg on a plate-loaded row, 70–80 kg on a cable row and
+  65–70 kg on a barbell row). Approved direction: identity, not inferred conversion factors, using
+  `exercise + equipment profile + station/implement + load basis`. Keep histories separate across
+  stations/implements and never infer a "120 machine = 80 cable" ratio. Preserve existing history;
+  do not guess ambiguous old station attribution. Detailed persistence and presentation design
+  remain gated and excluded from the 0.10.5 overnight batch.
+- **EQ-02-A — `CABLE_MACHINE` station split.** One tag with one ceiling currently covers pulldown,
+  biceps, triceps and row (19 exercises). Split into separate stations, reseed the affected
+  built-ins, and migrate selections/profiles/backups with the usual additive migration and format
+  changes where required by the final contract. Include machine-grid setup and rounding here.
+  Depends on EQ-02's detailed identity/persistence design; no migration number or format is fixed.
+- **EX-02-A — added-load progression.** Bodyweight-addable exercises (dips, pull-ups) currently take
+  no added load through e1RM, PR or progression. Goal-based rep selection already exists
+  (`TrainingGoal`/`VolumeAwareReps`: strength compound 5, endurance 15); whether the resulting
+  bodyweight target matches demonstrated capacity is a separate investigation, not proof that
+  goals are ignored. Settle and implement the EX-02 deferred rule ("whether and how added weight enters
+  Epley/PR and progression") with its planner, logger, snapshot and backup consumers.
+- **EQ-03 — onboarding inventory capture (proposed, needs a decision).** Ask for machine stations,
+  their increments and min/max, plus dumbbell grid and increments, so LF-08's rounding and EQ-02's
+  identity have real data. Step order, skip behavior and the relation to OF-14/EQ-01 are undecided.
+- **LT-09 reopen (proposed, needs a decision).** "Exclude a machine for a few days when it is broken"
+  conflicts with the recorded 2026-10-06 direction that unavailability is occurrence-level, not a
+  permanent exclusion or inventory edit. Settle time-boxed exclusion, its visibility and expiry
+  before implementing.
 
 ### 0.5.0 — Better logging, richer library & data ownership (roadmap approved 2026-10-09; implementation gated)
 
@@ -2268,6 +2439,28 @@ behavior remains undecided until its gate is approved.
 - **Body-map verification carry-overs (deferred to 0.13.x; from 0.9.2).** `FinalArtworkCoverageTest` proves a non-empty region per muscle, not visibility after paint order, so it cannot detect a muscle fully covered by a later-drawn piece; and no test pins which side of the shoulder/rhomboid partition maps to which muscle. Device checks for dark/light, text scale, locale, screen-reader traversal, numeric-description scrolling, map-refresh journeys and isolated non-zero colouring of the separated shoulder, upper-back and hip regions, plus zero/mid/high value fixtures, are carried there as well. Presentation and test coverage only — no fatigue/planner, catalog, schema or dependency change. See `docs/roadmap.md`, 0.13 series.
 
 ## Decisions Made
+
+- **2026-10-25 — refined 0.10.5 overnight decisions (approved; record before execution).**
+  Supersedes the initial triage/decision wording below where it differs. **(1)** Draft Apply edits
+  only the pending set, survives ordinary refresh, expires on log/reset/workout-context change,
+  and never logs or rewrites frozen/history data. **(2)** Full/partial Finish and skip-with-work
+  close the workout's associated session consistently with occurrence resolution; untouched
+  future-workout skip cannot close another session. **(3)** Baseline uses the median of per-session
+  best qualifying e1RMs, retaining the qualifying-set threshold and 42-day window, not per-set
+  median. **(4)** Label known per-dumbbell loads accurately for one versus two dumbbells; never
+  halve historical weights or infer a barbell-to-dumbbell conversion. Ambiguous legacy totals need
+  their own correction policy. **(5)** Existing dumbbell/bar inventory rounds down to the highest
+  reachable load within the calculated bound, honors explicit implement identity, otherwise uses
+  compatible available inventory, and discloses fallback estimates when inventory is missing.
+  Machine grids move to 0.11.x. **(6)** Replacement preserves set count, measure and prescribed
+  effort but recalculates each ordered numeric load from candidate history, dropping the old
+  load ladder/manual recipe. **(7)** EQ-02 direction is equipment identity, not conversion factors:
+  exercise + equipment profile + station/implement + load basis, with no guessed historical
+  station attribution. The eight-hour serial batch owner split and session-specific DeepSeek
+  coding/Git/UI-runner model selection are recorded in the 0.10.5 section. Execution has not
+  started; exact-file closure/final contract and all publication gates remain outstanding.
+
+- **2026-10-25 — 0.10.5 scope, load-rule decisions and 0.11.x additions (approved).** The 2026-10-20…23 reports against `v0.10.3` form a **0.10.5** patch series (LF-01…LF-11) that precedes `0.11.x`; it changes no schema, catalog or backup format. Durable rules approved for it: **(a) replacement and swap loads come from the candidate exercise's own history**, never the replaced slot's number, with no numeric load when evidence is insufficient and a recorded explanation for every applied swap; **(b) a dumbbell exercise's load is per hand**, labelled as such, and is never inherited from a barbell/implement total; **(c) a manual PR of ≤2 reps may not raise the floor of a rep-range prescription** (three or more prescribed reps) and stays reference-only; **(d) the best-of-window maximum baseline is replaced by a robust central estimate** of the qualifying sets' e1RM (proposed median, with the exact statistic confirmed in the chunk brief). Equipment load identity (`EQ-02`) is a **design decision still open**, approved as 0.11.x scope together with its `CABLE_MACHINE` station split and with `EX-02-A` added-load progression for bodyweight exercises. Each triaged case (pulldown outlier, squat/deadlift PR floor, non-inventory dumbbell load, unprovenanced 117.5 kg swap load, duplicated 40 kg replacement preview) becomes a regression test. Onboarding inventory capture (`EQ-03`) and time-boxed unavailable equipment (`LT-09`) remain recorded but need their own decisions. No implementation, dependency, schema, publication or push is authorized by this entry.
 
 - **2026-10-15 — guided rest prompt after the day's final set is intentional (approved).** In guided workouts the rest prompt starts after every live-completed working set, including the last prescribed set of the day; the user confirmed this is intended behavior, not an oversight (reported as an apparent bug on 2026-10-15 and not reproduced). One consistent rule avoids a per-set exception; the prompt is optional, dismissible and explicitly not a rest measurement. Non-live "Log set" and warm-ups still never start it, and no reminder/alert/coaching behavior changes. Excluding the final set in future needs a new explicit decision.
 
