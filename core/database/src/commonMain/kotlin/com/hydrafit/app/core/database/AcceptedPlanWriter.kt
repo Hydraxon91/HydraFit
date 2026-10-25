@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
@@ -55,44 +56,11 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
                     position = position.toLong()
                 )
                 val recorded = exercise.explanation ?: return@forEachIndexed
-                val columns = recorded.toColumns()
-                database.planTargetExplanationQueries.insertExplanation(
+                database.planTargetExplanationQueries.insertRecorded(
                     planId = planId,
                     dayIndex = day.dayIndex.toLong(),
                     position = position.toLong(),
-                    explanationVersion = columns.explanationVersion,
-                    baselineSource = columns.baselineSource,
-                    baselineRecentEstimateKg = columns.baselineRecentEstimateKg,
-                    baselineQualifyingSetCount = columns.baselineQualifyingSetCount,
-                    baselineManualFloorKg = columns.baselineManualFloorKg,
-                    baselineKg = columns.baselineKg,
-                    progressionOutcome = columns.progressionOutcome,
-                    progressionIncrements = columns.progressionIncrements,
-                    progressionDeltaKg = columns.progressionDeltaKg,
-                    progressionRoundToKg = columns.progressionRoundToKg,
-                    progressionSuccessStreakSize = columns.progressionSuccessStreakSize,
-                    progressionFailureStreakSize = columns.progressionFailureStreakSize,
-                    conversionReps = columns.conversionReps,
-                    conversionIntensityFraction = columns.conversionIntensityFraction,
-                    conversionDeloadIntensityScale = columns.conversionDeloadIntensityScale,
-                    conversionRoundToKg = columns.conversionRoundToKg,
-                    conversionUncappedWorkingKg = columns.conversionUncappedWorkingKg,
-                    conversionEquipmentCeilingKg = columns.conversionEquipmentCeilingKg,
-                    conversionEquipmentCeilingBinds = columns.conversionEquipmentCeilingBinds,
-                    aiProposedKg = columns.aiProposedKg,
-                    aiProposedAccepted = columns.aiProposedAccepted,
-                    aiDeloadScaled = columns.aiDeloadScaled,
-                    aiDeloadIntensityScale = columns.aiDeloadIntensityScale,
-                    aiProgressionBoundKg = columns.aiProgressionBoundKg,
-                    aiBoundedByProgression = columns.aiBoundedByProgression,
-                    aiEquipmentCeilingKg = columns.aiEquipmentCeilingKg,
-                    aiCappedByEquipment = columns.aiCappedByEquipment,
-                    setBaseSets = columns.setBaseSets,
-                    setDeloadApplied = columns.setDeloadApplied,
-                    setDeloadVolumeScale = columns.setDeloadVolumeScale,
-                    setFatigueEffect = columns.setFatigueEffect,
-                    setFinalSets = columns.setFinalSets,
-                    unavailableReason = columns.unavailableReason
+                    explanation = recorded
                 )
             }
         }
@@ -134,4 +102,55 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
         }
         return planId
     }
+}
+
+/**
+ * Writes one slot's recorded reasoning inside the caller's transaction. Shared by plan acceptance
+ * and accepted-plan substitution so both persist the same shape; the caller owns the transaction.
+ */
+internal fun PlanTargetExplanationQueries.insertRecorded(
+    planId: Long,
+    dayIndex: Long,
+    position: Long,
+    explanation: ExerciseTargetExplanation
+) {
+    val columns = explanation.toColumns()
+    insertExplanation(
+        planId = planId,
+        dayIndex = dayIndex,
+        position = position,
+        explanationVersion = columns.explanationVersion,
+        baselineSource = columns.baselineSource,
+        baselineRecentEstimateKg = columns.baselineRecentEstimateKg,
+        baselineQualifyingSetCount = columns.baselineQualifyingSetCount,
+        baselineManualFloorKg = columns.baselineManualFloorKg,
+        baselineKg = columns.baselineKg,
+        progressionOutcome = columns.progressionOutcome,
+        progressionIncrements = columns.progressionIncrements,
+        progressionDeltaKg = columns.progressionDeltaKg,
+        progressionRoundToKg = columns.progressionRoundToKg,
+        progressionSuccessStreakSize = columns.progressionSuccessStreakSize,
+        progressionFailureStreakSize = columns.progressionFailureStreakSize,
+        conversionReps = columns.conversionReps,
+        conversionIntensityFraction = columns.conversionIntensityFraction,
+        conversionDeloadIntensityScale = columns.conversionDeloadIntensityScale,
+        conversionRoundToKg = columns.conversionRoundToKg,
+        conversionUncappedWorkingKg = columns.conversionUncappedWorkingKg,
+        conversionEquipmentCeilingKg = columns.conversionEquipmentCeilingKg,
+        conversionEquipmentCeilingBinds = columns.conversionEquipmentCeilingBinds,
+        aiProposedKg = columns.aiProposedKg,
+        aiProposedAccepted = columns.aiProposedAccepted,
+        aiDeloadScaled = columns.aiDeloadScaled,
+        aiDeloadIntensityScale = columns.aiDeloadIntensityScale,
+        aiProgressionBoundKg = columns.aiProgressionBoundKg,
+        aiBoundedByProgression = columns.aiBoundedByProgression,
+        aiEquipmentCeilingKg = columns.aiEquipmentCeilingKg,
+        aiCappedByEquipment = columns.aiCappedByEquipment,
+        setBaseSets = columns.setBaseSets,
+        setDeloadApplied = columns.setDeloadApplied,
+        setDeloadVolumeScale = columns.setDeloadVolumeScale,
+        setFatigueEffect = columns.setFatigueEffect,
+        setFinalSets = columns.setFinalSets,
+        unavailableReason = columns.unavailableReason
+    )
 }

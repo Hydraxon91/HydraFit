@@ -131,6 +131,35 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     }
 
     @Test
+    fun replacementPersistsTheCandidatesOwnExplanation() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
+        val occurrence = repository.occurrences(id).first()
+        val candidate = SqlDelightExerciseCatalog(database).all().first {
+            it.movementPattern == occurrence.entries.single().movementPattern &&
+                it.id != occurrence.entries.single().exerciseId
+        }
+        seedProfileSelection(candidate.requiredEquipment)
+        val candidateExplanation = entryExplanation()
+        val replacement = occurrence.entries.single().copy(
+            exerciseId = candidate.id,
+            exerciseName = candidate.name,
+            requiredEquipment = candidate.requiredEquipment,
+            involvements = candidate.effectiveInvolvements,
+            isUnilateral = candidate.isUnilateral,
+            weightKg = null,
+            loadCapability = candidate.loadCapability,
+            loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability),
+            explanation = candidateExplanation
+        )
+
+        repository.replaceUntouchedEntry(occurrence.id, occurrence.revision, replacement, 1L)
+
+        val changed = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(candidateExplanation, changed.entries.single().explanation)
+    }
+
+    @Test
     fun aSetLoggedAfterPreviewIncludingWarmupsPreventsReplacement() = runTest {
         SeedExerciseCatalog(database).seed()
         val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
@@ -568,6 +597,179 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertNull(reloaded.entries[0].remainingDisposition)
         assertNull(reloaded.entries[0].terminalRemainingSets)
         assertEquals(beforeState, repository.scheduleState())
+    }
+
+    @Test
+    fun resolvingAFinishedWorkoutEndsOnlyItsOwnOpenSession() = runTest {
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrences = repository.occurrences(activationId)
+        val finished = occurrences[0]
+        val other = occurrences[1]
+        insertOpenSession("own", finished.id)
+        insertOpenSession("other", other.id)
+        insertOpenSession("unlinked", null)
+
+        repository.resolveOccurrence(
+            occurrenceId = finished.id,
+            expectedRevision = finished.revision,
+            status = OccurrenceStatus.FINISHED,
+            resolvedAtMillis = 500L,
+            entries = finished.entries
+        )
+
+        assertEquals(500L, session("own").endedAtMillis)
+        assertNull(session("other").endedAtMillis)
+        assertNull(session("unlinked").endedAtMillis)
+    }
+
+    @Test
+    fun resolvingAPartiallyFinishedWorkoutEndsItsOpenSession() = runTest {
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrences = repository.occurrences(activationId)
+        val partial = occurrences[0]
+        insertOpenSession("partial", partial.id)
+
+        repository.resolveOccurrence(
+            occurrenceId = partial.id,
+            expectedRevision = partial.revision,
+            status = OccurrenceStatus.FINISHED_PARTIAL,
+            resolvedAtMillis = 700L,
+            entries = partial.entries
+        )
+
+        assertEquals(700L, session("partial").endedAtMillis)
+    }
+
+    @Test
+    fun resolvingAWorkoutClosesTheUnlinkedSessionThatRecordedItsSets() = runTest {
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrences = repository.occurrences(activationId)
+        val finished = occurrences[0]
+        val other = occurrences[1]
+        // Production logging opens the session without an occurrence link; attribution lives on the
+        // recorded sets. The second session recorded nothing, and the third only another occurrence's
+        // work, so neither belongs to this conclusion.
+        insertOpenSession("live", null)
+        insertOpenSession("idle", null)
+        insertOpenSession("foreign", null)
+        insertSetForOccurrence(1L, "live", finished.id, finished.entries[0].id)
+        insertSetForOccurrence(2L, "foreign", other.id, other.entries[0].id)
+
+        repository.resolveOccurrence(
+            occurrenceId = finished.id,
+            expectedRevision = finished.revision,
+            status = OccurrenceStatus.FINISHED,
+            resolvedAtMillis = 800L,
+            entries = finished.entries
+        )
+
+        assertEquals(800L, session("live").endedAtMillis)
+        assertNull(session("idle").endedAtMillis)
+        assertNull(session("foreign").endedAtMillis)
+    }
+
+    @Test
+    fun resolvingAnUntouchedSkipLeavesItsOpenSessionRunning() = runTest {
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val skipped = repository.occurrences(activationId)[0]
+        insertOpenSession("skipped", skipped.id)
+
+        // No recorded set means no attributable work; a skip this time genuinely touches nothing.
+        repository.resolveOccurrence(
+            occurrenceId = skipped.id,
+            expectedRevision = skipped.revision,
+            status = OccurrenceStatus.SKIPPED,
+            resolvedAtMillis = 900L,
+            entries = skipped.entries
+        )
+
+        assertEquals(OccurrenceStatus.SKIPPED, repository.getOccurrence(skipped.id)?.status)
+        assertNull(session("skipped").endedAtMillis)
+    }
+
+    @Test
+    fun aStaleResolutionLeavesTheSessionUntouched() = runTest {
+        val activationId = repository.acceptAndActivate(
+            acceptedPlan = null,
+            activation = activation(),
+            scheduledEpochDays = listOf(20_000L, 20_002L),
+            replaceActive = false
+        )
+        val occurrence = repository.occurrences(activationId)[0]
+        insertOpenSession("stale", occurrence.id)
+
+        assertFailsWith<ScheduleException> {
+            repository.resolveOccurrence(
+                occurrenceId = occurrence.id,
+                expectedRevision = occurrence.revision + 1,
+                status = OccurrenceStatus.FINISHED,
+                resolvedAtMillis = 500L,
+                entries = occurrence.entries
+            )
+        }
+
+        assertNull(session("stale").endedAtMillis)
+        assertEquals(OccurrenceStatus.PENDING, repository.getOccurrence(occurrence.id)?.status)
+    }
+
+    private fun insertOpenSession(id: String, occurrenceId: Long?) {
+        database.workoutSessionQueries.insertSessionWithOccurrence(
+            id = id,
+            startedAtMillis = 100L,
+            endedAtMillis = null,
+            localEpochDay = 20_000L,
+            occurrenceId = occurrenceId
+        )
+    }
+
+    private fun session(id: String) =
+        database.workoutSessionQueries.selectSessionById(id).executeAsOne()
+
+    /** Records one set the way production logging does: session and occurrence attribution only. */
+    private fun insertSetForOccurrence(
+        id: Long,
+        sessionId: String,
+        occurrenceId: Long,
+        occurrenceEntryId: Long
+    ) {
+        database.workoutLogQueries.insertSetWithId(
+            id = id,
+            exerciseId = "back-squat",
+            reps = 5L,
+            weightKg = 100.0,
+            performedAt = 200L,
+            isWarmup = 0L,
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = sessionId,
+            occurrenceId = occurrenceId,
+            occurrenceEntryId = occurrenceEntryId,
+            loadKind = "EXTERNAL",
+            durationSeconds = null
+        )
     }
 
     @Test

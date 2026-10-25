@@ -7,6 +7,8 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 
@@ -40,6 +42,44 @@ data class PlanningDatesState(
 
 /** Which measure a slot's dialog edits: a rep count or elapsed whole seconds. */
 enum class MeasureMetric { REPS, SECONDS }
+
+/**
+ * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work is
+ * per hand, other dumbbell work per dumbbell. It is never doubled or halved for display.
+ */
+enum class LoadBasis { PER_HAND, PER_DUMBBELL }
+
+/** Null for non-dumbbell equipment, whose loads stay unlabeled. */
+internal fun Exercise.loadBasis(): LoadBasis? = when {
+    EquipmentTag.DUMBBELL !in requiredEquipment -> null
+    isUnilateral -> LoadBasis.PER_HAND
+    else -> LoadBasis.PER_DUMBBELL
+}
+
+/** The same basis from catalog facts carried by a replacement candidate. */
+internal fun loadBasis(requiresDumbbell: Boolean, isUnilateral: Boolean): LoadBasis? = when {
+    !requiresDumbbell -> null
+    isUnilateral -> LoadBasis.PER_HAND
+    else -> LoadBasis.PER_DUMBBELL
+}
+
+/**
+ * How the shown plan's numeric loads relate to the saved loading inventory. Derived when the plan
+ * is generated, never stored: a reopened plan has no recorded inventory provenance.
+ */
+enum class LoadInventoryDisclosure {
+    /** Every numeric load sits on a saved bar's or dumbbell's reachable grid. */
+    INVENTORY_ROUNDED,
+
+    /** At least one numeric load keeps the generic estimate because no compatible implement applies. */
+    ESTIMATE_WITHOUT_INVENTORY,
+
+    /** A compatible implement exists but cannot make a load at or below the target, so it stays blank. */
+    NO_REACHABLE_LOAD,
+
+    /** A numeric load is absent because there is not enough recorded evidence yet. */
+    INSUFFICIENT_RECENT_EVIDENCE
+}
 
 /** Why a slot measure edit was rejected; the UI maps each to a specific message. */
 enum class MeasureError { REPS_RANGE, SECONDS_RANGE, SECONDS_TOO_LARGE }
@@ -77,6 +117,10 @@ data class SplitBuilderUiState(
     val accessorySetsPerExercise: Int = 2,
     val plan: WeeklyPlan? = null,
     val exerciseNames: Map<String, String> = emptyMap(),
+    /** How each dumbbell exercise's numeric load is stated; ids absent here are unlabeled. */
+    val exerciseLoadBasis: Map<String, LoadBasis> = emptyMap(),
+    /** Inventory-rounding provenance for a plan generated in this session; null otherwise. */
+    val loadInventoryDisclosure: LoadInventoryDisclosure? = null,
     val history: List<AcceptedPlan> = emptyList(),
     val requestedEngine: PlannerEngineId? = null,
     val isLoading: Boolean = true,

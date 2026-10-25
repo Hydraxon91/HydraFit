@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,8 @@ data class WorkoutPlanSources(
     val loggedWorkoutSets: List<WorkoutSet> = emptyList(),
     val workoutDataSharingEnabled: Boolean = false,
     val equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
+    /** The active profile's saved loading inventory, or null when no profile state is available. */
+    val loadingInventory: LoadingInventory? = null,
     val personalRecords: List<PersonalRecord> = emptyList(),
     /** Explicit user preference per exercise id; absence means [ExercisePreference.NEUTRAL]. */
     val exercisePreferences: Map<String, ExercisePreference> = emptyMap(),

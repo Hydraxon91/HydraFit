@@ -8,8 +8,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
 import hydrafit.feature.logger.generated.resources.logger_replace_empty
@@ -55,24 +57,42 @@ fun OccurrenceReplacementDialog(
                             enabled = !state.saving
                         ) {
                             val seconds = entry.durationSeconds
+                            val basis = loadBasisFor(
+                                requiresDumbbell = EquipmentTag.DUMBBELL in entry.requiredEquipment,
+                                isUnilateral = entry.isUnilateral
+                            )
+                            val weight = loadWeightText(
+                                entry.loadKind,
+                                entry.weightKg,
+                                unit,
+                                basis
+                            )
+                            val noLoadReason = if (entry.loadKind == LoadKind.EXTERNAL &&
+                                entry.weightKg == null
+                            ) {
+                                noLoadReasonText(entry.explanation)
+                            } else {
+                                null
+                            }
+                            val target = if (seconds != null) {
+                                stringResource(
+                                    Res.string.logger_replace_target_timed,
+                                    entry.exerciseName,
+                                    entry.sets,
+                                    seconds,
+                                    weight
+                                )
+                            } else {
+                                stringResource(
+                                    Res.string.logger_replace_target,
+                                    entry.exerciseName,
+                                    entry.sets,
+                                    entry.reps ?: 0,
+                                    weight
+                                )
+                            }
                             Text(
-                                if (seconds != null) {
-                                    stringResource(
-                                        Res.string.logger_replace_target_timed,
-                                        entry.exerciseName,
-                                        entry.sets,
-                                        seconds,
-                                        loadWeightText(entry.loadKind, entry.weightKg, unit)
-                                    )
-                                } else {
-                                    stringResource(
-                                        Res.string.logger_replace_target,
-                                        entry.exerciseName,
-                                        entry.sets,
-                                        entry.reps ?: 0,
-                                        loadWeightText(entry.loadKind, entry.weightKg, unit)
-                                    )
-                                }
+                                text = noLoadReason?.let { "$target\n$it" } ?: target
                             )
                         }
                     }

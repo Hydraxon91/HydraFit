@@ -56,6 +56,7 @@ import com.hydrafit.app.core.domain.engine.ArmCoverageUnmetReason
 import com.hydrafit.app.core.domain.engine.ArmMuscleCoverage
 import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
+import com.hydrafit.app.core.domain.engine.LoadInventoryOutcome
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
@@ -76,6 +77,7 @@ import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
@@ -185,6 +187,12 @@ import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_routine_name
 import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
+import hydrafit.feature.splitbuilder.generated.resources.split_load_basis_per_dumbbell
+import hydrafit.feature.splitbuilder.generated.resources.split_load_basis_per_hand
+import hydrafit.feature.splitbuilder.generated.resources.split_load_inventory_estimate
+import hydrafit.feature.splitbuilder.generated.resources.split_load_inventory_insufficient
+import hydrafit.feature.splitbuilder.generated.resources.split_load_inventory_rounded
+import hydrafit.feature.splitbuilder.generated.resources.split_load_inventory_unreachable
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_action
@@ -613,6 +621,26 @@ fun SplitBuilderScreen(
                 ),
                 style = MaterialTheme.typography.labelLarge
             )
+            state.loadInventoryDisclosure?.let { disclosure ->
+                Text(
+                    text = stringResource(
+                        when (disclosure) {
+                            LoadInventoryDisclosure.INVENTORY_ROUNDED ->
+                                Res.string.split_load_inventory_rounded
+
+                            LoadInventoryDisclosure.ESTIMATE_WITHOUT_INVENTORY ->
+                                Res.string.split_load_inventory_estimate
+
+                            LoadInventoryDisclosure.NO_REACHABLE_LOAD ->
+                                Res.string.split_load_inventory_unreachable
+
+                            LoadInventoryDisclosure.INSUFFICIENT_RECENT_EVIDENCE ->
+                                Res.string.split_load_inventory_insufficient
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             plan.explanation?.let { explanation ->
                 PlanExplanationContext(explanation)
             }
@@ -696,10 +724,13 @@ fun SplitBuilderScreen(
                             val name = state.exerciseNames[exercise.exerciseId]
                                 ?: exercise.exerciseId
                             val weight = exercise.suggestedWeightKg?.let { kg ->
-                                stringResource(
-                                    Res.string.split_suggested_weight,
-                                    formatWeight(weightUnit.kilogramsToDisplay(kg)),
-                                    weightUnit.label
+                                withLoadBasis(
+                                    weight = stringResource(
+                                        Res.string.split_suggested_weight,
+                                        formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                        weightUnit.label
+                                    ),
+                                    basis = state.exerciseLoadBasis[exercise.exerciseId]
                                 )
                             }.orEmpty()
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -813,6 +844,17 @@ fun SplitBuilderScreen(
     }
 }
 
+@Composable
+private fun withLoadBasis(weight: String, basis: LoadBasis?): String = when (basis) {
+    LoadBasis.PER_HAND ->
+        "$weight " + stringResource(Res.string.split_load_basis_per_hand)
+
+    LoadBasis.PER_DUMBBELL ->
+        "$weight " + stringResource(Res.string.split_load_basis_per_dumbbell)
+
+    null -> weight
+}
+
 /**
  * The slot line: `name  sets x reps  weight` for counted work and `name  sets × seconds s  weight`
  * for a timed slot, so seconds are never shown as a rep count. A slot with no measure is impossible
@@ -922,10 +964,16 @@ private fun SwapCandidateDialog(
                 else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     candidates.forEach { candidate ->
                         val weight = candidate.suggestedWeightKg?.let { kg ->
-                            stringResource(
-                                Res.string.split_suggested_weight,
-                                formatWeight(weightUnit.kilogramsToDisplay(kg)),
-                                weightUnit.label
+                            withLoadBasis(
+                                weight = stringResource(
+                                    Res.string.split_suggested_weight,
+                                    formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                    weightUnit.label
+                                ),
+                                basis = loadBasis(
+                                    candidate.requiresDumbbell,
+                                    candidate.isUnilateral
+                                )
                             )
                         }.orEmpty()
                         TextButton(onClick = { onSelect(candidate.exerciseId) }) {
@@ -936,6 +984,18 @@ private fun SwapCandidateDialog(
                                     weight
                                 )
                             )
+                        }
+                        // This candidate's own resolution, not an unrelated slot's cause. It is
+                        // shown independently of the weight text: a numeric estimate still has a
+                        // fallback explanation. An unknown outcome shows nothing rather than
+                        // claiming a reason.
+                        if (candidate.loadKind == LoadKind.EXTERNAL) {
+                            candidateMissingLoadReason(candidate.loadInventoryOutcome)?.let {
+                                Text(
+                                    text = stringResource(it),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                 }
@@ -949,6 +1009,16 @@ private fun SwapCandidateDialog(
         }
     )
 }
+
+/** The candidate-specific missing-load cause; null leaves the absent number unexplained. */
+private fun candidateMissingLoadReason(outcome: LoadInventoryOutcome?): StringResource? =
+    when (outcome) {
+        LoadInventoryOutcome.NO_REACHABLE_LOAD -> Res.string.split_load_inventory_unreachable
+        LoadInventoryOutcome.INSUFFICIENT_RECENT_EVIDENCE ->
+            Res.string.split_load_inventory_insufficient
+        LoadInventoryOutcome.ESTIMATE_WITHOUT_INVENTORY -> Res.string.split_load_inventory_estimate
+        LoadInventoryOutcome.INVENTORY_ROUNDED, null -> null
+    }
 
 private fun PlannerEngineId.labelResource(): StringResource = when (this) {
     PlannerEngineId.DETERMINISTIC -> Res.string.engine_label_deterministic

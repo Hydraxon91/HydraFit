@@ -12,6 +12,11 @@
     <string name="logger_rir_label">RIR (optional)</string>
     <string name="logger_rir_explanation">Reps in reserve: how many more reps you think you could complete with similar technique and range of motion. Leave blank if unsure.</string>
     <string name="logger_per_hand">Per hand</string>
+    <string name="logger_load_basis">%1$s · %2$s</string>
+    <string name="logger_load_basis_per_hand">per hand</string>
+    <string name="logger_load_basis_per_dumbbell">per dumbbell</string>
+    <string name="logger_no_load_inventory">No saved bar or dumbbell can make a load at or below this target.</string>
+    <string name="logger_no_load_history">Not enough recent workout history for an automatic weight.</string>
     <string name="logger_warmup">Warm-up set</string>
     <string name="logger_log_button">Log set</string>
     <string name="logger_today">Today: %1$s</string>
@@ -84,6 +89,7 @@
     <string name="logger_load_added_none">Bodyweight + added load</string>
     <string name="logger_load_legacy">%1$s %2$s (recorded, unconfirmed)</string>
     <string name="logger_draft_edit">Edit draft</string>
+    <string name="logger_draft_edit_apply">Apply edit</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
     <string name="logger_draft_timed_line">%1$s  %2$d x %3$d s · ~%4$s</string>
     <string name="logger_draft_prescribed_effort">Prescribed RIR %1$d · RPE %2$d (RPE is the same closeness-to-failure scale, 10 − RIR)</string>
@@ -110,6 +116,8 @@
     <string name="logger_guided_log_completed_now">Set completed now</string>
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
+    <string name="logger_guided_expand_sets">Show sets</string>
+    <string name="logger_guided_collapse_sets">Hide sets</string>
     <string name="logger_superset_pair_note">Superset: alternate with the paired exercise. Transition %1$d s, pair rest %2$d s.</string>
     <string name="logger_superset_next">Next in this superset</string>
     <string name="logger_superset_skip_turn">Skip turn</string>

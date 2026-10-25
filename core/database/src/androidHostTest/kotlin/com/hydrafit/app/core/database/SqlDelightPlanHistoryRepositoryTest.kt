@@ -20,6 +20,8 @@ import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressionOutcome
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -377,6 +379,47 @@ class SqlDelightPlanHistoryRepositoryTest {
         assertNotNull(stored.days.first().exercises[1].explanation)
         // The plan-level context is not a slot reason, so a substitution leaves it valid.
         assertNotNull(stored.explanation)
+    }
+
+    @Test
+    fun substituteWithProvenanceWritesTheReasonsAndOrderedTargetsInOneUpdate() = runTest {
+        repository.accept(explainedPlan())
+        val targets = SlotSetTargets.of(
+            listOf(SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 70.0))
+        )
+        val explanation = ExerciseTargetExplanation(
+            conversion = LoadConversionExplanation(
+                reps = 8,
+                intensityFraction = 0.72,
+                uncappedWorkingKg = 70.0
+            )
+        )
+
+        repository.substituteWithProvenance(
+            planId = 1L,
+            dayIndex = 0,
+            position = 0,
+            newExerciseId = "barbell-row",
+            newExerciseName = "Barbell Row",
+            newWeightKg = 70.0,
+            newLoadCapability = ExerciseLoadCapability.EXTERNAL,
+            newLoadKind = LoadKind.EXTERNAL,
+            setTargets = targets,
+            explanation = explanation
+        )
+
+        val stored = repository.latest()!!
+        val swapped = stored.days.first().exercises[0]
+        assertEquals("barbell-row", swapped.exerciseId)
+        assertEquals(70.0, swapped.setTargets?.targets?.single()?.weightKg)
+        assertNull(swapped.setTargets?.recipe)
+        val recorded = requireNotNull(swapped.explanation)
+        assertEquals(8, recorded.conversion?.reps)
+        assertEquals(70.0, recorded.conversion?.uncappedWorkingKg)
+        // The plan id/acceptance time and the other slot's reasons are untouched.
+        assertEquals(1L, stored.id)
+        assertNotNull(stored.explanation)
+        assertNotNull(stored.days.first().exercises[1].explanation)
     }
 
     @Test

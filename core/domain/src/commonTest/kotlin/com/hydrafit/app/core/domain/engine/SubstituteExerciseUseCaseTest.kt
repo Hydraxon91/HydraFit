@@ -61,16 +61,184 @@ class SubstituteExerciseUseCaseTest {
             plan = plan(),
             dayIndex = 0,
             position = 0,
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 100.0)
+            ),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        // The replacement's own 100 kg e1RM at 6 reps converts to 77.5 kg, never the old 82.5 kg.
+        val call = repository.substitutions.single()
+        assertEquals(1L, call.planId)
+        assertEquals(0, call.dayIndex)
+        assertEquals(0, call.position)
+        assertEquals("dumbbell-bench", call.newExerciseId)
+        assertEquals("Dumbbell Bench", call.newExerciseName)
+        assertEquals(77.5, call.newWeightKg)
+        assertEquals(LoadKind.EXTERNAL, call.newLoadKind)
+        assertEquals("dumbbell-bench", result?.exerciseId)
+        assertEquals("Dumbbell Bench", result?.name)
+    }
+
+    @Test
+    fun usesTheCandidatesOwnEstimateInsteadOfTheReplacedLoad() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+
+        val result = useCase(
+            plan = plan(),
+            dayIndex = 0,
+            position = 0,
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 100.0)
+            ),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        assertEquals(77.5, result?.suggestedWeightKg)
+        assertTrue(result?.suggestedWeightKg != 82.5)
+    }
+
+    @Test
+    fun aCandidateWithoutItsOwnBaselineHasNoNumericLoad() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+
+        val result = useCase(
+            plan = plan(),
+            dayIndex = 0,
+            position = 0,
             request = request(equipment = setOf(EquipmentTag.DUMBBELL)),
             selectedExerciseId = "dumbbell-bench"
         )
 
+        assertNull(result?.suggestedWeightKg)
+        assertNull(repository.substitutions.single().newWeightKg)
+        // The provenance records why no number was produced instead of pretending a baseline existed.
         assertEquals(
-            SubstituteCall(1L, 0, 0, "dumbbell-bench", "Dumbbell Bench", 82.5),
-            repository.substitutions.single()
+            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE,
+            repository.substitutions.single().explanation?.unavailableReason
         )
-        assertEquals("dumbbell-bench", result?.exerciseId)
-        assertEquals("Dumbbell Bench", result?.name)
+    }
+
+    @Test
+    fun aWithheldCandidateBaselineProducesNoNumber() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+
+        val result = useCase(
+            plan = plan(),
+            dayIndex = 0,
+            position = 0,
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 100.0),
+                withheldWeightExerciseIds = setOf("dumbbell-bench")
+            ),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        assertNull(result?.suggestedWeightKg)
+        assertNull(repository.substitutions.single().newWeightKg)
+        assertEquals(
+            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE,
+            repository.substitutions.single().explanation?.unavailableReason
+        )
+    }
+
+    @Test
+    fun aRecentWeightCapBoundsTheCandidatesBaseline() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+
+        val result = useCase(
+            plan = plan(),
+            dayIndex = 0,
+            position = 0,
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 200.0),
+                recentWeightCaps = mapOf("dumbbell-bench" to 100.0)
+            ),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        assertEquals(77.5, result?.suggestedWeightKg)
+    }
+
+    @Test
+    fun aSwapRecordsTheCandidatesOwnProvenance() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+
+        useCase(
+            plan = plan().copy(
+                explanation = FrozenPlanExplanation(
+                    attribution = PlanAttribution.DETERMINISTIC,
+                    isDeload = false,
+                    deloadVolumeScale = 0.7,
+                    deloadIntensityScale = 0.8
+                )
+            ),
+            dayIndex = 0,
+            position = 0,
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 100.0)
+            ),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        val recorded = requireNotNull(repository.substitutions.single().explanation)
+        val conversion = requireNotNull(recorded.conversion)
+        assertEquals(6, conversion.reps)
+        // 100 kg x 0.765 (6 reps) = 76.5, rounded to the 2.5 kg increment the engine records too.
+        assertEquals(77.5, conversion.uncappedWorkingKg ?: Double.NaN, 0.01)
+        assertEquals(77.5, repository.substitutions.single().newWeightKg)
+        // No equipment ceiling was configured, so none is recorded as applied.
+        assertNull(conversion.equipmentCeilingKg)
+    }
+
+    @Test
+    fun aDumbbellCandidateCarriesItsImplementFacts() = runTest {
+        val useCase = useCase(FakePlanHistoryRepository())
+        val unilateral = FakeCatalog(
+            listOf(
+                exercise("barbell-bench", MovementPattern.HORIZONTAL_PUSH, EquipmentTag.BARBELL),
+                exercise(
+                    "dumbbell-bench",
+                    MovementPattern.HORIZONTAL_PUSH,
+                    EquipmentTag.DUMBBELL,
+                    isUnilateral = true
+                )
+            )
+        )
+        val useCaseWithUnilateralCandidate = SubstituteExerciseUseCase(
+            unilateral,
+            FakePlanHistoryRepository(),
+            DeterministicWorkoutPlannerEngine(unilateral),
+            SuggestedWeightConfig()
+        )
+
+        val candidate = useCase.candidates(
+            plan(),
+            0,
+            0,
+            request(equipment = setOf(EquipmentTag.DUMBBELL))
+        ).first { it.exerciseId == "dumbbell-bench" }
+        assertTrue(candidate.requiresDumbbell)
+        assertTrue(!candidate.isUnilateral)
+
+        val unilateralCandidate = useCaseWithUnilateralCandidate.candidates(
+            plan(),
+            0,
+            0,
+            request(equipment = setOf(EquipmentTag.DUMBBELL))
+        ).first { it.exerciseId == "dumbbell-bench" }
+        assertTrue(unilateralCandidate.requiresDumbbell)
+        assertTrue(unilateralCandidate.isUnilateral)
     }
 
     @Test
@@ -137,7 +305,8 @@ class SubstituteExerciseUseCaseTest {
             position = 0,
             request = request(
                 equipment = setOf(EquipmentTag.DUMBBELL),
-                equipmentMaxWeights = mapOf(EquipmentTag.DUMBBELL to 60.0)
+                equipmentMaxWeights = mapOf(EquipmentTag.DUMBBELL to 60.0),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 200.0)
             ),
             selectedExerciseId = "dumbbell-bench"
         )
@@ -158,7 +327,8 @@ class SubstituteExerciseUseCaseTest {
         val useCase = SubstituteExerciseUseCase(
             onlyUnavailable,
             repository,
-            DeterministicWorkoutPlannerEngine(onlyUnavailable)
+            DeterministicWorkoutPlannerEngine(onlyUnavailable),
+            SuggestedWeightConfig()
         )
         val request = request(equipment = setOf(EquipmentTag.BARBELL))
 
@@ -204,7 +374,8 @@ class SubstituteExerciseUseCaseTest {
         val useCase = SubstituteExerciseUseCase(
             testCatalog,
             FakePlanHistoryRepository(),
-            DeterministicWorkoutPlannerEngine(testCatalog)
+            DeterministicWorkoutPlannerEngine(testCatalog),
+            SuggestedWeightConfig()
         )
         val directPlan = plan().copy(
             days = listOf(
@@ -325,7 +496,10 @@ class SubstituteExerciseUseCaseTest {
             plan = paired,
             dayIndex = 0,
             position = 0,
-            request = request(equipment = setOf(EquipmentTag.DUMBBELL)),
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 100.0)
+            ),
             selectedExerciseId = "dumbbell-bench"
         )
 
@@ -334,7 +508,72 @@ class SubstituteExerciseUseCaseTest {
         assertEquals("dumbbell-bench", result?.exerciseId)
         assertEquals(pair, result?.superset)
         assertEquals(policy, result?.progressionPolicy)
-        assertEquals(targets, result?.setTargets)
+        // The ordered prescription keeps its shape and measure but takes the candidate's own load.
+        val recalculated = requireNotNull(result?.setTargets)
+        assertEquals(1, recalculated.targets.size)
+        assertEquals(8, recalculated.targets.single().reps)
+        assertEquals(72.5, recalculated.targets.single().weightKg)
+        assertNull(recalculated.recipe)
+    }
+
+    @Test
+    fun orderedTargetsAreRecalculatedPerSetAndTheRecipeIsDropped() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = useCase(repository)
+        val recipeTargets = SlotSetTargets.of(
+            targets = listOf(
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 60.0, targetRir = 2),
+                SetTarget(reps = 12, loadKind = LoadKind.EXTERNAL, weightKg = 50.0, targetRir = 1)
+            ),
+            recipe = SetPrescriptionRecipeSnapshot(
+                shape = SetPrescriptionShape.ASCENDING_LOAD,
+                sets = 2,
+                startReps = 8,
+                endReps = 12,
+                startLoadKg = 60.0,
+                endLoadKg = 50.0,
+                roundToKg = 2.5
+            )
+        )
+        val targeted = plan().copy(
+            days = listOf(
+                AcceptedDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.PUSH,
+                    exercises = listOf(
+                        AcceptedExercise(
+                            exerciseId = "barbell-bench",
+                            sets = 2,
+                            reps = 8,
+                            name = "Barbell Bench",
+                            movementPattern = MovementPattern.HORIZONTAL_PUSH,
+                            suggestedWeightKg = 82.5,
+                            setTargets = recipeTargets
+                        )
+                    )
+                )
+            )
+        )
+
+        val result = useCase(
+            plan = targeted,
+            dayIndex = 0,
+            position = 0,
+            request = request(
+                equipment = setOf(EquipmentTag.DUMBBELL),
+                suggestedWeightsKg = mapOf("dumbbell-bench" to 100.0)
+            ),
+            selectedExerciseId = "dumbbell-bench"
+        )
+
+        val targets = requireNotNull(result?.setTargets).targets
+        // Each set's load is the candidate's baseline at that set's own reps: 8 -> 72.5, 12 -> 62.5.
+        assertEquals(listOf(72.5, 62.5), targets.map { it.weightKg })
+        assertEquals(listOf(8, 12), targets.map { it.reps })
+        assertEquals(listOf(2, 1), targets.map { it.targetRir })
+        assertNull(result?.setTargets?.recipe)
+        // The whole list is persisted in one call with its size intact.
+        assertEquals(2, repository.substitutions.single().setTargets?.targets?.size)
     }
 
     @Test
@@ -365,15 +604,22 @@ class SubstituteExerciseUseCaseTest {
         assertNull(result?.setTargets)
     }
 
-    private fun useCase(repository: PlanHistoryRepository) =
-        SubstituteExerciseUseCase(catalog, repository, DeterministicWorkoutPlannerEngine(catalog))
+    private fun useCase(repository: PlanHistoryRepository) = SubstituteExerciseUseCase(
+        catalog,
+        repository,
+        DeterministicWorkoutPlannerEngine(catalog),
+        SuggestedWeightConfig()
+    )
 
     private fun request(
         equipment: Set<EquipmentTag>,
         fatigue: Map<MuscleGroup, Double> = emptyMap(),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
-        excludedExerciseIds: Set<String> = emptySet()
+        excludedExerciseIds: Set<String> = emptySet(),
+        suggestedWeightsKg: Map<String, Double> = emptyMap(),
+        recentWeightCaps: Map<String, Double> = emptyMap(),
+        withheldWeightExerciseIds: Set<String> = emptySet()
     ) = PlanRequest(
         daysPerWeek = 3,
         availableEquipment = equipment,
@@ -382,7 +628,10 @@ class SubstituteExerciseUseCaseTest {
         goal = TrainingGoal.BALANCED,
         equipmentMaxWeights = equipmentMaxWeights,
         exercisePreferences = exercisePreferences,
-        excludedExerciseIds = excludedExerciseIds
+        excludedExerciseIds = excludedExerciseIds,
+        suggestedWeightsKg = suggestedWeightsKg,
+        recentWeightCaps = recentWeightCaps,
+        withheldWeightExerciseIds = withheldWeightExerciseIds
     )
 
     private fun plan() = AcceptedPlan(
@@ -411,14 +660,16 @@ class SubstituteExerciseUseCaseTest {
         id: String,
         pattern: MovementPattern,
         equipment: EquipmentTag? = null,
-        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+        loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+        isUnilateral: Boolean = false
     ) = Exercise(
         id = id,
         name = id.split('-').joinToString(" ") { it.replaceFirstChar(Char::uppercase) },
         requiredEquipment = setOfNotNull(equipment),
         primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
         movementPattern = pattern,
-        loadCapability = loadCapability
+        loadCapability = loadCapability,
+        isUnilateral = isUnilateral
     )
 
     private data class SubstituteCall(
@@ -428,7 +679,9 @@ class SubstituteExerciseUseCaseTest {
         val newExerciseId: String,
         val newExerciseName: String,
         val newWeightKg: Double?,
-        val newLoadKind: LoadKind = LoadKind.EXTERNAL
+        val newLoadKind: LoadKind = LoadKind.EXTERNAL,
+        val setTargets: SlotSetTargets? = null,
+        val explanation: ExerciseTargetExplanation? = null
     )
 
     private class FakeCatalog(private val exercises: List<Exercise>) : ExerciseCatalog {
@@ -464,6 +717,31 @@ class SubstituteExerciseUseCaseTest {
                 newExerciseName = newExerciseName,
                 newWeightKg = newWeightKg,
                 newLoadKind = newLoadKind
+            )
+        }
+
+        override suspend fun substituteWithProvenance(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            newExerciseId: String,
+            newExerciseName: String,
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind,
+            setTargets: SlotSetTargets?,
+            explanation: ExerciseTargetExplanation?
+        ) {
+            substitutions += SubstituteCall(
+                planId = planId,
+                dayIndex = dayIndex,
+                position = position,
+                newExerciseId = newExerciseId,
+                newExerciseName = newExerciseName,
+                newWeightKg = newWeightKg,
+                newLoadKind = newLoadKind,
+                setTargets = setTargets,
+                explanation = explanation
             )
         }
 

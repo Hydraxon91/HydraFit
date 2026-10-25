@@ -24,6 +24,16 @@ sequencing, folding and publication remain batch-specific.
 
 ## Pre-flight plan (required unless bypassed)
 
+- **Feasibility pre-check (required):** before writing the consolidated plan, check
+  the named releases against their approved scopes for dependency order and
+  unresolved behavior decisions, migration and consumer breadth, the requested or
+  proposed budget, and UI/device verification and independent review capacity. If
+  the request is oversized or not execution-ready, propose concrete alternative
+  batches (fewer or reordered scopes, a larger budget, or a bounded read-only
+  contract pass first) and state which required checks each alternative keeps.
+  Never drop a check, pre-approve a gated item or defer an ANSWER-NOW decision to
+  fit; `--preapproved` skips only the plan stop, not this check. Record the result
+  in the plan: feasible as requested, or feasible only under the named changes.
 - **Plan:** before any edit, inspect the current plans, source and working-tree
   state, then present one consolidated plan in chat. Per release, in order: scope
   and former slice ids; an owner per chunk, presented as the planned work split:

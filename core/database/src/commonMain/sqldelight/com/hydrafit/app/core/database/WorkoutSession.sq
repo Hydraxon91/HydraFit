@@ -24,6 +24,20 @@ UPDATE workoutSession SET occurrenceId = ? WHERE id = ?;
 endSession:
 UPDATE workoutSession SET endedAtMillis = ? WHERE id = ?;
 
+-- Concluding an occurrence closes the sessions that workout opened, in the same transaction.
+-- A session normally records no occurrence link, so it is also matched when it recorded a set
+-- attributed to this occurrence; unrelated sessions and sessions with no such record stay open.
+endOpenSessionsForOccurrence:
+UPDATE workoutSession SET endedAtMillis = :endedAtMillis
+WHERE endedAtMillis IS NULL
+  AND (
+    occurrenceId = :occurrenceId
+    OR id IN (
+      SELECT sessionId FROM workoutSet
+      WHERE occurrenceId = :occurrenceId AND sessionId IS NOT NULL
+    )
+  );
+
 updateSessionBounds:
 UPDATE workoutSession
 SET startedAtMillis = ?, endedAtMillis = ?, localEpochDay = ?

@@ -7,6 +7,8 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.GenerateWeeklySplitUseCase
+import com.hydrafit.app.core.domain.engine.LoadInventoryOutcome
+import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
@@ -19,13 +21,17 @@ import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanInputs
+import com.hydrafit.app.core.domain.engine.hasApplicableLoadingInventory
+import com.hydrafit.app.core.domain.engine.loadInventoryOutcome
 import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
@@ -651,6 +657,13 @@ class SplitBuilderViewModel(
                 it.copy(
                     plan = swapped.toWeeklyPlan(),
                     exerciseNames = it.exerciseNames + (updated.exerciseId to updated.name),
+                    exerciseLoadBasis = it.swapCandidates
+                        .firstOrNull { candidate -> candidate.exerciseId == updated.exerciseId }
+                        ?.let { candidate ->
+                            loadBasis(candidate.requiresDumbbell, candidate.isUnilateral)
+                        }
+                        ?.let { basis -> it.exerciseLoadBasis + (updated.exerciseId to basis) }
+                        ?: it.exerciseLoadBasis,
                     swapDialogOpen = false,
                     swapTargetDayIndex = null,
                     swapTargetPosition = null,
@@ -798,7 +811,9 @@ class SplitBuilderViewModel(
         val snapshotNames = accepted.days
             .flatMap { day -> day.exercises }
             .associate { it.exerciseId to it.name }
-        val catalogNames = exerciseCatalog.all().associate { it.id to it.name }
+        val catalog = exerciseCatalog.all()
+        val catalogNames = catalog.associate { it.id to it.name }
+        val catalogBases = catalog.loadBases()
         val exercises = accepted.days.flatMap { it.exercises }
         lastGeneratedFingerprint = null
         shownPlan = accepted
@@ -808,6 +823,9 @@ class SplitBuilderViewModel(
                 // A persisted plan carries no date provenance: never claim it used the dates now in force.
                 draftDates = null,
                 exerciseNames = snapshotNames + catalogNames,
+                exerciseLoadBasis = catalogBases,
+                // A persisted plan records no inventory provenance, so a reopened plan claims none.
+                loadInventoryDisclosure = null,
                 isLoading = false,
                 isPlanAccepted = true,
                 canRegenerate = true,
@@ -883,6 +901,7 @@ class SplitBuilderViewModel(
             val catalog = exerciseCatalog.all()
             currentCoroutineContext().ensureActive()
             val names = catalog.associate { it.id to it.name }
+            val bases = catalog.loadBases()
             lastGeneratedFingerprint = fingerprint
             // The plan now matches the current inputs, so a repeat tap would produce the same
             // result: re-lock the button for the deterministic engine.
@@ -890,6 +909,12 @@ class SplitBuilderViewModel(
                 it.copy(
                     plan = plan,
                     exerciseNames = names,
+                    exerciseLoadBasis = bases,
+                    loadInventoryDisclosure = loadInventoryDisclosure(
+                        plan = plan,
+                        catalog = catalog,
+                        inventory = request.loadingInventory
+                    ),
                     isLoading = false,
                     // Provenance for the draft: these are the dates its per-day fatigue was built for.
                     draftDates = request.workoutEpochDays,
@@ -1005,6 +1030,102 @@ class SplitBuilderViewModel(
             }
         }
     )
+
+    /**
+     * Whether the plan's automatic loads sit on a saved implement's grid, keep the generic estimate,
+     * are withheld because no reachable load exists, or are withheld for lack of evidence. Null when
+     * the plan carries no automatic external load at all. Ordered-only and scalar slots are both
+     * classified; the banner is derived here because a persisted plan records no provenance.
+     */
+    private fun loadInventoryDisclosure(
+        plan: WeeklyPlan,
+        catalog: List<Exercise>,
+        inventory: LoadingInventory?
+    ): LoadInventoryDisclosure? {
+        val catalogById = catalog.associateBy { it.id }
+        val outcomes = plan.days
+            .flatMap { day -> day.exercises }
+            .mapNotNull { planned ->
+                val exercise = catalogById[planned.exerciseId] ?: return@mapNotNull null
+                val applicable = hasApplicableLoadingInventory(
+                    inventory,
+                    exercise.requiredEquipment
+                )
+                val orderedTargets = planned.setTargets?.targets
+                    ?.filter { it.loadKind == LoadKind.EXTERNAL }
+                    .orEmpty()
+                val hasOrderedNumber = orderedTargets.any { it.weightKg != null }
+                val hasWithheldOrdered = orderedTargets.any { it.weightKg == null }
+                val converted = planned.explanation?.conversion != null ||
+                    planned.explanation?.aiAdjustment?.proposedAccepted == true
+                val orderedOutcome = when {
+                    orderedTargets.isEmpty() -> null
+                    // Numeric ordered targets prove the conversion reached a load; the slot is not
+                    // unreachable just because its scalar suggestion is absent.
+                    hasOrderedNumber && !hasWithheldOrdered ->
+                        if (applicable) {
+                            LoadInventoryOutcome.INVENTORY_ROUNDED
+                        } else {
+                            LoadInventoryOutcome.ESTIMATE_WITHOUT_INVENTORY
+                        }
+
+                    !applicable -> if (hasOrderedNumber) {
+                        LoadInventoryOutcome.ESTIMATE_WITHOUT_INVENTORY
+                    } else {
+                        LoadInventoryOutcome.INSUFFICIENT_RECENT_EVIDENCE
+                    }
+
+                    planned.explanation?.unavailableReason ==
+                        LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE &&
+                        !converted ->
+                        LoadInventoryOutcome.INSUFFICIENT_RECENT_EVIDENCE
+
+                    converted -> LoadInventoryOutcome.NO_REACHABLE_LOAD
+                    // A mixed prescription with no recorded per-target reason is unknown here, so
+                    // neither a limit nor missing history is claimed from an absent number.
+                    else -> null
+                }
+                (
+                    orderedOutcome ?: loadInventoryOutcome(
+                        suggestedWeightKg = planned.suggestedWeightKg,
+                        unavailableReason = planned.explanation?.unavailableReason,
+                        // A sanitized AI number that was accepted and then withheld is the same
+                        // inventory limit as a converted working number; it records aiAdjustment
+                        // rather than a conversion.
+                        hasConvertedWorkingLoad = converted,
+                        applicableInventory = applicable
+                    )
+                    )?.toDisclosure()
+            }
+        if (outcomes.isEmpty()) return null
+        return when {
+            LoadInventoryDisclosure.NO_REACHABLE_LOAD in outcomes ->
+                LoadInventoryDisclosure.NO_REACHABLE_LOAD
+
+            LoadInventoryDisclosure.ESTIMATE_WITHOUT_INVENTORY in outcomes ->
+                LoadInventoryDisclosure.ESTIMATE_WITHOUT_INVENTORY
+
+            LoadInventoryDisclosure.INSUFFICIENT_RECENT_EVIDENCE in outcomes ->
+                LoadInventoryDisclosure.INSUFFICIENT_RECENT_EVIDENCE
+
+            else -> LoadInventoryDisclosure.INVENTORY_ROUNDED
+        }
+    }
+
+    private fun LoadInventoryOutcome.toDisclosure(): LoadInventoryDisclosure = when (this) {
+        LoadInventoryOutcome.INVENTORY_ROUNDED -> LoadInventoryDisclosure.INVENTORY_ROUNDED
+        LoadInventoryOutcome.ESTIMATE_WITHOUT_INVENTORY ->
+            LoadInventoryDisclosure.ESTIMATE_WITHOUT_INVENTORY
+
+        LoadInventoryOutcome.NO_REACHABLE_LOAD -> LoadInventoryDisclosure.NO_REACHABLE_LOAD
+        LoadInventoryOutcome.INSUFFICIENT_RECENT_EVIDENCE ->
+            LoadInventoryDisclosure.INSUFFICIENT_RECENT_EVIDENCE
+    }
+
+    /** Catalog load-basis facts for display; non-dumbbell and unknown ids stay unlabeled. */
+    private fun List<Exercise>.loadBases(): Map<String, LoadBasis> =
+        mapNotNull { exercise -> exercise.loadBasis()?.let { basis -> exercise.id to basis } }
+            .toMap()
 
     /**
      * Fingerprint of the inputs that shape a deterministic plan. `nowMillis` is excluded because the

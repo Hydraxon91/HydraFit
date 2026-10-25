@@ -24,6 +24,9 @@
     <string name="split_auto_targets_error_reps">Reps must be %1$d to %2$d, and the highest at least the lowest.</string>
     <string name="split_auto_targets_error_rir">A prescribed RIR must be %1$d to %2$d.</string>
     <string name="split_suggested_weight">·  ~%1$s %2$s</string>
+    <!-- A stored dumbbell load is per implement; it is never doubled or halved for display. -->
+    <string name="split_load_basis_per_hand">per hand</string>
+    <string name="split_load_basis_per_dumbbell">per dumbbell</string>
     <string name="split_exercise_line">%1$s  %2$d x %3$d  %4$s</string>
     <string name="split_exercise_line_timed">%1$s  %2$d × %3$d s  %4$s</string>
     <string name="split_measure_action">Measure %1$s</string>
@@ -183,6 +186,10 @@
     <string name="weekday_saturday">Sat</string>
     <string name="weekday_sunday">Sun</string>
 
+    <string name="split_load_inventory_rounded">Weights are rounded down to loads your saved bars and dumbbells can make.</string>
+    <string name="split_load_inventory_estimate">Some weights use a standard estimate: save a matching bar or dumbbell in your equipment profile to round them to real loads.</string>
+    <string name="split_load_inventory_unreachable">Some weights are left blank because your saved bars and dumbbells cannot make a load at or below the target.</string>
+    <string name="split_load_inventory_insufficient">Some weights are left blank because there is not enough recent workout history yet.</string>
     <string name="split_plan_export">Export plan</string>
     <string name="split_plan_export_print">Print / save PDF</string>
     <string name="split_plan_export_weights">Include prescribed weights</string>

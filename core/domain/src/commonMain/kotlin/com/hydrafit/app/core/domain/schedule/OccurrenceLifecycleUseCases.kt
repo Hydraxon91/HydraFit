@@ -53,7 +53,9 @@ class StartWorkoutOccurrenceUseCase(
 /** Completion bookkeeping for finishing and skipping. */
 private class CompletionContext(
     val occurrence: WorkoutOccurrence,
-    val performedWorkingSetsByEntry: Map<Long, Int>
+    val performedWorkingSetsByEntry: Map<Long, Int>,
+    /** Any recorded set attributed to this occurrence, warm-up or not, entry-linked or not. */
+    val recordedSetCount: Int
 ) {
     val totalPerformed: Int get() = performedWorkingSetsByEntry.values.sum()
 
@@ -68,14 +70,14 @@ private suspend fun loadCompletion(
 ): CompletionContext {
     val occurrence = scheduleRepository.getOccurrence(occurrenceId)
         ?: throw ScheduleException("That workout no longer exists")
-    val performed = workoutLogRepository
-        .setsForOccurrence(occurrenceId)
+    val recorded = workoutLogRepository.setsForOccurrence(occurrenceId)
+    val performed = recorded
         .filterNot(WorkoutSet::isWarmup)
         .groupingBy { it.occurrenceEntryId }
         .eachCount()
         .filterKeys { it != null }
         .mapKeys { requireNotNull(it.key) }
-    return CompletionContext(occurrence, performed)
+    return CompletionContext(occurrence, performed, recorded.size)
 }
 
 /**
@@ -133,8 +135,10 @@ class FinishWorkoutOccurrenceUseCase(
 }
 
 /**
- * Skips a workout. An untouched workout is marked [OccurrenceStatus.SKIPPED] with no performed sets;
- * a workout with recorded work is concluded partially with the remainder marked skipped.
+ * Skips a workout. An untouched workout is marked [OccurrenceStatus.SKIPPED] and closes no session;
+ * a workout with any recorded work - prescribed working sets, warm-ups only, or work whose entry
+ * link was lost - is concluded partially with the unfinished prescribed sets marked skipped. The
+ * working-set bookkeeping still counts only prescribed, entry-attributed sets.
  */
 class SkipWorkoutOccurrenceUseCase(
     private val scheduleRepository: WorkoutScheduleRepository,
@@ -146,7 +150,8 @@ class SkipWorkoutOccurrenceUseCase(
         val occurrence = context.occurrence
         if (occurrence.isResolved) return scheduleRepository.scheduleState()
 
-        val entries = if (context.totalPerformed > 0) {
+        val hasRecordedWork = context.recordedSetCount > 0
+        val entries = if (hasRecordedWork) {
             occurrence.entries.map { entry ->
                 val remaining = (entry.sets - (context.performedWorkingSetsByEntry[entry.id] ?: 0))
                     .coerceAtLeast(0)
@@ -164,7 +169,7 @@ class SkipWorkoutOccurrenceUseCase(
         } else {
             occurrence.entries
         }
-        val status = if (context.totalPerformed > 0) {
+        val status = if (hasRecordedWork) {
             OccurrenceStatus.FINISHED_PARTIAL
         } else {
             OccurrenceStatus.SKIPPED

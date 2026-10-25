@@ -153,6 +153,12 @@ fatigue among muscles with involvement ≥ 0.7: reduce one set at `F ≥ 0.65`, 
 `F ≥ 0.80`. Never use rounded display percentages for decisions; retain the one-set minimum.
 The shared `Map<MuscleGroup, Double>` contract remains compatible with all planner engines.
 
+The automatic numeric load baseline is a separate planner input, not a fatigue term: it uses
+a session-balanced median of each session's best recent Epley estimate, with a manual-PR guard
+that keeps a ≤2-rep PR reference-only for a rep-range (three or more rep) prescription while a
+one- or two-rep prescription may use it, documented in the
+`hydrafit-mechanics` `planning.md` reference. It does not enter the recurrence above.
+
 ## Calibration regressions
 
 The captured ledger fixture (from the archived BACK investigation, `docs/plans-archive.md`)

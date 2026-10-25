@@ -37,7 +37,12 @@ between members and pair rest after a round, and offers **Skip turn**, **Resume 
 is session-local: the frozen occurrence keeps its group, and recorded sets never change. A zero-second
 transition starts no timer, and intentional transitions skip short-rest coaching. An active transition
 or pair-rest prompt is labeled accordingly and is read-only, so it can never be saved as a
-per-exercise rest override.
+per-exercise rest override. During a round only the paired member whose turn it is exposes start,
+log, completion and edit controls; the partner stays visible as context. Skip, resume and unpair
+remain reachable from the active member, or from the skipped member when its pair has no turn left,
+and the existing submission guard still prevents a double log. Skipping the member whose set is live
+cancels that start and its elapsed timing without writing anything, so the partner's turn starts from
+its own fresh Start and the skipped member must Start again when its turn returns.
 
 ## Ordered per-set prescription surfaces (0.10.2)
 
@@ -183,6 +188,16 @@ Only when that legacy draft's frozen capability is UNSPECIFIED does resolution c
 catalog: EXTERNAL allows an explicit external choice preserving its null/zero/positive stored load;
 bodyweight-only, addable, unspecified or missing catalog entries do not. Explicit frozen capabilities
 remain authoritative. The choice affects only new performed sets, never the frozen prescription.
+A draft editor freezes the display unit it opened with and keeps an untouched field's canonical
+kilograms, so applying 120 kg and later switching the preference still logs 120 kg rather than
+reinterpreting the digits; reopening shows the value in the current display unit. The editor's field
+label reads that same frozen unit, so the digits shown and the unit its parser applies never disagree
+mid-edit after a preference change. An applied guided
+editor value is keyed to the actual pending source (entry, exercise, measure and ordered target) and
+to the slot's remaining count, so an ordinary refresh keeps it while a replacement in the same entry
+or a consumed target expires it — logging one set expires even an identical adjacent ordered target —
+and Reset restores the unedited pending source rather than the overlaid draft. Reopening an applied
+edit also restores its RIR and explicit performed time.
 Repeated draft submissions are guarded by one in-flight write. The guard spans the "Use last
 logged" lookup, and cancel/reopen or context replacement invalidates that delayed lookup.
 Backdated session reuse is scoped to the timestamp. If a multi-set write fails partway through,
@@ -291,15 +306,28 @@ which reads each occurrence entry's frozen prescription and the working sets
 attributed to it; warm-ups and sets with no entry attribution never satisfy a
 prescription. The card lists exercises in entry order with target reps/load and
 performed/prescribed counts. "Log set" records exactly one set for that entry and
-leaves the remaining prescribed sets pending. While a set is started, ordinary guided "Log set" and
+leaves the remaining prescribed sets pending. A guided exercise whose prescribed working sets are
+all recorded renders collapsed to its name and completion summary until expanded; the expansion
+belongs to that exact recorded completion, so removing a set reopens the rows, and unfinished or
+partially recorded work never collapses. While a set is started, ordinary guided "Log set" and
 edit-confirm for another slot are refused; a repeat "Start set" on the started slot is a no-op, and only
 that slot's explicit "Set completed now" consumes the live event. The Warm-up choice is frozen at
 confirmation, survives legacy/missing-load resolution and failed-write retries, and is discarded on
 cancellation or consumed on success. A warm-up is stored as a warm-up and stays out of the progress
-count. "Edit" opens the one-off draft editor and confirming it also writes a single set. Guided writes reuse the
-draft load-shape decisions (legacy resolution, missing-load prompt) through
-`writeGuidedSet`, so a single insert either lands or leaves the draft pending for
-retry. **Set completed now** is a separate explicit action: it timestamps the set
+count. "Edit" opens the one-off draft editor; in guided mode Apply updates only the pending set,
+preserving the values through ordinary refreshes until an explicit log consumes them once, and
+Cancel writes nothing. Guided and planned draft targets state a known dumbbell basis (per hand for
+unilateral work, per dumbbell otherwise) and show a withheld automatic load's recorded reason when
+it distinguishes unreachable inventory from insufficient history; the stored number is never
+doubled or reinterpreted. A single guided confirmation writes one set against the slot's current
+remaining ordered target — the submission count never advances the target index to the slot's final
+set — and an explicit edit overrides that set without claiming a target index. Override detection
+compares a timed draft's explicit seconds and otherwise its reps, alongside load, so applying a timed
+edit logs its own seconds once instead of repeating that ordered target, then the next target resumes.
+The manual Log set
+and Confirm-all paths are unchanged. Guided writes reuse
+the draft load-shape decisions (legacy resolution, missing-load prompt) through `writeGuidedSet`,
+so a single insert either lands or leaves the draft pending for retry. **Set completed now** is a separate explicit action: it timestamps the set
 at the live wall time and starts a deadline-based rest prompt only after the write
 succeeds. Ordinary guided confirmation, manual logging, warm-ups and backdated
 entries do not start a timer. The day's final prescribed working set intentionally
@@ -325,11 +353,14 @@ warm-up completion neither starts nor persists a new rest prompt. Recreation res
 At startup, reconciliation leaves a due, still-valid countdown to the triggered receiver so it can
 revalidate and post; invalid context, disabled preferences and later transitions into due state still
 cancel. Ordinary Logger restoration continues to clear expired state silently.
-It cancels on session/occurrence changes, guided mode being turned off, explicit
-dismissal, starting the next set (which cancels the previous prompt before recording the new start,
-without resetting coaching evidence), or successful deletion/correction of a set from its occurrence.
-Finish/partial Finish/Skip and End/New session retain their existing logging
-semantics. The accepted plan is never edited. Off keeps the existing draft/batch
+It cancels on a different workout, a session change, guided mode being turned off, explicit
+dismissal, or starting the next set (which cancels the previous prompt before recording the new
+start, without resetting coaching evidence); correcting or deleting a recorded set and ordinary
+refreshes of the same workout leave it running on its remaining time. Finish/partial Finish and a
+skip with recorded work close the open session attributable to that workout — linked to its
+occurrence or holding one of its recorded sets — inside the same occurrence resolution, while
+skipping an untouched workout closes none and unrelated sessions stay open; End/New session keeps
+its existing behavior. The accepted plan is never edited. Off keeps the existing draft/batch
 flow. The Logger ViewModel groups its preferences and rest-duration delegation in
 `WorkoutLoggerSettings` (display units and the guided flag, plus resolve/set/clear
 of per-exercise rest durations forwarded to the domain use cases), and its wall
@@ -439,8 +470,14 @@ or forged request is still rejected.
 Untouched slots in
 started occurrences remain eligible. Choosing a candidate confirms an occurrence-
 only change with preserved sets/reps/id and the candidate's own load history, not the original load.
-Stale context/availability fails without writing; Cancel writes nothing. No candidate points to
-existing whole-workout Skip/partial Finish, not a new slot-skip action.
+Ordered targets keep their measure, reps and prescribed effort but rederive every numeric load from
+the candidate, dropping the replaced exercise's load recipe, and a successful swap records its
+explanation. Stale context/availability fails without writing; Cancel writes nothing. No candidate points to
+existing whole-workout Skip/partial Finish, not a new slot-skip action. A candidate's numeric load is
+labeled with its dumbbell basis when known (per hand for unilateral work, per dumbbell otherwise; a
+two-handed single dumbbell is never doubled), and a withheld candidate shows the recorded cause when
+its explanation distinguishes unreachable inventory from insufficient history. A nonexistent number
+alone never becomes a claim about either cause.
 
 The Logger keeps two independent note editors, each guarded by its own editor revision. The exercise
 setup-note editor (`noteExerciseId`/`noteText`) is keyed to the selected exercise and cannot write a
@@ -610,7 +647,11 @@ its weekdays from the plan. SplitBuilder starts a generated plan as a block via
 `SplitScheduleDialogState` in `SplitBuilderUiState.kt`. SplitBuilder's accepted-plan swap uses
 `SplitBuilderViewModel.onSwapRequested`/`onSwapCandidateSelected` (via
 `PlanBuilderActions`) and the `SwapCandidateDialog` in `SplitBuilderScreen.kt`;
-the dialog is only reachable while `SplitBuilderUiState.isPlanAccepted`.
+the dialog is only reachable while `SplitBuilderUiState.isPlanAccepted`. Candidate rows carry the
+candidate's own progressed load; a confirmed swap recalculates ordered targets and records its
+explanation. SplitBuilder labels a known dumbbell load "per hand" for unilateral work and "per
+dumbbell" otherwise; non-dumbbell and unknown ids stay unlabeled, and a stored value is never
+doubled, halved or converted from another implement's total.
 SplitBuilder shows the recorded target summary below each exercise, with expandable detail, and
 the plan-level attribution/deload scales when present. A null slot after a substitution is marked
 unavailable only when plan-level context proves reasons had been recorded. Logger planned-today
@@ -838,3 +879,37 @@ platforms, a typed `WorkoutCsvException`, rejected-row exclusion, unresolved/uni
 mappings, a date-only day's time and confirmations, an unchanged-source skip notice, a successful
 commit's counts, a `WorkoutImportException`, a second `apply()` during `inProgress`, cancellation and
 a stale read.
+
+## 0.10.5 load-inventory repair notes
+
+- `roundOrderedTargetsToInventory`'s `NoApplicableInventory` branch clamps its generic
+  increment rounding with `EquipmentWeightLimit.clamp(..., ceilingKg)`. A recalculated
+  low-rep ordered target from a manual PR floor (or any other differing bound) can no
+  longer exceed the equipment maximum when no compatible bar or dumbbell exists; the
+  reachable-inventory, withheld and untouched-generation branches are unchanged.
+  `PlannerLoadPolicyParityTest.orderedLowRepTargetsNeverExceedTheEquipmentCeilingWithoutApplicableInventory`
+  covers null, empty and non-matching inventories through the real
+  `DeterministicWorkoutPlannerEngine` and `WeeklyPlanSanitizer` (2-rep target 40 kg,
+  8-rep target 30 kg with a 40 kg dumbbell maximum).
+- SplitBuilder's swap dialog (`SwapCandidateDialog`) renders the candidate's own
+  estimate/missing reason regardless of whether the weight text is empty. The reason
+  still comes from that candidate's `loadInventoryOutcome`, never the plan's cause, and
+  an unknown outcome shows nothing. The composable rendering itself has no host test in
+  this module.
+- The logger's missing-load line classifies through `noLoadReason(explanation)`:
+  `INVENTORY` for a recorded conversion or an accepted-then-withheld
+  `aiAdjustment.proposedAccepted` number, `INSUFFICIENT_HISTORY` for
+  `INSUFFICIENT_RECENT_EVIDENCE`, and null otherwise.
+  `WorkoutLoggerViewModelTest.aWithheldAcceptedAiNumberIsExplainedAsAnInventoryLimit`
+  covers the classification; the composed string is not asserted.
+- Applied guided edits are keyed to the pending row's remaining-set position
+  (`DraftEdit.targetsPendingDraft`), so logging the pending set through the manual `log()`
+  form expires the overlay exactly like `confirmGuidedSet`. Two value-identical adjacent
+  ordered targets are consumed one position at a time
+  (`anAppliedScalarEditExpiresWhenTheSetIsLoggedThroughTheManualForm`,
+  `equalAdjacentOrderedTargetsExpireTheConsumedSetsEditorAndOverlay`).
+- `SqlDelightWorkoutPlanSourcesRepository` observes the active profile's saved
+  `LoadingInventory`; `SqlDelightWorkoutPlanSourcesRepositoryTest.theActiveEquipmentProfilesLoadingInventoryReachesThePlanSources`
+  covers save, rewrite and profile switch.
+- `OccurrenceEntry.explanation` KDoc now states that a replacement records its own
+  candidate-derived reasoning and never inherits the replaced exercise's reasoning.

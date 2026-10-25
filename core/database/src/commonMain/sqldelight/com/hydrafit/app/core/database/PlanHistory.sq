@@ -81,20 +81,12 @@ UPDATE planHistoryEntry SET exerciseId = :newId WHERE exerciseId = :oldId;
 countEntriesForExercise:
 SELECT COUNT(*) FROM planHistoryEntry WHERE exerciseId = ?;
 
-selectEntryLoadKindAtPosition:
-SELECT loadKind FROM planHistoryEntry
-WHERE position = :position
-  AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
-
-clearEntrySetTargetsAtPosition:
-UPDATE planHistoryEntry SET setTargets = NULL
-WHERE position = :position
-  AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
-
+-- Replaces one slot's exercise and its rederived ordered targets in place. The caller supplies null
+-- targets when the new exercise cannot carry the old prescription's load kind.
 updateEntryExerciseIdAtPosition:
 UPDATE planHistoryEntry
 SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeightKg = :newWeightKg,
-    loadCapability = :newLoadCapability, loadKind = :newLoadKind
+    loadCapability = :newLoadCapability, loadKind = :newLoadKind, setTargets = :setTargets
 WHERE position = :position
   AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 

@@ -113,10 +113,10 @@ class BuildPlannerLoadInputsUseCaseTest {
     }
 
     @Test
-    fun twoRecentSetsBoundHistoryAndProgressionConsistently() = runTest {
+    fun twoRecentSessionsVoteEquallyAndBoundHistoryAndProgressionConsistently() = runTest {
         val sets = listOf(
             set("bench-press", day = 1, weightKg = 120.0, kind = LoadKind.EXTERNAL),
-            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 90, weightKg = 120.0, kind = LoadKind.EXTERNAL),
             set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
         )
 
@@ -127,25 +127,132 @@ class BuildPlannerLoadInputsUseCaseTest {
             nowMillis = NOW_MILLIS
         )
 
-        assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        // Two sessions vote: Epley(120 x 8) = 152 and Epley(100 x 8) = 126.667. With an even count
+        // the baseline averages the two middle votes, so neither session alone sets the bound.
+        assertEquals(139.33333333333334, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
         assertEquals(result.suggestedWeightsKg, result.recentWeightCaps)
     }
 
     @Test
-    fun strongerEstimateStillInsideTheRecentWindowRemainsTheBound() = runTest {
+    fun oneLooseHighSetNoLongerOutranksSeveralCleanerSessions() = runTest {
+        val sets = listOf(90L, 91L, 92L, 93L).map { day ->
+            set("bench-press", day = day, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        } + set("bench-press", day = 94, weightKg = 140.0, kind = LoadKind.EXTERNAL)
+
         val result = useCase(
-            sources = sources(
-                listOf(
-                    set("bench-press", day = 90, weightKg = 120.0, kind = LoadKind.EXTERNAL),
-                    set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
-                )
-            ),
+            sources = sources(sets),
             pauseIncrements = false,
             utcOffsetMillis = 0L,
             nowMillis = NOW_MILLIS
         )
 
-        assertEquals(152.0, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        // Four sessions estimate 126.667 and one loose session estimates 177.333. The old per-set
+        // maximum returned 177.333; the session median returns the ordinary sessions' value.
+        assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        assertEquals(
+            LoadBaselineSource.RECENT_PERFORMANCE,
+            result.loadExplanations.getValue("bench-press").baseline.source
+        )
+    }
+
+    @Test
+    fun anAscendingSessionsBestSetCastsExactlyOneVote() = runTest {
+        val sets = listOf(
+            set(
+                "bench-press",
+                day = 90,
+                weightKg = 100.0,
+                kind = LoadKind.EXTERNAL,
+                sessionId = "s1"
+            ),
+            set(
+                "bench-press",
+                day = 90,
+                weightKg = 110.0,
+                kind = LoadKind.EXTERNAL,
+                sessionId = "s1"
+            ),
+            set(
+                "bench-press",
+                day = 90,
+                weightKg = 120.0,
+                kind = LoadKind.EXTERNAL,
+                sessionId = "s1"
+            ),
+            set(
+                "bench-press",
+                day = 92,
+                weightKg = 100.0,
+                kind = LoadKind.EXTERNAL,
+                sessionId = "s2"
+            )
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // Session s1 votes once with its best set, Epley(120 x 8) = 152; session s2 votes 126.667.
+        // The median of two votes is 139.333. A per-set median would have returned 133.0 from the
+        // four separate estimates, and a per-set maximum 152.
+        assertEquals(139.33333333333334, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun anEvenSessionCountAveragesTheTwoMiddleVotes() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 88, weightKg = 90.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 92, weightKg = 110.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 94, weightKg = 120.0, kind = LoadKind.EXTERNAL)
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // Votes sorted ascending: 114, 126.667, 139.333, 152. The two middle votes average to 133.
+        assertEquals(133.0, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun setsWithoutASessionIdVoteSeparatelyInsteadOfMerging() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set(
+                "bench-press",
+                day = 92,
+                weightKg = 140.0,
+                kind = LoadKind.EXTERNAL,
+                sessionId = null
+            ),
+            set(
+                "bench-press",
+                day = 93,
+                weightKg = 140.0,
+                kind = LoadKind.EXTERNAL,
+                sessionId = null
+            )
+        )
+
+        val result = useCase(
+            sources = sources(sets),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // The two unattributed rows are distinct observations, not one session: votes are 126.667,
+        // 177.333 and 177.333, so the median is 177.333. Merged into a single vote it would be
+        // 152.0, letting an unknown grouping silently dilute the recorded work.
+        assertEquals(177.33333333333334, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        assertEquals(3, result.loadExplanations.getValue("bench-press").baseline.qualifyingSetCount)
     }
 
     @Test
@@ -176,7 +283,7 @@ class BuildPlannerLoadInputsUseCaseTest {
             set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
         )
         val withRecord = sources(sets).copy(
-            personalRecords = listOf(PersonalRecord("bench-press", 130.0, 1))
+            personalRecords = listOf(PersonalRecord("bench-press", 140.0, 3))
         )
 
         val result = useCase(
@@ -186,8 +293,68 @@ class BuildPlannerLoadInputsUseCaseTest {
             nowMillis = NOW_MILLIS
         )
 
-        // Epley(130 x 1) = 134.333; the eligible manual estimate is the floor above recent evidence.
-        assertEquals(134.33333333333334, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        // Epley(140 x 3) = 154; a three-rep manual record is eligible and floors the 126.667
+        // session-balanced recent estimate.
+        assertEquals(154.0, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        val explanation = result.loadExplanations.getValue("bench-press").baseline
+        assertEquals(LoadBaselineSource.MANUAL_PERSONAL_RECORD, explanation.source)
+        assertEquals(154.0, requireNotNull(explanation.manualFloorKg), 1e-9)
+        assertEquals(126.66666666666667, requireNotNull(explanation.recentEstimateKg), 1e-9)
+        assertEquals(2, explanation.qualifyingSetCount)
+    }
+
+    @Test
+    fun aTwoRepManualRecordDoesNotRaiseTheFloorWhileThreeRepsDoes() = runTest {
+        val sets = listOf(
+            set("bench-press", day = 90, weightKg = 100.0, kind = LoadKind.EXTERNAL),
+            set("bench-press", day = 92, weightKg = 100.0, kind = LoadKind.EXTERNAL)
+        )
+
+        suspend fun baselineFor(reps: Int) = useCase(
+            sources = sources(sets).copy(
+                personalRecords = listOf(PersonalRecord("bench-press", 140.0, reps))
+            ),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        val lowRep = baselineFor(2)
+        val threeRep = baselineFor(3)
+
+        // Epley(140 x 2) = 149.333, which would have raised the baseline. A two-rep peak attempt is
+        // excluded from the automatic floor, so recent evidence alone decides.
+        assertEquals(126.66666666666667, lowRep.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+        assertNull(lowRep.loadExplanations.getValue("bench-press").baseline.manualFloorKg)
+        assertEquals(
+            LoadBaselineSource.RECENT_PERFORMANCE,
+            lowRep.loadExplanations.getValue("bench-press").baseline.source
+        )
+        // Epley(140 x 3) = 154 remains eligible.
+        assertEquals(154.0, threeRep.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun aLowRepManualRecordAloneDoesNotInventABaseline() = runTest {
+        val result = useCase(
+            sources = sources(emptyList()).copy(
+                personalRecords = listOf(PersonalRecord("bench-press", 140.0, 2))
+            ),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        // The stored record is untouched and still cannot seed a rep-range baseline, but it is
+        // carried as the floor a short (1–2 rep) prescription may use.
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
+        assertTrue("bench-press" !in result.suggestedWeightsKg)
+        assertTrue("bench-press" !in result.loadExplanations)
+        assertEquals(
+            OneRepMax.estimate(140.0, 2),
+            result.lowRepManualFloorsKg.getValue("bench-press"),
+            1e-9
+        )
     }
 
     @Test
@@ -324,7 +491,7 @@ class BuildPlannerLoadInputsUseCaseTest {
         )
         val result = useCase(
             sources = sources(logged).copy(
-                personalRecords = listOf(PersonalRecord("bench-press", 50.0, 1))
+                personalRecords = listOf(PersonalRecord("bench-press", 50.0, 3))
             ),
             pauseIncrements = false,
             utcOffsetMillis = 0L,
@@ -470,14 +637,16 @@ class BuildPlannerLoadInputsUseCaseTest {
         day: Long,
         weightKg: Double = 100.0,
         kind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
-        target: WorkoutPrescriptionSnapshot? = null
+        target: WorkoutPrescriptionSnapshot? = null,
+        sessionId: String? = "s$day",
+        reps: Int = 8
     ) = WorkoutSet(
         exerciseId = exerciseId,
-        reps = 8,
+        reps = reps,
         weightKg = weightKg,
         loadKind = kind,
         performedAtMillis = day * DAY_MILLIS,
-        sessionId = "s$day",
+        sessionId = sessionId,
         prescriptionSnapshot = target
     )
 

@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.RestCountdown
@@ -189,6 +190,16 @@ data class DraftEdit(
     val reps: String,
     val durationSeconds: String = "",
     val weightInput: String,
+    /**
+     * The display unit [weightInput] was typed in. The editor freezes it for its lifetime so a
+     * later preference change converts the text instead of reinterpreting the same digits.
+     */
+    val weightUnit: WeightUnit,
+    /**
+     * The exact stored kilograms behind an untouched weight field. Reopening converts it for
+     * display, and an unedited re-apply keeps this canonical value through unit changes.
+     */
+    val canonicalWeightKg: Double? = null,
     val rir: String,
     val weightRevealed: Boolean,
     val performedAtMillis: Long?,
@@ -204,6 +215,32 @@ data class DraftEdit(
         } else {
             (reps.toIntOrNull() ?: 0) > 0
         }
+
+    /**
+     * True when this editor still describes the same pending row: same occurrence entry, same
+     * exercise, same measure, the same remaining-set position and the same ordered target. A
+     * replacement in that entry, a measure edit, a consumed set (the remaining count/position
+     * changed) or a newly consumed set therefore expires the edit instead of showing stale values.
+     */
+    fun targetsPendingDraft(draft: DraftSet): Boolean = this.draft.occurrenceEntryId != null &&
+        this.draft.occurrenceEntryId == draft.occurrenceEntryId &&
+        this.draft.exerciseId == draft.exerciseId &&
+        this.draft.sets == draft.sets &&
+        isTimed == (draft.durationSeconds != null) &&
+        this.draft.orderedPrefill == draft.orderedPrefill
+}
+
+/**
+ * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work
+ * is per hand, other dumbbell work per dumbbell. It is never doubled or halved for display.
+ */
+enum class LoadBasis { PER_HAND, PER_DUMBBELL }
+
+/** Null for non-dumbbell equipment, whose loads stay unlabeled. */
+internal fun loadBasisFor(requiresDumbbell: Boolean, isUnilateral: Boolean): LoadBasis? = when {
+    !requiresDumbbell -> null
+    isUnilateral -> LoadBasis.PER_HAND
+    else -> LoadBasis.PER_DUMBBELL
 }
 
 /**
@@ -266,6 +303,8 @@ sealed interface WorkoutSummaryScreen {
 data class WorkoutLoggerUiState(
     val exerciseInstructions: LoggerExerciseInstructions? = null,
     val exercises: List<ExerciseOption> = emptyList(),
+    /** Dumbbell load basis per exercise id; non-dumbbell and unknown ids stay absent. */
+    val exerciseLoadBasis: Map<String, LoadBasis> = emptyMap(),
     val exerciseSearch: String = "",
     val selectedExerciseId: String? = null,
     /** Which metric the manual form records; the other entry field is never submitted. */
@@ -298,6 +337,19 @@ data class WorkoutLoggerUiState(
     val draftWriteInProgress: Boolean = false,
     /** Independent partially written drafts awaiting retry in the current context. */
     val draftWriteRetries: List<DraftWriteRetry> = emptyList(),
+    /**
+     * Guided drafts whose editor values were applied but not yet logged, keyed by occurrence entry.
+     * In-memory only: they seed the pending row through ordinary refreshes and are dropped when the
+     * set is logged, the editor's draft is removed, the slot's exercise or measure changes, the
+     * pending ordered target advances, or the workout context changes.
+     */
+    val appliedGuidedEdits: Map<Long, DraftEdit> = emptyMap(),
+    /**
+     * Completed guided exercises the user explicitly expanded, keyed by occurrence entry with the
+     * recorded working sets at expansion. In-memory only: an expansion lasts only while that
+     * entry's completion is unchanged, and it is dropped with the workout.
+     */
+    val guidedExpandedEntries: Map<Long, Int> = emptyMap(),
     /** The current workout of the active block, or null when no block is active. */
     val activeOccurrence: ActiveOccurrence? = null,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
@@ -435,6 +487,58 @@ data class WorkoutLoggerUiState(
         )?.occurrenceEntryId
 
     /**
+     * The paired entry that owns the current round: an explicitly started member, else the entry
+     * [nextGuidedEntryId] already selects. Null for a single exercise and for an unpaired pair.
+     */
+    private val activeSupersetEntryId: Long?
+        get() {
+            val entries = guidedProgress?.exercises ?: return null
+            val started = entries.firstOrNull { it.occurrenceEntryId == startedSetEntryId }
+                ?.takeIf { entry ->
+                    entry.superset?.let { it.key !in supersetUnpairedKeys } == true
+                }
+            val turnId = started?.occurrenceEntryId ?: nextGuidedEntryId
+            val turn = entries.firstOrNull { it.occurrenceEntryId == turnId } ?: return null
+            val pair = turn.superset ?: return null
+            if (pair.key in supersetUnpairedKeys) return null
+            return turn.occurrenceEntryId
+        }
+
+    /**
+     * True when [entry] shows its start/log/edit controls. A single exercise keeps them while work
+     * remains; a paired member only while it owns the round, so the partner can never log the same
+     * round as its duplicate.
+     */
+    fun showsGuidedActions(entry: GuidedExerciseProgress): Boolean {
+        if (entry.isComplete) return false
+        val key = entry.superset?.key ?: return true
+        if (key in supersetUnpairedKeys) return true
+        return entry.occurrenceEntryId == activeSupersetEntryId
+    }
+
+    /**
+     * True when [entry] shows skip/resume/unpair. That is the paired member holding the turn, plus
+     * the skipped member when its pair has no turn left, so Resume stays reachable.
+     */
+    fun showsSupersetControls(entry: GuidedExerciseProgress): Boolean {
+        val key = entry.superset?.key ?: return false
+        if (key in supersetUnpairedKeys || entry.isComplete) return false
+        if (entry.occurrenceEntryId == activeSupersetEntryId) return true
+        if (entry.occurrenceEntryId != supersetSkippedEntryId) return false
+        val active = guidedProgress?.exercises
+            ?.firstOrNull { it.occurrenceEntryId == activeSupersetEntryId }
+        return active?.superset?.key != key
+    }
+
+    /**
+     * True when [entry]'s prescribed work is shown as rows. Unfinished work is never collapsed; a
+     * complete exercise collapses unless the user expanded it for this exact completion.
+     */
+    fun isGuidedEntryExpanded(entry: GuidedExerciseProgress): Boolean = !entry.isComplete ||
+        entry.occurrenceEntryId == activeSupersetEntryId ||
+        guidedExpandedEntries[entry.occurrenceEntryId] == entry.performedWorkingSets
+
+    /**
      * True when replacement is available for [entryId]: its slot holds no recorded work and it is not
      * the currently started slot. An untouched later slot stays replaceable.
      */
@@ -547,3 +651,43 @@ internal fun WorkoutLoggerUiState.withRestStarted(
 /** Clears the superset rest label when its prompt is dismissed or otherwise ends. */
 internal fun WorkoutLoggerUiState.withRestCleared(): WorkoutLoggerUiState =
     copy(restDurationIsPairRest = false, restDurationIsSupersetTransition = false)
+
+/**
+ * Toggles an explicit expansion for a completed entry. Unfinished work never collapses, so such an
+ * entry is returned unchanged; an expansion is recorded against the completion it was made for.
+ */
+internal fun WorkoutLoggerUiState.withGuidedExpansionToggled(
+    entry: GuidedExerciseProgress
+): WorkoutLoggerUiState {
+    if (!entry.isComplete) return this
+    val expanded = guidedExpandedEntries[entry.occurrenceEntryId] == entry.performedWorkingSets
+    return copy(
+        guidedExpandedEntries = if (expanded) {
+            guidedExpandedEntries - entry.occurrenceEntryId
+        } else {
+            guidedExpandedEntries + (entry.occurrenceEntryId to entry.performedWorkingSets)
+        }
+    )
+}
+
+/**
+ * Publishes refreshed guided progress and reconciles explicit expansions with it. An expansion
+ * belongs to one recorded completion, so removing a recorded set drops it and the exercise shows
+ * its rows again; switching workout forgets every expansion.
+ */
+internal fun WorkoutLoggerUiState.withGuidedProgress(
+    progress: GuidedWorkoutProgress,
+    sameOccurrence: Boolean
+): WorkoutLoggerUiState = copy(
+    guidedProgress = progress,
+    guidedExpandedEntries = if (!sameOccurrence) {
+        emptyMap()
+    } else {
+        guidedExpandedEntries.filter { (entryId, performedAtExpansion) ->
+            progress.exercises.any { entry ->
+                entry.occurrenceEntryId == entryId &&
+                    entry.performedWorkingSets == performedAtExpansion
+            }
+        }
+    }
+)

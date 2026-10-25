@@ -92,6 +92,7 @@ daysPerWeek, availableEquipment, muscleFatigue, splitPreference, nowMillis,
 goal, setsPerExercise, accessorySetsPerExercise,
 recentExerciseIdsByPattern, suggestedWeightsKg, recentWeightCaps,
 withheldWeightExerciseIds, equipmentMaxWeights, exercisePreferences,
+loadingInventory,
 includeWorkoutData, recentWeights, weekNumber, cycleNumber, isDeload
 ```
 
@@ -101,10 +102,13 @@ baselines adjusted by progression, despite the name. The output field
 must not accidentally present a 1RM baseline as a ready-to-lift working weight.
 
 Manual PRs enter the baseline through `WorkoutPlanSources.personalRecords`.
-They are not workout sets and do not add fatigue. An eligible external manual PR is a
-**floor**, not an all-history exemption: the planner baseline is the recent-window
-estimate (or the manual estimate when evidence is thin) raised to at least the eligible
-manual value. See the "Recent-performance load policy" recipe below for the full rule.
+They are not workout sets and do not add fatigue. An eligible external manual PR of at least
+three reps is a **floor**, not an all-history exemption: the planner baseline is the
+session-balanced recent estimate (or the manual estimate when evidence is thin) raised to at
+least the eligible manual value. A manual PR recorded below three reps does not raise the
+rep-range automatic baseline but remains the eligible floor for a one- or two-rep
+prescription. See the recent-performance load rule under "Exact weight and rep
+defaults" below.
 
 AI history and weight suggestions are gated by `includeWorkoutData`.
 Deterministic suggestions are local computations and do not require the AI
@@ -188,18 +192,81 @@ the shared bound.
 
 ```text
 working = roundToIncrement(progressed1RM * intensityForReps(reps) * deloadScale)
-suggestedWeightKg = EquipmentWeightLimit.clamp(working, ceilingFor(exercise))
+generic = EquipmentWeightLimit.clamp(working, ceilingFor(exercise))
+suggestedWeightKg =
+  no applicable saved implement -> generic
+  otherwise                    -> highest reachable load at or below the unrounded
+                                  working bound and the equipment ceiling
+                                  (no number at all when nothing is reachable)
 ```
 
-`BuildPlannerLoadInputsUseCase` uses the best eligible external or compatible-legacy
-Epley estimate in the inclusive `[now − 42 days, now]` interval, with at least two
-sets. Horizon and sample size are product/engineering defaults, not validated
-capacity thresholds; same-session sets count but do not prove maximum capacity.
+### Saved loading inventory (0.10.5)
+
+`PlanRequest.loadingInventory` carries the active profile's saved bars, plates and
+dumbbells from `WorkoutPlanSources.loadingInventory`
+(`EquipmentProfileState.active.loadingInventory`), so an automatic load can land on a
+load the equipment can actually make. The shared helpers live in
+`engine/PlannerLoadRounding.kt` (`resolveInventoryLoad`,
+`hasApplicableLoadingInventory`, `roundOrderedTargetsToInventory`) and reuse
+`calculatePlateLoading`/`calculateDumbbellLoading`, including their native KG/LB ticks:
+a bound in kilograms is converted into the inventory's unit before solving, never
+compared against raw ticks. Selection is **always downward** — the highest reachable
+load at or below the unrounded working bound and the equipment ceiling, never the
+nearest value and never one above the bound. A known inventory with no reachable load
+withholds the numeric target instead of rounding up.
+
+A compatible implement is a dumbbell for a `DUMBBELL` exercise and a bar for
+`BARBELL`/`EZ_BAR`/`TRAP_BAR`; when several match, the highest reachable load wins.
+A named `progressionPolicy.equipmentId` is authoritative for the implement's kind as well as its
+identity: an id of the wrong kind (or absent from the inventory) withholds the load rather than
+borrowing another implement's grid. Both engines and the sanitizer resolve from the raw
+pre-generic-rounding bound, so a generic step cannot lift an unreachable value onto the grid.
+Dumbbell loads stay per dumbbell. Machines and other equipment are not represented in
+`LoadingInventory` and keep the generic increment estimate, as does any exercise with
+no applicable saved implement (`2.5 kg` generic rounding plus the SplitBuilder estimate
+disclosure). Inventory rounding is presentation-neutral: it adds no new
+`LoadUnavailableReason`, persists nothing new, and never rewrites a stored plan.
+SplitBuilder derives `LoadInventoryDisclosure` for a plan generated in the session and
+shows none for a reopened persisted plan, which records no inventory provenance.
+The derived outcomes stay distinguishable without a new stored encoding: every
+automatic load is `INVENTORY_ROUNDED` or `ESTIMATE_WITHOUT_INVENTORY`, a converted
+number — or a sanitized `aiAdjustment.proposedAccepted` number — that produced no
+reachable target is `NO_REACHABLE_LOAD`, and no conversion with
+`INSUFFICIENT_RECENT_EVIDENCE` means missing history. An ordered slot is classified
+from its actual numeric and withheld targets before its scalar suggestion, so a
+numeric ordered target is not called unreachable just because the slot has no scalar
+number. Scalar, ordered-only and replacement surfaces derive the same outcome. The
+swap dialog shows the selected candidate's own outcome (never an unrelated slot's
+cause) and says nothing when that outcome is unknown.
+
+`BuildPlannerLoadInputsUseCase` derives the recent baseline as the **median of each
+session's best** eligible external or compatible-legacy Epley estimate inside the inclusive
+`[now − 42 days, now]` interval. Qualifying sets are non-warmup rows with a positive finite
+weight and a 1–15 rep count; they must number at least two, and that threshold counts sets,
+not sessions — there is no minimum session count. Each `sessionId` casts exactly one vote,
+its highest per-set estimate, so one ascending-load session cannot vote several times. Votes
+are sorted ascending; an even number of votes averages the two middle values. A qualifying
+set with no `sessionId` casts its own vote rather than merging with other unattributed rows,
+so unknown grouping can neither pool unrelated work into one strong vote nor hide it. A
+single loose set or one unusually heavy session therefore no longer sets the bound on its
+own. Horizon, session balancing and sample size are product/engineering defaults, not
+validated capacity thresholds.
 Future-dated sets are excluded from planner baseline, recency and progression inputs.
 No execution-quality, actual RIR, intentionally-light-work or deload-intent inference
 is made; qualifying light work can lower the suggestion. Insufficient or expired
 evidence withholds an automatic numeric load instead of falling back to all-time
-history. An eligible external manual PR is a floor, not an exemption. Progression
+history. An eligible external manual PR of **at least three reps** is a floor, not an
+exemption, and the maximum eligible estimate among such records applies. A manual PR
+below three reps stays reference-only for a rep-range prescription (three or more
+prescribed reps) but remains the eligible floor for a short prescription of one or two
+reps, including the short sets of a mixed ordered prescription; it is carried apart
+from the rep-range baseline so it cannot lift a rep-range target. Ordered targets are
+re-derived per target: the 1–2-rep sets may use the floor while the 3+-rep sets of the
+same prescription cannot, with or without a saved inventory. A manual-only short-rep
+floor can therefore generate the short targets of a mixed prescription even when the
+slot has no scalar bound; the range targets stay blank. With only that record
+and thin recent evidence, a rep-range exercise is withheld rather than given an invented
+number. Progression
 follows tempering, and its resulting e1RM bound is carried in
 `PlanRequest.recentWeightCaps` for both Deterministic and `WeeklyPlanSanitizer`.
 Yang et al. 2022 (https://doi.org/10.1123/japa.2020-0493) concerns lower-limb
@@ -451,7 +518,9 @@ one slot of an accepted plan, so a replacement is ranked like a fresh pick.
 `ReplaceOccurrenceExerciseUseCase` is a separate manual occurrence-only action: same-pattern
 equipment/exclusion/soreness-eligible alternatives are listed by name/id, and a candidate's own
 current baseline is converted at the unchanged reps with the occurrence activation's deload flag
-and equipment ceiling. Missing/withheld history produces no numeric load. Confirmation rechecks
+and equipment ceiling. The replacement records the candidate's own conversion reasoning in the
+same atomic write; the replaced slot's reasoning is never inherited. Missing/withheld history
+produces no numeric load. Confirmation rechecks
 the preview and delegates to the atomic untouched-slot write; accepted-plan substitution is not
 reused because it mutates the master plan and preserves the old load.
 Hard equipment/exclusion eligibility is shared through
