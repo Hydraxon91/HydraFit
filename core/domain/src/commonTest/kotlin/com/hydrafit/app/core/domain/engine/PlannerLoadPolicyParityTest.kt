@@ -5,6 +5,8 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.replacementOccurrenceEntry
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSession
@@ -12,6 +14,8 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -82,6 +86,93 @@ class PlannerLoadPolicyParityTest {
 
         // The converted bound is 97.5 kg; a model proposal under it is not rounded or raised.
         assertEquals(50.0, sanitizedWeight(inputs, proposedWeightKg = 50.0))
+    }
+
+    @Test
+    fun substitutionAndOccurrenceReplacementConvertTheCandidatesOwnBaselineIdentically() = runTest {
+        val replacement = exercise(REPLACEMENT, MovementPattern.VERTICAL_PULL, MuscleGroup.LATS)
+        val catalog = LocalCatalog(CATALOG + replacement)
+        val inputs = builder(build = sources(completedSets()))
+        val baseline = inputs.suggestedWeightsKg + (REPLACEMENT to 130.0)
+        val substitute = SubstituteExerciseUseCase(
+            catalog,
+            UnusedPlanHistory,
+            engine,
+            SuggestedWeightConfig()
+        )
+
+        listOf(false, true).forEach { deload ->
+            val request = request(
+                daysPerWeek = 3,
+                splitPreference = SplitType.PUSH_PULL_LEGS,
+                inputs = inputs,
+                isDeload = deload,
+                equipmentMaxWeights = emptyMap()
+            ).copy(suggestedWeightsKg = baseline)
+            val scale = if (deload) {
+                PeriodizationConfig.DEFAULT_DELOAD_INTENSITY_SCALE
+            } else {
+                1.0
+            }
+            val previewed = substitute.candidates(
+                acceptedPrescription(isDeload = deload),
+                dayIndex = 0,
+                position = 0,
+                request = request
+            ).first { it.exerciseId == REPLACEMENT }
+            val replaced = replacementOccurrenceEntry(
+                original = OccurrenceEntry(
+                    exerciseId = EXERCISE,
+                    exerciseName = "Lat Pulldown",
+                    movementPattern = MovementPattern.VERTICAL_PULL,
+                    sets = 3,
+                    reps = 8
+                ),
+                candidate = replacement,
+                request = request,
+                intensityScale = scale,
+                weights = SuggestedWeightConfig()
+            )
+
+            // 130 x 0.72 (8 reps) = 93.6 -> 92.5 kg; a deload week scales it to 75 kg for both paths.
+            val expected = if (deload) 75.0 else 92.5
+            assertEquals(expected, previewed.suggestedWeightKg)
+            assertEquals(expected, replaced.weightKg)
+            assertEquals(previewed.loadKind, replaced.loadKind)
+        }
+    }
+
+    private object UnusedPlanHistory : PlanHistoryRepository {
+        override fun observeLatest(): Flow<AcceptedPlan?> = flowOf(null)
+
+        override fun observeHistory(): Flow<List<AcceptedPlan>> = flowOf(emptyList())
+
+        override suspend fun latest(): AcceptedPlan? = null
+
+        override suspend fun accept(plan: AcceptedPlan) = Unit
+
+        override suspend fun substitute(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            newExerciseId: String,
+            newExerciseName: String,
+            newWeightKg: Double?,
+            newLoadCapability: ExerciseLoadCapability,
+            newLoadKind: LoadKind
+        ) = Unit
+
+        override suspend fun setMeasure(
+            planId: Long,
+            dayIndex: Int,
+            position: Int,
+            reps: Int?,
+            durationSeconds: Int?
+        ) = Unit
+
+        override suspend fun delete(planId: Long) = Unit
+
+        override suspend fun clear() = Unit
     }
 
     private suspend fun builder(
@@ -183,7 +274,7 @@ class PlannerLoadPolicyParityTest {
     private fun legacySets(): List<WorkoutSet> =
         listOf(98L, 99L, 100L).flatMap { day -> List(3) { set(day, withTarget = false) } }
 
-    private fun acceptedPrescription(): AcceptedPlan = AcceptedPlan(
+    private fun acceptedPrescription(isDeload: Boolean = false): AcceptedPlan = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,
         id = 1L,
@@ -204,6 +295,12 @@ class PlannerLoadPolicyParityTest {
                     )
                 )
             )
+        ),
+        explanation = FrozenPlanExplanation(
+            attribution = PlanAttribution.DETERMINISTIC,
+            isDeload = isDeload,
+            deloadVolumeScale = PeriodizationConfig.DEFAULT_DELOAD_VOLUME_SCALE,
+            deloadIntensityScale = PeriodizationConfig.DEFAULT_DELOAD_INTENSITY_SCALE
         )
     )
 
@@ -253,8 +350,13 @@ class PlannerLoadPolicyParityTest {
         override suspend fun all(): List<Exercise> = CATALOG
     }
 
+    private class LocalCatalog(private val exercises: List<Exercise>) : ExerciseCatalog {
+        override suspend fun all(): List<Exercise> = exercises
+    }
+
     private companion object {
         const val EXERCISE = "lat-pulldown"
+        const val REPLACEMENT = "cable-pulldown"
         const val DAY_MILLIS = 86_400_000L
         const val NOW = 100 * DAY_MILLIS
 

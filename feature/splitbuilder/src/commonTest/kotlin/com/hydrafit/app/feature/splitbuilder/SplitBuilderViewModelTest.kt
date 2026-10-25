@@ -25,6 +25,7 @@ import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
+import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -1699,6 +1700,33 @@ class SplitBuilderViewModelTest {
             assertTrue(requests.all { it.automaticSetPrescription == null })
         }
 
+    @Test
+    fun dumbbellLoadBasisIsPerImplementAndOtherEquipmentIsUnlabeled() {
+        val perHand = Exercise(
+            id = "dumbbell-curl",
+            name = "Dumbbell Curl",
+            requiredEquipment = setOf(EquipmentTag.DUMBBELL),
+            primaryMuscles = emptySet(),
+            isUnilateral = true
+        )
+
+        assertEquals(LoadBasis.PER_HAND, perHand.loadBasis())
+        assertEquals(LoadBasis.PER_DUMBBELL, perHand.copy(isUnilateral = false).loadBasis())
+        assertNull(
+            perHand.copy(requiredEquipment = setOf(EquipmentTag.CABLE_MACHINE)).loadBasis()
+        )
+        assertNull(
+            perHand.copy(requiredEquipment = setOf(EquipmentTag.BARBELL)).loadBasis()
+        )
+        // A replacement candidate carries the same facts before it is applied.
+        assertEquals(LoadBasis.PER_HAND, loadBasis(requiresDumbbell = true, isUnilateral = true))
+        assertEquals(
+            LoadBasis.PER_DUMBBELL,
+            loadBasis(requiresDumbbell = true, isUnilateral = false)
+        )
+        assertNull(loadBasis(requiresDumbbell = false, isUnilateral = true))
+    }
+
     private fun recordingEngine(requests: MutableList<PlanRequest>): WorkoutPlannerEngine =
         object : WorkoutPlannerEngine {
             override val id: PlannerEngineId = PlannerEngineId.DETERMINISTIC
@@ -1836,7 +1864,8 @@ class SplitBuilderViewModelTest {
             substituteExercise = SubstituteExerciseUseCase(
                 catalog,
                 history,
-                DeterministicWorkoutPlannerEngine(catalog)
+                DeterministicWorkoutPlannerEngine(catalog),
+                SuggestedWeightConfig()
             ),
             setAcceptedExerciseMeasure = SetAcceptedExerciseMeasureUseCase(history),
             convertPlanToTemplate = ConvertPlanToTemplateUseCase(),

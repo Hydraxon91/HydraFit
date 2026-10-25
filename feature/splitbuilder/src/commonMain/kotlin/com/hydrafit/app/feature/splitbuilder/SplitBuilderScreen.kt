@@ -185,6 +185,8 @@ import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_routine_name
 import hydrafit.feature.splitbuilder.generated.resources.split_history
 import hydrafit.feature.splitbuilder.generated.resources.split_history_entry
+import hydrafit.feature.splitbuilder.generated.resources.split_load_basis_per_dumbbell
+import hydrafit.feature.splitbuilder.generated.resources.split_load_basis_per_hand
 import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_action
@@ -696,10 +698,13 @@ fun SplitBuilderScreen(
                             val name = state.exerciseNames[exercise.exerciseId]
                                 ?: exercise.exerciseId
                             val weight = exercise.suggestedWeightKg?.let { kg ->
-                                stringResource(
-                                    Res.string.split_suggested_weight,
-                                    formatWeight(weightUnit.kilogramsToDisplay(kg)),
-                                    weightUnit.label
+                                withLoadBasis(
+                                    weight = stringResource(
+                                        Res.string.split_suggested_weight,
+                                        formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                        weightUnit.label
+                                    ),
+                                    basis = state.exerciseLoadBasis[exercise.exerciseId]
                                 )
                             }.orEmpty()
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -813,6 +818,17 @@ fun SplitBuilderScreen(
     }
 }
 
+@Composable
+private fun withLoadBasis(weight: String, basis: LoadBasis?): String = when (basis) {
+    LoadBasis.PER_HAND ->
+        "$weight " + stringResource(Res.string.split_load_basis_per_hand)
+
+    LoadBasis.PER_DUMBBELL ->
+        "$weight " + stringResource(Res.string.split_load_basis_per_dumbbell)
+
+    null -> weight
+}
+
 /**
  * The slot line: `name  sets x reps  weight` for counted work and `name  sets × seconds s  weight`
  * for a timed slot, so seconds are never shown as a rep count. A slot with no measure is impossible
@@ -922,10 +938,16 @@ private fun SwapCandidateDialog(
                 else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     candidates.forEach { candidate ->
                         val weight = candidate.suggestedWeightKg?.let { kg ->
-                            stringResource(
-                                Res.string.split_suggested_weight,
-                                formatWeight(weightUnit.kilogramsToDisplay(kg)),
-                                weightUnit.label
+                            withLoadBasis(
+                                weight = stringResource(
+                                    Res.string.split_suggested_weight,
+                                    formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                    weightUnit.label
+                                ),
+                                basis = loadBasis(
+                                    candidate.requiresDumbbell,
+                                    candidate.isUnilateral
+                                )
                             )
                         }.orEmpty()
                         TextButton(onClick = { onSelect(candidate.exerciseId) }) {

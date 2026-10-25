@@ -7,8 +7,9 @@ import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
+import com.hydrafit.app.core.domain.engine.recalculatedOrderedTargets
+import com.hydrafit.app.core.domain.engine.resolveCandidatePrescribedLoad
 import com.hydrafit.app.core.domain.equipment.Exercise
-import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 
@@ -88,36 +89,12 @@ class ReplaceOccurrenceExerciseUseCase(
             }
             .sortedWith(compareBy<Exercise> { it.name }.thenBy { it.id })
             .map { candidate ->
-                val baseline = request.suggestedWeightsKg[candidate.id]
-                val reps = original.reps
-                val weight = if (reps != null &&
-                    WorkoutLoadPolicy.allowsAutomaticLoad(candidate.loadCapability) &&
-                    baseline != null &&
-                    candidate.id !in request.withheldWeightExerciseIds
-                ) {
-                    EquipmentWeightLimit.clamp(
-                        weights.workingWeightFor(
-                            baseline,
-                            reps,
-                            if (deload) periodization.deloadIntensityScale else 1.0
-                        ),
-                        EquipmentWeightLimit.ceilingFor(candidate, request.equipmentMaxWeights)
-                    )
-                } else {
-                    null
-                }
-                original.copy(
-                    exerciseId = candidate.id,
-                    exerciseName = candidate.name,
-                    movementPattern = candidate.movementPattern,
-                    requiredEquipment = candidate.requiredEquipment,
-                    involvements = candidate.effectiveInvolvements,
-                    isUnilateral = candidate.isUnilateral,
-                    weightKg = weight,
-                    loadCapability = candidate.loadCapability,
-                    loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability),
-                    // A replacement never inherits the replaced exercise's recorded reasoning.
-                    explanation = null
+                replacementOccurrenceEntry(
+                    original = original,
+                    candidate = candidate,
+                    request = request,
+                    intensityScale = if (deload) periodization.deloadIntensityScale else 1.0,
+                    weights = weights
                 )
             }
         return OccurrenceReplacementChoices(
@@ -150,4 +127,50 @@ class ReplaceOccurrenceExerciseUseCase(
             request.nowMillis
         )
     }
+}
+
+/**
+ * One replacement entry: the candidate's own converted load and recalculated ordered targets, with
+ * no inherited reasoning. [original] supplies only slot configuration (sets, measure, policy), never
+ * its numeric load.
+ */
+internal fun replacementOccurrenceEntry(
+    original: OccurrenceEntry,
+    candidate: Exercise,
+    request: PlanRequest,
+    intensityScale: Double,
+    weights: SuggestedWeightConfig
+): OccurrenceEntry {
+    val ceiling = EquipmentWeightLimit.ceilingFor(candidate, request.equipmentMaxWeights)
+    val load = resolveCandidatePrescribedLoad(
+        candidateId = candidate.id,
+        capability = candidate.loadCapability,
+        reps = original.reps,
+        request = request,
+        equipmentCeilingKg = ceiling,
+        intensityScale = intensityScale,
+        weightConfig = weights
+    )
+    return original.copy(
+        exerciseId = candidate.id,
+        exerciseName = candidate.name,
+        movementPattern = candidate.movementPattern,
+        requiredEquipment = candidate.requiredEquipment,
+        involvements = candidate.effectiveInvolvements,
+        isUnilateral = candidate.isUnilateral,
+        weightKg = load.weightKg,
+        loadCapability = candidate.loadCapability,
+        loadKind = load.loadKind,
+        // A replacement never inherits the replaced exercise's recorded reasoning.
+        explanation = null,
+        setTargets = recalculatedOrderedTargets(
+            targets = original.setTargets,
+            capability = candidate.loadCapability,
+            candidateId = candidate.id,
+            request = request,
+            equipmentCeilingKg = ceiling,
+            intensityScale = intensityScale,
+            weightConfig = weights
+        )
+    )
 }

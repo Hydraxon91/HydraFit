@@ -33,6 +33,36 @@ interface PlanHistoryRepository {
     )
 
     /**
+     * Replaces one slot and writes its new ordered targets and recorded reasoning in the same
+     * transaction as the slot update, so a slot is never persisted without the provenance its load
+     * was derived from. The default keeps simple test doubles source-compatible by delegating to
+     * [substitute]; a real store must override it.
+     */
+    suspend fun substituteWithProvenance(
+        planId: Long,
+        dayIndex: Int,
+        position: Int,
+        newExerciseId: String,
+        newExerciseName: String,
+        newWeightKg: Double?,
+        newLoadCapability: ExerciseLoadCapability,
+        newLoadKind: LoadKind,
+        setTargets: SlotSetTargets?,
+        explanation: ExerciseTargetExplanation?
+    ) {
+        substitute(
+            planId = planId,
+            dayIndex = dayIndex,
+            position = position,
+            newExerciseId = newExerciseId,
+            newExerciseName = newExerciseName,
+            newWeightKg = newWeightKg,
+            newLoadCapability = newLoadCapability,
+            newLoadKind = newLoadKind
+        )
+    }
+
+    /**
      * Replaces one slot's measure in place, keeping the plan's id, acceptance time, exercise and sets:
      * an UPDATE, not a re-accept. [reps] and [durationSeconds] are mutually exclusive — exactly one is
      * non-null — and a missing day/position is a no-op that leaves the plan untouched.

@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
@@ -110,38 +111,60 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         newLoadCapability: ExerciseLoadCapability,
         newLoadKind: LoadKind
     ) {
+        substituteWithProvenance(
+            planId = planId,
+            dayIndex = dayIndex,
+            position = position,
+            newExerciseId = newExerciseId,
+            newExerciseName = newExerciseName,
+            newWeightKg = newWeightKg,
+            newLoadCapability = newLoadCapability,
+            newLoadKind = newLoadKind,
+            setTargets = null,
+            explanation = null
+        )
+    }
+
+    override suspend fun substituteWithProvenance(
+        planId: Long,
+        dayIndex: Int,
+        position: Int,
+        newExerciseId: String,
+        newExerciseName: String,
+        newWeightKg: Double?,
+        newLoadCapability: ExerciseLoadCapability,
+        newLoadKind: LoadKind,
+        setTargets: SlotSetTargets?,
+        explanation: ExerciseTargetExplanation?
+    ) {
         queries.transaction {
-            val previousKind = queries.selectEntryLoadKindAtPosition(
-                position = position.toLong(),
-                planId = planId,
-                dayIndex = dayIndex.toLong()
-            ).executeAsOneOrNull()
             val updated = queries.updateEntryExerciseIdAtPosition(
                 newExerciseId = newExerciseId,
                 newExerciseName = newExerciseName,
                 newWeightKg = newWeightKg,
                 newLoadCapability = newLoadCapability.name,
                 newLoadKind = newLoadKind.name,
+                setTargets = setTargets?.let(SlotSetTargetsJson::encode),
                 position = position.toLong(),
                 planId = planId,
                 dayIndex = dayIndex.toLong()
             ).value
-            // Only a real slot replacement invalidates the frozen volume assessment and clears the
-            // replaced slot's recorded reasoning. A missing day/position is a no-op that must leave
-            // the plan and its metadata untouched.
+            // Only a real slot replacement invalidates the frozen volume assessment and replaces the
+            // slot's recorded reasoning. A missing day/position is a no-op that must leave the plan
+            // and its metadata untouched. The reasoning is written in this same transaction, so a
+            // slot is never persisted with a load whose provenance failed to write.
             if (updated > 0L) {
-                if (previousKind != null && previousKind != newLoadKind.name) {
-                    // The new slot means something different by "load"; ordered targets from the old
-                    // shape would contradict it, so they are cleared with the swap.
-                    queries.clearEntrySetTargetsAtPosition(
-                        position = position.toLong(),
-                        planId = planId,
-                        dayIndex = dayIndex.toLong()
-                    )
-                }
                 volumeQueries.deleteForPlan(planId)
                 stateQueries.invalidateForSlot(planId, dayIndex.toLong(), position.toLong())
                 targetQueries.deleteExplanationForSlot(planId, dayIndex.toLong(), position.toLong())
+                explanation?.let { recorded ->
+                    targetQueries.insertRecorded(
+                        planId = planId,
+                        dayIndex = dayIndex.toLong(),
+                        position = position.toLong(),
+                        explanation = recorded
+                    )
+                }
             }
         }
     }

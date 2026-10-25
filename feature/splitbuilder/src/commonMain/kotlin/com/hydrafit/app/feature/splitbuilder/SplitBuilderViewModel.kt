@@ -651,6 +651,13 @@ class SplitBuilderViewModel(
                 it.copy(
                     plan = swapped.toWeeklyPlan(),
                     exerciseNames = it.exerciseNames + (updated.exerciseId to updated.name),
+                    exerciseLoadBasis = it.swapCandidates
+                        .firstOrNull { candidate -> candidate.exerciseId == updated.exerciseId }
+                        ?.let { candidate ->
+                            loadBasis(candidate.requiresDumbbell, candidate.isUnilateral)
+                        }
+                        ?.let { basis -> it.exerciseLoadBasis + (updated.exerciseId to basis) }
+                        ?: it.exerciseLoadBasis,
                     swapDialogOpen = false,
                     swapTargetDayIndex = null,
                     swapTargetPosition = null,
@@ -798,7 +805,9 @@ class SplitBuilderViewModel(
         val snapshotNames = accepted.days
             .flatMap { day -> day.exercises }
             .associate { it.exerciseId to it.name }
-        val catalogNames = exerciseCatalog.all().associate { it.id to it.name }
+        val catalog = exerciseCatalog.all()
+        val catalogNames = catalog.associate { it.id to it.name }
+        val catalogBases = catalog.loadBases()
         val exercises = accepted.days.flatMap { it.exercises }
         lastGeneratedFingerprint = null
         shownPlan = accepted
@@ -808,6 +817,7 @@ class SplitBuilderViewModel(
                 // A persisted plan carries no date provenance: never claim it used the dates now in force.
                 draftDates = null,
                 exerciseNames = snapshotNames + catalogNames,
+                exerciseLoadBasis = catalogBases,
                 isLoading = false,
                 isPlanAccepted = true,
                 canRegenerate = true,
@@ -883,6 +893,7 @@ class SplitBuilderViewModel(
             val catalog = exerciseCatalog.all()
             currentCoroutineContext().ensureActive()
             val names = catalog.associate { it.id to it.name }
+            val bases = catalog.loadBases()
             lastGeneratedFingerprint = fingerprint
             // The plan now matches the current inputs, so a repeat tap would produce the same
             // result: re-lock the button for the deterministic engine.
@@ -890,6 +901,7 @@ class SplitBuilderViewModel(
                 it.copy(
                     plan = plan,
                     exerciseNames = names,
+                    exerciseLoadBasis = bases,
                     isLoading = false,
                     // Provenance for the draft: these are the dates its per-day fatigue was built for.
                     draftDates = request.workoutEpochDays,
@@ -1013,6 +1025,11 @@ class SplitBuilderViewModel(
      * exercise (equipment/muscles/pattern/custom) re-enables Regenerate even though the plan sources
      * do not observe the catalog.
      */
+    /** Catalog load-basis facts for display; non-dumbbell and unknown ids stay unlabeled. */
+    private fun List<Exercise>.loadBases(): Map<String, LoadBasis> =
+        mapNotNull { exercise -> exercise.loadBasis()?.let { basis -> exercise.id to basis } }
+            .toMap()
+
     private fun fingerprintOf(request: PlanRequest, catalog: List<Exercise>): Int {
         val fatigue = request.muscleFatigue.entries
             .sortedBy { it.key.name }
