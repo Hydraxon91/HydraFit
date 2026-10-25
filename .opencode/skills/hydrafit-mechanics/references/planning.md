@@ -101,10 +101,12 @@ baselines adjusted by progression, despite the name. The output field
 must not accidentally present a 1RM baseline as a ready-to-lift working weight.
 
 Manual PRs enter the baseline through `WorkoutPlanSources.personalRecords`.
-They are not workout sets and do not add fatigue. An eligible external manual PR is a
-**floor**, not an all-history exemption: the planner baseline is the recent-window
-estimate (or the manual estimate when evidence is thin) raised to at least the eligible
-manual value. See the "Recent-performance load policy" recipe below for the full rule.
+They are not workout sets and do not add fatigue. An eligible external manual PR of at least
+three reps is a **floor**, not an all-history exemption: the planner baseline is the
+session-balanced recent estimate (or the manual estimate when evidence is thin) raised to at
+least the eligible manual value. A manual PR recorded below three reps does not raise the
+automatic baseline. See the recent-performance load rule under "Exact weight and rep
+defaults" below.
 
 AI history and weight suggestions are gated by `includeWorkoutData`.
 Deterministic suggestions are local computations and do not require the AI
@@ -191,15 +193,27 @@ working = roundToIncrement(progressed1RM * intensityForReps(reps) * deloadScale)
 suggestedWeightKg = EquipmentWeightLimit.clamp(working, ceilingFor(exercise))
 ```
 
-`BuildPlannerLoadInputsUseCase` uses the best eligible external or compatible-legacy
-Epley estimate in the inclusive `[now − 42 days, now]` interval, with at least two
-sets. Horizon and sample size are product/engineering defaults, not validated
-capacity thresholds; same-session sets count but do not prove maximum capacity.
+`BuildPlannerLoadInputsUseCase` derives the recent baseline as the **median of each
+session's best** eligible external or compatible-legacy Epley estimate inside the inclusive
+`[now − 42 days, now]` interval. Qualifying sets are non-warmup rows with a positive finite
+weight and a 1–15 rep count; they must number at least two, and that threshold counts sets,
+not sessions — there is no minimum session count. Each `sessionId` casts exactly one vote,
+its highest per-set estimate, so one ascending-load session cannot vote several times. Votes
+are sorted ascending; an even number of votes averages the two middle values. A qualifying
+set with no `sessionId` casts its own vote rather than merging with other unattributed rows,
+so unknown grouping can neither pool unrelated work into one strong vote nor hide it. A
+single loose set or one unusually heavy session therefore no longer sets the bound on its
+own. Horizon, session balancing and sample size are product/engineering defaults, not
+validated capacity thresholds.
 Future-dated sets are excluded from planner baseline, recency and progression inputs.
 No execution-quality, actual RIR, intentionally-light-work or deload-intent inference
 is made; qualifying light work can lower the suggestion. Insufficient or expired
 evidence withholds an automatic numeric load instead of falling back to all-time
-history. An eligible external manual PR is a floor, not an exemption. Progression
+history. An eligible external manual PR of **at least three reps** is a floor, not an
+exemption, and the maximum eligible estimate among such records applies. A manual PR
+below three reps is excluded from the automatic floor while the stored record remains
+visible elsewhere; with only that record and thin recent evidence the exercise is
+withheld rather than given an invented number. Progression
 follows tempering, and its resulting e1RM bound is carried in
 `PlanRequest.recentWeightCaps` for both Deterministic and `WeeklyPlanSanitizer`.
 Yang et al. 2022 (https://doi.org/10.1123/japa.2020-0493) concerns lower-limb

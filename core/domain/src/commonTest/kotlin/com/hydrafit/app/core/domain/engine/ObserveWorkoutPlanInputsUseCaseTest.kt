@@ -391,6 +391,64 @@ class ObserveWorkoutPlanInputsUseCaseTest {
     }
 
     @Test
+    fun theSessionBalancedMedianReachesThePlanRequest() = runTest {
+        fun logged(day: Long, weightKg: Double, sessionId: String) = WorkoutSet(
+            exerciseId = "bench-press",
+            reps = 8,
+            weightKg = weightKg,
+            performedAtMillis = day * 24L * 60L * 60L * 1000L,
+            sessionId = sessionId
+        )
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList(),
+                    loggedWorkoutSets = listOf(
+                        logged(day = 1, weightKg = 100.0, sessionId = "s1"),
+                        logged(day = 2, weightKg = 100.0, sessionId = "s2"),
+                        logged(day = 3, weightKg = 140.0, sessionId = "s3")
+                    )
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 3L * 24L * 60L * 60L * 1000L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        // One heavy session no longer sets the bound: the median of 126.667, 126.667 and 177.333.
+        assertEquals(126.66666666666666, request.suggestedWeightsKg["bench-press"])
+        assertEquals(126.66666666666666, request.recentWeightCaps["bench-press"])
+    }
+
+    @Test
+    fun aLowRepManualRecordAloneWithholdsThePlanSuggestion() = runTest {
+        val useCase = useCase(
+            sources = FakeWorkoutPlanSourcesRepository(
+                WorkoutPlanSources(
+                    availableEquipment = setOf(EquipmentTag.BARBELL),
+                    selectedEngine = PlannerEngineId.DETERMINISTIC,
+                    daysPerWeek = 3,
+                    loggedSets = emptyList(),
+                    personalRecords = listOf(PersonalRecord("bench-press", 140.0, 2))
+                )
+            ),
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            timeProvider = TimeProvider { 0L },
+            planHistoryRepository = FakePlanHistoryRepository()
+        )
+
+        val request = useCase().first().request
+
+        assertTrue(request.suggestedWeightsKg.isEmpty())
+        assertTrue("bench-press" in request.withheldWeightExerciseIds)
+    }
+
+    @Test
     fun sharesRecentWeightsOnlyWhenSharingIsEnabled() = runTest {
         fun sources(enabled: Boolean) = FakeWorkoutPlanSourcesRepository(
             WorkoutPlanSources(

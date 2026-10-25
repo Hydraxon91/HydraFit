@@ -28,11 +28,15 @@ enum class LoadBaselineSource {
  */
 data class LoadBaselineExplanation(
     val source: LoadBaselineSource,
-    /** Best qualifying recent external estimate, or null when the window held too little evidence. */
+    /**
+     * Session-balanced median recent external estimate: each session votes with its best qualifying
+     * set and an even number of sessions averages the two middle votes. Null when the window held too
+     * little evidence.
+     */
     val recentEstimateKg: Double? = null,
     /** Qualifying non-warm-up external working sets counted inside the recent window. */
     val qualifyingSetCount: Int = 0,
-    /** An eligible external manual record used as a floor, or null. */
+    /** An eligible external manual record of at least three reps used as a floor, or null. */
     val manualFloorKg: Double? = null,
     /** The baseline before progression. */
     val baselineKg: Double

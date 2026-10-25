@@ -26,6 +26,10 @@ data class PlannerLoadInputs(
  * Progression compares only typed external performances against typed external prescriptions, so a
  * pre-EX-02 accepted plan seeds the baseline but not a streak. Stored rows are never rewritten.
  *
+ * The recent baseline is session-balanced: each session votes with its best qualifying set and the
+ * median vote wins, so one loose set or one unusually heavy session cannot outrank a longer, more
+ * consistent history. A manual PR raises that baseline only when it records at least three reps.
+ *
  * Grouped here rather than in the observer so the observer stays within its dependency budget.
  */
 class BuildPlannerLoadInputsUseCase(
@@ -51,17 +55,16 @@ class BuildPlannerLoadInputsUseCase(
         }
         val contributes = { id: String, kind: LoadKind -> contributesToLoadMath(id, kind) }
         val recentQualifyingSets = recentQualifyingSets(loadSets, nowMillis, contributes)
-        val recentBest = recentQualifyingSets
+        val recentEstimates = recentQualifyingSets
             .filterValues { it.size >= MIN_RECENT_SETS }
-            .mapValues { (_, group) ->
-                group.maxOf { OneRepMax.estimate(it.weightKg!!, requireNotNull(it.reps)) }
-            }
+            .mapValues { (_, group) -> sessionBalancedEstimate(group) }
         val manualRecords = sources.personalRecords
             .filter { record ->
                 record.loadKind == LoadKind.EXTERNAL &&
                     contributesToLoadMath(record.exerciseId, record.loadKind) &&
                     record.weightKg.isFinite() &&
                     record.weightKg > 0.0 &&
+                    record.reps >= MIN_MANUAL_PR_REPS_FOR_FLOOR &&
                     weightConfig.hasUsableEstimate(record.reps)
             }
             .groupBy { it.exerciseId }
@@ -72,7 +75,7 @@ class BuildPlannerLoadInputsUseCase(
             .filterValues { WorkoutLoadPolicy.allowsAutomaticLoad(it) }
             .keys
         val baselineExplanations = externalExerciseIds.mapNotNull { exerciseId ->
-            val recentEstimate = recentBest[exerciseId]
+            val recentEstimate = recentEstimates[exerciseId]
             val manualFloor = manualRecords[exerciseId]
             val resolved = recentEstimate ?: manualFloor ?: return@mapNotNull null
             // The source names the input that determined the baseline, so it cannot contradict the
@@ -130,8 +133,9 @@ class BuildPlannerLoadInputsUseCase(
 
     /**
      * The qualifying external working sets per exercise inside the recent window: a positive finite
-     * weight and a usable rep count. Callers apply [MIN_RECENT_SETS]. The window, sample threshold
-     * and rep limit are product defaults, not validated measures of current capacity.
+     * weight and a usable rep count. Callers apply [MIN_RECENT_SETS], which counts sets rather than
+     * sessions and imposes no minimum session count. The window, sample threshold and rep limit are
+     * product defaults, not validated measures of current capacity.
      */
     private fun recentQualifyingSets(
         sets: List<WorkoutSet>,
@@ -152,12 +156,58 @@ class BuildPlannerLoadInputsUseCase(
             .groupBy { it.exerciseId }
     }
 
+    /**
+     * The recent baseline for one exercise, balanced across sessions rather than across sets: each
+     * session contributes its single best qualifying estimate, and the baseline is the median of
+     * those votes.
+     *
+     * A per-set maximum let one loose set outrank several cleaner sessions, and a per-set median
+     * would let one high-volume session cast most of the votes. One vote per session keeps a
+     * straight-set session from dominating and an ascending session from being counted repeatedly.
+     *
+     * Votes are sorted ascending and an even count averages the two middle values, so the result is
+     * deterministic and independent of set order.
+     *
+     * A qualifying set with no session id cannot be attributed to a session, so each such set casts
+     * its own vote. Merging all unattributed rows would stack unrelated work into one strong vote
+     * that could outrank a real session; dropping them would discard recorded evidence.
+     */
+    private fun sessionBalancedEstimate(sets: List<WorkoutSet>): Double {
+        val sessionBestEstimates = sets
+            .filter { it.sessionId != null }
+            .groupBy { requireNotNull(it.sessionId) }
+            .values
+            .map { sessionSets -> sessionSets.maxOf(::estimateOf) }
+        val unattributedEstimates = sets.filter { it.sessionId == null }.map(::estimateOf)
+        return medianOf(sessionBestEstimates + unattributedEstimates)
+    }
+
+    private fun estimateOf(set: WorkoutSet): Double =
+        OneRepMax.estimate(requireNotNull(set.weightKg), requireNotNull(set.reps))
+
+    private fun medianOf(estimates: List<Double>): Double {
+        val sorted = estimates.sorted()
+        val middle = sorted.size / 2
+        return if (sorted.size % 2 == 1) {
+            sorted[middle]
+        } else {
+            (sorted[middle - 1] + sorted[middle]) / 2.0
+        }
+    }
+
     companion object {
         /** Product default recent-performance window; not a research-derived prescription horizon. */
         const val RECENT_WINDOW_DAYS = 42L
 
-        /** Product default minimum recent sample; not proof of maximum capacity. */
+        /** Product default minimum recent sample; not proof of maximum capacity. Counts sets. */
         const val MIN_RECENT_SETS = 2
+
+        /**
+         * Product default: a manual PR recorded below this rep count is a low-rep peak attempt
+         * rather than demonstrated working capacity, so it does not raise the automatic load
+         * baseline. It remains a stored record and is never rewritten. Not a validated threshold.
+         */
+        const val MIN_MANUAL_PR_REPS_FOR_FLOOR = 3
 
         const val RECENT_WINDOW_MILLIS = RECENT_WINDOW_DAYS * 24L * 60L * 60L * 1000L
     }
