@@ -37,6 +37,9 @@ import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
@@ -2784,6 +2787,7 @@ class WorkoutLoggerViewModelTest {
         )
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(FakePlanHistoryRepository(twoDayPlan)),
             exerciseCatalog = FakeExerciseCatalog,
@@ -2874,6 +2878,7 @@ class WorkoutLoggerViewModelTest {
         )
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(history),
             exerciseCatalog = FakeExerciseCatalog,
@@ -2906,6 +2911,7 @@ class WorkoutLoggerViewModelTest {
         )
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(history),
             exerciseCatalog = FakeExerciseCatalog,
@@ -2969,6 +2975,7 @@ class WorkoutLoggerViewModelTest {
         )
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(FakePlanHistoryRepository(twoDayPlan)),
             exerciseCatalog = FakeExerciseCatalog,
@@ -3986,6 +3993,7 @@ class WorkoutLoggerViewModelTest {
         val repository = FakeWorkoutLogRepository()
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
+            logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
             getWorkoutLog = GetWorkoutLogUseCase(repository),
             loggingActions = loggingActions(
                 FakePlanHistoryRepository(acceptedPlan(listOf("plank")))
@@ -5386,6 +5394,147 @@ class WorkoutLoggerViewModelTest {
         assertNull(corrected.weightKg)
     }
 
+    @Test
+    fun aGuidedClusterDraftExposesItsPrescribedSegments() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        val draft = viewModel.state.value.draftSets.single()
+        assertEquals(1, draft.sets)
+        assertEquals(ClusterKind.DROP_SET, assertNotNull(draft.cluster).kind)
+
+        viewModel.editGuidedSet(40L)
+        val edit = assertNotNull(viewModel.state.value.draftEdit)
+        // Segment 1 stays the form's own reps/load fields; only the later segments are listed.
+        assertEquals(listOf("6", "4"), edit.laterSegments.map { it.reps })
+        assertEquals(listOf("80", "60"), edit.laterSegments.map { it.weightInput })
+        assertEquals(1, viewModel.state.value.draftSets.single().sets)
+    }
+
+    @Test
+    fun loggingACompleteClusterWritesTheParentAndEverySegmentAsOneSet() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        val parent = repository.all().single()
+        assertEquals(8, parent.reps)
+        assertEquals(100.0, parent.weightKg)
+        assertEquals(30L, parent.occurrenceId)
+        assertEquals(40L, parent.occurrenceEntryId)
+        assertEquals(WorkoutClusterSummary(ClusterKind.DROP_SET, 3, 3), parent.cluster)
+        val cluster = repository.clusters.single()
+        assertEquals(
+            listOf(8 to 100.0, 6 to 80.0, 4 to 60.0),
+            cluster.segments.map { it.reps to it.weightKg }
+        )
+        assertEquals(listOf(0, 1, 2), cluster.segments.map { it.position })
+    }
+
+    @Test
+    fun anOrdinaryRepDraftIsStillLoggedAsOneOrdinarySet() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        val set = repository.all().single()
+        assertEquals(8, set.reps)
+        assertEquals(100.0, set.weightKg)
+        assertNull(set.cluster)
+        assertTrue(repository.clusters.isEmpty())
+    }
+
+    @Test
+    fun anIncompleteOrNonPositiveSegmentRefusesTheClusterWithoutWriting() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftSegmentWeightChanged(1, "")
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        assertEquals(ClusterDraftError.MISSING_SEGMENT, viewModel.state.value.clusterDraftError)
+        assertTrue(repository.all().isEmpty())
+        assertTrue(repository.clusters.isEmpty())
+        // The draft and its editor stay in place, and a cluster never changes the draft's set count.
+        assertEquals(1, viewModel.state.value.draftSets.single().sets)
+        assertNotNull(viewModel.state.value.draftEdit)
+        assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+
+        viewModel.onDraftSegmentRepsChanged(0, "0")
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        assertEquals(
+            ClusterDraftError.NON_POSITIVE_SEGMENT,
+            viewModel.state.value.clusterDraftError
+        )
+        assertTrue(repository.all().isEmpty())
+        assertTrue(repository.clusters.isEmpty())
+    }
+
+    @Test
+    fun aSegmentOrderThatContradictsTheClusterIsRefused() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        // A drop set needs a strictly lower load on each later segment.
+        viewModel.onDraftSegmentWeightChanged(0, "120")
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        assertEquals(ClusterDraftError.INVALID_CLUSTER, viewModel.state.value.clusterDraftError)
+        assertTrue(repository.all().isEmpty())
+        assertTrue(repository.clusters.isEmpty())
+        assertTrue(viewModel.state.value.draftWriteRetries.isEmpty())
+        assertEquals(1, viewModel.state.value.draftSets.single().sets)
+    }
+
+    @Test
+    fun aCorrectedSegmentIsLoggedInsteadOfThePrescription() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftSegmentWeightChanged(0, "70")
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        val cluster = repository.clusters.single()
+        assertEquals(
+            listOf(8 to 100.0, 6 to 70.0, 4 to 60.0),
+            cluster.segments.map { it.reps to it.weightKg }
+        )
+        assertEquals(
+            WorkoutClusterSummary(ClusterKind.DROP_SET, 3, 3),
+            repository.all().single().cluster
+        )
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
@@ -5399,6 +5548,7 @@ class WorkoutLoggerViewModelTest {
         equipment: WorkoutLoggerEquipment = testEquipment()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
+        logWorkoutSet = logWorkoutSet(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(
             history,
@@ -5430,6 +5580,7 @@ class WorkoutLoggerViewModelTest {
         now: () -> Long
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
+        logWorkoutSet = logWorkoutSet(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(
             FakePlanHistoryRepository(null),
@@ -5449,6 +5600,18 @@ class WorkoutLoggerViewModelTest {
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = testEquipment()
+    )
+
+    /** The set use case the ViewModel writes clusters through; production shares one singleton. */
+    private fun logWorkoutSet(
+        repository: WorkoutLogRepository,
+        sessionRepository: WorkoutSessionRepository
+    ): LogWorkoutSetUseCase = LogWorkoutSetUseCase(
+        repository = repository,
+        startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
+        endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
+        observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
+        config = SessionConfig()
     )
 
     private fun logMutations(
@@ -5473,13 +5636,7 @@ class WorkoutLoggerViewModelTest {
             }
         }
         return WorkoutLogMutations(
-            logWorkoutSet = LogWorkoutSetUseCase(
-                repository = repository,
-                startWorkoutSession = StartWorkoutSessionUseCase(sessionRepository),
-                endWorkoutSession = EndWorkoutSessionUseCase(sessionRepository),
-                observeOpenWorkoutSession = ObserveOpenWorkoutSessionUseCase(sessionRepository),
-                config = SessionConfig()
-            ),
+            logWorkoutSet = logWorkoutSet(repository, sessionRepository),
             deleteWorkoutSet = DeleteWorkoutSetUseCase(repository),
             correctWorkoutSetTime = CorrectWorkoutSetTimeUseCase(
                 resegmenter = resegmenter,
@@ -9821,6 +9978,7 @@ class WorkoutLoggerViewModelTest {
             FakeWarmupPreparationOverrideRepository()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
+        logWorkoutSet = logWorkoutSet(repository, sessions),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
         loggingActions = loggingActions(
             FakePlanHistoryRepository(null),
@@ -9984,6 +10142,28 @@ class WorkoutLoggerViewModelTest {
                     reps = targets.targets.first().reps,
                     weightKg = targets.targets.first().weightKg,
                     setTargets = targets
+                )
+            }
+        )
+    }
+
+    /** Occurrence 30's only slot as one drop-set cluster: 8 × 100 kg, 6 × 80 kg, 4 × 60 kg. */
+    private fun clusterOccurrences() = twoOccurrences().map { occurrence ->
+        if (occurrence.id != 30L) return@map occurrence
+        occurrence.copy(
+            entries = occurrence.entries.map { entry ->
+                entry.copy(
+                    sets = 1,
+                    reps = 8,
+                    weightKg = 100.0,
+                    cluster = ClusterPrescription(
+                        kind = ClusterKind.DROP_SET,
+                        segments = listOf(
+                            ClusterSegmentTarget(reps = 8, weightKg = 100.0),
+                            ClusterSegmentTarget(reps = 6, weightKg = 80.0),
+                            ClusterSegmentTarget(reps = 4, weightKg = 60.0)
+                        )
+                    )
                 )
             }
         )
@@ -10254,6 +10434,9 @@ class WorkoutLoggerViewModelTest {
         var failCorrection: Boolean = false
         var corrections: Int = 0
 
+        /** Every performed cluster written through [addCluster], in write order. */
+        val clusters = mutableListOf<WorkoutCluster>()
+
         suspend fun correct(id: Long, correction: WorkoutSetCorrection) {
             corrections++
             correctionGate?.await()
@@ -10286,15 +10469,18 @@ class WorkoutLoggerViewModelTest {
             sets.add(set.copy(id = nextId++))
         }
 
-        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = add(
-            set.copy(
-                cluster = WorkoutClusterSummary(
-                    kind = cluster.kind,
-                    plannedSegments = cluster.plannedSegments,
-                    performedSegments = cluster.performedSegments
+        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) {
+            clusters += cluster
+            add(
+                set.copy(
+                    cluster = WorkoutClusterSummary(
+                        kind = cluster.kind,
+                        plannedSegments = cluster.plannedSegments,
+                        performedSegments = cluster.performedSegments
+                    )
                 )
             )
-        )
+        }
 
         override suspend fun appendClusterSegments(
             setId: Long,

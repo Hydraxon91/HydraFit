@@ -43,6 +43,7 @@ val loggerModule: Module = module {
     viewModel {
         WorkoutLoggerViewModel(
             logMutations = get(),
+            logWorkoutSet = get(),
             getWorkoutLog = get(),
             loggingActions = get(),
             exerciseCatalog = get(),

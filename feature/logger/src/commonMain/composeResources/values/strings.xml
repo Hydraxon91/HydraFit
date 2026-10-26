@@ -103,6 +103,15 @@
     <string name="logger_draft_edit">Edit draft</string>
     <string name="logger_draft_edit_apply">Apply edit</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
+    <string name="logger_draft_cluster_segments_title">Cluster segments</string>
+    <string name="logger_draft_cluster_segment_reps">Segment %1$d reps</string>
+    <string name="logger_draft_cluster_segment_weight">Segment %1$d weight (%2$s)</string>
+    <string name="logger_cluster_kind_drop_set">Drop set</string>
+    <string name="logger_cluster_kind_rest_pause">Rest-pause</string>
+    <string name="logger_cluster_segment_count">%1$d segments</string>
+    <string name="logger_cluster_draft_error_missing_segment">Enter reps and a load for every segment before logging this cluster.</string>
+    <string name="logger_cluster_draft_error_non_positive_segment">Each segment needs positive reps and a positive load.</string>
+    <string name="logger_cluster_draft_error_invalid_cluster">These segments don’t fit this cluster. A drop set needs a lower load on each segment; a rest-pause needs the same load on every segment.</string>
     <string name="logger_draft_timed_line">%1$s  %2$d x %3$d s · ~%4$s</string>
     <string name="logger_draft_distance_line">%1$s  %2$d x %3$s · ~%4$s</string>
     <string name="logger_draft_force_line">%1$s  %2$d x %3$s</string>

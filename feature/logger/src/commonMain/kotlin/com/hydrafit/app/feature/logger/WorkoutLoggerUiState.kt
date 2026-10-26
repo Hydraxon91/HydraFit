@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -21,6 +22,7 @@ import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
@@ -73,7 +75,12 @@ data class LoggedSetRow(
     /** Measured force in newtons for a force set, or null for every other metric. */
     val forceNewtons: Double? = null,
     /** The measuring device recorded with a force set, or null for none. Descriptive only. */
-    val device: DeviceAttribution? = null
+    val device: DeviceAttribution? = null,
+    /**
+     * The cluster identity this set was logged as, or null for ordinary work. The row still shows
+     * only the parent set's own measurement; the segments are never listed as further sets.
+     */
+    val cluster: WorkoutClusterSummary? = null
 )
 
 /** Null identity is unrecorded, never a shared session boundary. */
@@ -290,7 +297,13 @@ data class DraftSet(
      * ordered targets. Comparing the draft against it is how an explicit one-off edit is told apart
      * from an untouched draft, so a slot's per-set targets are never discarded as a false override.
      */
-    val orderedPrefill: SetTarget? = null
+    val orderedPrefill: SetTarget? = null,
+    /**
+     * The slot's frozen cluster prescription, or null for ordinary work. A cluster is one prescribed
+     * set position: it never changes [sets], and its later segments are recorded beside the parent
+     * set rather than as additional sets.
+     */
+    val cluster: ClusterPrescription? = null
 )
 
 /**
@@ -328,7 +341,12 @@ data class DraftEdit(
     val rir: String,
     val weightRevealed: Boolean,
     val performedAtMillis: Long?,
-    val performedAtExplicit: Boolean = false
+    val performedAtExplicit: Boolean = false,
+    /**
+     * The cluster's later segments as entered, seeded from the prescription when the editor opens.
+     * Segment 1 is the editor's own reps/weight/RIR fields, so this list is empty for ordinary work.
+     */
+    val laterSegments: List<ClusterSegmentInput> = emptyList()
 ) {
     /** True when the frozen draft records elapsed seconds instead of repetitions. */
     val isTimed: Boolean get() = draft.durationSeconds != null
@@ -484,6 +502,12 @@ data class WorkoutLoggerUiState(
     val manualLogRefreshFailed: Boolean = false,
     val draftSets: List<DraftSet> = emptyList(),
     val draftEdit: DraftEdit? = null,
+    /**
+     * Why the last cluster draft submission was refused, or null when none was. Nothing is written
+     * for a refused cluster and its draft and editor stay in place; the error clears on the next
+     * edit, so a corrected segment can be submitted again.
+     */
+    val clusterDraftError: ClusterDraftError? = null,
     val missingLoadPrompt: DraftSet? = null,
     val confirmingAllDrafts: Boolean = false,
     val draftWriteInProgress: Boolean = false,

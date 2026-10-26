@@ -70,6 +70,51 @@ class LogWorkoutSetUseCase(
         repository.appendClusterSegments(setId, segments)
     }
 
+    /** Persists a cluster into an explicit session, mirroring [logInto] for a cached backdated batch. */
+    suspend fun logIntoCluster(set: WorkoutSet, cluster: WorkoutCluster, sessionId: String) {
+        validate(set)
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps && opening.weightKg == set.weightKg) {
+            "A cluster parent must record its own opening segment"
+        }
+        sessionLock.withLock {
+            repository.addCluster(set.copy(sessionId = sessionId), cluster)
+        }
+    }
+
+    /**
+     * Persists a backdated cluster using the same session choice as [logBackdated]: the open session
+     * when the time qualifies, otherwise a new session written already closed. Returns the session.
+     */
+    suspend fun logBackdatedCluster(
+        set: WorkoutSet,
+        cluster: WorkoutCluster,
+        utcOffsetMillis: Long,
+        forceNewSession: Boolean
+    ): WorkoutSession {
+        validate(set)
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps && opening.weightKg == set.weightKg) {
+            "A cluster parent must record its own opening segment"
+        }
+        return sessionLock.withLock {
+            val target = backdatedAttachTarget(
+                set.performedAtMillis,
+                utcOffsetMillis,
+                forceNewSession
+            )
+                ?: startWorkoutSession(
+                    set.performedAtMillis,
+                    localEpochDay(set.performedAtMillis, utcOffsetMillis),
+                    endedAtMillis = set.performedAtMillis
+                )
+            repository.addCluster(set.copy(sessionId = target.id), cluster)
+            target
+        }
+    }
+
     private fun validate(set: WorkoutSet) {
         WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
         requireValidSetMeasurement(
