@@ -25,7 +25,14 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             require(target.loadKind == set.loadKind) { "Prescription load kind does not match" }
             // A recorded target must describe the same measurement the set does, or the stored row
             // would contradict itself and the exported backup would be refused by our own validator.
-            require((target.reps != null) == (set.durationSeconds == null)) {
+            // The four measures are exclusive, so equal presence in every slot is kind equality; the
+            // target's value may still differ from what was performed.
+            require(
+                (target.reps != null) == (set.reps != null) &&
+                    (target.durationSeconds != null) == (set.durationSeconds != null) &&
+                    (target.distanceMeters != null) == (set.distanceMeters != null) &&
+                    (target.forceNewtons != null) == (set.forceNewtons != null)
+            ) {
                 "Prescription measurement does not match"
             }
             WorkoutPrescriptionSnapshotJson.encode(target)
@@ -55,6 +62,27 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 prescriptionSnapshot = encodedTarget
             )
             val setId = setQueries.lastInsertedSetId().executeAsOne()
+            set.station?.let { station ->
+                setQueries.assignStation(
+                    stationId = station.id,
+                    stationName = station.name,
+                    stationLoadBasis = station.loadBasis.name,
+                    id = setId
+                )
+            }
+            set.distanceMeters?.let { meters ->
+                setQueries.assignDistance(meters.toLong(), setId)
+            }
+            set.forceNewtons?.let { newtons ->
+                setQueries.assignForce(newtons, setId)
+            }
+            set.device?.let { device ->
+                setQueries.assignDevice(
+                    deviceName = device.name,
+                    deviceRatingKg = device.ratingKg,
+                    id = setId
+                )
+            }
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
                     occurrenceId = set.occurrenceId,

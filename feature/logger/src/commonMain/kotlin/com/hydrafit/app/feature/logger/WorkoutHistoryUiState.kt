@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryEntry
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
@@ -45,6 +46,7 @@ data class HistoryExerciseNote(
 data class WorkoutHistoryUiState(
     val utcOffsetMillis: Long = 0L,
     val weightUnit: WeightUnit = WeightUnit.KG,
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     // ── List ──────────────────────────────────────────────────────────────
     /** The search text being typed; only an explicit apply changes [filter]. */
     val searchDraft: String = "",
@@ -110,6 +112,9 @@ internal fun WorkoutHistorySet.toLoggedSetRow(key: WorkoutHistoryKey): LoggedSet
     exerciseName = exerciseName ?: exerciseId,
     reps = reps,
     durationSeconds = durationSeconds,
+    distanceMeters = distanceMeters,
+    forceNewtons = forceNewtons,
+    device = device,
     weightKg = weightKg,
     rir = rir,
     isWarmup = isWarmup,

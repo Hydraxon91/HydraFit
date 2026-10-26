@@ -109,10 +109,10 @@ data class SlotProgressionConfig(
  * Evaluates one slot's approved policy against its own recorded, comparable history.
  *
  * Comparability is the slot's current prescription: an exposure counts only when its recorded target
- * names the same exercise, set count, rep count and load, is a typed external rep target, and is not a
- * deload. Any other exposure — a changed prescription, a legacy row with no target, a bodyweight or
- * timed target, or an unjudgeable session — breaks the run without counting as a miss, so missing
- * evidence never becomes demonstrated failure.
+ * names the same exercise, set count, rep count, load and load kind, is a typed external or added-load
+ * rep target, and is not a deload. Any other exposure — a changed prescription, a legacy row with no
+ * target, a bodyweight, timed, distance or force target, or an unjudgeable session — breaks the run
+ * without counting as a miss, so missing evidence never becomes demonstrated failure.
  *
  * A run of comparable successes advances the prescription; a run of comparable misses asks for review
  * and never removes load automatically. The load step is the user's own number, snapped to the named
@@ -271,7 +271,7 @@ class ResolveSlotProgressionUseCase(
     ): Run {
         var successes = 0
         var misses = 0
-        for (exposure in history.exposures(request.exerciseId, nowMillis)) {
+        for (exposure in history.exposures(request.exerciseId, nowMillis, request.loadKind)) {
             if (!exposure.isComparableWith(current, request)) {
                 successes = 0
                 misses = 0
@@ -438,12 +438,14 @@ class ResolveSlotProgressionUseCase(
         copy(comparableSuccesses = run.successes, comparableMisses = run.misses)
 
     /**
-     * The slot's judgeable current prescription, or null when the policy cannot apply: a timed slot, a
-     * non-external load kind, or a blank/explicit-zero load that cannot establish weighted success.
+     * The slot's judgeable current prescription, or null when the policy cannot apply: a timed or
+     * distance slot, a bodyweight/legacy load kind, or a blank/explicit-zero load that cannot
+     * establish weighted success. External and added load use the same rule; the load kind only has
+     * to match between the recorded target and today's prescription.
      */
     private fun SlotProgressionRequest.currentPrescriptionOrNull(): CurrentPrescription? {
         if (reps == null || sets < 1) return null
-        if (loadKind != LoadKind.EXTERNAL) return null
+        if (loadKind != LoadKind.EXTERNAL && loadKind != LoadKind.ADDED) return null
         val load = loadKg ?: return null
         if (!load.isFinite() || load <= 0.0) return null
         return CurrentPrescription(reps = reps, loadKg = roundToGram(load))
@@ -458,7 +460,9 @@ class ResolveSlotProgressionUseCase(
             recorded.sets == request.sets &&
             recorded.reps == current.reps &&
             recorded.durationSeconds == null &&
-            recorded.loadKind == LoadKind.EXTERNAL &&
+            recorded.distanceMeters == null &&
+            recorded.forceNewtons == null &&
+            recorded.loadKind == request.loadKind &&
             !recorded.isDeload &&
             recorded.weightKg != null &&
             // A different approved rule is a different prescription context: work earned under

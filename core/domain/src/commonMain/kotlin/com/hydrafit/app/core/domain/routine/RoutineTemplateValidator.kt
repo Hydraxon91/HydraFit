@@ -44,13 +44,27 @@ internal object RoutineTemplateValidator {
         if (entry.exerciseId.isBlank()) {
             throw RoutineTemplateException("A slot needs an exercise")
         }
-        PrescriptionBounds.validate(entry.sets, entry.reps, entry.durationSeconds, entry.weightKg)
+        PrescriptionBounds.validate(
+            entry.sets,
+            entry.reps,
+            entry.durationSeconds,
+            entry.weightKg,
+            entry.distanceMeters,
+            entry.forceNewtons
+        )
         // Capability compatibility is checked at activation (which has the catalog); here only the
         // shape that holds regardless of capability is enforced.
         if (entry.loadKind == LoadKind.BODYWEIGHT && entry.weightKg != null) {
             throw RoutineTemplateException("Bodyweight work cannot record a numeric load")
         }
         entry.setTargets?.let { targets ->
+            // Ordered targets describe rep work: a slot measured by seconds, metres or newtons
+            // cannot perform them, so it must not carry them.
+            if (entry.reps == null) {
+                throw RoutineTemplateException(
+                    "An ordered prescription requires repetitions"
+                )
+            }
             try {
                 targets.requireValid()
             } catch (error: IllegalArgumentException) {

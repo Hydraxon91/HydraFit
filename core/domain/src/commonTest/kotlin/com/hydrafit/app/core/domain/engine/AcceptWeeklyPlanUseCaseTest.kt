@@ -332,7 +332,9 @@ class AcceptWeeklyPlanUseCaseTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) = Unit
 
         override suspend fun delete(planId: Long) {

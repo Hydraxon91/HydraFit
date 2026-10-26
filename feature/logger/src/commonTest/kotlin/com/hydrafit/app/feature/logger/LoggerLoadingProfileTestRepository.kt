@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingBar
 import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
@@ -96,6 +97,14 @@ internal class LoggerLoadingProfileTestRepository(
         context: EquipmentProfileContext,
         inventory: LoadingInventory
     ) = unsupported("saveLoadingInventory")
+
+    override suspend fun saveStation(
+        context: EquipmentProfileContext,
+        station: EquipmentStation
+    ): Long = unsupported("saveStation")
+
+    override suspend fun retireStation(context: EquipmentProfileContext, stationId: Long) =
+        unsupported("retireStation")
 
     private fun unsupported(name: String): Nothing {
         writes += name

@@ -56,6 +56,59 @@ class ExerciseProgressCalculatorTest {
     }
 
     @Test
+    fun distanceSetsFeedTheDayTrendButNeverRecordsOrEstimates() {
+        val result = calculate(
+            distance(1, meters = 400, load = 20.0, time = 1),
+            distance(2, meters = 600, load = 20.0, time = 2)
+        )
+        val day = result.days.single()
+        assertEquals(2, day.workingSets)
+        assertEquals(1000L, day.totalDistanceMeters)
+        // A distance carry's load is never turned into rep volume or a one-rep-max estimate.
+        assertEquals(0L, day.totalReps)
+        assertNull(day.externalVolumeKg)
+        assertNull(day.estimatedOneRepMax)
+        assertTrue(result.records.isEmpty())
+    }
+
+    @Test
+    fun forceSetsCountAsWorkWithoutContributingToRepsLoadOrRecords() {
+        val forceOnly = calculate(
+            force(1, newtons = 250.0, time = 1, device = DeviceAttribution("Grip meter")),
+            force(2, newtons = 275.0, time = 2)
+        )
+        val forceDay = forceOnly.days.single()
+        assertEquals(2, forceDay.workingSets)
+        assertEquals(0L, forceDay.totalReps)
+        assertNull(forceDay.externalVolumeKg)
+        assertTrue(forceDay.bestLoads.isEmpty())
+        assertTrue(forceDay.bestReps.isEmpty())
+        assertNull(forceDay.estimatedOneRepMax)
+        assertEquals(0L, forceDay.totalDurationSeconds)
+        assertEquals(0L, forceDay.totalDistanceMeters)
+        assertTrue(forceOnly.records.isEmpty())
+        assertTrue(forceOnly.occurrenceEvents.isEmpty())
+
+        val mixed = calculate(
+            force(1, newtons = 250.0, time = 1, device = DeviceAttribution("Grip meter")),
+            set(2, 60.0, 10, time = 2)
+        )
+        assertEquals(2, mixed.days.single().workingSets)
+        assertEquals(10L, mixed.days.single().totalReps)
+        assertEquals(600.0, mixed.days.single().externalVolumeKg)
+        val loadRecord = mixed.records.single {
+            it.key.type == ProgressRecordType.LOAD_AT_REPS
+        }
+        assertEquals(listOf(2L), loadRecord.setIds)
+        assertTrue(
+            mixed.records.any { it.key.type == ProgressRecordType.REPS_AT_LOAD }
+        )
+        assertTrue(
+            mixed.records.any { it.key.type == ProgressRecordType.ESTIMATED_ONE_REP_MAX }
+        )
+    }
+
+    @Test
     fun equalTimestampsUseEarlierBaselineAndKeepAllTiedHolders() {
         val result = calculate(
             set(1, 50.0, 10, time = 1),
@@ -225,6 +278,34 @@ class ExerciseProgressCalculatorTest {
         performedAtMillis = time,
         occurrenceId = 7,
         durationSeconds = seconds
+    )
+
+    private fun distance(id: Long, meters: Int, load: Double?, time: Long = 1) = WorkoutSet(
+        id = id,
+        exerciseId = "squat",
+        reps = null,
+        weightKg = load,
+        loadKind = if (load == null) LoadKind.BODYWEIGHT else LoadKind.EXTERNAL,
+        performedAtMillis = time,
+        occurrenceId = 7,
+        distanceMeters = meters
+    )
+
+    private fun force(
+        id: Long,
+        newtons: Double,
+        time: Long = 1,
+        device: DeviceAttribution? = null
+    ) = WorkoutSet(
+        id = id,
+        exerciseId = "squat",
+        reps = null,
+        weightKg = null,
+        loadKind = LoadKind.BODYWEIGHT,
+        performedAtMillis = time,
+        occurrenceId = 7,
+        forceNewtons = newtons,
+        device = device
     )
 
     private companion object {

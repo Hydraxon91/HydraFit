@@ -1,0 +1,7 @@
+ALTER TABLE workoutSet ADD COLUMN forceNewtons REAL;
+ALTER TABLE workoutSet ADD COLUMN deviceName TEXT;
+ALTER TABLE workoutSet ADD COLUMN deviceRatingKg REAL;
+ALTER TABLE routineEntry ADD COLUMN forceNewtons REAL;
+ALTER TABLE planHistoryEntry ADD COLUMN forceNewtons REAL;
+ALTER TABLE activationEntry ADD COLUMN forceNewtons REAL;
+ALTER TABLE occurrenceEntry ADD COLUMN forceNewtons REAL;

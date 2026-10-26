@@ -64,6 +64,7 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportIssue
 import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
 import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -97,6 +98,8 @@ import hydrafit.feature.routines.generated.resources.routines_confirm
 import hydrafit.feature.routines.generated.resources.routines_delete
 import hydrafit.feature.routines.generated.resources.routines_delete_message
 import hydrafit.feature.routines.generated.resources.routines_delete_title
+import hydrafit.feature.routines.generated.resources.routines_distance_input_label
+import hydrafit.feature.routines.generated.resources.routines_distance_label
 import hydrafit.feature.routines.generated.resources.routines_duplicate
 import hydrafit.feature.routines.generated.resources.routines_edit
 import hydrafit.feature.routines.generated.resources.routines_editor_edit_title
@@ -105,6 +108,8 @@ import hydrafit.feature.routines.generated.resources.routines_empty
 import hydrafit.feature.routines.generated.resources.routines_entry_excluded
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
+import hydrafit.feature.routines.generated.resources.routines_force_label
+import hydrafit.feature.routines.generated.resources.routines_force_unit
 import hydrafit.feature.routines.generated.resources.routines_move_down
 import hydrafit.feature.routines.generated.resources.routines_move_up
 import hydrafit.feature.routines.generated.resources.routines_name_label
@@ -733,6 +738,7 @@ private fun RoutineEditor(
                 index = index,
                 workout = workout,
                 weightUnit = editor.unit,
+                distanceUnit = editor.distanceUnit,
                 excludedExerciseIds = excludedExerciseIds,
                 viewModel = viewModel
             )
@@ -757,6 +763,7 @@ private fun WorkoutCard(
     index: Int,
     workout: EditorWorkout,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     excludedExerciseIds: Set<String>,
     viewModel: RoutinesViewModel
 ) {
@@ -791,6 +798,7 @@ private fun WorkoutCard(
                     entryIndex = entryIndex,
                     entry = entry,
                     weightUnit = weightUnit,
+                    distanceUnit = distanceUnit,
                     isExcluded = entry.exerciseId in excludedExerciseIds,
                     canPairWithNext = entry.superset == null &&
                         next != null &&
@@ -825,6 +833,7 @@ private fun EntryRow(
     entryIndex: Int,
     entry: EditorEntry,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     isExcluded: Boolean,
     /** The slot is unpaired and the slot after it exists and is unpaired too, so it can be paired. */
     canPairWithNext: Boolean,
@@ -853,7 +862,10 @@ private fun EntryRow(
                 Text(stringResource(Res.string.routines_remove))
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             FilterChip(
                 selected = entry.metric == EntryMetric.REPETITIONS,
                 onClick = {
@@ -872,6 +884,20 @@ private fun EntryRow(
                 },
                 label = { Text(stringResource(Res.string.routines_seconds_label)) }
             )
+            FilterChip(
+                selected = entry.metric == EntryMetric.DISTANCE,
+                onClick = {
+                    viewModel.onEntryMetricChanged(workoutIndex, entryIndex, EntryMetric.DISTANCE)
+                },
+                label = { Text(stringResource(Res.string.routines_distance_label)) }
+            )
+            FilterChip(
+                selected = entry.metric == EntryMetric.FORCE,
+                onClick = {
+                    viewModel.onEntryMetricChanged(workoutIndex, entryIndex, EntryMetric.FORCE)
+                },
+                label = { Text(stringResource(Res.string.routines_force_label)) }
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -881,9 +907,9 @@ private fun EntryRow(
                 singleLine = true,
                 modifier = Modifier.width(88.dp)
             )
-            // Only the selected measurement is shown, so a slot can never carry both at once.
-            if (entry.metric == EntryMetric.DURATION) {
-                OutlinedTextField(
+            // Only the selected measurement is shown, so a slot can never carry two at once.
+            when (entry.metric) {
+                EntryMetric.DURATION -> OutlinedTextField(
                     value = entry.durationSeconds,
                     onValueChange = {
                         viewModel.onEntryDurationChanged(workoutIndex, entryIndex, it)
@@ -892,25 +918,55 @@ private fun EntryRow(
                     singleLine = true,
                     modifier = Modifier.width(88.dp)
                 )
-            } else {
-                OutlinedTextField(
+                EntryMetric.DISTANCE -> OutlinedTextField(
+                    value = entry.distance,
+                    onValueChange = {
+                        viewModel.onEntryDistanceChanged(workoutIndex, entryIndex, it)
+                    },
+                    label = {
+                        Text(
+                            stringResource(
+                                Res.string.routines_distance_input_label,
+                                distanceUnit.label
+                            )
+                        )
+                    },
+                    singleLine = true,
+                    modifier = Modifier.width(88.dp)
+                )
+                EntryMetric.REPETITIONS -> OutlinedTextField(
                     value = entry.reps,
                     onValueChange = { viewModel.onEntryRepsChanged(workoutIndex, entryIndex, it) },
                     label = { Text(stringResource(Res.string.routines_reps_label)) },
                     singleLine = true,
                     modifier = Modifier.width(88.dp)
                 )
+                EntryMetric.FORCE -> OutlinedTextField(
+                    value = entry.forceNewtons,
+                    onValueChange = {
+                        viewModel.onEntryForceChanged(workoutIndex, entryIndex, it)
+                    },
+                    label = { Text(stringResource(Res.string.routines_force_label)) },
+                    suffix = { Text(stringResource(Res.string.routines_force_unit)) },
+                    singleLine = true,
+                    modifier = Modifier.width(120.dp)
+                )
             }
-            OutlinedTextField(
-                value = entry.weight,
-                onValueChange = { viewModel.onEntryWeightChanged(workoutIndex, entryIndex, it) },
-                label = {
-                    Text(stringResource(Res.string.routines_weight_label, weightUnit.label))
-                },
-                placeholder = { Text(stringResource(Res.string.routines_weight_optional)) },
-                singleLine = true,
-                modifier = Modifier.width(120.dp)
-            )
+            // A force slot is load-free, so no load field is offered for it.
+            if (entry.metric != EntryMetric.FORCE) {
+                OutlinedTextField(
+                    value = entry.weight,
+                    onValueChange = {
+                        viewModel.onEntryWeightChanged(workoutIndex, entryIndex, it)
+                    },
+                    label = {
+                        Text(stringResource(Res.string.routines_weight_label, weightUnit.label))
+                    },
+                    placeholder = { Text(stringResource(Res.string.routines_weight_optional)) },
+                    singleLine = true,
+                    modifier = Modifier.width(120.dp)
+                )
+            }
         }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),

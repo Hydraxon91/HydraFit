@@ -12,10 +12,14 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
@@ -26,6 +30,7 @@ import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
 import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -117,6 +122,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.activationEntries.groupBy { it.workoutId }.values.forEach { entries ->
             checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
         }
+        validateStations(file)
         file.occurrenceEntries.groupBy { it.occurrenceId }.values.forEach { entries ->
             checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
         }
@@ -356,12 +362,54 @@ class BackupValidator(private val catalog: BackupCatalog) {
             ) {
                 fail(BackupFailure.INVALID_VALUE)
             }
+            if (file.formatVersion < DISTANCE_FORMAT_VERSION && it.distanceMeters != null) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (file.formatVersion < FORCE_FORMAT_VERSION &&
+                (
+                    it.forceNewtons != null ||
+                        it.deviceName != null ||
+                        it.deviceRatingKg != null
+                    )
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             val hasReps = it.reps != null && it.reps > 0
             val hasDuration = it.durationSeconds != null && it.durationSeconds > 0
-            if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+            val hasDistance = it.distanceMeters != null && it.distanceMeters > 0
+            val hasForce =
+                it.forceNewtons != null && it.forceNewtons.isFinite() && it.forceNewtons > 0
+            if (listOf(hasReps, hasDuration, hasDistance, hasForce).count { it } != 1) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             if (it.reps != null && it.reps <= 0) fail(BackupFailure.INVALID_VALUE)
             it.durationSeconds?.let { seconds ->
                 if (seconds <= 0) fail(BackupFailure.INVALID_VALUE)
+            }
+            it.distanceMeters?.let { meters ->
+                // Performed work is unbounded by design: the app logs any positive value (a long
+                // imported ride included), so restore must accept what the writers accepted rather
+                // than making a backup this build wrote unrestorable. Prescription caps stay on
+                // prescriptions; physical plausibility is not the backup's judgement.
+                if (meters <= 0) fail(BackupFailure.INVALID_VALUE)
+            }
+            it.forceNewtons?.let { newtons ->
+                if (!newtons.isFinite() || newtons <= 0.0) {
+                    fail(BackupFailure.INVALID_VALUE)
+                }
+                // A force set is load-free; a rating is identity, never converted into a force.
+                if (it.weightKg != null) fail(BackupFailure.INVALID_VALUE)
+            }
+            if ((it.deviceName != null || it.deviceRatingKg != null) && it.forceNewtons == null) {
+                // A device identity only describes a force set.
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (it.deviceRatingKg != null && it.deviceName == null) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            it.deviceName?.let { name -> if (name.isBlank()) fail(BackupFailure.INVALID_VALUE) }
+            it.deviceRatingKg?.let { rating ->
+                if (!rating.isFinite() || rating <= 0.0) fail(BackupFailure.INVALID_VALUE)
             }
             if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
                 fail(BackupFailure.INVALID_VALUE)
@@ -402,7 +450,10 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 entry.reps,
                 entry.durationSeconds,
-                PLAN_ENTRY_DURATION_FORMAT_VERSION
+                entry.distanceMeters,
+                entry.forceNewtons,
+                PLAN_ENTRY_DURATION_FORMAT_VERSION,
+                entry.suggestedWeightKg
             )
             entry.suggestedWeightKg?.let { value -> finite(value) }
         }
@@ -500,7 +551,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
             reference(entry.workoutId, routineWorkoutIds)
             exercise(entry.exerciseId, knownExercises)
             enum(entry.loadKind, LoadKind.entries)
-            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                entry.distanceMeters,
+                entry.forceNewtons,
+                weightKg = entry.weightKg
+            )
             entry.weightKg?.let { value -> finite(value) }
         }
         file.activations.forEach {
@@ -518,7 +576,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadCapability, ExerciseLoadCapability.entries)
             enum(entry.loadKind, LoadKind.entries)
             equipment(entry.requiredEquipment, knownEquipment)
-            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                entry.distanceMeters,
+                entry.forceNewtons,
+                weightKg = entry.weightKg
+            )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -539,7 +604,14 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadKind, LoadKind.entries)
             enum(entry.remainingDisposition, RemainingDisposition.entries)
             equipment(entry.requiredEquipment, knownEquipment)
-            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                entry.distanceMeters,
+                entry.forceNewtons,
+                weightKg = entry.weightKg
+            )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -574,7 +646,8 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 it.reps,
                 it.durationSeconds,
-                WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
+                null,
+                durationFormatVersion = WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
             )
         }
 
@@ -582,6 +655,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(settings.engineId, PlannerEngineId.entries)
             enum(settings.trainingGoal, TrainingGoal.entries)
             enum(settings.weightUnit, WeightUnit.entries)
+            if (file.formatVersion < DISTANCE_FORMAT_VERSION &&
+                settings.distanceUnit != "METERS"
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            enum(settings.distanceUnit, DistanceUnit.entries)
         }
     }
 
@@ -630,31 +709,65 @@ class BackupValidator(private val catalog: BackupCatalog) {
     }
 
     /**
-     * A prescription slot is measured by positive reps or positive whole seconds, never both and
-     * never neither. A duration in a format that predates the field is rejected instead of being
-     * reinterpreted as a rep count. [durationFormatVersion] is the first format that carries the
-     * duration for this record family, since a timed accepted-plan slot arrived one format later
-     * than a timed routine/frozen slot.
+     * A prescription slot is measured by positive reps, positive whole seconds, positive whole
+     * metres or positive measured newtons, exactly one and never more. A duration in a format that
+     * predates the field is rejected instead of being reinterpreted as a rep count.
+     * [durationFormatVersion] is the first format that carries the duration for this record family,
+     * since a timed accepted-plan slot arrived one format later than a timed routine/frozen slot.
+     * [weightKg] is the slot's recorded numeric load; a force slot is load-free, so carrying one is
+     * rejected here exactly as it is for a performed force set.
      */
     private fun prescriptionMetric(
         version: Int,
         reps: Int?,
         durationSeconds: Int?,
-        durationFormatVersion: Int = PRESCRIPTION_DURATION_FORMAT_VERSION
+        distanceMeters: Int?,
+        forceNewtons: Double? = null,
+        durationFormatVersion: Int = PRESCRIPTION_DURATION_FORMAT_VERSION,
+        weightKg: Double? = null
     ) {
         if (version < durationFormatVersion && durationSeconds != null) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (version < DISTANCE_FORMAT_VERSION && distanceMeters != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (version < FORCE_FORMAT_VERSION && forceNewtons != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         val hasReps = reps != null && reps > 0
         val hasDuration = durationSeconds != null && durationSeconds > 0
-        if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+        val hasDistance = distanceMeters != null && distanceMeters > 0
+        val hasForce = forceNewtons != null && forceNewtons.isFinite() && forceNewtons > 0
+        if (listOf(hasReps, hasDuration, hasDistance, hasForce).count { it } != 1) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        // A force slot is load-free: its device rating is identity, never a lifted mass.
+        if (hasForce && weightKg != null) fail(BackupFailure.INVALID_VALUE)
         if (reps != null && reps <= 0) fail(BackupFailure.INVALID_VALUE)
         durationSeconds?.let { if (it <= 0) fail(BackupFailure.INVALID_VALUE) }
+        distanceMeters?.let {
+            if (it <= 0 || it > PrescriptionBounds.MAX_DISTANCE_METERS) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        forceNewtons?.let {
+            if (!it.isFinite() ||
+                it < PrescriptionBounds.MIN_FORCE_NEWTONS ||
+                it > PrescriptionBounds.MAX_FORCE_NEWTONS
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
     }
 
     /**
      * A recorded target must decode, must belong to the same exercise and load meaning as the set it
      * is attached to, and must not contradict the set's own measurement.
+     *
+     * A non-reps slot carrying ordered targets is tolerated here on purpose: released 0.10.x builds
+     * could persist that shape, and restore must accept a backup its own supported version wrote.
+     * The targets are inert at logging time, and the strict rule lives where a new shape is created.
      */
     private fun checkOrderedTargets(sets: Int, encoded: String?) {
         if (encoded == null) return
@@ -687,12 +800,91 @@ class BackupValidator(private val catalog: BackupCatalog) {
         ) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (formatVersion < DISTANCE_FORMAT_VERSION && snapshot.distanceMeters != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (formatVersion < FORCE_FORMAT_VERSION && snapshot.forceNewtons != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (snapshot.exerciseId != set.exerciseId) fail(BackupFailure.INVALID_REFERENCE)
         if (snapshot.loadKind.name != set.loadKind) fail(BackupFailure.INVALID_VALUE)
-        if ((snapshot.reps == null) != (set.durationSeconds != null)) {
+        // The recorded target is the prescription and the set is the performed work, so their values
+        // legitimately differ (a missed rep, a shortened timed set, a corrected set). Only the
+        // measurement kind must agree: recording a rep target against distance work, or vice versa,
+        // would make the exposure unjudgeable rather than merely different.
+        if ((snapshot.reps != null) != (set.reps != null) ||
+            (snapshot.durationSeconds != null) != (set.durationSeconds != null) ||
+            (snapshot.distanceMeters != null) != (set.distanceMeters != null) ||
+            (snapshot.forceNewtons != null) != (set.forceNewtons != null)
+        ) {
             fail(BackupFailure.INVALID_VALUE)
         }
         snapshot.weightKg?.let { value -> finite(value) }
+        if (snapshot.forceNewtons != null && snapshot.weightKg != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+    }
+
+    private fun validateStations(file: BackupFile) {
+        val hasSetAttribution = file.workoutSets.any {
+            it.stationId != null || it.stationName != null || it.stationLoadBasis != null
+        }
+        if (file.formatVersion < EQUIPMENT_STATION_FORMAT_VERSION) {
+            if (file.equipmentStations.isNotEmpty() || hasSetAttribution) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            return
+        }
+        uniqueBy(file.equipmentStations) { it.id }
+        val profileIds = file.equipmentProfiles.mapTo(mutableSetOf()) { it.id }
+        val equipmentIds = file.equipment.mapTo(mutableSetOf()) { it.id }
+        file.equipmentStations.forEach { station ->
+            if (station.id <= 0L ||
+                station.profileId !in profileIds ||
+                station.equipmentId !in equipmentIds
+            ) {
+                fail(BackupFailure.INVALID_REFERENCE)
+            }
+            try {
+                EquipmentStation(
+                    id = station.id,
+                    profileId = station.profileId,
+                    equipmentId = EquipmentTag(station.equipmentId),
+                    name = station.name,
+                    loadBasis = StationLoadBasis.fromStored(station.loadBasis)
+                        ?: fail(BackupFailure.INVALID_VALUE),
+                    minWeightKg = station.minWeightKg,
+                    maxWeightKg = station.maxWeightKg,
+                    incrementKg = station.incrementKg,
+                    retired = station.retired
+                )
+            } catch (_: IllegalArgumentException) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        file.equipmentStations.filterNot { it.retired }
+            .groupBy { it.profileId to it.equipmentId }
+            .values
+            .forEach { sameEquipment ->
+                val names = sameEquipment.map { it.name.lowercase() }
+                if (names.distinct().size != names.size) fail(BackupFailure.INVALID_VALUE)
+            }
+        val stationIds = file.equipmentStations.mapTo(mutableSetOf()) { it.id }
+        file.workoutSets.forEach { set ->
+            val id = set.stationId
+            val name = set.stationName
+            val basis = set.stationLoadBasis
+            if (id == null && name == null && basis == null) return@forEach
+            if (id == null || name == null || basis == null) fail(BackupFailure.INVALID_VALUE)
+            val decoded = StationLoadBasis.fromStored(basis)
+                ?: fail(BackupFailure.INVALID_VALUE)
+            if (id > 0L && id !in stationIds) fail(BackupFailure.INVALID_REFERENCE)
+            try {
+                com.hydrafit.app.core.domain.equipment.StationAttribution(id, name, decoded)
+            } catch (_: IllegalArgumentException) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
     }
 
     private fun <E : Enum<E>> enum(value: String?, values: List<E>) {

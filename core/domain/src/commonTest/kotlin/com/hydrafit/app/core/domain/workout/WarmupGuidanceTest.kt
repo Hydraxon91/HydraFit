@@ -284,6 +284,17 @@ class WarmupGuidanceTest {
     }
 
     @Test
+    fun doesNotRampADistanceSlotEvenWhenItCarriesLoad() {
+        // A loaded carry is real weighted work, but there is no rep target to ramp through and
+        // distance never progresses automatically, so no warm-up load ladder is proposed.
+        val entry = entry(0, MovementPattern.SQUAT, weightKg = 40.0)
+            .copy(reps = null, distanceMeters = 400)
+        val guidance = buildWarmupGuidance(occurrenceWith(entry))
+
+        assertTrue(guidance.ramps.isEmpty())
+    }
+
+    @Test
     fun boundsRampsByTheCurrentEquipment() {
         val barbell = entry(
             0,

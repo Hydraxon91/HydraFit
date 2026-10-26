@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.backup.BackupEntryTargetExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentCeilingRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentProfileRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentRecord
+import com.hydrafit.app.core.domain.backup.BackupEquipmentStationRecord
 import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
@@ -69,6 +70,12 @@ class SqlDelightBackupRepository(
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
         database.transactionWithResult {
             val profiles = database.readEquipmentProfileState()
+            // A deleted profile removes its station rows but not the performed sets that referenced
+            // them. Export those frozen labels as merge-only id zero so every exported positive id
+            // still references a station in the same file and the file remains restorable.
+            val exportedStationIds = profiles.profiles
+                .flatMap { it.stations }
+                .mapTo(mutableSetOf()) { it.id }
             BackupFile(
                 format = BACKUP_FORMAT,
                 formatVersion = BACKUP_FORMAT_VERSION,
@@ -138,7 +145,16 @@ class SqlDelightBackupRepository(
                         startedAtElapsedMillis = it.startedAtElapsedMillis,
                         completedAtElapsedMillis = it.completedAtElapsedMillis,
                         durationSeconds = it.durationSeconds?.toInt(),
-                        prescriptionSnapshot = it.prescriptionSnapshot
+                        prescriptionSnapshot = it.prescriptionSnapshot,
+                        stationId = it.stationId?.let { id ->
+                            if (id in exportedStationIds) id else 0L
+                        },
+                        stationName = it.stationName,
+                        stationLoadBasis = it.stationLoadBasis,
+                        distanceMeters = it.distanceMeters?.toInt(),
+                        forceNewtons = it.forceNewtons,
+                        deviceName = it.deviceName,
+                        deviceRatingKg = it.deviceRatingKg
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -184,7 +200,9 @@ class SqlDelightBackupRepository(
                         loadKind = it.loadKind,
                         progressionPolicy = it.progressionPolicy,
                         setTargets = it.setTargets,
-                        superset = it.superset
+                        superset = it.superset,
+                        distanceMeters = it.distanceMeters?.toInt(),
+                        forceNewtons = it.forceNewtons
                     )
                 },
                 volumeExplanations = database.planVolumeExplanationQueries.selectAll()
@@ -355,7 +373,9 @@ class SqlDelightBackupRepository(
                             loadKind = it.loadKind,
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
-                            superset = it.superset
+                            superset = it.superset,
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            forceNewtons = it.forceNewtons
                         )
                     },
                 activations = database.trainingScheduleQueries.selectAllActivations()
@@ -408,7 +428,9 @@ class SqlDelightBackupRepository(
                             loadKind = it.loadKind,
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
-                            superset = it.superset
+                            superset = it.superset,
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            forceNewtons = it.forceNewtons
                         )
                     },
                 occurrences = database.trainingScheduleQueries.selectAllOccurrences()
@@ -449,7 +471,9 @@ class SqlDelightBackupRepository(
                             terminalRemainingSets = it.terminalRemainingSets?.toInt(),
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
-                            superset = it.superset
+                            superset = it.superset,
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            forceNewtons = it.forceNewtons
                         )
                     },
                 scheduleState = database.trainingScheduleQueries.selectScheduleState()
@@ -540,6 +564,21 @@ class SqlDelightBackupRepository(
                         },
                         profile.loadingInventory
                     )
+                },
+                equipmentStations = profiles.profiles.flatMap { profile ->
+                    profile.stations.map { station ->
+                        BackupEquipmentStationRecord(
+                            id = station.id,
+                            profileId = station.profileId,
+                            equipmentId = station.equipmentId.id,
+                            name = station.name,
+                            loadBasis = station.loadBasis.name,
+                            minWeightKg = station.minWeightKg,
+                            maxWeightKg = station.maxWeightKg,
+                            incrementKg = station.incrementKg,
+                            retired = station.retired
+                        )
+                    }
                 },
                 activeEquipmentProfileId = profiles.context.profileId,
                 importProvenance = database.workoutImportQueries.selectAllProvenance()
@@ -647,6 +686,31 @@ class SqlDelightBackupRepository(
                     durationSeconds = it.durationSeconds?.toLong(),
                     prescriptionSnapshot = it.prescriptionSnapshot
                 )
+                if (it.stationName != null && it.stationLoadBasis != null) {
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignStation(
+                        stationId = 0L,
+                        stationName = it.stationName,
+                        stationLoadBasis = it.stationLoadBasis,
+                        id = setId
+                    )
+                }
+                it.distanceMeters?.let { meters ->
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignDistance(meters.toLong(), setId)
+                }
+                it.forceNewtons?.let { newtons ->
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignForce(newtons, setId)
+                }
+                if (it.deviceName != null) {
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignDevice(
+                        deviceName = it.deviceName,
+                        deviceRatingKg = it.deviceRatingKg,
+                        id = setId
+                    )
+                }
             }
             selection.bodyWeightToInsert.forEach {
                 database.bodyWeightQueries.insertMeasurement(
@@ -743,6 +807,7 @@ class SqlDelightBackupRepository(
             database.routineTemplateQueries.deleteAllTemplates()
             database.exerciseQueries.deleteAllCustom()
             database.equipmentProfileQueries.deleteState()
+            database.equipmentStationQueries.deleteAllStations()
             database.equipmentProfileQueries.deleteAllEntries()
             database.equipmentProfileQueries.deleteAllProfiles()
             database.equipmentQueries.deleteCustomEquipment()
@@ -895,7 +960,9 @@ class SqlDelightBackupRepository(
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets
+                    setTargets = entry.setTargets,
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
             file.planEntries.forEach { entry ->
@@ -1062,7 +1129,9 @@ class SqlDelightBackupRepository(
                     weightKg = entry.weightKg,
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets
+                    setTargets = entry.setTargets,
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
 
@@ -1119,7 +1188,9 @@ class SqlDelightBackupRepository(
                     loadCapability = entry.loadCapability,
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets
+                    setTargets = entry.setTargets,
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
             file.activationEntries.forEach { entry ->
@@ -1164,7 +1235,9 @@ class SqlDelightBackupRepository(
                     remainingDisposition = entry.remainingDisposition,
                     terminalRemainingSets = entry.terminalRemainingSets?.toLong(),
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets
+                    setTargets = entry.setTargets,
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
             file.occurrenceEntries.forEach { entry ->
@@ -1208,6 +1281,27 @@ class SqlDelightBackupRepository(
                     durationSeconds = set.durationSeconds?.toLong(),
                     prescriptionSnapshot = set.prescriptionSnapshot
                 )
+                if (set.stationId != null) {
+                    database.workoutLogQueries.assignStation(
+                        stationId = set.stationId,
+                        stationName = requireNotNull(set.stationName),
+                        stationLoadBasis = requireNotNull(set.stationLoadBasis),
+                        id = set.id
+                    )
+                }
+                set.distanceMeters?.let { meters ->
+                    database.workoutLogQueries.assignDistance(meters.toLong(), set.id)
+                }
+                set.forceNewtons?.let { newtons ->
+                    database.workoutLogQueries.assignForce(newtons, set.id)
+                }
+                if (set.deviceName != null) {
+                    database.workoutLogQueries.assignDevice(
+                        deviceName = set.deviceName,
+                        deviceRatingKg = set.deviceRatingKg,
+                        id = set.id
+                    )
+                }
             }
 
             file.importProvenance.forEach { record ->
@@ -1251,6 +1345,7 @@ class SqlDelightBackupRepository(
                 if (settings?.shareWorkoutData == true) 1L else 0L
             )
             database.plannerEngineQueries.updateWeightUnit(settings?.weightUnit ?: "KG")
+            database.plannerEngineQueries.updateDistanceUnit(settings?.distanceUnit ?: "METERS")
             database.plannerEngineQueries.updateGuidedWorkoutEnabled(
                 if (settings?.guidedWorkoutEnabled == true) 1L else 0L
             )
@@ -1292,6 +1387,19 @@ class SqlDelightBackupRepository(
         database.equipmentProfileQueries.restoreState(
             if (file.formatVersion >= 14) requireNotNull(file.activeEquipmentProfileId) else 1L
         )
+        file.equipmentStations.forEach { station ->
+            database.equipmentStationQueries.restoreStation(
+                id = station.id,
+                profileId = station.profileId,
+                equipmentId = station.equipmentId,
+                name = station.name,
+                loadBasis = station.loadBasis,
+                minWeightKg = station.minWeightKg,
+                maxWeightKg = station.maxWeightKg,
+                incrementKg = station.incrementKg,
+                retired = if (station.retired) 1L else 0L
+            )
+        }
     }
 
     /** Reads the single planner-settings row; null when the user has never changed any setting. */
@@ -1305,7 +1413,8 @@ class SqlDelightBackupRepository(
             shareWorkoutData = (queries.selectShareWorkoutData().executeAsOneOrNull() ?: 0L) != 0L,
             weightUnit = queries.selectWeightUnit().executeAsOneOrNull() ?: "KG",
             guidedWorkoutEnabled =
-            queries.selectGuidedWorkoutEnabled().executeAsOneOrNull()?.let { it != 0L } ?: false
+            queries.selectGuidedWorkoutEnabled().executeAsOneOrNull()?.let { it != 0L } ?: false,
+            distanceUnit = queries.selectDistanceUnit().executeAsOneOrNull() ?: "METERS"
         )
     }
 }

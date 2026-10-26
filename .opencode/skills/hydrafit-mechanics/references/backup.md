@@ -3,8 +3,29 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 24), restored by whole replacement.
-The reader accepts versions 1–24; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 27), restored by whole replacement.
+The reader accepts versions 1–27; version 1 defaults the guided-workout preference to off.
+Format 27 adds measured `forceNewtons` on performed sets and the four prescription stores, plus the
+descriptive `deviceName`/`deviceRatingKg` on performed sets only, and snapshot format 5.
+A pre-27 file must not carry a force or device field; a measured set or slot must have exactly one
+of positive reps, seconds, metres and newtons, and force is load-free, so a stored snapshot must agree
+with its set's force and no force row may also carry a weight. A performed set is only required to be
+positive and finite, not limited to the prescription range: the app logs any recorded distance or
+force, so restore accepts its own exports. Prescription interchange v7 carries the
+same force. Format 26 adds whole-metre `distanceMeters` on performed sets and the four prescription stores
+(`routineEntries`, `planEntries`, `activationEntries`, `occurrenceEntries`), plus the settings
+`distanceUnit` preference (`METERS` by default). A pre-26 file must not carry a distance field and
+restores metres; a measured set or slot must have exactly one of positive reps, seconds and metres,
+and a stored snapshot must agree with its set's distance. Prescription interchange v6 first carried the
+same distance; v7 adds force on top of it.
+Format 25 adds profile-scoped `equipmentStations` and a performed set's frozen
+`stationId`/`stationName`/`stationLoadBasis`. A pre-25 file must not carry either. A
+restored set's positive station id must reference a station row in the same file; an id of
+zero is a frozen label imported by add-only merge, whose equipment-profile collection is
+excluded, so it deliberately has no local station row. Names are unique per active
+profile/equipment, and grid fields are all present or all absent. Formats 1–24 restore
+with no stations and no station-attributed sets; merge keeps the frozen label/basis but
+drops the local station id.
 Format 24 adds a prescription slot's explicit two-entry superset membership and user-configured
 transition/pair rest (`superset` on the same four entry kinds). A pre-24 file must not carry one;
 a present value must decode, and each workout's group must be exactly two adjacent distinct slots
@@ -147,11 +168,14 @@ Unknown exercise/equipment references and other invalid sections remain rejected
 ## Prescription interchange (0.9.2-S1)
 
 `transfer/PrescriptionModels.kt` + `PrescriptionJson` in `:core/domain` define the versioned
-`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 4`) used to share plans/routines between
-installs or people. Version 4 adds a slot's encoded ordered per-set targets; version 3 added its
+`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 7`) used to share plans/routines between
+installs or people. Version 7 adds a slot's measured force in newtons; version 6 added whole-metre
+distance; version 5 added superset membership
+and its transition/pair rest; version 4 added encoded ordered per-set targets; version 3 added its
 approved progression policy; version 2 added timed slots and version 1 remains readable for counted
-slots carrying neither, so a policy or ordered list in a document that predates it is rejected rather
-than read, and an ordered list must match the slot's own set count. It carries ordered routines and the
+slots carrying none. A policy, ordered list, superset, distance or force in a document that predates it is
+rejected rather than read; an ordered list must match the slot's own set count, and a slot must have
+exactly one of reps, seconds, metres and newtons. It carries ordered routines and the
 custom exercise definitions they reference —
 nothing else. The codec encodes defaults, rejects unknown fields, and enforces `PrescriptionLimits`
 (2 MiB, depth 24, 16 KiB per string, 20,000 records). `PrescriptionValidator` enforces the format and
@@ -179,9 +203,16 @@ Read-only review of the shipped S1–S2 behavior on a device remains pending.
 
 `WorkoutHistoryCsvWriter` + `ExportWorkoutHistoryCsvUseCase(logs, sessions, catalog)` write recorded
 sets as CSV: canonical columns (`sessionId`, `sessionStartedAtUtc`, `localEpochDay`, `setId`,
-`performedAtUtc`, `exerciseId`, `exerciseName`, `reps`, `weightKg`, `loadKind`, `isWarmup`, `rir`,
-`timingProvenance`), kilograms and `YYYY-MM-DDTHH:mm:ssZ` UTC instants, one row per set ordered by
-`performedAtMillis` then `setId`. An absent load is an empty field and a recorded `0` is `0.0`. Only
+`performedAtUtc`, `exerciseId`, `exerciseName`, `reps`, `durationSeconds`, `distanceMeters`,
+`weightKg`, `loadKind`, `isWarmup`, `rir`,
+`timingProvenance`, `forceNewtons`, `deviceName`, `deviceRatingKg`), kilograms and
+`YYYY-MM-DDTHH:mm:ssZ` UTC instants, one row per set ordered by
+`performedAtMillis` then `setId`. Exactly one of `reps`, `durationSeconds`, `distanceMeters` and
+`forceNewtons` is present per row; the absent measures are empty fields. The force/device columns are
+appended so every earlier column keeps its position, and `deviceName` is written through the text path
+because it is user-authored. Import is not the inverse of this export and reads no force column: no
+supported provider exports one. An absent load is an empty field and a recorded
+`0` is `0.0`. Only
 the columns that can carry user-authored text (`sessionId`, both instants, `exerciseId`,
 `exerciseName`, `loadKind`, `timingProvenance`) are written through the text path: those containing
 `,`, `"` or a newline are RFC 4180 quoted with doubled quotes, and one whose first character is `=`,
@@ -199,7 +230,8 @@ role, so it measures at the size that line is actually drawn (body 11 pt, headin
 measuring everything at body size would let a long routine name overrun the page. The wrapper is
 required (a default identity wrapper keeps the pure tests simple) and must never drop a line: a token
 wider than the page is hard-broken rather than clipped, so a long exercise name cannot push its sets,
-reps or weight off the page. A weights-free document prints the omission note and no load at all, and a recorded zero
+reps or weight off the page. A timed slot prints its seconds, a distance slot its stored metres
+(`"<n> m"`) and a force slot its newtons (`"<n> N"`), never an absent rep count. A weights-free document prints the omission note and no load at all, and a recorded zero
 prints as a number. `ExportPrescriptionPdfUseCase` has the same two entry points as
 `ExportPrescriptionsUseCase` (stored routine ids, or an in-memory routine list) so printing the
 displayed plan reads no stored routine. The Android adapter renders with
@@ -246,15 +278,19 @@ BOM, LF/CRLF, and quoted delimiters, newlines and doubled quotes. Rows keep sour
 and duplicates; a blank weight and an unavailable warmup stay null, and no UTC instant,
 session id, RPE-to-RIR conversion, load-kind inference or set dedupe is produced.
 
-A parsed row is measured by a positive rep count or positive whole seconds, never both
-and never neither (`WorkoutCsvRow.reps` is nullable beside `durationSeconds`). Strong's
-`Seconds` and Hevy's `duration_seconds` produce a duration row when reps are absent, so
-an imported timed set stores seconds with NULL reps. A row carrying both a positive rep
-count and positive seconds is rejected as `AMBIGUOUS_ROW_SHAPE` rather than guessed, and a
-row with neither is rejected as before. FitNotes exposes no duration column, so its rows
-still require a positive rep count. Seconds are never inferred from source timestamps or
-encoded as reps. RPE, distance, notes and superset values on otherwise valid rows are
-retained as per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/duration/
+A parsed row is measured by exactly one of a positive rep count, positive whole seconds or a
+positive distance, never two and never none (`WorkoutCsvRow` has nullable `reps` beside
+`durationSeconds` and `distanceMeters`). Strong's `Seconds` and Hevy's `duration_seconds` produce a
+duration row when reps are absent, so an imported timed set stores seconds with NULL reps.
+FitNotes' and Strong's `Distance` + `Distance Unit`, and Hevy's `distance_miles`/`distance_km`,
+produce a distance row when reps and seconds are absent; units accept `m`/`km`/`mi` with their
+spelled-out singular/plural forms and are converted to whole metres. A malformed value is
+`INVALID_DISTANCE` and an unknown unit is `INVALID_DISTANCE_UNIT`; a blank or zero value means the
+source recorded no distance. A row carrying more than one positive measure is rejected as
+`AMBIGUOUS_ROW_SHAPE` rather than guessed, and a row with none remains `UNSUPPORTED_ROW_SHAPE`.
+Seconds are never inferred from source timestamps or encoded as reps, and a distance is never
+encoded as either. RPE, notes and superset values on otherwise valid rows are
+retained as per-row `UNSUPPORTED_METADATA` diagnostics; invalid date/time/reps/duration/distance/
 weight/unit values reject only that row with the row index retained. Header, CSV-structure and limit
 failures raise a typed `WorkoutCsvException` under 32 MiB UTF-8, 250,000 data rows,
 64 columns and 65,536 characters per field, matching `BackupLimits`.
@@ -263,7 +299,9 @@ Counted Strong/Hevy rows retain their legacy diagnostic for an explicit zero-dur
 including its original ordering and source spelling: canonical identity includes diagnostics.
 Timed rows consume the field as their measurement instead. Duration parsing accepts positive
 whole seconds through `Int.MAX_VALUE`; nonblank malformed reps are rejected even when seconds
-are valid, rather than silently treating the reps as absent.
+are valid, rather than silently treating the reps as absent. Distance rows canonicalize with the
+`distance:<n>` measurement prefix, so a distance row never shares an identity with a rep or timed
+row of the same source shape.
 
 ## Local import preview, commit and provenance (0.9.1-I2/I3)
 

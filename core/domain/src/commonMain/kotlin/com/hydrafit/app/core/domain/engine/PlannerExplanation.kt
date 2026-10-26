@@ -143,7 +143,10 @@ enum class LoadUnavailableReason {
     /** The exercise's capability is not external resistance, so no number is generated. */
     NOT_LOAD_TRACKED,
 
-    /** External, but no qualifying recent evidence and no usable manual record. */
+    /**
+     * No qualifying recent load evidence: external work with no usable manual record, or a
+     * bodyweight-addable exercise with no recorded added load to continue.
+     */
     INSUFFICIENT_RECENT_EVIDENCE,
 
     /** A model plan whose workout data was not shared, so the app generates no number. */

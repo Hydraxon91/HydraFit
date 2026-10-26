@@ -12,7 +12,8 @@ val splitBuilderModule: Module = module {
             planBuilderActions = get(),
             planHistory = get(),
             exerciseCatalog = get(),
-            enginePreference = get()
+            enginePreference = get(),
+            distanceUnitRepository = get()
         )
     }
     viewModel {

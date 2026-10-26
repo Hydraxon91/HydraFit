@@ -17,13 +17,18 @@ data class WorkoutHistoryCsvRow(
     val exerciseName: String,
     /** Repetitions for counted work, blank in the export for a timed set. */
     val reps: Int?,
-    /** Elapsed whole seconds for a timed set, blank for counted work. */
+    /** Elapsed whole seconds for a timed set, blank for counted or distance work. */
     val durationSeconds: Int? = null,
+    /** Whole metres for a distance set, blank for counted or timed work. */
+    val distanceMeters: Int? = null,
     val weightKg: Double?,
     val loadKind: String,
     val isWarmup: Boolean,
     val rir: Int?,
-    val timingProvenance: String
+    val timingProvenance: String,
+    val forceNewtons: Double? = null,
+    val deviceName: String? = null,
+    val deviceRatingKg: Double? = null
 )
 
 /**
@@ -49,11 +54,15 @@ object WorkoutHistoryCsvWriter {
         "exerciseName",
         "reps",
         "durationSeconds",
+        "distanceMeters",
         "weightKg",
         "loadKind",
         "isWarmup",
         "rir",
-        "timingProvenance"
+        "timingProvenance",
+        "forceNewtons",
+        "deviceName",
+        "deviceRatingKg"
     )
 
     fun write(rows: List<WorkoutHistoryCsvRow>): String = buildString {
@@ -73,11 +82,15 @@ object WorkoutHistoryCsvWriter {
                     textField(row.exerciseName),
                     plainField(row.reps?.toString()),
                     plainField(row.durationSeconds?.toString()),
+                    plainField(row.distanceMeters?.toString()),
                     plainField(row.weightKg?.toString()),
                     textField(row.loadKind),
                     plainField(if (row.isWarmup) "true" else "false"),
                     plainField(row.rir?.toString()),
-                    textField(row.timingProvenance)
+                    textField(row.timingProvenance),
+                    plainField(row.forceNewtons?.toString()),
+                    textField(row.deviceName),
+                    plainField(row.deviceRatingKg?.toString())
                 ).joinToString(",")
             )
             append("\r\n")
@@ -147,11 +160,15 @@ class ExportWorkoutHistoryCsvUseCase(
                 exerciseName = names[set.exerciseId] ?: set.exerciseId,
                 reps = set.reps,
                 durationSeconds = set.durationSeconds,
+                distanceMeters = set.distanceMeters,
                 weightKg = set.weightKg,
                 loadKind = set.loadKind.name,
                 isWarmup = set.isWarmup,
                 rir = set.rir,
-                timingProvenance = set.timingProvenance.name
+                timingProvenance = set.timingProvenance.name,
+                forceNewtons = set.forceNewtons,
+                deviceName = set.device?.name,
+                deviceRatingKg = set.device?.ratingKg
             )
         }
         return WorkoutHistoryCsvWriter.write(rows)

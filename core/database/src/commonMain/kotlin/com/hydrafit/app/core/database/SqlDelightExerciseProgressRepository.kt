@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -67,6 +68,16 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
     override fun observeOccurrenceExerciseIds(occurrenceId: Long): Flow<List<String>> =
         queries.observeOccurrenceExerciseIds(occurrenceId).asFlow().mapToList(Dispatchers.Default)
 
+    override fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>> =
+        queries.selectStationOptions(exerciseId)
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { rows ->
+                rows.mapNotNull { row ->
+                    stationAttributionOf(row.stationId, row.stationName, row.stationLoadBasis)
+                }.distinctBy { it.id }
+            }
+
     override fun observeSet(exerciseId: String, setId: Long): Flow<WorkoutHistorySet?> =
         queries.selectExerciseSetById(exerciseId, setId, ::historySet)
             .asFlow()
@@ -88,7 +99,9 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
                     while (true) {
                         context.ensureActive()
                         val rows = replayPage(request, cursor)
-                        rows.forEach(calculator::accept)
+                        rows.forEach { set ->
+                            if (request.includes(set.station?.id)) calculator.accept(set)
+                        }
                         val last = rows.lastOrNull() ?: break
                         cursor = last.performedAtMillis to last.id
                         if (rows.size < REPLAY_PAGE_SIZE.toInt()) break
@@ -142,7 +155,14 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         performedAt: Long,
         timingProvenance: String,
         occurrenceId: Long?,
-        durationSeconds: Long?
+        durationSeconds: Long?,
+        stationId: Long?,
+        stationName: String?,
+        stationLoadBasis: String?,
+        distanceMeters: Long?,
+        forceNewtons: Double?,
+        deviceName: String?,
+        deviceRatingKg: Double?
     ) = WorkoutHistorySet(
         id = id,
         exerciseId = exerciseId,
@@ -150,12 +170,16 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
+        station = stationAttributionOf(stationId, stationName, stationLoadBasis),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
         timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
         durationSeconds = durationSeconds?.toInt(),
-        occurrenceId = occurrenceId
+        occurrenceId = occurrenceId,
+        distanceMeters = distanceMeters?.toInt(),
+        forceNewtons = forceNewtons,
+        device = deviceAttributionOf(deviceName, deviceRatingKg)
     )
 
     private fun replaySet(
@@ -167,17 +191,28 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         performedAt: Long,
         isWarmup: Long,
         occurrenceId: Long?,
-        durationSeconds: Long?
+        durationSeconds: Long?,
+        stationId: Long?,
+        stationName: String?,
+        stationLoadBasis: String?,
+        distanceMeters: Long?,
+        forceNewtons: Double?,
+        deviceName: String?,
+        deviceRatingKg: Double?
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
+        station = stationAttributionOf(stationId, stationName, stationLoadBasis),
         performedAtMillis = performedAt,
         isWarmup = isWarmup != 0L,
         occurrenceId = occurrenceId,
-        durationSeconds = durationSeconds?.toInt()
+        durationSeconds = durationSeconds?.toInt(),
+        distanceMeters = distanceMeters?.toInt(),
+        forceNewtons = forceNewtons,
+        device = deviceAttributionOf(deviceName, deviceRatingKg)
     )
 
     private companion object {

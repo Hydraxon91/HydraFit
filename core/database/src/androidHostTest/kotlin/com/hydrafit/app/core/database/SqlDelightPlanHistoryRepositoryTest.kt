@@ -694,6 +694,89 @@ class SqlDelightPlanHistoryRepositoryTest {
     }
 
     @Test
+    fun setMeasureClearsTheLoadForForceAndTheOrderedTargetsForAnyNonRepsMeasure() = runTest {
+        val targets = com.hydrafit.app.core.domain.engine.SlotSetTargets.of(
+            listOf(
+                com.hydrafit.app.core.domain.engine.SetTarget(reps = 8, weightKg = 30.0)
+            )
+        )
+        val base = plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L)
+        repository.accept(
+            base.copy(
+                days = base.days.map { day ->
+                    if (day.dayIndex != 0) {
+                        day
+                    } else {
+                        day.copy(
+                            exercises = day.exercises.mapIndexed { index, exercise ->
+                                if (index != 0) {
+                                    exercise
+                                } else {
+                                    exercise.copy(
+                                        suggestedWeightKg = 30.0,
+                                        setTargets = targets
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            )
+        )
+        val planId = requireNotNull(repository.latest()).id
+
+        // A reps edit keeps the load and the ordered targets: only the measures that cannot carry
+        // them clear anything.
+        repository.setMeasure(
+            planId = planId,
+            dayIndex = 0,
+            position = 0,
+            reps = 8,
+            durationSeconds = null
+        )
+        val kept = requireNotNull(repository.latest()).days.first().exercises.first()
+        assertEquals(8, kept.reps)
+        assertEquals(30.0, kept.suggestedWeightKg)
+        assertEquals(targets, kept.setTargets)
+
+        // A timed edit drops the rep targets but keeps the slot's legitimate separate load.
+        repository.setMeasure(
+            planId = planId,
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = 45
+        )
+        val timed = requireNotNull(repository.latest()).days.first().exercises.first()
+        assertEquals(45, timed.durationSeconds)
+        assertEquals(30.0, timed.suggestedWeightKg)
+        assertNull(timed.setTargets)
+
+        repository.setMeasure(
+            planId = planId,
+            dayIndex = 0,
+            position = 0,
+            reps = 8,
+            durationSeconds = null
+        )
+        repository.setMeasure(
+            planId = planId,
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = null,
+            forceNewtons = 250.0
+        )
+
+        val force = requireNotNull(repository.latest()).days.first().exercises.first()
+        assertEquals(250.0, force.forceNewtons)
+        // Force is load-free, so the stored numeric load cannot survive the change.
+        assertNull(force.suggestedWeightKg)
+        // Ordered targets are rep work; a force slot drops rather than preserves them.
+        assertNull(force.setTargets)
+    }
+
+    @Test
     fun setMeasureOnAMissingSlotIsANoOp() = runTest {
         repository.accept(plan(engine = PlannerEngineId.DETERMINISTIC, acceptedAt = 1L))
         val planId = requireNotNull(repository.latest()).id

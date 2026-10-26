@@ -21,7 +21,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
@@ -29,13 +32,18 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummaryExercise
 import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_edit_set
+import hydrafit.feature.logger.generated.resources.logger_force_value
 import hydrafit.feature.logger.generated.resources.logger_history_exercise_missing
+import hydrafit.feature.logger.generated.resources.logger_history_set_distance_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
+import hydrafit.feature.logger.generated.resources.logger_history_set_force_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_summary_close
 import hydrafit.feature.logger.generated.resources.logger_summary_done
 import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_description
+import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_distance_description
 import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_duration_description
+import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_force_description
 import hydrafit.feature.logger.generated.resources.logger_summary_extra_sets
 import hydrafit.feature.logger.generated.resources.logger_summary_failed
 import hydrafit.feature.logger.generated.resources.logger_summary_loading
@@ -53,7 +61,10 @@ import hydrafit.feature.logger.generated.resources.logger_summary_started
 import hydrafit.feature.logger.generated.resources.logger_summary_status_finished
 import hydrafit.feature.logger.generated.resources.logger_summary_status_partial
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_distance
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_force
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none
+import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none_distance
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_none_timed
 import hydrafit.feature.logger.generated.resources.logger_summary_target_sets_timed
 import hydrafit.feature.logger.generated.resources.logger_summary_title
@@ -82,6 +93,7 @@ internal fun WorkoutSummaryRoute(
     screen: WorkoutSummaryScreen?,
     records: WorkoutSummaryRecordsUiState,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     utcOffsetMillis: Long,
     onRetry: () -> Unit,
     onRecordsRetry: () -> Unit,
@@ -110,6 +122,7 @@ internal fun WorkoutSummaryRoute(
                 WorkoutSummaryContent(
                     summary = screen.summary,
                     weightUnit = weightUnit,
+                    distanceUnit = distanceUnit,
                     utcOffsetMillis = utcOffsetMillis,
                     onViewInHistory = onViewInHistory,
                     onEditSet = { set -> onEditSet(screen.summary.occurrenceId, set) }
@@ -139,6 +152,7 @@ internal fun WorkoutSummaryRoute(
 private fun WorkoutSummaryContent(
     summary: WorkoutSummary,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     utcOffsetMillis: Long,
     onViewInHistory: (WorkoutSummary) -> Unit,
     onEditSet: (WorkoutSummarySet) -> Unit
@@ -183,18 +197,20 @@ private fun WorkoutSummaryContent(
     )
 
     summary.exercises.forEach { exercise ->
-        SummaryExerciseSection(exercise, weightUnit, onEditSet)
+        SummaryExerciseSection(exercise, weightUnit, distanceUnit, onEditSet)
     }
     SummarySetGroup(
         Res.string.logger_summary_extra_sets,
         summary.extraSets,
         weightUnit,
+        distanceUnit,
         onEditSet
     )
     SummarySetGroup(
         Res.string.logger_summary_warmup_sets,
         summary.warmupSets,
         weightUnit,
+        distanceUnit,
         onEditSet
     )
 
@@ -236,6 +252,7 @@ private fun WorkoutSummaryContent(
 private fun SummaryExerciseSection(
     exercise: WorkoutSummaryExercise,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     onEditSet: (WorkoutSummarySet) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
@@ -252,11 +269,11 @@ private fun SummaryExerciseSection(
             }
         }
         Text(
-            text = prescribedTargetText(exercise, weightUnit),
+            text = prescribedTargetText(exercise, weightUnit, distanceUnit),
             style = MaterialTheme.typography.bodySmall
         )
         exercise.performedSets.forEachIndexed { index, set ->
-            SummarySetLine(set, index + 1, weightUnit, onEditSet)
+            SummarySetLine(set, index + 1, weightUnit, distanceUnit, onEditSet)
         }
         if (exercise.remainingSets > 0) {
             Text(
@@ -281,12 +298,15 @@ private fun SummarySetGroup(
     label: StringResource,
     sets: List<WorkoutSummarySet>,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     onEditSet: (WorkoutSummarySet) -> Unit
 ) {
     if (sets.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
         Text(text = stringResource(label), style = MaterialTheme.typography.titleMedium)
-        sets.forEachIndexed { index, set -> SummarySetLine(set, index + 1, weightUnit, onEditSet) }
+        sets.forEachIndexed { index, set ->
+            SummarySetLine(set, index + 1, weightUnit, distanceUnit, onEditSet)
+        }
     }
 }
 
@@ -299,11 +319,28 @@ private fun SummarySetLine(
     set: WorkoutSummarySet,
     position: Int,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     onEditSet: (WorkoutSummarySet) -> Unit
 ) {
     val durationSeconds = set.durationSeconds
+    val distanceMeters = set.distanceMeters
+    val forceNewtons = set.forceNewtons
     val reps = set.reps
     val editDescription = when {
+        forceNewtons != null -> stringResource(
+            Res.string.logger_summary_edit_set_force_description,
+            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            position,
+            stringResource(Res.string.logger_force_value, formatWeight(forceNewtons))
+        )
+
+        distanceMeters != null -> stringResource(
+            Res.string.logger_summary_edit_set_distance_description,
+            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            position,
+            formatDistance(distanceMeters, distanceUnit)
+        )
+
         durationSeconds != null -> stringResource(
             Res.string.logger_summary_edit_set_duration_description,
             set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
@@ -322,47 +359,109 @@ private fun SummarySetLine(
             Res.string.logger_history_exercise_missing
         )
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val durationSeconds = set.durationSeconds
-        val reps = set.reps
-        Text(
-            text = when {
-                durationSeconds != null -> stringResource(
-                    Res.string.logger_history_set_duration_line,
-                    durationSeconds,
-                    loadWeightText(set.loadKind, set.weightKg, weightUnit)
-                )
-
-                reps != null -> stringResource(
-                    Res.string.logger_history_set_line,
-                    reps,
-                    loadWeightText(set.loadKind, set.weightKg, weightUnit)
-                )
-
-                else -> loadWeightText(set.loadKind, set.weightKg, weightUnit)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.weight(1f)
-        )
-        TextButton(
-            onClick = { onEditSet(set) },
-            modifier = Modifier.semantics {
-                contentDescription = editDescription
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(Res.string.logger_edit_set))
+            val durationSeconds = set.durationSeconds
+            val distanceMeters = set.distanceMeters
+            val forceNewtons = set.forceNewtons
+            val reps = set.reps
+            Text(
+                text = when {
+                    // A force reading is its own measure: it is never shown as a load or lifted mass.
+                    forceNewtons != null -> stringResource(
+                        Res.string.logger_history_set_force_line,
+                        stringResource(
+                            Res.string.logger_force_value,
+                            formatWeight(forceNewtons)
+                        )
+                    )
+
+                    distanceMeters != null -> stringResource(
+                        Res.string.logger_history_set_distance_line,
+                        formatDistance(distanceMeters, distanceUnit),
+                        loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                    )
+
+                    durationSeconds != null -> stringResource(
+                        Res.string.logger_history_set_duration_line,
+                        durationSeconds,
+                        loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                    )
+
+                    reps != null -> stringResource(
+                        Res.string.logger_history_set_line,
+                        reps,
+                        loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                    )
+
+                    else -> loadWeightText(set.loadKind, set.weightKg, weightUnit)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                onClick = { onEditSet(set) },
+                modifier = Modifier.semantics {
+                    contentDescription = editDescription
+                }
+            ) {
+                Text(stringResource(Res.string.logger_edit_set))
+            }
+        }
+        set.device?.takeIf { forceNewtons != null }?.let { device ->
+            Text(
+                text = deviceAttributionText(device),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
 
 @Composable
-private fun prescribedTargetText(exercise: WorkoutSummaryExercise, weightUnit: WeightUnit): String {
+private fun prescribedTargetText(
+    exercise: WorkoutSummaryExercise,
+    weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit
+): String {
     val seconds = exercise.prescribedDurationSeconds
+    val distance = exercise.prescribedDistanceMeters
+    val force = exercise.prescribedForceNewtons
     val reps = exercise.prescribedReps ?: 0
+    // A force target is a measured reading, never a load, so it carries no load text at all.
+    if (force != null) {
+        return stringResource(
+            Res.string.logger_summary_target_sets_force,
+            exercise.prescribedSets,
+            stringResource(Res.string.logger_force_value, formatWeight(force))
+        )
+    }
+    if (distance != null) {
+        val shown = formatDistance(distance, distanceUnit)
+        return if (exercise.prescribedWeightKg == null &&
+            exercise.prescribedLoadKind == LoadKind.BODYWEIGHT
+        ) {
+            stringResource(
+                Res.string.logger_summary_target_sets_none_distance,
+                exercise.prescribedSets,
+                shown
+            )
+        } else {
+            stringResource(
+                Res.string.logger_summary_target_sets_distance,
+                exercise.prescribedSets,
+                shown,
+                loadWeightText(
+                    exercise.prescribedLoadKind,
+                    exercise.prescribedWeightKg,
+                    weightUnit
+                )
+            )
+        }
+    }
     return if (exercise.prescribedWeightKg == null &&
         exercise.prescribedLoadKind == LoadKind.BODYWEIGHT
     ) {

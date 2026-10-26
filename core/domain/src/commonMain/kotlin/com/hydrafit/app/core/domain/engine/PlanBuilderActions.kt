@@ -63,9 +63,18 @@ class PlanBuilderActions(
         dayIndex: Int,
         position: Int,
         reps: Int?,
-        durationSeconds: Int?
-    ): AcceptedExercise? =
-        setAcceptedExerciseMeasure.invoke(plan, dayIndex, position, reps, durationSeconds)
+        durationSeconds: Int?,
+        distanceMeters: Int? = null,
+        forceNewtons: Double? = null
+    ): AcceptedExercise? = setAcceptedExerciseMeasure.invoke(
+        plan,
+        dayIndex,
+        position,
+        reps,
+        durationSeconds,
+        distanceMeters,
+        forceNewtons
+    )
 
     /** Today as a local civil day, for the "start today" default. */
     fun todayEpochDay(): Long =

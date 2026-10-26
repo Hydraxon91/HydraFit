@@ -94,6 +94,7 @@ import hydrafit.feature.settings.generated.resources.settings_workout_import_pro
 import hydrafit.feature.settings.generated.resources.settings_workout_import_rejected_title
 import hydrafit.feature.settings.generated.resources.settings_workout_import_reset
 import hydrafit.feature.settings.generated.resources.settings_workout_import_review_title
+import hydrafit.feature.settings.generated.resources.settings_workout_import_row_distance
 import hydrafit.feature.settings.generated.resources.settings_workout_import_row_duration
 import hydrafit.feature.settings.generated.resources.settings_workout_import_row_session
 import hydrafit.feature.settings.generated.resources.settings_workout_import_section
@@ -703,10 +704,14 @@ private fun WorkoutImportRowUi.detailText(): String {
         null -> stringResource(Res.string.settings_workout_import_unknown_set_type)
     }
     val duration = durationSeconds
+    val distance = distanceMeters
     val countedReps = reps
     val measurement = when {
         duration != null ->
             stringResource(Res.string.settings_workout_import_row_duration, duration)
+
+        distance != null ->
+            stringResource(Res.string.settings_workout_import_row_distance, distance)
 
         countedReps != null -> countedReps.toString()
         else -> ""

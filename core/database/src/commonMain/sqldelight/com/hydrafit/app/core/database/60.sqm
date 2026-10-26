@@ -1,0 +1,15 @@
+CREATE TABLE equipmentStation (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    profileId INTEGER NOT NULL REFERENCES equipmentProfile(id),
+    equipmentId TEXT NOT NULL REFERENCES equipment(id),
+    name TEXT NOT NULL,
+    loadBasis TEXT NOT NULL DEFAULT 'TOTAL',
+    minWeightKg REAL,
+    maxWeightKg REAL,
+    incrementKg REAL,
+    retired INTEGER NOT NULL DEFAULT 0
+);
+
+ALTER TABLE workoutSet ADD COLUMN stationId INTEGER;
+ALTER TABLE workoutSet ADD COLUMN stationName TEXT;
+ALTER TABLE workoutSet ADD COLUMN stationLoadBasis TEXT;

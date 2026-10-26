@@ -38,12 +38,13 @@ private fun recordedTarget(
     weightKg: Double,
     sets: Int = 3,
     isDeload: Boolean = false,
-    policy: SlotProgressionPolicy = DEFAULT_POLICY
+    policy: SlotProgressionPolicy = DEFAULT_POLICY,
+    loadKind: LoadKind = LoadKind.EXTERNAL
 ) = WorkoutPrescriptionSnapshot(
     exerciseId = EXERCISE,
     sets = sets,
     reps = reps,
-    loadKind = LoadKind.EXTERNAL,
+    loadKind = loadKind,
     weightKg = weightKg,
     isDeload = isDeload,
     progressionPolicy = policy
@@ -77,6 +78,7 @@ private class RecordedHistory {
                 } else {
                     requireNotNull(target.weightKg) - 1.0
                 },
+                loadKind = target.loadKind,
                 performedAtMillis = end - 1_800_000L + index,
                 sessionId = sessionId,
                 prescriptionSnapshot = target
@@ -188,6 +190,57 @@ private fun kilogramsBarInventory() = LoadingInventory(
 class SlotProgressionResolverTest {
 
     private val useCase = ResolveSlotProgressionUseCase()
+
+    @Test
+    fun aDistanceSlotNeverReceivesAProgressionSuggestion() {
+        // Distance has no rep range or load step, so even a strong run of distance exposures must not
+        // produce an advance/review decision. A null rep measure is the slot's own exclusion.
+        val history = RecordedHistory()
+            .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)
+            .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)
+            .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)
+            .build()
+
+        val suggestion = useCase(request(reps = null), history, NOW)
+
+        assertEquals(SlotProgressionAction.HOLD, suggestion.action)
+        assertNull(suggestion.suggestedReps)
+        assertNull(suggestion.suggestedLoadKg)
+        assertEquals(0, suggestion.comparableSuccesses)
+    }
+
+    @Test
+    fun anAddedLoadSlotAdvancesWithTheSameRule() {
+        val target = recordedTarget(reps = 5, weightKg = 10.0, loadKind = LoadKind.ADDED)
+        val history = RecordedHistory()
+            .exposure(target, met = 3)
+            .exposure(target, met = 3)
+            .exposure(target, met = 3)
+            .build()
+
+        val suggestion = useCase(request(loadKg = 10.0, loadKind = LoadKind.ADDED), history, NOW)
+
+        assertEquals(SlotProgressionAction.ADVANCE_REPS, suggestion.action)
+        assertEquals(6, suggestion.suggestedReps)
+        assertEquals(10.0, suggestion.suggestedLoadKg)
+        assertEquals(3, suggestion.comparableSuccesses)
+    }
+
+    @Test
+    fun anAddedLoadRecordNeverJudgesAnExternalSlot() {
+        val added = recordedTarget(reps = 5, weightKg = 10.0, loadKind = LoadKind.ADDED)
+        val history = RecordedHistory()
+            .exposure(added, met = 3)
+            .exposure(added, met = 3)
+            .exposure(added, met = 3)
+            .build()
+
+        val suggestion = useCase(request(loadKg = 10.0, loadKind = LoadKind.EXTERNAL), history, NOW)
+
+        assertEquals(SlotProgressionAction.HOLD, suggestion.action)
+        assertEquals(SlotProgressionReason.INSUFFICIENT_COMPARABLE_WORK, suggestion.reason)
+        assertEquals(0, suggestion.comparableSuccesses)
+    }
 
     @Test
     fun threeComparableSuccessesAdvanceOneRepInsideTheRange() {

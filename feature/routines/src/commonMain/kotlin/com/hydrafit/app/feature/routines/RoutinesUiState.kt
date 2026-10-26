@@ -11,14 +11,15 @@ import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 
 /** A catalog exercise the routine editor can pick; [isExcluded] marks an EX-01 exclusion. */
 data class RoutineExerciseOption(val id: String, val name: String, val isExcluded: Boolean = false)
 
-/** Which measurement a slot is prescribed in; the two are exclusive, never both and never neither. */
-enum class EntryMetric { REPETITIONS, DURATION }
+/** Which measurement a slot is prescribed in; they are exclusive, never two and never none. */
+enum class EntryMetric { REPETITIONS, DURATION, DISTANCE, FORCE }
 
 /** One editable prescription slot; numbers stay as text until save so partial input is allowed. */
 data class EditorEntry(
@@ -34,6 +35,10 @@ data class EditorEntry(
     val metric: EntryMetric = EntryMetric.REPETITIONS,
     /** Whole seconds as text, used when [metric] is [EntryMetric.DURATION]. */
     val durationSeconds: String = "",
+    /** Distance as text in [RoutineEditorState.distanceUnit], used when [metric] is DISTANCE. */
+    val distance: String = "",
+    /** Measured force in canonical newtons as text, used when [metric] is [EntryMetric.FORCE]. */
+    val forceNewtons: String = "",
     /** The approved progression policy for this slot, or null when the user has not set one. */
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
@@ -45,7 +50,7 @@ data class EditorEntry(
     val repsValue: Int?
         get() = if (metric == EntryMetric.REPETITIONS) reps.toIntOrNull() else null
 
-    /** The prescribed whole seconds, or null when the slot is counted. */
+    /** The prescribed whole seconds, or null when the slot is counted or measured by force. */
     val durationValue: Int?
         get() = if (metric == EntryMetric.DURATION) durationSeconds.toIntOrNull() else null
 }
@@ -64,6 +69,8 @@ data class RoutineEditorState(
     val sourcePlanId: Long?,
     val name: String,
     val unit: WeightUnit,
+    /** The distance unit frozen at open time, so a mid-edit preference change cannot rewrite rows. */
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val workouts: List<EditorWorkout> = emptyList()
 )
 

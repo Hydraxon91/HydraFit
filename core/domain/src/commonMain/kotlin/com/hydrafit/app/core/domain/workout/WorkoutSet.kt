@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+
 data class WorkoutSet(
     val id: Long = 0,
     val exerciseId: String,
@@ -37,7 +39,22 @@ data class WorkoutSet(
      */
     val durationSeconds: Int? = null,
     /** Immutable prescribed target, not the actual performance or a reference to today's plan. */
-    val prescriptionSnapshot: WorkoutPrescriptionSnapshot? = null
+    val prescriptionSnapshot: WorkoutPrescriptionSnapshot? = null,
+    /**
+     * The physical station this set was performed on, frozen at logging, or null for legacy and
+     * unattributed work. A station identity is independent of the mutable station row.
+     */
+    val station: StationAttribution? = null,
+    /**
+     * The gripping/dynamometer device and its stated resistance rating, when one was recorded. This
+     * is descriptive identity: [DeviceAttribution.ratingKg] is never treated as measured force or as
+     * lifted mass, and sets are only comparable when this identity matches.
+     */
+    val device: DeviceAttribution? = null,
+    /** Whole metres for a distance set, or null for reps and timed work. */
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons for a force set, or null for every other metric. */
+    val forceNewtons: Double? = null
 ) {
     /**
      * The set's measurement when its stored shape is valid, or null when the row is neither a
@@ -46,10 +63,33 @@ data class WorkoutSet(
      */
     val measurement: SetMeasurement?
         get() = when {
-            durationSeconds != null && durationSeconds > 0 && reps == null ->
+            forceNewtons != null &&
+                forceNewtons > 0.0 &&
+                forceNewtons.isFinite() &&
+                reps == null &&
+                durationSeconds == null &&
+                distanceMeters == null ->
+                SetMeasurement.Force(forceNewtons)
+
+            distanceMeters != null &&
+                distanceMeters > 0 &&
+                reps == null &&
+                durationSeconds == null &&
+                forceNewtons == null ->
+                SetMeasurement.Distance(distanceMeters)
+
+            durationSeconds != null &&
+                durationSeconds > 0 &&
+                reps == null &&
+                distanceMeters == null &&
+                forceNewtons == null ->
                 SetMeasurement.Duration(durationSeconds)
 
-            durationSeconds == null && reps != null && reps > 0 ->
+            durationSeconds == null &&
+                distanceMeters == null &&
+                forceNewtons == null &&
+                reps != null &&
+                reps > 0 ->
                 SetMeasurement.Repetitions(reps)
 
             else -> null
@@ -57,20 +97,67 @@ data class WorkoutSet(
 }
 
 /**
- * Requires exactly one positive measurement: a positive [reps] count or a positive
- * [durationSeconds], never both, never neither, and never a non-positive value.
+ * Requires exactly one positive measurement: a positive [reps] count, a positive [durationSeconds],
+ * positive whole metres of distance, or positive measured force in newtons — never more than one,
+ * never none, and never a non-positive or non-finite value.
  *
  * Rejecting the empty shape is what keeps `0` from meaning "not applicable": the unused metric
  * stays null rather than carrying a sentinel.
  */
 fun requireValidSetMeasurement(reps: Int?, durationSeconds: Int?) {
+    requireValidSetMeasurement(reps, durationSeconds, null)
+}
+
+fun requireValidSetMeasurement(
+    reps: Int?,
+    durationSeconds: Int?,
+    distanceMeters: Int?,
+    forceNewtons: Double? = null
+) {
     val hasReps = reps != null && reps > 0
     val hasDuration = durationSeconds != null && durationSeconds > 0
-    require(hasReps != hasDuration) {
-        "A set is measured by positive repetitions or positive whole seconds, exactly one of them"
+    val hasDistance = distanceMeters != null && distanceMeters > 0
+    val hasForce = forceNewtons != null && forceNewtons.isFinite() && forceNewtons > 0.0
+    require(listOf(hasReps, hasDuration, hasDistance, hasForce).count { it } == 1) {
+        "A set is measured by positive repetitions, positive whole seconds, positive metres or " +
+            "positive newtons, exactly one of them"
     }
     require(reps == null || reps > 0) { "Reps must be positive when present" }
     require(durationSeconds == null || durationSeconds > 0) {
         "Duration must be positive whole seconds when present"
+    }
+    require(distanceMeters == null || distanceMeters > 0) {
+        "Distance must be positive whole metres when present"
+    }
+    require(forceNewtons == null || (forceNewtons.isFinite() && forceNewtons > 0.0)) {
+        "Force must be finite and positive newtons when present"
+    }
+}
+
+/**
+ * The gripping device a force set was measured with, frozen at logging. [ratingKg] is the device's
+ * stated resistance rating, not the force the user produced: the two are never converted into one
+ * another.
+ */
+data class DeviceAttribution(val name: String, val ratingKg: Double? = null) {
+    init {
+        require(name.isNotBlank()) { "A device needs a name" }
+        require(ratingKg == null || (ratingKg.isFinite() && ratingKg > 0.0)) {
+            "A device rating must be finite and positive when present"
+        }
+    }
+}
+
+/** A force set is load-free: it never also carries an external or added load. */
+fun requireForceIsLoadFree(forceNewtons: Double?, weightKg: Double?) {
+    require(forceNewtons == null || weightKg == null) {
+        "A force set cannot record an external or added load"
+    }
+}
+
+/** Only a force set may carry a measuring device; other measurements have no device identity. */
+fun requireValidDevice(forceNewtons: Double?, device: DeviceAttribution?) {
+    require(device == null || forceNewtons != null) {
+        "Only a force set can record a measuring device"
     }
 }

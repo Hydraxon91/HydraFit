@@ -1079,7 +1079,9 @@ class CustomExerciseDedupeTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null,
+            forceNewtons = null
         )
     }
 
@@ -1153,7 +1155,9 @@ class CustomExerciseDedupeTest {
             weightKg = null,
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null,
+            forceNewtons = null
         )
     }
 
@@ -1200,7 +1204,9 @@ class CustomExerciseDedupeTest {
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null,
+            forceNewtons = null
         )
         database.trainingScheduleQueries.insertOccurrence(
             activationId = activationId,
@@ -1234,7 +1240,9 @@ class CustomExerciseDedupeTest {
             remainingDisposition = null,
             terminalRemainingSets = null,
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null,
+            forceNewtons = null
         )
     }
 

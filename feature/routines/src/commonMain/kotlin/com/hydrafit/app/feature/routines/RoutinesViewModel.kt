@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
@@ -27,11 +28,13 @@ import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
@@ -51,13 +54,19 @@ class RoutinesViewModel(
     private val timeProvider: TimeProvider,
     private val weightUnitRepository: WeightUnitRepository,
     private val exclusionRepository: ExerciseExclusionRepository,
-    private val preferredWeekdaysRepository: PreferredWeekdaysRepository
+    private val preferredWeekdaysRepository: PreferredWeekdaysRepository,
+    /**
+     * The user's distance display unit. Null keeps the editor on metres; distance is always stored
+     * in metres, so only the authoring label changes.
+     */
+    private val distanceUnitRepository: DistanceUnitRepository? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RoutinesUiState())
     val state: StateFlow<RoutinesUiState> = _state.asStateFlow()
 
     private var weightUnit: WeightUnit = WeightUnit.KG
+    private var distanceUnit: DistanceUnit = DistanceUnit.METERS
 
     /** Builds the ordered per-set targets; stateless, so one instance serves every dialog. */
     private val buildSetPrescription = BuildSetPrescriptionUseCase()
@@ -108,6 +117,9 @@ class RoutinesViewModel(
             }
         }
         viewModelScope.launch {
+            distanceUnitRepository?.unitFlow()?.collect { distanceUnit = it }
+        }
+        viewModelScope.launch {
             scheduleActions.observeActiveActivation().collect { activation ->
                 _state.update { it.copy(activeActivation = activation) }
                 occurrencesJob?.cancel()
@@ -156,6 +168,7 @@ class RoutinesViewModel(
                     sourcePlanId = null,
                     name = "",
                     unit = weightUnit,
+                    distanceUnit = distanceUnit,
                     workouts = emptyList()
                 )
             )
@@ -164,7 +177,7 @@ class RoutinesViewModel(
 
     fun onEditRoutine(template: RoutineTemplate) {
         val names = _state.value.exercises.associate { it.id to it.name }
-        _state.update { it.copy(editor = template.toEditor(weightUnit, names)) }
+        _state.update { it.copy(editor = template.toEditor(weightUnit, distanceUnit, names)) }
     }
 
     fun onEditorNameChanged(name: String) = updateEditor { it.copy(name = name) }
@@ -295,6 +308,12 @@ class RoutinesViewModel(
 
     fun onEntryDurationChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(durationSeconds = value) }
+
+    fun onEntryDistanceChanged(workoutIndex: Int, entryIndex: Int, value: String) =
+        updateEntry(workoutIndex, entryIndex) { it.copy(distance = value) }
+
+    fun onEntryForceChanged(workoutIndex: Int, entryIndex: Int, value: String) =
+        updateEntry(workoutIndex, entryIndex) { it.copy(forceNewtons = value) }
 
     fun onEntryWeightChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(weight = value) }
@@ -1002,6 +1021,7 @@ private fun ActivationUiState.withPreview(
 
 private fun RoutineTemplate.toEditor(
     unit: WeightUnit,
+    distanceUnit: DistanceUnit,
     exerciseNames: Map<String, String>
 ): RoutineEditorState = RoutineEditorState(
     id = id,
@@ -1009,6 +1029,7 @@ private fun RoutineTemplate.toEditor(
     sourcePlanId = sourcePlanId,
     name = name,
     unit = unit,
+    distanceUnit = distanceUnit,
     workouts = workouts.sortedBy { it.position }.map { workout ->
         EditorWorkout(
             id = workout.id,
@@ -1025,12 +1046,17 @@ private fun RoutineTemplate.toEditor(
                         ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
                         ?: "",
                     loadKind = entry.loadKind,
-                    metric = if (entry.durationSeconds != null) {
-                        EntryMetric.DURATION
-                    } else {
-                        EntryMetric.REPETITIONS
+                    metric = when {
+                        entry.forceNewtons != null -> EntryMetric.FORCE
+                        entry.durationSeconds != null -> EntryMetric.DURATION
+                        entry.distanceMeters != null -> EntryMetric.DISTANCE
+                        else -> EntryMetric.REPETITIONS
                     },
                     durationSeconds = entry.durationSeconds?.toString() ?: "",
+                    distance = entry.distanceMeters
+                        ?.let { distanceUnit.displayWhole(it).toString() }
+                        ?: "",
+                    forceNewtons = entry.forceNewtons?.let(::formatWeight) ?: "",
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
                     superset = entry.superset
@@ -1059,14 +1085,33 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     sets = entry.sets.toIntOrNull() ?: 0,
                     reps = entry.repsValue,
                     durationSeconds = entry.durationValue,
-                    weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT) {
+                    distanceMeters = if (entry.metric == EntryMetric.DISTANCE) {
+                        parseDisplayedDistance(entry.distance, distanceUnit)
+                    } else {
+                        null
+                    },
+                    forceNewtons = if (entry.metric == EntryMetric.FORCE) {
+                        parseDisplayedForce(entry.forceNewtons)
+                    } else {
+                        null
+                    },
+                    // A force slot is load-free, so a typed weight is dropped exactly as the other
+                    // measures are; the slot's load identity itself is preserved.
+                    weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT ||
+                        entry.metric == EntryMetric.FORCE
+                    ) {
                         null
                     } else {
                         parseDisplayedWeight(entry.weight, unit)
                     },
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets,
+                    // Ordered per-set targets describe rep work; a slot measured another way cannot
+                    // perform them, so they are dropped rather than saved against a force or timed
+                    // measure that would silently ignore them.
+                    setTargets = entry.setTargets.takeIf {
+                        entry.metric == EntryMetric.REPETITIONS
+                    },
                     superset = entry.superset
                 )
             }
@@ -1091,6 +1136,43 @@ private fun parseDisplayedWeight(input: String, unit: WeightUnit): Double? {
         throw RoutineTemplateException("Weight must be zero or positive")
     }
     return unit.displayToKilograms(value)
+}
+
+/**
+ * Blank means "no distance recorded" (null), which the domain rejects for a distance slot. A
+ * non-blank value must be a finite, non-negative number in [unit], and is stored as whole metres.
+ */
+private fun parseDisplayedDistance(input: String, unit: DistanceUnit): Int? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.toDoubleOrNull()
+        ?: throw RoutineTemplateException("Distance must be a number")
+    if (!value.isFinite() || value <= 0.0) {
+        throw RoutineTemplateException("Distance must be greater than zero")
+    }
+    return unit.displayToMetres(value)
+}
+
+/**
+ * Blank means "no force recorded" (null), which the domain rejects for a force slot. A non-blank
+ * value must be a finite, positive number of canonical newtons within [PrescriptionBounds], and is
+ * stored as typed: newtons are not a unit the user chooses.
+ */
+private fun parseDisplayedForce(input: String): Double? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.toDoubleOrNull()
+        ?: throw RoutineTemplateException("Force must be a number")
+    if (!value.isFinite() || value <= 0.0) {
+        throw RoutineTemplateException("Force must be greater than zero")
+    }
+    if (value !in PrescriptionBounds.MIN_FORCE_NEWTONS..PrescriptionBounds.MAX_FORCE_NEWTONS) {
+        throw RoutineTemplateException(
+            "Force must be between ${PrescriptionBounds.MIN_FORCE_NEWTONS} and " +
+                "${PrescriptionBounds.MAX_FORCE_NEWTONS} newtons"
+        )
+    }
+    return value
 }
 
 /**

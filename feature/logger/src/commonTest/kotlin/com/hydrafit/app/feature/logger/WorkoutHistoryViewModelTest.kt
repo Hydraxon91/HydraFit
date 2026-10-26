@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -14,6 +15,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetPage
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -525,6 +527,7 @@ class WorkoutHistoryViewModelTest {
         historyRepository = repository,
         exerciseNoteRepository = notes,
         weightUnitRepository = FakeWeightUnitRepository(unit),
+        distanceUnitRepository = FakeDistanceUnitRepository(),
         timeProvider = TimeProvider { 0L }
     )
 
@@ -566,6 +569,15 @@ class WorkoutHistoryViewModelTest {
         override fun unitFlow(): Flow<WeightUnit> = flowOf(unit)
 
         override suspend fun setUnit(unit: WeightUnit) = Unit
+    }
+
+    private class FakeDistanceUnitRepository(private val unit: DistanceUnit = DistanceUnit.METERS) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = unit
+
+        override fun unitFlow(): Flow<DistanceUnit> = flowOf(unit)
+
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
     }
 
     private class FakeExerciseNoteRepository(

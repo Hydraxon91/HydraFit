@@ -115,6 +115,7 @@ import com.hydrafit.app.core.domain.transfer.WorkoutImportPreview
 import com.hydrafit.app.core.domain.transfer.WorkoutImportProvenance
 import com.hydrafit.app.core.domain.transfer.WorkoutImportRepository
 import com.hydrafit.app.core.domain.transfer.WorkoutImportResult
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
@@ -174,6 +175,7 @@ import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
@@ -467,6 +469,13 @@ class KoinModulesVerificationTest {
                             override suspend fun setUnit(unit: WeightUnit) = Unit
                         }
                     }
+                    single<DistanceUnitRepository> {
+                        object : DistanceUnitRepository {
+                            override suspend fun selectedUnit() = DistanceUnit.METERS
+                            override fun unitFlow() = flowOf(DistanceUnit.METERS)
+                            override suspend fun setUnit(unit: DistanceUnit) = Unit
+                        }
+                    }
                     single<GuidedWorkoutPreferenceRepository> {
                         object : GuidedWorkoutPreferenceRepository {
                             override suspend fun isGuidedWorkoutEnabled() = false
@@ -756,6 +765,7 @@ class KoinModulesVerificationTest {
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<DistanceUnitRepository> { FakeDistanceUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
                     single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
                     single { WorkoutReminderDeliveryGate() }
@@ -988,6 +998,7 @@ class KoinModulesVerificationTest {
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<DistanceUnitRepository> { FakeDistanceUnitRepository }
                     single<RestPreferenceRepository> { FakeRestPreferenceRepository }
                     single<RestCountdownRepository> { FakeRestCountdownRepository }
                     single<TrainingGuidancePreferenceRepository> { FakeTrainingGuidancePreferences }
@@ -1086,6 +1097,7 @@ class KoinModulesVerificationTest {
                     single<ExerciseProgressRepository> { FakeExerciseProgressRepository }
                     single<ExerciseCatalog> { FakeExerciseCatalog }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
+                    single<DistanceUnitRepository> { FakeDistanceUnitRepository }
                 },
                 progressModule,
                 testPlatformModule
@@ -1108,6 +1120,9 @@ class KoinModulesVerificationTest {
 
         override fun observeProgress(request: ExerciseProgressRequest) =
             flowOf(ExerciseProgress(emptyList(), emptyList(), emptyList()))
+
+        override fun observeStationOptions(exerciseId: String) =
+            flowOf(emptyList<com.hydrafit.app.core.domain.equipment.StationAttribution>())
 
         override fun observeOccurrenceExerciseIds(occurrenceId: Long) = flowOf(emptyList<String>())
 
@@ -1177,6 +1192,14 @@ class KoinModulesVerificationTest {
         override suspend fun setUnit(unit: WeightUnit) = Unit
     }
 
+    private object FakeDistanceUnitRepository : DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = DistanceUnit.METERS
+
+        override fun unitFlow(): Flow<DistanceUnit> = flowOf(DistanceUnit.METERS)
+
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
+    }
+
     private object FakeRestPreferenceRepository : RestPreferenceRepository {
         override fun globalDefaultSecondsFlow() = flowOf(120L)
         override suspend fun globalDefaultSeconds() = 120L
@@ -1241,7 +1264,9 @@ class KoinModulesVerificationTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

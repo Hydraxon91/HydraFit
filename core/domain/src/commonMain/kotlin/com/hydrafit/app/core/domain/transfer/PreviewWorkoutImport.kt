@@ -160,7 +160,8 @@ object PreviewWorkoutImport {
                     performedAtMillis = day * 86_400_000L + second * 1000L -
                         session.utcOffsetMinutes * 60_000L,
                     isWarmup = row.warmup ?: false,
-                    durationSeconds = row.durationSeconds
+                    durationSeconds = row.durationSeconds,
+                    distanceMeters = row.distanceMeters
                 )
             }
             if (sets.size != rows.size) return@mapNotNull null
@@ -302,15 +303,17 @@ private fun canonicalSourceRow(row: WorkoutCsvRow): String = canonicalFields(
 
 /**
  * The measurement slot of a canonical row. A counted row keeps the bare rep count it has always
- * carried, so a previously imported rep row still matches byte for byte; a timed row is prefixed so
- * it can never collide with a rep count or with another duration.
+ * carried, so a previously imported rep row still matches byte for byte; a timed or distance row is
+ * prefixed so it can never collide with a rep count or with another measure.
  */
 private fun canonicalMeasurement(row: WorkoutCsvRow): String {
     val reps = row.reps
     val duration = row.durationSeconds
+    val distance = row.distanceMeters
     return when {
         reps != null -> reps.toString()
         duration != null -> "duration:$duration"
+        distance != null -> "distance:$distance"
         else -> "unmeasured"
     }
 }

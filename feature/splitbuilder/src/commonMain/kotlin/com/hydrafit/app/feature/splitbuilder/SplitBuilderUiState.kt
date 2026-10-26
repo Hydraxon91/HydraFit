@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 
 /** The scheduling choices shown when a generated plan is started as a block. */
 data class SplitScheduleDialogState(
@@ -40,8 +41,8 @@ data class PlanningDatesState(
     val error: String? = null
 )
 
-/** Which measure a slot's dialog edits: a rep count or elapsed whole seconds. */
-enum class MeasureMetric { REPS, SECONDS }
+/** Which measure a slot's dialog edits: reps, elapsed seconds, a distance, or measured force. */
+enum class MeasureMetric { REPS, SECONDS, DISTANCE, FORCE }
 
 /**
  * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work is
@@ -82,11 +83,20 @@ enum class LoadInventoryDisclosure {
 }
 
 /** Why a slot measure edit was rejected; the UI maps each to a specific message. */
-enum class MeasureError { REPS_RANGE, SECONDS_RANGE, SECONDS_TOO_LARGE }
+enum class MeasureError {
+    REPS_RANGE,
+    SECONDS_RANGE,
+    SECONDS_TOO_LARGE,
+    DISTANCE_RANGE,
+    DISTANCE_TOO_LARGE,
+    FORCE_RANGE,
+    FORCE_TOO_LARGE
+}
 
 /**
- * The open measure dialog for one slot of the shown plan. [value] is the raw field text; a non-null
- * [error] means the last Confirm was rejected, so nothing was written.
+ * The open measure dialog for one slot of the shown plan. [value] is the raw field text in
+ * [SplitBuilderUiState.distanceUnit] for a distance slot; a non-null [error] means the last Confirm
+ * was rejected, so nothing was written.
  */
 data class MeasureDialogState(
     val dayIndex: Int,
@@ -157,6 +167,8 @@ data class SplitBuilderUiState(
     val volumeExplanationInvalidated: Boolean = false,
     /** The open per-slot measure dialog; null when closed. */
     val measureDialog: MeasureDialogState? = null,
+    /** The display unit for distance slots; storage stays whole metres. */
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     /** The applied automatic per-set opt-in, or null when it is off. */
     val automaticSetPrescription: AutomaticSetPrescription? = null,
     /** The open automatic-prescription dialog; null when closed. */

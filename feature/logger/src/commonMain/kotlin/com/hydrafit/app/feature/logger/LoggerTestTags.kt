@@ -18,6 +18,9 @@ internal object LoggerTestTags {
 
     const val MANUAL_INSTRUCTIONS = "logger_manual_instructions"
 
+    /** The manual form's distance field, shown only while the distance metric is selected. */
+    const val DISTANCE_INPUT = "logger_distance_input"
+
     fun draftInstructions(draft: DraftSet): String =
         "logger_draft_instructions_${draft.occurrenceEntryId ?: draft.exerciseId}"
 

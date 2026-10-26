@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.equipment
 
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
@@ -25,7 +26,8 @@ data class EquipmentProfileSummary(
     val rows: List<EquipmentProfileRow>,
     val selected: Set<EquipmentTag>,
     val maxWeightsKg: Map<EquipmentTag, Double>,
-    val loadingInventory: LoadingInventory
+    val loadingInventory: LoadingInventory,
+    val stations: List<EquipmentStation> = emptyList()
 ) {
     /** A profile deletion is refused while it would remove the last profile. */
     val canDelete: Boolean
@@ -45,7 +47,8 @@ fun EquipmentProfileState.toSummary(): EquipmentProfileSummary? {
         rows = profiles.map { EquipmentProfileRow(it.id, it.name, it.id == active.id) },
         selected = active.selected,
         maxWeightsKg = active.maxWeightsKg,
-        loadingInventory = active.loadingInventory
+        loadingInventory = active.loadingInventory,
+        stations = active.stations
     )
 }
 

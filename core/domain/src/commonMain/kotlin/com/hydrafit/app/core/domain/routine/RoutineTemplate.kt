@@ -54,5 +54,9 @@ data class RoutineEntry(
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
     val setTargets: SlotSetTargets? = null,
-    val superset: Superset? = null
+    val superset: Superset? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null
 )

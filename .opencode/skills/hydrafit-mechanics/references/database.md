@@ -25,7 +25,33 @@ and recorded references remain intact. The machine variant is an additive seed w
 No table/column changes or migration are involved; both calf IDs are protected from startup
 custom-name dedupe. See the catalog recipe for content, provenance and regression checks.
 
-Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNote.sq`,
+0.11.0 station identity: additive `60.sqm` creates `equipmentStation` and adds nullable
+`workoutSet.stationId/stationName/stationLoadBasis`. Existing sets stay unattributed; there is
+no backfill. `EquipmentStation.sq` owns profile-scoped CRUD and the optional min/max/increment
+grid. A set's station fields are written by `assignStation` after the ordinary insert so
+existing insert signatures and legacy rows remain unchanged. Positive station ids are local
+profile identities; zero is reserved for a frozen label imported by add-only merge.
+
+0.11.1 distance: additive `61.sqm` adds nullable `distanceMeters` to `workoutSet`, `routineEntry`,
+`planHistoryEntry`, `activationEntry` and `occurrenceEntry`, plus
+`plannerEngine.distanceUnit` (text, default `METERS`). Existing rows keep their rep or duration
+measure; there is no backfill or data rewrite. `insertSet` keeps its existing signature, so a
+distance set is written by `assignDistance(distanceMetres, id)` after `lastInsertedSetId()` inside
+the same transaction (`DistanceMigrationTest` covers the chain and the write). Stored distance is
+always whole metres; `SqlDelightDistanceUnitRepository` reads and writes only the display
+preference and falls back to metres for an absent or unknown stored value.
+
+0.11.2 force/device: additive `62.sqm` adds nullable `forceNewtons` to `workoutSet`, `routineEntry`,
+`planHistoryEntry`, `activationEntry` and `occurrenceEntry`, plus nullable `deviceName` and
+`deviceRatingKg` on `workoutSet` only — a device describes one performed reading, never a
+prescription. Existing rows keep their rep, duration or distance measure; nothing is backfilled.
+`insertSet` again keeps its signature, so force and device are written by `assignForce` and
+`assignDevice` after `lastInsertedSetId()` inside the same transaction (`ForceMigrationTest` covers
+the chain and the write). Force is canonical newtons and load-free, so it is never stored beside a
+weight. `ExerciseProgress.sq` already projects the new columns for history replay.
+
+Query files: `Equipment.sq`, `EquipmentProfile.sq`, `EquipmentStation.sq`, `Exercise.sq`,
+`ExerciseExclusion.sq`, `ExerciseNote.sq`,
 `ExerciseOverride.sq`, `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`,
 `PlannerEngine.sq`,
 `PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,

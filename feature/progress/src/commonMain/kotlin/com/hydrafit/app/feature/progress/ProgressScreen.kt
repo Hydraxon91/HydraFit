@@ -24,11 +24,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
+import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
+import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_back
@@ -38,13 +43,17 @@ import hydrafit.feature.progress.generated.resources.progress_charts_failed
 import hydrafit.feature.progress.generated.resources.progress_charts_no_eligible
 import hydrafit.feature.progress.generated.resources.progress_charts_retry
 import hydrafit.feature.progress.generated.resources.progress_charts_title
+import hydrafit.feature.progress.generated.resources.progress_device_attributed
+import hydrafit.feature.progress.generated.resources.progress_device_attributed_rated
 import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
 import hydrafit.feature.progress.generated.resources.progress_exercise_search_label
+import hydrafit.feature.progress.generated.resources.progress_history_distance_line
 import hydrafit.feature.progress.generated.resources.progress_history_duration_line
 import hydrafit.feature.progress.generated.resources.progress_history_empty
 import hydrafit.feature.progress.generated.resources.progress_history_failed
+import hydrafit.feature.progress.generated.resources.progress_history_force_line
 import hydrafit.feature.progress.generated.resources.progress_history_line
 import hydrafit.feature.progress.generated.resources.progress_history_load_more
 import hydrafit.feature.progress.generated.resources.progress_history_load_more_failed
@@ -74,6 +83,9 @@ import hydrafit.feature.progress.generated.resources.progress_record_supporting_
 import hydrafit.feature.progress.generated.resources.progress_records_all_time_note
 import hydrafit.feature.progress.generated.resources.progress_records_none
 import hydrafit.feature.progress.generated.resources.progress_records_title
+import hydrafit.feature.progress.generated.resources.progress_station_all
+import hydrafit.feature.progress.generated.resources.progress_station_station
+import hydrafit.feature.progress.generated.resources.progress_station_unattributed
 import hydrafit.feature.progress.generated.resources.progress_title
 import hydrafit.feature.progress.generated.resources.progress_weight_none
 import org.jetbrains.compose.resources.StringResource
@@ -107,6 +119,7 @@ fun ProgressRoute(
         onExerciseQueryChanged = viewModel::onExerciseQueryChanged,
         onExerciseSelected = viewModel::onExerciseSelected,
         onRangeSelected = viewModel::onRangeSelected,
+        onStationFilterSelected = viewModel::onStationFilterSelected,
         onRetryCharts = viewModel::onRetryCharts,
         onRetryHistory = viewModel::onRetryHistory,
         onLoadMoreHistory = viewModel::onLoadMoreHistory,
@@ -123,6 +136,7 @@ fun ProgressScreen(
     onExerciseQueryChanged: (String) -> Unit,
     onExerciseSelected: (String) -> Unit,
     onRangeSelected: (ProgressRange) -> Unit,
+    onStationFilterSelected: (StationFilter) -> Unit,
     onRetryCharts: () -> Unit,
     onRetryHistory: () -> Unit,
     onLoadMoreHistory: () -> Unit,
@@ -156,6 +170,7 @@ fun ProgressScreen(
         ExerciseSelector(state, onExerciseQueryChanged, onExerciseSelected)
         if (state.hasSelectedExercise) {
             RangeSelector(state.range, onRangeSelected)
+            StationFilterSelector(state, onStationFilterSelected)
             ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
             HistorySection(state, onRetryHistory, onLoadMoreHistory)
         } else {
@@ -216,6 +231,34 @@ private fun RangeSelector(range: ProgressRange, onRangeSelected: (ProgressRange)
 }
 
 @Composable
+private fun StationFilterSelector(state: ProgressUiState, onSelected: (StationFilter) -> Unit) {
+    if (!state.hasStationOptions) return
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = state.stationFilter == StationFilter.All,
+            onClick = { onSelected(StationFilter.All) },
+            label = { Text(stringResource(Res.string.progress_station_all)) }
+        )
+        FilterChip(
+            selected = state.stationFilter == StationFilter.Unattributed,
+            onClick = { onSelected(StationFilter.Unattributed) },
+            label = { Text(stringResource(Res.string.progress_station_unattributed)) }
+        )
+        state.stationOptions.forEach { station ->
+            FilterChip(
+                selected = state.stationFilter == StationFilter.Station(station.id),
+                onClick = {
+                    if (station.id > 0L) onSelected(StationFilter.Station(station.id))
+                },
+                label = {
+                    Text(stringResource(Res.string.progress_station_station, station.name))
+                }
+            )
+        }
+    }
+}
+
+@Composable
 private fun ChartsSection(
     state: ProgressUiState,
     onRetryCharts: () -> Unit,
@@ -248,7 +291,7 @@ private fun ChartsSection(
                 if (dayFrom != null && dayTo != null) {
                     ProgressVolumeChart(state.days, dayFrom, dayTo)
                 }
-                ProgressDayTable(state.days, state.weightUnit)
+                ProgressDayTable(state.days, state.weightUnit, state.distanceUnit)
             }
         }
         RecordsSection(state, onShowSupportingSet, onCloseSupportingSet)
@@ -338,8 +381,12 @@ private fun RecordSupportingSet(
                 Text(stringResource(Res.string.progress_record_supporting_missing))
             state.supportingSetMissing ->
                 Text(stringResource(Res.string.progress_record_supporting_missing))
-            state.supportingSet != null ->
-                SupportingSetDetail(state.supportingSet, state.weightUnit, state.utcOffsetMillis)
+            state.supportingSet != null -> SupportingSetDetail(
+                state.supportingSet,
+                state.weightUnit,
+                state.distanceUnit,
+                state.utcOffsetMillis
+            )
         }
         if (record.setIds.size > 1) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -367,6 +414,7 @@ private fun RecordSupportingSet(
 private fun SupportingSetDetail(
     set: WorkoutHistorySet,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     utcOffsetMillis: Long
 ) {
     Text(
@@ -384,8 +432,21 @@ private fun SupportingSetDetail(
     }
     val durationSeconds = set.durationSeconds
     val reps = set.reps
+    val distanceMeters = set.distanceMeters
+    val forceNewtons = set.forceNewtons
     Text(
         text = when {
+            forceNewtons != null -> stringResource(
+                Res.string.progress_history_force_line,
+                formatWeight(forceNewtons)
+            )
+
+            distanceMeters != null -> stringResource(
+                Res.string.progress_history_distance_line,
+                formatDistance(distanceMeters, distanceUnit),
+                loadText
+            )
+
             durationSeconds != null -> stringResource(
                 Res.string.progress_history_duration_line,
                 durationSeconds,
@@ -398,6 +459,12 @@ private fun SupportingSetDetail(
         },
         style = MaterialTheme.typography.bodyMedium
     )
+    set.device?.takeIf { forceNewtons != null }?.let { device ->
+        Text(
+            text = deviceAttributionText(device),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
     if (set.isWarmup) {
         Text(
             stringResource(Res.string.progress_history_warmup),
@@ -432,7 +499,7 @@ private fun HistorySection(
             state.historyIsEmpty -> Text(stringResource(Res.string.progress_history_empty))
             else -> {
                 state.historySets.forEach { set ->
-                    HistorySetRow(set, state.weightUnit)
+                    HistorySetRow(set, state.weightUnit, state.distanceUnit)
                 }
                 if (state.historyHasMore || state.loadMoreHistoryFailed) {
                     if (state.loadMoreHistoryFailed) {
@@ -452,7 +519,11 @@ private fun HistorySection(
 }
 
 @Composable
-private fun HistorySetRow(set: WorkoutHistorySet, weightUnit: WeightUnit) {
+private fun HistorySetRow(
+    set: WorkoutHistorySet,
+    weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit
+) {
     val role = stringResource(
         if (set.isWarmup) {
             Res.string.progress_history_warmup
@@ -464,8 +535,21 @@ private fun HistorySetRow(set: WorkoutHistorySet, weightUnit: WeightUnit) {
         ?: stringResource(Res.string.progress_weight_none)
     val durationSeconds = set.durationSeconds
     val reps = set.reps
+    val distanceMeters = set.distanceMeters
+    val forceNewtons = set.forceNewtons
     Text(
         text = "$role · " + when {
+            forceNewtons != null -> stringResource(
+                Res.string.progress_history_force_line,
+                formatWeight(forceNewtons)
+            )
+
+            distanceMeters != null -> stringResource(
+                Res.string.progress_history_distance_line,
+                formatDistance(distanceMeters, distanceUnit),
+                loadText
+            )
+
             durationSeconds != null -> stringResource(
                 Res.string.progress_history_duration_line,
                 durationSeconds,
@@ -478,6 +562,26 @@ private fun HistorySetRow(set: WorkoutHistorySet, weightUnit: WeightUnit) {
         },
         style = MaterialTheme.typography.bodySmall
     )
+    set.device?.takeIf { forceNewtons != null }?.let { device ->
+        Text(
+            text = deviceAttributionText(device),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun deviceAttributionText(device: DeviceAttribution): String {
+    val ratingKg = device.ratingKg
+    return if (ratingKg == null) {
+        stringResource(Res.string.progress_device_attributed, device.name)
+    } else {
+        stringResource(
+            Res.string.progress_device_attributed_rated,
+            device.name,
+            formatWeight(ratingKg)
+        )
+    }
 }
 
 @Composable

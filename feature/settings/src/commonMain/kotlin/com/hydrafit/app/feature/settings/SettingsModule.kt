@@ -6,7 +6,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val settingsModule: Module = module {
-    viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { RestDurationSettingsViewModel(get(), get()) }
     viewModel { TrainingGuidanceSettingsViewModel(get(), get()) }
     viewModel { WorkoutReminderSettingsViewModel(get(), get()) }

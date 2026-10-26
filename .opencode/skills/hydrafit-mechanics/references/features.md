@@ -1,12 +1,26 @@
 # Feature and test implementation recipes
 
+## Equipment stations and Logger attribution (0.11.0)
+
+Equipment settings owns profile-scoped station records under existing equipment tags. A station has
+a trimmed unique name, a load basis (`TOTAL`/`PER_HAND`/`PER_SIDE`) and either no grid or a complete
+min/max/increment grid. Copying a profile copies stations with new identities; retiring a station
+keeps its row and recorded attribution. The Logger offers only active stations compatible with the
+selected exercise's required equipment, prefills from that station's latest set, and writes the
+frozen station attribution with the manual set. Draft/guided logging remains unattributed in this
+slice. History details show the frozen station name; Exercise Progress can filter All, unattributed
+or one station. UI copy lives in each feature's `strings.xml`.
+
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
-with a Reps/Seconds choice and a value field, backed by `MeasureDialogState`. A timed slot renders
-`sets × seconds s`; a slot whose measure is somehow absent renders the bare name rather than a `0`
-sentinel. Invalid input writes nothing and reports a specific reason (rep range, non-positive
-seconds, or seconds beyond the recordable range). A draft edit is state-only and carries into
+with a Reps/Seconds/Distance choice and a value field, backed by `MeasureDialogState`. A timed slot
+renders `sets × seconds s`, a distance slot renders its stored metres in the selected display unit,
+and a slot whose measure is somehow absent renders the bare name rather than a `0` sentinel. Invalid
+input writes nothing and reports a specific reason (rep range, non-positive seconds, seconds beyond
+the recordable range, or a distance outside the metre bounds, including an unparseable oversized
+value). A distance is entered in the selected unit and converted to whole metres before bounds
+checking, so the stored slot is never unit-dependent. A draft edit is state-only and carries into
 acceptance; an accepted-plan edit persists through `SetAcceptedExerciseMeasureUseCase` in place, like
 a swap, and leaves the frozen volume assessment and the slot's recorded reasons untouched.
 
@@ -95,6 +109,56 @@ Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) 
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable
 for manual logging/routines; the full catalog is not filtered by planner eligibility.
 Self-resisted lateral neck flexion uses the existing no-number load UI, not kg resistance.
+
+## Distance prescription and logging (0.11.1)
+
+Distance is the third exclusive measure: positive whole metres stored canonically, never a rep count
+or seconds. Routines offers a Repetitions/Seconds/Distance choice with a distance field labelled in
+the selected unit; `parseDisplayedDistance` converts the typed number to metres and rejects blank or
+negative input, so only the selected measure is saved. The same choice flows through routine
+activation, occurrence edits, accepted plans (`MeasureMetric.DISTANCE` in SplitBuilder) and the
+recorded set, and a stored distance reopens in the display unit it was authored in.
+
+The Logger accepts a distance for manual and guided logging, copies a guided target's metres into
+the recorded set, snapshots them into `WorkoutPrescriptionSnapshot`, and lets the correction editor
+change distance as the performed measure without touching load snapshots. History details and the
+post-workout summary render the recorded distance; Progress shows a day total and a per-set line.
+`formatDistance(meters, unit)` uses the metres/feet preference from `Settings` and has an Int and a
+Long overload, so summed day totals cannot narrow. Storage stays metres regardless of the preference.
+
+A distance never enters rep-derived e1RM, strength records, modeled fatigue or planner load inputs,
+and a distance slot keeps its load separate from the distance. CSV import reads FitNotes/Strong
+`Distance` + `Distance Unit` and Hevy `distance_miles`/`distance_km` into metres; malformed values or
+an unknown unit are row diagnostics, a row with more than one of reps/seconds/distance is rejected as
+`AMBIGUOUS_ROW_SHAPE`, and the canonical identity prefix is `distance:<n>`. See `backup.md` for the
+CSV, interchange and backup format detail.
+
+## Force and device logging (0.11.2)
+
+Force is the fourth exclusive measure: canonical newtons, load-free, authorable for any exercise.
+Routines and SplitBuilder add a Force choice with a 0.1–5000 N field (`EntryMetric.FORCE`,
+`MeasureMetric.FORCE`); the weight field is dropped for a force slot rather than kept beside it, so
+`PrescriptionBounds` rejects force with reps, seconds, metres or a weight. A force slot flows through
+routine activation, accepted plans and occurrence edits like any other measure.
+
+The Logger takes the newtons plus an optional device name and optional positive rating, and a
+correction can change or clear them. The device is performed-set-only, descriptive identity: the
+rating is the manufacturer's stated resistance, never converted to force or mass, and two readings
+from different devices are never treated as one series. A set that stops being force clears its
+device and its recorded prescription target in the same transaction, and an explicit `device = null`
+clears rather than leaving the old value. Editing a prescription slot to force clears its numeric
+load, and any measure other than repetitions drops its ordered per-set targets, because those
+describe rep work that the new measure cannot perform. History details and the post-workout summary render the
+newtons and a `Device: <name> (<rating> kg)` line; Progress shows the same per-set line at both
+history sites but adds no force chart series and no day-total force metric, because summing peak
+forces is not a meaningful quantity. `formatWeight` prints newtons and ratings with one decimal and
+no unit conversion.
+
+Force never enters rep-derived e1RM, external volume, strength records, modeled fatigue or planner
+load inputs; the progress calculator counts a force set as recorded work and returns before any
+rep-derived record. Interchange v7, backup format 27 and the PDF carry it, and the analysis CSV
+appends force and device columns. Third-party CSV import is unchanged because no supported provider
+exports force. See `backup.md` and `database.md` for format and storage detail.
 
 ## Anatomical fatigue map (0.9.2)
 

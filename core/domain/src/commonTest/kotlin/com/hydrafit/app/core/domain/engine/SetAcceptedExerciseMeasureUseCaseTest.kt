@@ -24,7 +24,7 @@ class SetAcceptedExerciseMeasureUseCaseTest {
 
         assertEquals(12, updated?.reps)
         assertNull(updated?.durationSeconds)
-        assertEquals(listOf(MeasureCall(1L, 0, 0, 12, null)), repository.calls)
+        assertEquals(listOf(MeasureCall(1L, 0, 0, 12, null, null)), repository.calls)
     }
 
     @Test
@@ -36,7 +36,59 @@ class SetAcceptedExerciseMeasureUseCaseTest {
 
         assertNull(updated?.reps)
         assertEquals(45, updated?.durationSeconds)
-        assertEquals(listOf(MeasureCall(1L, 0, 0, null, 45)), repository.calls)
+        assertEquals(listOf(MeasureCall(1L, 0, 0, null, 45, null)), repository.calls)
+    }
+
+    @Test
+    fun persistsTheDistanceMeasureOnTheSlot() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = SetAcceptedExerciseMeasureUseCase(repository)
+
+        val updated = useCase(
+            plan(),
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = null,
+            distanceMeters = 400
+        )
+
+        assertNull(updated?.reps)
+        assertNull(updated?.durationSeconds)
+        assertEquals(400, updated?.distanceMeters)
+        assertEquals(listOf(MeasureCall(1L, 0, 0, null, null, 400)), repository.calls)
+    }
+
+    @Test
+    fun rejectsDistanceMixedWithAnotherMeasure() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = SetAcceptedExerciseMeasureUseCase(repository)
+
+        assertFailsWith<IllegalArgumentException> {
+            useCase(plan(), 0, 0, reps = 10, durationSeconds = null, distanceMeters = 400)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            useCase(plan(), 0, 0, reps = null, durationSeconds = 45, distanceMeters = 400)
+        }
+        assertTrue(repository.calls.isEmpty())
+    }
+
+    @Test
+    fun rejectsOutOfBoundsDistance() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = SetAcceptedExerciseMeasureUseCase(repository)
+
+        assertFailsWith<IllegalArgumentException> {
+            useCase(
+                plan(),
+                0,
+                0,
+                reps = null,
+                durationSeconds = null,
+                distanceMeters = PrescriptionBounds.MAX_DISTANCE_METERS + 1
+            )
+        }
+        assertTrue(repository.calls.isEmpty())
     }
 
     @Test
@@ -80,6 +132,76 @@ class SetAcceptedExerciseMeasureUseCaseTest {
         assertTrue(repository.calls.isEmpty())
     }
 
+    @Test
+    fun switchingToForceClearsTheNumericLoadAndTheRepTargets() = runTest {
+        val weighted = plan().copy(
+            days = listOf(
+                plan().days.single().copy(
+                    exercises = listOf(
+                        plan().days.single().exercises.single().copy(
+                            setTargets = SlotSetTargets(
+                                targets = listOf(
+                                    SetTarget(reps = 6, weightKg = 82.5),
+                                    SetTarget(reps = 6, weightKg = 82.5),
+                                    SetTarget(reps = 6, weightKg = 82.5),
+                                    SetTarget(reps = 6, weightKg = 82.5)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val updated = SetAcceptedExerciseMeasureUseCase(FakePlanHistoryRepository())(
+            weighted,
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = null,
+            forceNewtons = 250.0
+        )
+
+        assertEquals(250.0, updated?.forceNewtons)
+        // Force is load-free and ordered targets are rep work, so neither survives the change.
+        assertNull(updated?.suggestedWeightKg)
+        assertNull(updated?.setTargets)
+    }
+
+    @Test
+    fun aRepsMeasureKeepsTheLoadAndTargetsWhileAnotherNonRepsMeasureDropsTheTargets() = runTest {
+        val targets = SlotSetTargets(targets = listOf(SetTarget(reps = 6, weightKg = 82.5)))
+        val weighted = plan().copy(
+            days = listOf(
+                plan().days.single().copy(
+                    exercises = listOf(
+                        plan().days.single().exercises.single().copy(setTargets = targets)
+                    )
+                )
+            )
+        )
+
+        val timed = SetAcceptedExerciseMeasureUseCase(FakePlanHistoryRepository())(
+            weighted,
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = 45
+        )
+        assertEquals(82.5, timed?.suggestedWeightKg)
+        assertNull(timed?.setTargets)
+
+        val reps = SetAcceptedExerciseMeasureUseCase(FakePlanHistoryRepository())(
+            weighted,
+            dayIndex = 0,
+            position = 0,
+            reps = 8,
+            durationSeconds = null
+        )
+        assertEquals(82.5, reps?.suggestedWeightKg)
+        assertEquals(targets, reps?.setTargets)
+    }
+
     private fun plan() = AcceptedPlan(
         engine = PlannerEngineId.DETERMINISTIC,
         acceptedAtMillis = 0L,
@@ -107,7 +229,9 @@ class SetAcceptedExerciseMeasureUseCaseTest {
         val dayIndex: Int,
         val position: Int,
         val reps: Int?,
-        val durationSeconds: Int?
+        val durationSeconds: Int?,
+        val distanceMeters: Int?,
+        val forceNewtons: Double? = null
     )
 
     private class FakePlanHistoryRepository : PlanHistoryRepository {
@@ -137,9 +261,19 @@ class SetAcceptedExerciseMeasureUseCaseTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) {
-            calls += MeasureCall(planId, dayIndex, position, reps, durationSeconds)
+            calls += MeasureCall(
+                planId,
+                dayIndex,
+                position,
+                reps,
+                durationSeconds,
+                distanceMeters,
+                forceNewtons
+            )
         }
 
         override suspend fun delete(planId: Long) = Unit

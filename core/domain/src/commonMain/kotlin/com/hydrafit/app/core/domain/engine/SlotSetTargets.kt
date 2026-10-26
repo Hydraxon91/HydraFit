@@ -3,6 +3,7 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
+import com.hydrafit.app.core.domain.workout.requireForceIsLoadFree
 import com.hydrafit.app.core.domain.workout.requireValidSetMeasurement
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -24,10 +25,30 @@ data class SetTarget(
     /** null = unspecified load; 0.0 = an explicit zero load; positive = stored kilograms. */
     val weightKg: Double? = null,
     /** Prescribed reps in reserve, or null when this set prescribes no effort target. */
-    val targetRir: Int? = null
+    val targetRir: Int? = null,
+    /** Whole metres for a distance target, or null for reps and timed work. */
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force target, or null for every other metric. */
+    val forceNewtons: Double? = null
 ) {
     fun requireValid() {
-        requireValidSetMeasurement(reps, durationSeconds)
+        requireValidSetMeasurement(reps, durationSeconds, distanceMeters, forceNewtons)
+        if (distanceMeters != null) {
+            require(
+                distanceMeters in
+                    PrescriptionBounds.MIN_DISTANCE_METERS..PrescriptionBounds.MAX_DISTANCE_METERS
+            ) {
+                "Distance must be within the prescription bounds"
+            }
+        }
+        if (forceNewtons != null) {
+            require(
+                forceNewtons in
+                    PrescriptionBounds.MIN_FORCE_NEWTONS..PrescriptionBounds.MAX_FORCE_NEWTONS
+            ) {
+                "Force must be within the prescription bounds"
+            }
+        }
         if (reps != null) {
             require(reps in PrescriptionBounds.MIN_REPS..PrescriptionBounds.MAX_REPS) {
                 "Reps must be between ${PrescriptionBounds.MIN_REPS} and " +
@@ -40,6 +61,7 @@ data class SetTarget(
         require(weightKg == null || weightKg.toRawBits() != NEGATIVE_ZERO_BITS) {
             "A negative zero load is not a recorded load"
         }
+        requireForceIsLoadFree(forceNewtons, weightKg)
         WorkoutLoadPolicy.validateShape(loadKind, weightKg)
     }
 

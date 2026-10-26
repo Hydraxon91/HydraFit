@@ -5,7 +5,8 @@ CREATE TABLE plannerEngine (
     trainingGoal TEXT NOT NULL DEFAULT 'BALANCED',
     shareWorkoutData INTEGER NOT NULL DEFAULT 0,
     weightUnit TEXT NOT NULL DEFAULT 'KG',
-    guidedWorkoutEnabled INTEGER NOT NULL DEFAULT 0
+    guidedWorkoutEnabled INTEGER NOT NULL DEFAULT 0,
+    distanceUnit TEXT NOT NULL DEFAULT 'METERS'
 );
 
 selectEngine:
@@ -25,6 +26,9 @@ SELECT weightUnit FROM plannerEngine WHERE id = 0;
 
 selectGuidedWorkoutEnabled:
 SELECT guidedWorkoutEnabled FROM plannerEngine WHERE id = 0;
+
+selectDistanceUnit:
+SELECT distanceUnit FROM plannerEngine WHERE id = 0;
 
 insertIgnoreRow:
 INSERT OR IGNORE INTO plannerEngine(id, engineId) VALUES (0, ?);
@@ -46,3 +50,6 @@ UPDATE plannerEngine SET weightUnit = ? WHERE id = 0;
 
 updateGuidedWorkoutEnabled:
 UPDATE plannerEngine SET guidedWorkoutEnabled = ? WHERE id = 0;
+
+updateDistanceUnit:
+UPDATE plannerEngine SET distanceUnit = ? WHERE id = 0;

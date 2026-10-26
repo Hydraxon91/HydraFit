@@ -204,4 +204,24 @@
     <string name="equipment_calculator_invalid_target">Enter the target as a number with up to three decimals.</string>
     <string name="equipment_calculator_out_of_range">Enter a target from 0 to 2000.</string>
     <string name="equipment_calculator_failed">Could not calculate for this configuration.</string>
+    <string name="equipment_stations_section">Stations</string>
+    <string name="equipment_station_add">Add station</string>
+    <string name="equipment_station_name">Station name</string>
+    <string name="equipment_station_equipment">Equipment</string>
+    <string name="equipment_station_basis">Load basis</string>
+    <string name="equipment_station_basis_total">Total</string>
+    <string name="equipment_station_basis_per_hand">Per hand</string>
+    <string name="equipment_station_basis_per_side">Per side</string>
+    <string name="equipment_station_grid">Saved step range</string>
+    <string name="equipment_station_min">Minimum kg</string>
+    <string name="equipment_station_max">Maximum kg</string>
+    <string name="equipment_station_increment">Increment kg</string>
+    <string name="equipment_station_retire">Retire station</string>
+    <string name="equipment_station_retire_title">Retire this station?</string>
+    <string name="equipment_station_retire_message">Recorded sets keep this station name, but the station will no longer be offered in the Logger.</string>
+    <string name="equipment_station_retire_confirm">Retire</string>
+    <string name="equipment_station_grid_summary">%1$s–%2$s kg, step %3$s kg</string>
+    <string name="equipment_station_no_grid">No saved step range</string>
+    <string name="equipment_station_none">No stations yet. Add one to keep each stack’s load history separate.</string>
+    <string name="equipment_station_edit_title">Station</string>
 </resources>

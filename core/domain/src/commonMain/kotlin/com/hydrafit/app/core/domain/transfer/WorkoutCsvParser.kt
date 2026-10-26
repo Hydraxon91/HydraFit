@@ -4,6 +4,8 @@ import com.hydrafit.app.core.domain.time.civilFromDays
 import com.hydrafit.app.core.domain.time.daysFromCivil
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.AMBIGUOUS_ROW_SHAPE
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_DATE
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_DISTANCE
+import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_DISTANCE_UNIT
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_DURATION
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_END_TIME
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.INVALID_REPS
@@ -15,6 +17,7 @@ import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.UNSUPPORTE
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.UNSUPPORTED_ROW_SHAPE
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvDiagnosticCode.UNSUPPORTED_SET_TYPE
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import kotlin.math.round
 
 /**
  * Parses a bounded provider export into ordered rows. Behaviour is deliberately conservative: the
@@ -69,8 +72,6 @@ private val FITNOTES_OPTIONAL_COLUMNS = setOf(
 )
 
 private val FITNOTES_METADATA_COLUMNS = listOf(
-    FITNOTES_DISTANCE,
-    FITNOTES_DISTANCE_UNIT,
     FITNOTES_TIME
 )
 
@@ -113,6 +114,7 @@ private fun parseFitNotes(header: List<String>, records: List<CsvRecord>): Parse
             record = record,
             repsColumn = FITNOTES_REPS,
             durationColumn = null,
+            distance = DistanceSource.UnitColumn(FITNOTES_DISTANCE, FITNOTES_DISTANCE_UNIT),
             shapeColumns = listOf(FITNOTES_DISTANCE),
             diagnostics = diagnostics
         )
@@ -139,6 +141,7 @@ private fun parseFitNotes(header: List<String>, records: List<CsvRecord>): Parse
                 unit = unit,
                 reps = resolved.reps,
                 durationSeconds = resolved.durationSeconds,
+                distanceMeters = resolved.distanceMeters,
                 warmup = null,
                 diagnostics = diagnostics.findings
             )
@@ -179,8 +182,6 @@ private val STRONG_OPTIONAL_COLUMNS = setOf(
 // canonical import identity includes diagnostics. Timed rows consume Seconds as their measurement.
 private val STRONG_METADATA_COLUMNS = listOf(
     STRONG_RPE,
-    STRONG_DISTANCE,
-    STRONG_DISTANCE_UNIT,
     STRONG_SECONDS,
     STRONG_NOTES,
     STRONG_WORKOUT_NOTES,
@@ -226,6 +227,7 @@ private fun parseStrong(header: List<String>, records: List<CsvRecord>): ParsedW
             record = record,
             repsColumn = STRONG_REPS,
             durationColumn = STRONG_SECONDS,
+            distance = DistanceSource.UnitColumn(STRONG_DISTANCE, STRONG_DISTANCE_UNIT),
             shapeColumns = listOf(STRONG_DISTANCE, STRONG_SECONDS),
             diagnostics = diagnostics
         )
@@ -255,6 +257,7 @@ private fun parseStrong(header: List<String>, records: List<CsvRecord>): ParsedW
                 unit = checkNotNull(unit),
                 reps = resolved.reps,
                 durationSeconds = resolved.durationSeconds,
+                distanceMeters = resolved.distanceMeters,
                 warmup = null,
                 diagnostics = diagnostics.findings
             )
@@ -327,13 +330,17 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
         add(HEVY_DESCRIPTION)
         add(HEVY_SUPERSET)
         add(HEVY_EXERCISE_NOTES)
-        if (distanceColumn != null) add(distanceColumn)
         add(HEVY_DURATION)
         add(HEVY_RPE)
     }
     val shapeColumns = buildList {
         add(HEVY_DURATION)
         if (distanceColumn != null) add(distanceColumn)
+    }
+    val distanceSource = when (distanceColumn) {
+        HEVY_DISTANCE_MI -> DistanceSource.FixedUnit(HEVY_DISTANCE_MI, "mi")
+        HEVY_DISTANCE_KM -> DistanceSource.FixedUnit(HEVY_DISTANCE_KM, "km")
+        else -> null
     }
     val rows = ArrayList<WorkoutCsvRow>()
     val rejected = ArrayList<RejectedWorkoutCsvRow>()
@@ -365,6 +372,7 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
             record = record,
             repsColumn = HEVY_REPS,
             durationColumn = HEVY_DURATION,
+            distance = distanceSource,
             shapeColumns = shapeColumns,
             diagnostics = diagnostics
         )
@@ -404,6 +412,7 @@ private fun parseHevy(header: List<String>, records: List<CsvRecord>): ParsedWor
                 unit = unit,
                 reps = resolved.reps,
                 durationSeconds = resolved.durationSeconds,
+                distanceMeters = resolved.distanceMeters,
                 warmup = warmup,
                 diagnostics = diagnostics.findings
             )
@@ -445,10 +454,29 @@ private sealed interface WeightValue {
 }
 
 /**
- * A row's exclusive measurement: a positive rep count for counted work, or a positive whole-second
- * duration for a timed set. The parser records exactly one, never both and never neither.
+ * A row's exclusive measurement: a positive rep count for counted work, a positive whole-second
+ * duration for a timed set, or positive whole metres for a distance set. The parser records exactly
+ * one, never more and never none.
  */
-private data class RowMeasurement(val reps: Int?, val durationSeconds: Int?)
+private data class RowMeasurement(
+    val reps: Int?,
+    val durationSeconds: Int?,
+    val distanceMeters: Int?
+)
+
+/**
+ * Where a provider records a distance. FitNotes and Strong separate the value from its unit column;
+ * Hevy names the unit in the column itself, so the factor is fixed.
+ */
+private sealed interface DistanceSource {
+    val valueColumn: String
+
+    data class UnitColumn(override val valueColumn: String, val unitColumn: String) : DistanceSource
+
+    data class FixedUnit(override val valueColumn: String, val unit: String) : DistanceSource
+}
+
+private const val METRES_PER_MILE = 1609.344
 
 private data class SourceDateTime(val day: SourceCivilDate, val secondsOfDay: Int) {
     fun isBefore(other: SourceDateTime): Boolean {
@@ -509,20 +537,23 @@ private fun addMetadataNote(
 }
 
 /**
- * Resolves the row's measurement from its rep and duration columns, recording a row diagnostic when
- * it cannot. A recorded duration is a positive whole number of seconds; `0` and a blank mean the
- * source recorded no duration, because vendors write `0` in the inapplicable numeric column. A value
- * that is present but not a whole number is malformed and rejects the row rather than being dropped.
- * A row recording both metrics is ambiguous; a row recording neither cannot be represented.
+ * Resolves the row's measurement from its rep, duration and distance columns, recording a row
+ * diagnostic when it cannot. A recorded duration is a positive whole number of seconds; `0` and a
+ * blank mean the source recorded no duration, because vendors write `0` in the inapplicable numeric
+ * column. A distance is converted to whole metres from its stated unit, and the same blank/zero rule
+ * applies. A value that is present but malformed rejects the row rather than being dropped. A row
+ * recording more than one measurement is ambiguous; a row recording none cannot be represented.
  *
  * [durationColumn] is null for a provider with no duration column (FitNotes), which keeps its rows
- * rejected whenever the rep count is not positive.
+ * rejected whenever the rep count is not positive. [distance] is null for a provider with no distance
+ * column.
  */
 private fun resolveMeasurement(
     index: HeaderIndex,
     record: CsvRecord,
     repsColumn: String,
     durationColumn: String?,
+    distance: DistanceSource?,
     shapeColumns: List<String>,
     diagnostics: RowDiagnostics
 ): RowMeasurement? {
@@ -539,19 +570,91 @@ private fun resolveMeasurement(
         diagnostics.error(diagnostic(INVALID_DURATION, durationColumn, durationText))
         return null
     }
+    val distanceValue = distance?.let { resolveDistance(it, index, record, diagnostics) }
+        ?: DistanceValue.Absent
+    if (distanceValue is DistanceValue.Invalid) return null
+    val distanceMetres = (distanceValue as? DistanceValue.Metres)?.value
+    val measures = listOf(reps, duration, distanceMetres).count { it != null }
     return when {
-        reps != null && duration != null -> {
-            diagnostics.error(diagnostic(AMBIGUOUS_ROW_SHAPE, durationColumn, durationText))
+        measures > 1 -> {
+            diagnostics.error(diagnostic(AMBIGUOUS_ROW_SHAPE))
             null
         }
 
-        reps != null -> RowMeasurement(reps = reps, durationSeconds = null)
-        duration != null -> RowMeasurement(reps = null, durationSeconds = duration)
+        reps != null -> RowMeasurement(reps = reps, durationSeconds = null, distanceMeters = null)
+        duration != null -> RowMeasurement(
+            reps = null,
+            durationSeconds = duration,
+            distanceMeters = null
+        )
+
+        distanceMetres != null -> RowMeasurement(
+            reps = null,
+            durationSeconds = null,
+            distanceMeters = distanceMetres
+        )
+
         else -> {
             diagnostics.error(repsDiagnostic(index, record, repsColumn, shapeColumns))
             null
         }
     }
+}
+
+private sealed interface DistanceValue {
+    data object Absent : DistanceValue
+    data class Metres(val value: Int) : DistanceValue
+    data object Invalid : DistanceValue
+}
+
+/**
+ * Reads one provider distance into whole metres. A blank or zero value means the source recorded no
+ * distance. A unit that arrives without a value is preserved as a metadata note, matching the legacy
+ * treatment of the inapplicable column. Every other malformed value or unknown unit rejects the row.
+ */
+private fun resolveDistance(
+    source: DistanceSource,
+    index: HeaderIndex,
+    record: CsvRecord,
+    diagnostics: RowDiagnostics
+): DistanceValue {
+    val valueText = index.value(record, source.valueColumn)
+    val trimmed = valueText.trim()
+    val unitText = when (source) {
+        is DistanceSource.FixedUnit -> source.unit
+        is DistanceSource.UnitColumn -> index.value(record, source.unitColumn)
+    }
+    if (trimmed.isEmpty()) {
+        if (source is DistanceSource.UnitColumn && unitText.trim().isNotEmpty()) {
+            diagnostics.note(diagnostic(UNSUPPORTED_METADATA, source.unitColumn, unitText))
+        }
+        return DistanceValue.Absent
+    }
+    val value = trimmed.toDoubleOrNull()
+    if (value == null || !value.isFinite() || value < 0.0) {
+        diagnostics.error(diagnostic(INVALID_DISTANCE, source.valueColumn, valueText))
+        return DistanceValue.Invalid
+    }
+    if (value == 0.0) return DistanceValue.Absent
+    val unitField = (source as? DistanceSource.UnitColumn)?.unitColumn ?: source.valueColumn
+    val factor = distanceUnitMetres(unitText)
+    if (factor == null) {
+        diagnostics.error(diagnostic(INVALID_DISTANCE_UNIT, unitField, unitText))
+        return DistanceValue.Invalid
+    }
+    val metres = round(value * factor)
+    if (!metres.isFinite() || metres < 1.0 || metres > Int.MAX_VALUE.toDouble()) {
+        diagnostics.error(diagnostic(INVALID_DISTANCE, source.valueColumn, valueText))
+        return DistanceValue.Invalid
+    }
+    return DistanceValue.Metres(metres.toInt())
+}
+
+private fun distanceUnitMetres(text: String): Double? = when (text.trim().lowercase()) {
+    "m", "meter", "meters", "metre", "metres" -> 1.0
+    "km", "kilometer", "kilometers", "kilometre", "kilometres" -> 1_000.0
+    "mi", "mile", "miles" -> METRES_PER_MILE
+    else -> null
 }
 
 private fun repsDiagnostic(
@@ -592,14 +695,19 @@ private fun diagnostic(
             "Field '$field' is not a positive whole number."
         INVALID_DURATION ->
             "Field '$field' is not a whole number of seconds."
+        INVALID_DISTANCE ->
+            "Field '$field' is not a positive distance in the stated unit."
+        INVALID_DISTANCE_UNIT ->
+            "Distance unit '$value' is not a known m/km/mi value."
         INVALID_WEIGHT ->
             "Field '$field' is not a finite, non-negative weight."
         INVALID_UNIT ->
             "Weight unit '$value' is not a known kg/lb value."
         AMBIGUOUS_ROW_SHAPE ->
-            "Row records both a rep count and a duration; exactly one measurement is supported."
+            "Row records more than one of a rep count, a duration and a distance; " +
+                "exactly one measurement is supported."
         UNSUPPORTED_ROW_SHAPE ->
-            "Row has neither a rep count nor a recorded duration; distance-only and empty sets are unsupported."
+            "Row has none of a rep count, a duration and a distance."
     },
     field = field,
     value = value

@@ -1,9 +1,12 @@
 package com.hydrafit.app.feature.progress
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
+import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 
 /** The three explicit chart ranges. Only the chart window changes; records and history are all-time. */
@@ -26,12 +29,17 @@ data class ProgressExerciseOption(val id: String, val name: String)
 data class ProgressUiState(
     val utcOffsetMillis: Long,
     val weightUnit: WeightUnit = WeightUnit.KG,
+    /** The display unit for recorded distance; storage stays whole metres. */
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val exerciseQuery: String = "",
     val exercises: List<ProgressExerciseOption> = emptyList(),
     val selectedExerciseId: String? = null,
     /** The current catalog name, or null when the selected id is no longer in the catalog. */
     val selectedExerciseName: String? = null,
     val range: ProgressRange = ProgressRange.DAYS_28,
+    /** Distinct station labels observed in this exercise's history. */
+    val stationOptions: List<StationAttribution> = emptyList(),
+    val stationFilter: StationFilter = StationFilter.All,
     /** Inclusive civil-day window the charts cover; null before an exercise is selected. */
     val chartDayFrom: Long? = null,
     val chartDayTo: Long? = null,
@@ -76,4 +84,7 @@ data class ProgressUiState(
 
     val historyIsEmpty: Boolean
         get() = hasSelectedExercise && !historyLoading && !historyFailed && historySets.isEmpty()
+
+    val hasStationOptions: Boolean
+        get() = stationOptions.isNotEmpty()
 }

@@ -10,6 +10,8 @@ import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
+import com.hydrafit.app.core.domain.workout.StationFilter
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -34,7 +36,12 @@ class ProgressViewModel(
     private val progressRepository: ExerciseProgressRepository,
     exerciseCatalog: ExerciseCatalog,
     weightUnitRepository: WeightUnitRepository,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    /**
+     * The user's distance display unit. Null keeps distance readouts on metres; recorded sets store
+     * whole metres either way, so only the rendered label changes.
+     */
+    distanceUnitRepository: DistanceUnitRepository? = null
 ) : ViewModel() {
 
     private val _state =
@@ -46,6 +53,7 @@ class ProgressViewModel(
         val range: ProgressRange,
         val nowMillis: Long,
         val utcOffsetMillis: Long,
+        val stationFilter: StationFilter,
         val token: Long
     )
 
@@ -62,6 +70,9 @@ class ProgressViewModel(
      * page can never publish; a full restart advances both and also cancels the live subscription.
      */
     private var historyPagingGeneration = 0L
+
+    private var stationOptionsJob: Job? = null
+    private var stationOptionsGeneration = 0L
 
     private var supportingGeneration = 0L
     private var supportingJob: Job? = null
@@ -93,6 +104,11 @@ class ProgressViewModel(
             }
         }
         viewModelScope.launch {
+            distanceUnitRepository?.unitFlow()?.collect { unit ->
+                _state.update { it.copy(distanceUnit = unit) }
+            }
+        }
+        viewModelScope.launch {
             chartQuery.collectLatest { query -> if (query != null) observeCharts(query) }
         }
     }
@@ -111,6 +127,8 @@ class ProgressViewModel(
             it.copy(
                 selectedExerciseId = exerciseId,
                 selectedExerciseName = it.exercises.firstOrNull { e -> e.id == exerciseId }?.name,
+                stationOptions = emptyList(),
+                stationFilter = StationFilter.All,
                 days = emptyList(),
                 records = emptyList(),
                 chartsLoading = true,
@@ -129,12 +147,20 @@ class ProgressViewModel(
         }
         startCharts()
         startHistory()
+        startStationOptions(exerciseId)
     }
 
     /** Range limits the charts only; records and history stay all-time. */
     fun onRangeSelected(range: ProgressRange) {
         if (_state.value.range == range) return
         _state.update { it.copy(range = range) }
+        startCharts()
+    }
+
+    /** Station filtering changes the chart comparison population, never the recorded rows. */
+    fun onStationFilterSelected(filter: StationFilter) {
+        if (_state.value.stationFilter == filter) return
+        _state.update { it.copy(stationFilter = filter) }
         startCharts()
     }
 
@@ -171,6 +197,7 @@ class ProgressViewModel(
             range = _state.value.range,
             nowMillis = now,
             utcOffsetMillis = offset,
+            stationFilter = _state.value.stationFilter,
             token = (current?.token ?: 0L) + 1
         )
     }
@@ -184,7 +211,8 @@ class ProgressViewModel(
             dayFrom = dayFrom,
             dayTo = dayTo,
             nowMillis = query.nowMillis,
-            utcOffsetMillis = query.utcOffsetMillis
+            utcOffsetMillis = query.utcOffsetMillis,
+            stationFilter = query.stationFilter
         )
         try {
             progressRepository.observeProgress(request).collect { progress ->
@@ -373,6 +401,33 @@ class ProgressViewModel(
         }
     }
 
+    private fun startStationOptions(exerciseId: String) {
+        val generation = ++stationOptionsGeneration
+        stationOptionsJob?.cancel()
+        stationOptionsJob = viewModelScope.launch {
+            try {
+                progressRepository.observeStationOptions(exerciseId).collect { options ->
+                    if (generation != stationOptionsGeneration) return@collect
+                    val current = _state.value
+                    val nextFilter = current.stationFilter.takeIf { filter ->
+                        filter !is StationFilter.Station ||
+                            options.any { it.id == filter.id }
+                    } ?: StationFilter.All
+                    _state.update { it.copy(stationOptions = options, stationFilter = nextFilter) }
+                    // The chip and the chart must agree: a disappeared station resets the filter
+                    // and must re-issue the chart request instead of leaving the old one alive.
+                    if (nextFilter != current.stationFilter) startCharts()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (generation == stationOptionsGeneration) {
+                    _state.update { it.copy(stationOptions = emptyList()) }
+                }
+            }
+        }
+    }
+
     private fun cancelAllReads() {
         chartGeneration++
         chartQuery.value = null
@@ -380,6 +435,9 @@ class ProgressViewModel(
         historyLoadMoreJob?.cancel()
         historyLoadMoreJob = null
         historyNextCursor = null
+        stationOptionsJob?.cancel()
+        stationOptionsJob = null
+        stationOptionsGeneration++
         supportingJob?.cancel()
         supportingJob = null
         supportingGeneration++

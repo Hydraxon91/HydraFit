@@ -2,8 +2,11 @@ package com.hydrafit.app.feature.progress
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
@@ -14,8 +17,10 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
+import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,11 +54,16 @@ class ProgressViewModelTest {
         var historyFlow: (ExerciseHistoryRequest) -> Flow<ExerciseHistoryPage> =
             { flowOf(ExerciseHistoryPage(emptyList(), hasMore = false)) }
         var setFlow: (String, Long) -> Flow<WorkoutHistorySet?> = { _, _ -> flowOf(null) }
+        var stationOptionsFlow: (String) -> Flow<List<StationAttribution>> =
+            { flowOf(emptyList()) }
 
         override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> {
             historyRequests += request
             return historyFlow(request)
         }
+
+        override fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>> =
+            stationOptionsFlow(exerciseId)
 
         override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> {
             progressRequests += request
@@ -81,6 +91,13 @@ class ProgressViewModelTest {
         }
     }
 
+    private class FakeDistanceUnitRepository(private val unit: DistanceUnit = DistanceUnit.METERS) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = unit
+        override fun unitFlow(): Flow<DistanceUnit> = flowOf(unit)
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
+    }
+
     /** Mutable clock, so a test can advance the instant between reads. */
     private class FakeTimeProvider(var now: Long, var offset: Long) : TimeProvider {
         override fun nowMillis(): Long = now
@@ -99,12 +116,14 @@ class ProgressViewModelTest {
         repository: FakeProgressRepository = FakeProgressRepository(),
         unitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
         catalog: ExerciseCatalog = FakeCatalog(listOf(exercise("squat", "Squat"))),
-        timeProvider: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis)
+        timeProvider: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis),
+        distanceUnitRepository: DistanceUnitRepository? = null
     ) = ProgressViewModel(
         progressRepository = repository,
         exerciseCatalog = catalog,
         weightUnitRepository = unitRepository,
-        timeProvider = timeProvider
+        timeProvider = timeProvider,
+        distanceUnitRepository = distanceUnitRepository
     )
 
     @Test
@@ -130,6 +149,23 @@ class ProgressViewModelTest {
     }
 
     @Test
+    fun theSelectedDistanceUnitReachesTheStateThatRendersDayAndSetDistances() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val vm = viewModel(
+                distanceUnitRepository = FakeDistanceUnitRepository(DistanceUnit.FEET)
+            )
+            advanceUntilIdle()
+
+            // Without a wired repository the state keeps metres; with one, rendering uses its unit.
+            assertEquals(DistanceUnit.FEET, vm.state.value.distanceUnit)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun rangeChangeOnlyWidensTheChartWindowAndKeepsHistoryAllTime() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
@@ -148,6 +184,36 @@ class ProgressViewModelTest {
             assertEquals(localEpochDay(nowMillis, offsetMillis) - 364L, request.dayFrom)
             // History is all-time: a range change does not re-issue the history read.
             assertEquals(historyCountBefore, repository.historyRequests.size)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun aDisappearingStationResetsTheFilterAndReissuesTheChartRequest() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository()
+            val station = StationAttribution(1L, "Rack A", StationLoadBasis.TOTAL)
+            val options = MutableStateFlow(listOf(station))
+            repository.stationOptionsFlow = { options }
+            val vm = viewModel(repository)
+            advanceUntilIdle()
+            vm.onExerciseSelected("squat")
+            advanceUntilIdle()
+            vm.onStationFilterSelected(StationFilter.Station(1L))
+            advanceUntilIdle()
+            assertEquals(
+                StationFilter.Station(1L),
+                repository.progressRequests.last().stationFilter
+            )
+
+            options.value = emptyList()
+            advanceUntilIdle()
+
+            assertEquals(StationFilter.All, vm.state.value.stationFilter)
+            assertEquals(StationFilter.All, repository.progressRequests.last().stationFilter)
         } finally {
             Dispatchers.resetMain()
         }

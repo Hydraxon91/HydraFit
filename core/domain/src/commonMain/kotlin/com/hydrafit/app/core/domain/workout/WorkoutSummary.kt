@@ -58,6 +58,10 @@ data class WorkoutSummaryExercise(
     val prescribedReps: Int? = null,
     /** Elapsed whole seconds for a timed slot, or null for counted work. */
     val prescribedDurationSeconds: Int? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val prescribedDistanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val prescribedForceNewtons: Double? = null,
     /** The frozen target load; null means the prescription carried no numeric load. */
     val prescribedWeightKg: Double?,
     /** What the frozen target load means. */
@@ -101,6 +105,12 @@ data class WorkoutSummarySet(
     val isWarmup: Boolean,
     /** Elapsed whole seconds for a timed set, or null for counted work. */
     val durationSeconds: Int? = null,
+    /** Whole metres for a distance set, or null for reps and timed work. */
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force set, or null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** The frozen measuring device identity and rating, or null when none was recorded. */
+    val device: DeviceAttribution? = null,
     /** The recorded session this set belongs to; null for legacy or unsegmented rows. */
     val sessionId: String?
 )
@@ -180,6 +190,9 @@ fun buildWorkoutSummary(
         timingProvenance = set.timingProvenance,
         isWarmup = set.isWarmup,
         durationSeconds = set.durationSeconds,
+        distanceMeters = set.distanceMeters,
+        forceNewtons = set.forceNewtons,
+        device = set.device,
         sessionId = set.sessionId
     )
 
@@ -201,6 +214,8 @@ fun buildWorkoutSummary(
                 prescribedSets = entry.sets,
                 prescribedReps = entry.reps,
                 prescribedDurationSeconds = entry.durationSeconds,
+                prescribedDistanceMeters = entry.distanceMeters,
+                prescribedForceNewtons = entry.forceNewtons,
                 prescribedWeightKg = entry.weightKg,
                 prescribedLoadKind = entry.loadKind,
                 performedSets = performed,

@@ -224,7 +224,9 @@ class SqlDelightWorkoutScheduleRepository(
                     progressionPolicy = entry.progressionPolicy?.let(
                         SlotProgressionPolicyJson::encode
                     ),
-                    setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode)
+                    setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
                 val entryId = queries.lastInsertedActivationEntryId().executeAsOne()
                 queries.setActivationSuperset(
@@ -271,7 +273,9 @@ class SqlDelightWorkoutScheduleRepository(
                         ?.let(SlotProgressionPolicyJson::encode),
                     setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
                     remainingDisposition = null,
-                    terminalRemainingSets = null
+                    terminalRemainingSets = null,
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
                 queries.setOccurrenceSuperset(
                     entry.superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
@@ -571,7 +575,9 @@ class SqlDelightWorkoutScheduleRepository(
             progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::encode),
             setTargets = setTargets?.let(SlotSetTargetsJson::encode),
             remainingDisposition = remainingDisposition?.name,
-            terminalRemainingSets = terminalRemainingSets?.toLong()
+            terminalRemainingSets = terminalRemainingSets?.toLong(),
+            distanceMeters = distanceMeters?.toLong(),
+            forceNewtons = forceNewtons
         )
         val entryId = queries.lastInsertedOccurrenceEntryId().executeAsOne()
         queries.setOccurrenceSupersetById(
@@ -604,6 +610,8 @@ class SqlDelightWorkoutScheduleRepository(
             setTargets = setTargets?.let(SlotSetTargetsJson::encode),
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong(),
+            distanceMeters = distanceMeters?.toLong(),
+            forceNewtons = forceNewtons,
             id = id
         )
         queries.setOccurrenceSupersetById(
@@ -685,7 +693,9 @@ class SqlDelightWorkoutScheduleRepository(
         explanation = explanation,
         progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
         setTargets = setTargets?.let(SlotSetTargetsJson::decode),
-        superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode)
+        superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
+        distanceMeters = distanceMeters?.toInt(),
+        forceNewtons = forceNewtons
     )
 
     private fun WorkoutOccurrence.toDomain(
@@ -730,7 +740,9 @@ class SqlDelightWorkoutScheduleRepository(
         setTargets = setTargets?.let(SlotSetTargetsJson::decode),
         superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
         remainingDisposition = remainingDisposition?.toRemainingDisposition(),
-        terminalRemainingSets = terminalRemainingSets?.toInt()
+        terminalRemainingSets = terminalRemainingSets?.toInt(),
+        distanceMeters = distanceMeters?.toInt(),
+        forceNewtons = forceNewtons
     )
 
     /** The recorded reasoning per entry id for one entry kind; a row that cannot decode is dropped. */

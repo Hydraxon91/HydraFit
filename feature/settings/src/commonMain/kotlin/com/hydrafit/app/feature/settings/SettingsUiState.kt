@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.settings
 
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 
 data class SettingsUiState(
@@ -9,6 +10,7 @@ data class SettingsUiState(
     val selectedEngine: PlannerEngineId? = null,
     val selectedGoal: TrainingGoal = TrainingGoal.BALANCED,
     val weightUnit: WeightUnit = WeightUnit.KG,
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val guidedWorkoutEnabled: Boolean = false,
     val workoutDataSharingEnabled: Boolean = false,
     val apiKeyConfigured: Boolean = false,

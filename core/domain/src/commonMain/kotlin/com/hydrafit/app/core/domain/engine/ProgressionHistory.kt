@@ -19,7 +19,11 @@ data class ProgressionHistory(
     val sessions: List<WorkoutSession> = emptyList(),
     val legacyTargets: Map<Long, WorkoutPrescriptionSnapshot> = emptyMap()
 ) {
-    fun exposures(exerciseId: String, nowMillis: Long): List<ProgressionExposure> {
+    fun exposures(
+        exerciseId: String,
+        nowMillis: Long,
+        loadKind: LoadKind = LoadKind.EXTERNAL
+    ): List<ProgressionExposure> {
         val sessionsById = sessions.associateBy { it.id }
         val work = sets.filter {
             it.exerciseId == exerciseId && !it.isWarmup && it.performedAtMillis <= nowMillis
@@ -42,17 +46,22 @@ data class ProgressionHistory(
                     targets.all { it == target } &&
                     target.exerciseId == exerciseId &&
                     !target.isDeload &&
-                    target.loadKind == LoadKind.EXTERNAL &&
+                    target.loadKind == loadKind &&
                     target.reps != null &&
                     target.durationSeconds == null &&
+                    target.distanceMeters == null &&
+                    target.forceNewtons == null &&
                     (target.weightKg ?: 0.0) > 0.0 &&
                     group.all {
                         // A blank or explicit-zero recorded load cannot establish weighted target
                         // success or failure, so it makes the whole exposure unjudgeable rather
-                        // than a miss. Bodyweight/added/timed work is excluded the same way.
-                        it.loadKind == LoadKind.EXTERNAL &&
+                        // than a miss. Work of another load kind, and timed, distance or force work,
+                        // is excluded the same way.
+                        it.loadKind == loadKind &&
                             it.reps != null &&
                             it.durationSeconds == null &&
+                            it.distanceMeters == null &&
+                            it.forceNewtons == null &&
                             (it.weightKg ?: 0.0) > 0.0
                     }
                 val outcome = if (ended == null ||
@@ -142,6 +151,7 @@ data class ProgressionHistory(
             !recorded.isDeload &&
             recorded.reps == target.reps &&
             recorded.durationSeconds == target.durationSeconds &&
+            recorded.distanceMeters == target.distanceMeters &&
             recorded.loadKind == target.loadKind &&
             // Loads are compared on the gram, the same precision the write path rounds to, so a
             // reformatted value never silently degrades an exposure to unjudgeable.
@@ -170,13 +180,18 @@ data class ProgressionHistory(
         return performedReps >= prescribedReps && performedLoad >= prescribedLoad
     }
 
-    fun replay(exerciseId: String, nowMillis: Long, config: ProgressionConfig): ProgressionReplay {
+    fun replay(
+        exerciseId: String,
+        nowMillis: Long,
+        config: ProgressionConfig,
+        loadKind: LoadKind = LoadKind.EXTERNAL
+    ): ProgressionReplay {
         var streak = 0
         var increments = 0
         var failureApplied = false
         var previous: WorkoutPrescriptionSnapshot? = null
         var hasEligibleExposure = false
-        for (exposure in exposures(exerciseId, nowMillis)) {
+        for (exposure in exposures(exerciseId, nowMillis, loadKind)) {
             if (exposure.outcome == ProgressionExposureOutcome.UNKNOWN) {
                 streak = 0
                 previous = null

@@ -1,0 +1,6 @@
+ALTER TABLE workoutSet ADD COLUMN distanceMeters INTEGER;
+ALTER TABLE routineEntry ADD COLUMN distanceMeters INTEGER;
+ALTER TABLE planHistoryEntry ADD COLUMN distanceMeters INTEGER;
+ALTER TABLE activationEntry ADD COLUMN distanceMeters INTEGER;
+ALTER TABLE occurrenceEntry ADD COLUMN distanceMeters INTEGER;
+ALTER TABLE plannerEngine ADD COLUMN distanceUnit TEXT NOT NULL DEFAULT 'METERS';

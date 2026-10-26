@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.userdata.equipment
 
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +13,9 @@ data class EquipmentProfile(
     val name: String,
     val selected: Set<EquipmentTag>,
     val maxWeightsKg: Map<EquipmentTag, Double>,
-    val loadingInventory: LoadingInventory
+    val loadingInventory: LoadingInventory,
+    /** Profile-scoped physical stations; retired rows stay for historical labels. */
+    val stations: List<EquipmentStation> = emptyList()
 )
 
 data class EquipmentProfileState(
@@ -46,6 +49,15 @@ interface EquipmentProfileRepository {
     )
 
     suspend fun saveLoadingInventory(context: EquipmentProfileContext, inventory: LoadingInventory)
+
+    /**
+     * Inserts a draft station (id == 0) or updates an existing station owned by the context's
+     * profile. Returns the persisted id. A retired station is never revived by this call.
+     */
+    suspend fun saveStation(context: EquipmentProfileContext, station: EquipmentStation): Long
+
+    /** Retires a station without deleting its row; recorded set attribution stays readable. */
+    suspend fun retireStation(context: EquipmentProfileContext, stationId: Long)
 }
 
 class StaleEquipmentProfileException : IllegalStateException("Equipment profile context changed")

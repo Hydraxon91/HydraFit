@@ -92,7 +92,9 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                             loadKind = entry.loadKind.name,
                             progressionPolicy = entry.progressionPolicy
                                 ?.let(SlotProgressionPolicyJson::encode),
-                            setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode)
+                            setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
+                            distanceMeters = entry.distanceMeters?.toLong(),
+                            forceNewtons = entry.forceNewtons
                         )
                         queries.lastInsertedEntryId().executeAsOne()
                     } else {
@@ -107,6 +109,8 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                             progressionPolicy = entry.progressionPolicy
                                 ?.let(SlotProgressionPolicyJson::encode),
                             setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
+                            distanceMeters = entry.distanceMeters?.toLong(),
+                            forceNewtons = entry.forceNewtons,
                             id = entry.id
                         )
                         entry.id
@@ -182,7 +186,9 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                                 setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode),
                                 superset = entry.superset?.let(
                                     com.hydrafit.app.core.domain.routine.SupersetJson::decode
-                                )
+                                ),
+                                distanceMeters = entry.distanceMeters?.toInt(),
+                                forceNewtons = entry.forceNewtons
                             )
                         }
                 )

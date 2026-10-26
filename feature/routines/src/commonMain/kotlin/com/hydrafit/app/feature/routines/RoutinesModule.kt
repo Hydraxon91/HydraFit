@@ -25,7 +25,8 @@ val routinesModule: Module = module {
             timeProvider = get(),
             weightUnitRepository = get(),
             exclusionRepository = get(),
-            preferredWeekdaysRepository = get()
+            preferredWeekdaysRepository = get(),
+            distanceUnitRepository = get()
         )
     }
     viewModel { PrescriptionShareViewModel(get(), get(), get(), get(), get(), get(), get()) }

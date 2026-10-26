@@ -17,9 +17,25 @@ class CorrectWorkoutSetUseCaseTest {
         val action = CorrectWorkoutSetUseCase(port, clock)
         val zero = WorkoutSetCorrection(8, 0.0, 0, 1000L)
         val absent = WorkoutSetCorrection(10, null, null, 500L)
+        val force = WorkoutSetCorrection(
+            reps = null,
+            weightKg = null,
+            rir = null,
+            performedAtMillis = 500L,
+            forceNewtons = 250.0,
+            device = DeviceAttribution("Grip Trainer", 60.0)
+        )
         action(7L, zero)
         action(7L, absent)
-        assertEquals(listOf(Triple(7L, zero, 3600000L), Triple(7L, absent, 3600000L)), port.calls)
+        action(7L, force)
+        assertEquals(
+            listOf(
+                Triple(7L, zero, 3600000L),
+                Triple(7L, absent, 3600000L),
+                Triple(7L, force, 3600000L)
+            ),
+            port.calls
+        )
     }
 
     @Test
@@ -35,7 +51,10 @@ class CorrectWorkoutSetUseCaseTest {
             valid.copy(weightKg = Double.POSITIVE_INFINITY),
             valid.copy(rir = -1),
             valid.copy(rir = 11),
-            valid.copy(performedAtMillis = 1001L)
+            valid.copy(performedAtMillis = 1001L),
+            // A force set is load-free and only a force set may name a measuring device.
+            valid.copy(reps = null, forceNewtons = 250.0, weightKg = 80.0),
+            valid.copy(reps = null, device = DeviceAttribution("Grip Trainer", 60.0))
         ).forEach { invalid ->
             assertFailsWith<IllegalArgumentException> { action(7L, invalid) }
         }

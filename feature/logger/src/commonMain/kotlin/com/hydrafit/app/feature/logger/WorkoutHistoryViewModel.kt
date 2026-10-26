@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryRequest
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetCursor
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -40,6 +41,7 @@ class WorkoutHistoryViewModel(
     private val historyRepository: WorkoutHistoryRepository,
     private val exerciseNoteRepository: ExerciseNoteRepository,
     weightUnitRepository: WeightUnitRepository,
+    distanceUnitRepository: DistanceUnitRepository,
     timeProvider: TimeProvider
 ) : ViewModel() {
 
@@ -69,6 +71,11 @@ class WorkoutHistoryViewModel(
         viewModelScope.launch {
             weightUnitRepository.unitFlow().collect { unit ->
                 _state.update { it.copy(weightUnit = unit) }
+            }
+        }
+        viewModelScope.launch {
+            distanceUnitRepository.unitFlow().collect { unit ->
+                _state.update { it.copy(distanceUnit = unit) }
             }
         }
         viewModelScope.launch {

@@ -19,6 +19,13 @@ CREATE TABLE workoutSet (
     completedAtElapsedMillis INTEGER,
     durationSeconds INTEGER,
     prescriptionSnapshot TEXT,
+    stationId INTEGER,
+    stationName TEXT,
+    stationLoadBasis TEXT,
+    distanceMeters INTEGER,
+    forceNewtons REAL,
+    deviceName TEXT,
+    deviceRatingKg REAL,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
@@ -49,13 +56,36 @@ selectSetById:
 SELECT * FROM workoutSet WHERE id = ?;
 
 updateSetValues:
-UPDATE workoutSet SET reps = ?, durationSeconds = ?, weightKg = ?, rir = ? WHERE id = ?;
+UPDATE workoutSet SET reps = ?, durationSeconds = ?, distanceMeters = ?, forceNewtons = ?, weightKg = ?, rir = ?
+WHERE id = ?;
+
+-- A correction that changes the measurement kind leaves no target: the recorded prescription
+-- described a different kind of work, so keeping it would contradict the set it is attached to.
+clearPrescriptionSnapshot:
+UPDATE workoutSet SET prescriptionSnapshot = NULL WHERE id = ?;
 
 updateSetValuesAndInvalidateTiming:
 UPDATE workoutSet
-SET reps = ?, durationSeconds = ?, weightKg = ?, rir = ?, timingProvenance = 'UNKNOWN',
-    startedAtElapsedMillis = NULL, completedAtElapsedMillis = NULL
+SET reps = ?, durationSeconds = ?, distanceMeters = ?, forceNewtons = ?, weightKg = ?, rir = ?,
+    timingProvenance = 'UNKNOWN', startedAtElapsedMillis = NULL,
+    completedAtElapsedMillis = NULL
 WHERE id = ?;
+
+-- Station attribution is frozen at logging. It is never inferred from today's equipment profile.
+assignStation:
+UPDATE workoutSet
+SET stationId = ?, stationName = ?, stationLoadBasis = ?
+WHERE id = ?;
+
+assignDistance:
+UPDATE workoutSet SET distanceMeters = ? WHERE id = ?;
+
+assignForce:
+UPDATE workoutSet SET forceNewtons = ? WHERE id = ?;
+
+-- A recorded device rating is descriptive identity, never a converted force value.
+assignDevice:
+UPDATE workoutSet SET deviceName = ?, deviceRatingKg = ? WHERE id = ?;
 
 selectLastSetBySession:
 SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;

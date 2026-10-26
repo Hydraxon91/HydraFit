@@ -86,7 +86,9 @@ class SlotSetTargetsMigrationTest {
             weightKg = 60.0,
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = encoded
+            setTargets = encoded,
+            distanceMeters = null,
+            forceNewtons = null
         )
 
         val row = database.routineTemplateQueries.selectEntriesForWorkout(workoutId).executeAsOne()

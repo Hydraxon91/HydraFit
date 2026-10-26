@@ -8,7 +8,12 @@ class CorrectWorkoutSetUseCase(
     private val timeProvider: TimeProvider
 ) {
     suspend operator fun invoke(setId: Long, correction: WorkoutSetCorrection) {
-        requireValidSetMeasurement(correction.reps, correction.durationSeconds)
+        requireValidSetMeasurement(
+            correction.reps,
+            correction.durationSeconds,
+            correction.distanceMeters,
+            correction.forceNewtons
+        )
         require(correction.rir == null || correction.rir in 0..10) {
             "RIR must be between 0 and 10"
         }
@@ -16,6 +21,8 @@ class CorrectWorkoutSetUseCase(
             "That time is in the future"
         }
         WorkoutLoadPolicy.validateShape(LoadKind.LEGACY_UNSPECIFIED, correction.weightKg)
+        requireForceIsLoadFree(correction.forceNewtons, correction.weightKg)
+        requireValidDevice(correction.forceNewtons, correction.device)
         resegmenter.resegmentAfterSetCorrection(setId, correction, timeProvider.utcOffsetMillis())
     }
 }

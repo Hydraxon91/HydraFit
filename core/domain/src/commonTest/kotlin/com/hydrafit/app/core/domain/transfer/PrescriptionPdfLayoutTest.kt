@@ -130,6 +130,46 @@ class PrescriptionPdfLayoutTest {
     }
 
     @Test
+    fun printsADistanceSlotInMetresWithoutItsAbsentRepCount() {
+        val pages = PrescriptionPdfLayout.build(
+            document(
+                listOf(
+                    routine(
+                        entry(name = "Row", sets = 1).copy(
+                            reps = null,
+                            distanceMeters = 5_000,
+                            weightKg = null,
+                            loadKind = LoadKind.BODYWEIGHT.name
+                        )
+                    )
+                )
+            ),
+            linesPerPage = 100
+        )
+
+        assertEquals("  Row: 1 × 5000 m bodyweight", texts(pages).last())
+    }
+
+    @Test
+    fun printsForceInNewtonsWithoutARepCountOrLoad() {
+        val pages = PrescriptionPdfLayout.build(
+            document(
+                listOf(
+                    routine(
+                        entry(name = "Grip", sets = 2, weightKg = null).copy(
+                            reps = null,
+                            forceNewtons = 150.0
+                        )
+                    )
+                )
+            ),
+            linesPerPage = 100
+        )
+
+        assertEquals("  Grip: 2 × 150 N", texts(pages).last())
+    }
+
+    @Test
     fun namesTheRoutineCountAndPrintsTheWorkoutFocus() {
         val pages = PrescriptionPdfLayout.build(
             document(

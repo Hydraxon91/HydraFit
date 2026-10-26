@@ -11,6 +11,11 @@ data class PlannerLoadInputs(
     val recentWeights: List<WeightHistoryEntry>,
     /** Progression-adjusted e1RM bound shared by all engines. */
     val recentWeightCaps: Map<String, Double> = emptyMap(),
+    /**
+     * Recorded added load advanced by the same success/miss streak rule, per bodyweight-addable
+     * exercise id. No estimated-1RM conversion and no body mass participate.
+     */
+    val suggestedAddedLoadsKg: Map<String, Double> = emptyMap(),
     /** External-load exercises without sufficient evidence must not receive model-invented loads. */
     val withheldWeightExerciseIds: Set<String> = emptySet(),
     /** Recorded baseline/progression provenance per exercise id; never affects selection. */
@@ -36,6 +41,10 @@ data class PlannerLoadInputs(
  * median vote wins, so one loose set or one unusually heavy session cannot outrank a longer, more
  * consistent history. A manual PR raises that baseline only when it records at least three reps.
  *
+ * Added load follows a separate, narrower rule (EX-02-A): the latest recorded added load is the
+ * baseline, and the same streak increment advances it. Nothing is estimated from reps, and body mass
+ * is neither read nor requested. Station-attributed work never seeds either baseline.
+ *
  * Grouped here rather than in the observer so the observer stays within its dependency budget.
  */
 class BuildPlannerLoadInputsUseCase(
@@ -56,8 +65,12 @@ class BuildPlannerLoadInputsUseCase(
         fun contributesToLoadMath(exerciseId: String, kind: LoadKind): Boolean =
             WorkoutLoadPolicy.contributesToLoadMath(capabilityOf(exerciseId), kind)
 
+        // A station-attributed set belongs to one physical stack and must never seed the generic
+        // exercise baseline or progression. Withholding the number is safer than mixing stations.
         val loadSets = sources.loggedWorkoutSets.filter {
-            it.performedAtMillis <= nowMillis && contributesToLoadMath(it.exerciseId, it.loadKind)
+            it.station == null &&
+                it.performedAtMillis <= nowMillis &&
+                contributesToLoadMath(it.exerciseId, it.loadKind)
         }
         val contributes = { id: String, kind: LoadKind -> contributesToLoadMath(id, kind) }
         val recentQualifyingSets = recentQualifyingSets(loadSets, nowMillis, contributes)
@@ -128,7 +141,9 @@ class BuildPlannerLoadInputsUseCase(
 
         val recentWeights = if (sources.workoutDataSharingEnabled) {
             buildRecentWeights(
-                sources.loggedWorkoutSets.filter { it.performedAtMillis <= nowMillis },
+                sources.loggedWorkoutSets.filter {
+                    it.station == null && it.performedAtMillis <= nowMillis
+                },
                 utcOffsetMillis
             )
         } else {
@@ -142,6 +157,24 @@ class BuildPlannerLoadInputsUseCase(
             pauseIncrements = pauseIncrements,
             nowMillis = nowMillis
         ).mapValues { (_, value) -> value.progressedKg }
+        // Added load is not an estimate: the latest recorded added load is continued by the same
+        // comparable streak rule, so a bodyweight-addable exercise can be prescribed numerically
+        // without inventing an e1RM or reading body mass.
+        val addedExerciseIds = capabilityByExercise
+            .filterValues { it == ExerciseLoadCapability.BODYWEIGHT_ADDABLE }
+            .keys
+        val addedBaselines = addedLoadBaselines(
+            sets = sources.loggedWorkoutSets,
+            exerciseIds = addedExerciseIds,
+            nowMillis = nowMillis
+        )
+        val suggestedAddedLoadsKg = progressWeights.resolve(
+            baseline = addedBaselines,
+            history = sources.progressionHistory,
+            pauseIncrements = pauseIncrements,
+            nowMillis = nowMillis,
+            loadKind = LoadKind.ADDED
+        ).mapValues { (_, value) -> value.progressedKg }
         // The progressed estimate is the same bound used by deterministic and model-backed engines.
         val recentWeightCaps = progressed
         val withheldWeightExerciseIds = externalExerciseIds - progressed.keys
@@ -149,11 +182,46 @@ class BuildPlannerLoadInputsUseCase(
             suggestedWeightsKg = progressed,
             recentWeights = recentWeights,
             recentWeightCaps = recentWeightCaps,
+            suggestedAddedLoadsKg = suggestedAddedLoadsKg,
             withheldWeightExerciseIds = withheldWeightExerciseIds,
             loadExplanations = loadExplanations,
             lowRepManualFloorsKg = lowRepManualFloorsKg
         )
     }
+
+    /**
+     * The added-load baseline per exercise: its most recently recorded qualifying added set.
+     *
+     * A set qualifies only when it names a bodyweight-addable exercise, is not station-attributed,
+     * warm-up or future work, records a positive finite added load and a rep count, and carries no
+     * duration, distance or force measurement. Recency is by performance time, with the stored id
+     * breaking ties so the choice is deterministic. The baseline is the recorded number itself; no
+     * rep-count or body-mass conversion runs here.
+     */
+    private fun addedLoadBaselines(
+        sets: List<WorkoutSet>,
+        exerciseIds: Set<String>,
+        nowMillis: Long
+    ): Map<String, Double> = sets
+        .filter { set ->
+            set.exerciseId in exerciseIds &&
+                set.station == null &&
+                set.performedAtMillis <= nowMillis &&
+                !set.isWarmup &&
+                set.loadKind == LoadKind.ADDED &&
+                set.reps != null &&
+                set.durationSeconds == null &&
+                set.distanceMeters == null &&
+                set.forceNewtons == null &&
+                set.weightKg?.let { it.isFinite() && it > 0.0 } == true
+        }
+        .groupBy { it.exerciseId }
+        .mapValues { (_, exerciseSets) ->
+            val latest = exerciseSets.maxWith(
+                compareBy<WorkoutSet> { it.performedAtMillis }.thenBy { it.id }
+            )
+            requireNotNull(latest.weightKg)
+        }
 
     /**
      * The qualifying external working sets per exercise inside the recent window: a positive finite

@@ -34,11 +34,21 @@ data class PlannedExercise(
      * ordered slot's [sets] always equals [SlotSetTargets.sets].
      */
     val setTargets: SlotSetTargets? = null,
-    val superset: Superset? = null
+    val superset: Superset? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null
 ) {
     init {
-        require((reps == null) != (durationSeconds == null)) {
-            "A planned exercise is either reps-based or timed"
+        val metrics = listOf(
+            reps != null,
+            durationSeconds != null,
+            distanceMeters != null,
+            forceNewtons != null
+        )
+        require(metrics.count { it } == 1) {
+            "A planned exercise is reps-based, timed, distance-based or force-based, exactly one"
         }
     }
 }

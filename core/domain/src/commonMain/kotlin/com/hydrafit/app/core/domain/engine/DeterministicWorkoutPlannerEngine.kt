@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -76,6 +77,7 @@ class DeterministicWorkoutPlannerEngine(
                     request.recentExerciseIdsByPattern,
                     request.suggestedWeightsKg,
                     request.recentWeightCaps,
+                    request.suggestedAddedLoadsKg,
                     request.withheldWeightExerciseIds,
                     request.lowRepManualFloorsKg,
                     request.equipmentMaxWeights,
@@ -131,6 +133,7 @@ class DeterministicWorkoutPlannerEngine(
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
         suggestedWeightsKg: Map<String, Double>,
         recentWeightCaps: Map<String, Double>,
+        suggestedAddedLoadsKg: Map<String, Double>,
         withheldWeightExerciseIds: Set<String>,
         lowRepManualFloorsKg: Map<String, Double>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
@@ -169,6 +172,7 @@ class DeterministicWorkoutPlannerEngine(
                 goal,
                 suggestedWeightsKg,
                 recentWeightCaps,
+                suggestedAddedLoadsKg,
                 withheldWeightExerciseIds,
                 lowRepManualFloorsKg,
                 equipmentMaxWeights,
@@ -296,6 +300,7 @@ class DeterministicWorkoutPlannerEngine(
         goal: TrainingGoal,
         suggestedWeightsKg: Map<String, Double>,
         recentWeightCaps: Map<String, Double>,
+        suggestedAddedLoadsKg: Map<String, Double>,
         withheldWeightExerciseIds: Set<String>,
         lowRepManualFloorsKg: Map<String, Double>,
         equipmentMaxWeights: Map<EquipmentTag, Double>,
@@ -349,7 +354,7 @@ class DeterministicWorkoutPlannerEngine(
             it * weightConfig.intensityForReps(reps) * scale
         }
         val working = unroundedWorking?.let(weightConfig::roundToIncrement)
-        val suggestedWeightKg = unroundedWorking?.let { bound ->
+        val externalSuggestedWeightKg = unroundedWorking?.let { bound ->
             when (
                 val resolution = resolveInventoryLoad(
                     inventory = loadingInventory,
@@ -366,10 +371,21 @@ class DeterministicWorkoutPlannerEngine(
                 InventoryLoadResolution.NoReachableLoad -> null
             }
         }
-        val slotKind = if (suggestedWeightKg != null) {
-            LoadKind.EXTERNAL
-        } else {
-            WorkoutLoadPolicy.defaultKind(capability)
+        // Added load is prescribed as the recorded number itself. It is never scaled for a deload
+        // or converted from an estimate, because EX-02-A has no approved formula for either.
+        val addedSuggestedWeightKg =
+            if (!allowed && capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE) {
+                suggestedAddedLoadsKg[candidate.id]
+                    ?.takeIf { it.isFinite() && it > 0.0 }
+                    ?.let(weightConfig::roundToIncrement)
+            } else {
+                null
+            }
+        val suggestedWeightKg = externalSuggestedWeightKg ?: addedSuggestedWeightKg
+        val slotKind = when {
+            externalSuggestedWeightKg != null -> LoadKind.EXTERNAL
+            addedSuggestedWeightKg != null -> LoadKind.ADDED
+            else -> WorkoutLoadPolicy.defaultKind(capability)
         }
         // The app's own ordered-prescription stage, shared with the sanitizer so both engines reach
         // the same shape from the same conversion. A slot-level bound may be absent while a manual

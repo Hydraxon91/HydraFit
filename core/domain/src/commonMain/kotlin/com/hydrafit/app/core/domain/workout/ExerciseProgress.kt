@@ -1,6 +1,23 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import kotlinx.coroutines.flow.Flow
+
+/** Which station attribution a progress projection includes. */
+sealed interface StationFilter {
+    /** Every set, preserving the pre-station chart behavior. */
+    data object All : StationFilter
+
+    /** Only sets recorded without a station. */
+    data object Unattributed : StationFilter
+
+    /** Only the named persisted station. */
+    data class Station(val id: Long) : StationFilter {
+        init {
+            require(id > 0L)
+        }
+    }
+}
 
 /** Inclusive civil days, interpreted with one supplied offset, not historical zone rules. */
 data class ExerciseProgressRequest(
@@ -9,12 +26,19 @@ data class ExerciseProgressRequest(
     val dayTo: Long,
     val nowMillis: Long,
     val utcOffsetMillis: Long = 0L,
-    val occurrenceId: Long? = null
+    val occurrenceId: Long? = null,
+    val stationFilter: StationFilter = StationFilter.All
 ) {
     init {
         require(exerciseId.isNotBlank())
         require(dayFrom <= dayTo)
         require(utcOffsetMillis in -86_400_000L..86_400_000L)
+    }
+
+    fun includes(stationId: Long?): Boolean = when (stationFilter) {
+        StationFilter.All -> true
+        StationFilter.Unattributed -> stationId == null
+        is StationFilter.Station -> stationId == stationFilter.id
     }
 }
 
@@ -75,7 +99,9 @@ data class ProgressDay(
      * Descriptive total of this day's recorded timed sets, in whole seconds; 0 when the day has no
      * timed work. It feeds the day trend only and never a record, progression or e1RM.
      */
-    val totalDurationSeconds: Long = 0L
+    val totalDurationSeconds: Long = 0L,
+    /** Descriptive total of this day's recorded distance sets, in whole metres. */
+    val totalDistanceMeters: Long = 0L
 )
 
 data class ExerciseProgress(
@@ -90,6 +116,12 @@ interface ExerciseProgressRepository {
 
     /** Complete chart range and all-time records through [ExerciseProgressRequest.nowMillis]. */
     fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress>
+
+    /**
+     * Every positive station identity recorded for this exercise, independent of the history page
+     * currently loaded. Merge-only id zero labels are excluded because they are not selectable.
+     */
+    fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>>
 
     /**
      * The distinct exercise ids recorded against [occurrenceId], in a stable order. Emits whenever

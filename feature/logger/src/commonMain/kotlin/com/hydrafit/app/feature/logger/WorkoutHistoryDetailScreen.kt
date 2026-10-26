@@ -19,11 +19,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hydrafit.app.core.domain.unit.DistanceUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_edit_set
+import hydrafit.feature.logger.generated.resources.logger_force_value
 import hydrafit.feature.logger.generated.resources.logger_history_back
 import hydrafit.feature.logger.generated.resources.logger_history_detail_session
 import hydrafit.feature.logger.generated.resources.logger_history_detail_unassigned
@@ -37,7 +41,9 @@ import hydrafit.feature.logger.generated.resources.logger_history_note_cleared
 import hydrafit.feature.logger.generated.resources.logger_history_rir
 import hydrafit.feature.logger.generated.resources.logger_history_session_note_title
 import hydrafit.feature.logger.generated.resources.logger_history_set_count
+import hydrafit.feature.logger.generated.resources.logger_history_set_distance_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
+import hydrafit.feature.logger.generated.resources.logger_history_set_force_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_history_sets_failed
 import hydrafit.feature.logger.generated.resources.logger_history_sets_loading
@@ -55,6 +61,7 @@ import hydrafit.feature.logger.generated.resources.logger_history_warmup
 import hydrafit.feature.logger.generated.resources.logger_history_working
 import hydrafit.feature.logger.generated.resources.logger_note_retry
 import hydrafit.feature.logger.generated.resources.logger_recorded_at
+import hydrafit.feature.logger.generated.resources.logger_station_attributed
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -77,6 +84,10 @@ fun WorkoutHistoryDetailRoute(
         },
         onLoggedSetRepsChanged = loggerViewModel::onLoggedSetRepsChanged,
         onLoggedSetDurationChanged = loggerViewModel::onLoggedSetDurationChanged,
+        onLoggedSetDistanceChanged = loggerViewModel::onLoggedSetDistanceChanged,
+        onLoggedSetForceChanged = loggerViewModel::onLoggedSetForceChanged,
+        onLoggedSetDeviceNameChanged = loggerViewModel::onLoggedSetDeviceNameChanged,
+        onLoggedSetDeviceRatingChanged = loggerViewModel::onLoggedSetDeviceRatingChanged,
         onLoggedSetMetricChanged = loggerViewModel::onLoggedSetMetricChanged,
         onLoggedSetWeightChanged = loggerViewModel::onLoggedSetWeightChanged,
         onLoggedSetRirChanged = loggerViewModel::onLoggedSetRirChanged,
@@ -99,6 +110,10 @@ fun WorkoutHistoryDetailScreen(
     onEditSet: (WorkoutHistorySet) -> Unit,
     onLoggedSetRepsChanged: (String) -> Unit,
     onLoggedSetDurationChanged: (String) -> Unit,
+    onLoggedSetDistanceChanged: (String) -> Unit,
+    onLoggedSetForceChanged: (String) -> Unit,
+    onLoggedSetDeviceNameChanged: (String) -> Unit,
+    onLoggedSetDeviceRatingChanged: (String) -> Unit,
     onLoggedSetMetricChanged: (SetMetric) -> Unit,
     onLoggedSetWeightChanged: (String) -> Unit,
     onLoggedSetRirChanged: (String) -> Unit,
@@ -237,6 +252,7 @@ fun WorkoutHistoryDetailScreen(
                         set = set,
                         utcOffsetMillis = state.utcOffsetMillis,
                         loadText = loadWeightText(set.loadKind, set.weightKg, state.weightUnit),
+                        distanceUnit = state.distanceUnit,
                         editing = loggerState.loggedSetEdit?.row?.id == set.id,
                         onEdit = { onEditSet(set) }
                     )
@@ -329,6 +345,10 @@ fun WorkoutHistoryDetailScreen(
             nowMillis = nowMillis,
             onRepsChanged = onLoggedSetRepsChanged,
             onDurationChanged = onLoggedSetDurationChanged,
+            onDistanceChanged = onLoggedSetDistanceChanged,
+            onForceChanged = onLoggedSetForceChanged,
+            onDeviceNameChanged = onLoggedSetDeviceNameChanged,
+            onDeviceRatingChanged = onLoggedSetDeviceRatingChanged,
             onMetricChanged = onLoggedSetMetricChanged,
             onWeightChanged = onLoggedSetWeightChanged,
             onRirChanged = onLoggedSetRirChanged,
@@ -344,6 +364,7 @@ private fun WorkoutHistorySetRow(
     set: WorkoutHistorySet,
     utcOffsetMillis: Long,
     loadText: String,
+    distanceUnit: DistanceUnit,
     editing: Boolean,
     onEdit: () -> Unit
 ) {
@@ -374,8 +395,25 @@ private fun WorkoutHistorySetRow(
         }
         val durationSeconds = set.durationSeconds
         val reps = set.reps
+        val distanceMeters = set.distanceMeters
+        val forceNewtons = set.forceNewtons
         Text(
             text = when {
+                // A force reading is its own measure: it is never shown as a load or a lifted mass.
+                forceNewtons != null -> stringResource(
+                    Res.string.logger_history_set_force_line,
+                    stringResource(
+                        Res.string.logger_force_value,
+                        formatWeight(forceNewtons)
+                    )
+                )
+
+                distanceMeters != null -> stringResource(
+                    Res.string.logger_history_set_distance_line,
+                    formatDistance(distanceMeters, distanceUnit),
+                    loadText
+                )
+
                 durationSeconds != null -> stringResource(
                     Res.string.logger_history_set_duration_line,
                     durationSeconds,
@@ -388,6 +426,18 @@ private fun WorkoutHistorySetRow(
             },
             style = MaterialTheme.typography.bodyMedium
         )
+        set.device?.takeIf { forceNewtons != null }?.let { device ->
+            Text(
+                text = deviceAttributionText(device),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        set.station?.let { station ->
+            Text(
+                text = stringResource(Res.string.logger_station_attributed, station.name),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         set.rir?.let { rir ->
             Text(
                 text = stringResource(Res.string.logger_history_rir, rir),

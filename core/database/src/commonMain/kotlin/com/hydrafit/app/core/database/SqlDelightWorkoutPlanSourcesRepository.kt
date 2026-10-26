@@ -93,7 +93,11 @@ class SqlDelightWorkoutPlanSourcesRepository(
     }
 
     private fun readProgressionHistory(): ProgressionHistory = database.transactionWithResult {
-        val sets = database.workoutLogQueries.selectAllSets().executeAsList().map { it.toDomain() }
+        // Station-attributed work is excluded from the generic progression replay. Its own station
+        // history is a separate comparison population and must not seed this exercise-level rule.
+        val sets = database.workoutLogQueries.selectAllSets().executeAsList()
+            .map { it.toDomain() }
+            .filter { it.station == null }
         val sessions = database.workoutSessionQueries.selectAllSessions().executeAsList()
             .map { it.toDomain() }
         val entries = database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList()
@@ -121,6 +125,8 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 sets = entry.sets.toInt(),
                 reps = entry.reps?.toInt(),
                 durationSeconds = entry.durationSeconds?.toInt(),
+                distanceMeters = entry.distanceMeters?.toInt(),
+                forceNewtons = entry.forceNewtons,
                 loadKind = decodeLoadKind(entry.loadKind),
                 weightKg = entry.weightKg,
                 isDeload = PeriodizationConfig().isDeload(week)

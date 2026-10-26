@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import kotlin.math.roundToInt
@@ -101,7 +102,7 @@ class WeeklyPlanSanitizer(
                     }
                     // A saved implement re-rounds the accepted bound down onto a real load; without
                     // one the model's own value keeps its existing treatment.
-                    val suggestedWeightKg = if (allowed) {
+                    val externalSuggestedWeightKg = if (allowed) {
                         rawUncapped?.let { bound ->
                             when (
                                 val resolution = resolveInventoryLoad(
@@ -122,6 +123,17 @@ class WeeklyPlanSanitizer(
                     } else {
                         null
                     }
+                    // A model number never becomes added load: EX-02-A prescribes the recorded number
+                    // advanced by the app's own streak rule, or nothing at all.
+                    val addedSuggestedWeightKg =
+                        if (!allowed && capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE) {
+                            request.suggestedAddedLoadsKg[exercise.id]
+                                ?.takeIf { it.isFinite() && it > 0.0 }
+                                ?.let(weightConfig::roundToIncrement)
+                        } else {
+                            null
+                        }
+                    val suggestedWeightKg = externalSuggestedWeightKg ?: addedSuggestedWeightKg
                     val ceilingBinds = ceiling != null && uncapped != null && uncapped > ceiling
                     // A model number is only "accepted" when the app keeps a numeric load for this
                     // exercise; a discarded proposal must not also claim an applied bound or ceiling.
@@ -129,6 +141,11 @@ class WeeklyPlanSanitizer(
                     val boundedByProgression = retained && bound != null && bound < proposed
                     val cappedByEquipment = retained && ceilingBinds
                     val unavailableReason = when {
+                        // Added load is the app's own recorded value, so it never depends on a model
+                        // proposal or on workout-data sharing.
+                        addedSuggestedWeightKg != null -> null
+                        capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE ->
+                            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
                         !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
                         !request.includeWorkoutData -> LoadUnavailableReason.AI_DATA_NOT_SHARED
                         exercise.id in request.withheldWeightExerciseIds && lowRepFloor == null ->
@@ -138,10 +155,10 @@ class WeeklyPlanSanitizer(
                         proposed == null -> LoadUnavailableReason.AI_PROPOSAL_REJECTED
                         else -> null
                     }
-                    val slotKind = if (suggestedWeightKg != null) {
-                        LoadKind.EXTERNAL
-                    } else {
-                        WorkoutLoadPolicy.defaultKind(capability)
+                    val slotKind = when {
+                        externalSuggestedWeightKg != null -> LoadKind.EXTERNAL
+                        addedSuggestedWeightKg != null -> LoadKind.ADDED
+                        else -> WorkoutLoadPolicy.defaultKind(capability)
                     }
                     // The app's own ordered-prescription stage runs after the model's numbers are
                     // settled, so every engine reaches the same shape and a model cannot bypass it.

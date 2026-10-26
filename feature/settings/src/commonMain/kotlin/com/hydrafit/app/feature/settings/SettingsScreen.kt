@@ -33,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
@@ -44,6 +45,9 @@ import hydrafit.feature.settings.generated.resources.settings_api_key_configured
 import hydrafit.feature.settings.generated.resources.settings_api_key_label
 import hydrafit.feature.settings.generated.resources.settings_api_key_save
 import hydrafit.feature.settings.generated.resources.settings_api_key_section
+import hydrafit.feature.settings.generated.resources.settings_distance_unit_feet
+import hydrafit.feature.settings.generated.resources.settings_distance_unit_meters
+import hydrafit.feature.settings.generated.resources.settings_distance_unit_section
 import hydrafit.feature.settings.generated.resources.settings_engine_deterministic
 import hydrafit.feature.settings.generated.resources.settings_engine_gemini
 import hydrafit.feature.settings.generated.resources.settings_engine_local_llm
@@ -111,6 +115,7 @@ fun SettingsRoute(
         onEngineSelected = viewModel::onEngineSelected,
         onGoalSelected = viewModel::onGoalSelected,
         onWeightUnitSelected = viewModel::onWeightUnitSelected,
+        onDistanceUnitSelected = viewModel::onDistanceUnitSelected,
         onWorkoutDataSharingToggled = viewModel::onWorkoutDataSharingToggled,
         onGuidedWorkoutToggled = viewModel::onGuidedWorkoutToggled,
         onRestDurationChanged = restDurationViewModel::onSecondsChanged,
@@ -132,6 +137,7 @@ fun SettingsScreen(
     onEngineSelected: (PlannerEngineId) -> Unit,
     onGoalSelected: (TrainingGoal) -> Unit,
     onWeightUnitSelected: (WeightUnit) -> Unit,
+    onDistanceUnitSelected: (DistanceUnit) -> Unit,
     onWorkoutDataSharingToggled: (Boolean) -> Unit,
     onGuidedWorkoutToggled: (Boolean) -> Unit,
     onRestDurationChanged: (String) -> Unit,
@@ -303,6 +309,28 @@ fun SettingsScreen(
             }
         }
 
+        Text(
+            text = stringResource(Res.string.settings_distance_unit_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        DistanceUnit.entries.forEach { unit ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = state.distanceUnit == unit,
+                        onClick = { onDistanceUnitSelected(unit) }
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = state.distanceUnit == unit,
+                    onClick = { onDistanceUnitSelected(unit) }
+                )
+                Text(stringResource(unit.labelResource()))
+            }
+        }
+
         OnDeviceModelSection(
             installed = state.isLocalLlmInstalled,
             onModelChanged = onModelChanged
@@ -367,4 +395,9 @@ private fun TrainingGoal.labelResource(): StringResource = when (this) {
 private fun WeightUnit.labelResource(): StringResource = when (this) {
     WeightUnit.KG -> Res.string.settings_unit_kg
     WeightUnit.LB -> Res.string.settings_unit_lb
+}
+
+private fun DistanceUnit.labelResource(): StringResource = when (this) {
+    DistanceUnit.METERS -> Res.string.settings_distance_unit_meters
+    DistanceUnit.FEET -> Res.string.settings_distance_unit_feet
 }

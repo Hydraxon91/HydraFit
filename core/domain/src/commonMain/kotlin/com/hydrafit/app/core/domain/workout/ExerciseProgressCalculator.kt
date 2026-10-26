@@ -35,10 +35,16 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         } else {
             null
         }
-        // A timed set is real recorded work for the day trend (count and seconds) but contributes
-        // no rep-derived record: its seconds are never read as reps and its null reps are never
-        // substituted with a placeholder.
-        if (set.durationSeconds != null) return
+        // Timed, distance and force sets are real recorded work for the day trend (count plus
+        // seconds, metres or newtons) but contribute no rep-derived record. Their values are never
+        // read as reps. Force adds no day total: a sum of peak forces is not a meaningful quantity,
+        // so only the working-set count includes it.
+        if (set.durationSeconds != null ||
+            set.distanceMeters != null ||
+            set.forceNewtons != null
+        ) {
+            return
+        }
         candidates(set).forEach { candidate ->
             if (!earlier.containsKey(candidate.key)) {
                 earlier[candidate.key] = records[candidate.key]?.value
@@ -92,6 +98,7 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         var reps = 0L
         var volume: Double? = null
         var durationSeconds = 0L
+        var distanceMeters = 0L
         val loads = linkedMapOf<ProgressRecordKey, Accumulator>()
         val repetitions = linkedMapOf<ProgressRecordKey, Accumulator>()
         val estimates = linkedMapOf<ProgressRecordKey, Accumulator>()
@@ -103,6 +110,13 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
                 durationSeconds += timedSeconds
                 return
             }
+            val distance = set.distanceMeters
+            if (distance != null) {
+                distanceMeters += distance
+                return
+            }
+            // A measured-force set is recorded work but carries no rep count, load or volume.
+            if (set.forceNewtons != null) return
             val repCount = set.reps ?: return
             reps += repCount.toLong()
             if (set.loadKind == LoadKind.EXTERNAL && set.weightKg != null) {
@@ -122,7 +136,8 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             loads.values.map { it.snapshot() },
             repetitions.values.map { it.snapshot() },
             estimates.values.singleOrNull()?.snapshot(),
-            durationSeconds
+            durationSeconds,
+            distanceMeters
         )
     }
 

@@ -10,6 +10,8 @@ import com.hydrafit.app.core.domain.engine.LoadBaselineExplanation
 import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -22,6 +24,7 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeekForEpochDay
 import com.hydrafit.app.core.domain.time.daysFromCivil
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
@@ -633,6 +636,61 @@ class SchedulingUseCasesTest {
         assertFailsWith<ScheduleException> {
             edit(occurrence.id, listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8)))
         }
+    }
+
+    @Test
+    fun editingASlotToANonRepsMeasureDropsItsOrderedTargets() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        val targets = SlotSetTargets.of(listOf(SetTarget(reps = 8, weightKg = 30.0)))
+        occurrence.entries.forEach { entry ->
+            scheduleRepository.replaceOccurrenceEntries(
+                occurrence.id,
+                occurrence.entries.map { it.copy(setTargets = targets) }
+            )
+        }
+
+        edit(
+            occurrence.id,
+            listOf(
+                OccurrenceEntryDraft(
+                    exerciseId = "bench-press",
+                    sets = 3,
+                    reps = null,
+                    forceNewtons = 250.0,
+                    loadKind = LoadKind.BODYWEIGHT
+                )
+            )
+        )
+
+        val stored = requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+            .entries.single()
+        assertEquals(250.0, stored.forceNewtons)
+        // Ordered targets are rep work, so a force slot does not keep them.
+        assertNull(stored.setTargets)
+    }
+
+    @Test
+    fun editingASlotThatStaysRepBasedKeepsItsOrderedTargets() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        val targets = SlotSetTargets.of(
+            List(3) { SetTarget(reps = 8, weightKg = 30.0) }
+        )
+        scheduleRepository.replaceOccurrenceEntries(
+            occurrence.id,
+            occurrence.entries.map { it.copy(setTargets = targets) }
+        )
+
+        edit(
+            occurrence.id,
+            listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8, weightKg = 30.0))
+        )
+
+        val stored = requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+            .entries.single()
+        assertEquals(8, stored.reps)
+        assertEquals(targets, stored.setTargets)
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
@@ -193,6 +194,9 @@ private class FakeProgressRepository : ExerciseProgressRepository {
     var historyCalls = 0
 
     override fun observeOccurrenceExerciseIds(occurrenceId: Long): Flow<List<String>> = ids
+
+    override fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>> =
+        flowOf(emptyList())
 
     override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> {
         requests += request

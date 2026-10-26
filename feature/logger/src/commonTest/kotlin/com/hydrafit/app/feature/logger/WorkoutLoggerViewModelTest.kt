@@ -26,10 +26,14 @@ import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Equipment
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -60,6 +64,7 @@ import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
+import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
@@ -87,6 +92,10 @@ import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileContext
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
@@ -388,6 +397,81 @@ class WorkoutLoggerViewModelTest {
         assertEquals("70", state.weightInput)
         assertTrue(state.isWarmup)
         assertEquals("3", state.rir)
+    }
+
+    @Test
+    fun quickFillingAForceSetKeepsItsExactNewtonsAndDeviceRating() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = null,
+                    weightKg = null,
+                    performedAtMillis = 1L,
+                    forceNewtons = 247.35,
+                    device = DeviceAttribution("Grip meter", 60.25)
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+        // The prefilled text parses back to the same stored double, so an untouched re-log cannot
+        // drift the measurement by rounding it to one decimal.
+        assertEquals("247.35", viewModel.state.value.forceNewtons)
+        assertEquals("60.25", viewModel.state.value.deviceRatingKg)
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().maxBy { it.id }
+        assertEquals(247.35, logged.forceNewtons)
+        assertEquals(DeviceAttribution("Grip meter", 60.25), logged.device)
+    }
+
+    @Test
+    fun exactEntryTextStaysPlainDecimalAndRoundTripsRepresentativeValues() {
+        // The entry filters accept digits and a dot only, so exponential output must never appear.
+        listOf(250.0, 247.35, 0.5, 0.0005, 10_000_000.5, 1e20, 1e-18).forEach { value ->
+            val text = exactEntryText(value)
+            assertEquals(value, text.toDouble(), "text for $value was $text")
+            assertTrue(text.none { it == 'E' || it == 'e' }, "text for $value was $text")
+        }
+        assertEquals("250", exactEntryText(250.0))
+        assertEquals("247.35", exactEntryText(247.35))
+        assertEquals("0.0005", exactEntryText(0.0005))
+        assertEquals("1" + "0".repeat(20), exactEntryText(1e20))
+    }
+
+    @Test
+    fun correctingOneFieldOfAForceSetKeepsItsExactForceAndRating() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = null,
+                    weightKg = null,
+                    performedAtMillis = 1L,
+                    forceNewtons = 247.35,
+                    device = DeviceAttribution("Grip meter", 60.25)
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        viewModel.onLoggedSetRirChanged("2")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        val corrected = repository.all().single()
+        assertEquals(247.35, corrected.forceNewtons)
+        assertEquals(DeviceAttribution("Grip meter", 60.25), corrected.device)
+        assertEquals(2, corrected.rir)
     }
 
     @Test
@@ -5007,6 +5091,298 @@ class WorkoutLoggerViewModelTest {
         )
     )
 
+    @Test
+    fun manualStationSelectionIsWrittenWithFrozenAttribution() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val station = EquipmentStation(
+            id = 7L,
+            profileId = 1L,
+            equipmentId = EquipmentTag.BARBELL,
+            name = "Rack A",
+            loadBasis = StationLoadBasis.TOTAL
+        )
+        val profileState = EquipmentProfileState(
+            EquipmentProfileContext(1L, 0L),
+            listOf(
+                EquipmentProfile(
+                    id = 1L,
+                    name = "Home",
+                    selected = setOf(EquipmentTag.BARBELL),
+                    maxWeightsKg = emptyMap(),
+                    loadingInventory = LoadingInventory(),
+                    stations = listOf(station)
+                )
+            )
+        )
+        val equipment = WorkoutLoggerEquipment(
+            object : EquipmentProfileRepository {
+                override fun observe() = flowOf(profileState)
+                override suspend fun current() = profileState
+                override suspend fun create(name: String, copyFrom: Long?): Long = error("unused")
+                override suspend fun rename(context: EquipmentProfileContext, name: String) =
+                    error("unused")
+                override suspend fun activate(context: EquipmentProfileContext, profileId: Long) =
+                    error("unused")
+                override suspend fun delete(
+                    context: EquipmentProfileContext,
+                    profileId: Long,
+                    replacementId: Long?
+                ) = error("unused")
+                override suspend fun saveEquipment(
+                    context: EquipmentProfileContext,
+                    selected: Set<EquipmentTag>,
+                    maxWeightsKg: Map<EquipmentTag, Double>
+                ) = error("unused")
+                override suspend fun saveLoadingInventory(
+                    context: EquipmentProfileContext,
+                    inventory: LoadingInventory
+                ) = error("unused")
+                override suspend fun saveStation(
+                    context: EquipmentProfileContext,
+                    station: EquipmentStation
+                ): Long = error("unused")
+                override suspend fun retireStation(
+                    context: EquipmentProfileContext,
+                    stationId: Long
+                ) = error("unused")
+            }
+        )
+        val viewModel = viewModel(repository = repository, equipment = equipment)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onStationSelected(7L)
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(
+            StationAttribution(7L, "Rack A", StationLoadBasis.TOTAL),
+            repository.all().single().station
+        )
+    }
+
+    @Test
+    fun forceSetLogsItsNewtonsWithoutAWeightOrDevice() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        // A weight retained from before the metric switch must never ride along with a force reading.
+        viewModel.onWeightChanged("60")
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("250")
+        assertTrue(viewModel.state.value.canLog)
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertEquals(250.0, logged.forceNewtons)
+        assertNull(logged.weightKg)
+        assertNull(logged.device)
+        assertNull(logged.reps)
+        assertNull(logged.durationSeconds)
+        assertNull(logged.distanceMeters)
+        val row = viewModel.state.value.recentSets.single()
+        assertEquals(250.0, row.forceNewtons)
+        assertNull(row.weightKg)
+        // A force row never reads through the load formatter: it holds no load to render.
+        assertEquals(LoadDisplay.None, loadDisplayFor(row.loadKind, row.weightKg))
+    }
+
+    @Test
+    fun forceKeepsTheExercisesOwnLoadIdentityInsteadOfBecomingExternal() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        // Force is authorable on a bodyweight-only exercise, and its set keeps that identity rather
+        // than claiming an external load it never carried.
+        viewModel.onExerciseSelected("plank")
+        advanceUntilIdle()
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("250")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertEquals(250.0, logged.forceNewtons)
+        assertEquals(LoadKind.BODYWEIGHT, logged.loadKind)
+        assertNull(logged.weightKg)
+    }
+
+    @Test
+    fun forceNeverBecomesAddedLoadOnARevealedBodyweightExercise() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("pull-up")
+        advanceUntilIdle()
+        viewModel.onRevealWeight()
+        viewModel.onWeightChanged("10")
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("180")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertEquals(180.0, logged.forceNewtons)
+        assertEquals(LoadKind.BODYWEIGHT, logged.loadKind)
+        assertNull(logged.weightKg)
+    }
+
+    @Test
+    fun forceSetCarriesAnOptionalDescriptiveDevice() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("180")
+        viewModel.onDeviceNameChanged("Grip trainer")
+        viewModel.onDeviceRatingChanged("45")
+        assertTrue(viewModel.state.value.deviceIsValid)
+        assertTrue(viewModel.state.value.canLog)
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertEquals(180.0, logged.forceNewtons)
+        assertEquals(DeviceAttribution("Grip trainer", 45.0), logged.device)
+        assertNull(logged.weightKg)
+        assertEquals(
+            DeviceAttribution("Grip trainer", 45.0),
+            viewModel.state.value.recentSets.single().device
+        )
+    }
+
+    @Test
+    fun switchingFromForceToRepetitionsClearsTheDeviceAndNewtons() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("200")
+        viewModel.onDeviceNameChanged("Hand dynamometer")
+        viewModel.onDeviceRatingChanged("50")
+
+        viewModel.onMetricChanged(SetMetric.REPETITIONS)
+        assertEquals("", viewModel.state.value.forceNewtons)
+        assertEquals("", viewModel.state.value.deviceName)
+        assertEquals("", viewModel.state.value.deviceRatingKg)
+
+        viewModel.onRepsChanged("8")
+        viewModel.log()
+        advanceUntilIdle()
+
+        val logged = repository.all().single()
+        assertEquals(8, logged.reps)
+        assertNull(logged.forceNewtons)
+        assertNull(logged.device)
+    }
+
+    @Test
+    fun aDeviceRatingWithoutANameBlocksAForceSet() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("200")
+        viewModel.onDeviceRatingChanged("45")
+        assertFalse(viewModel.state.value.deviceIsValid)
+        assertFalse(viewModel.state.value.canLog)
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun correctingASetToForceClearsItsRepsAndLoad() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 5,
+                    weightKg = 60.0,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        assertNotNull(viewModel.state.value.loggedSetEdit)
+        viewModel.onLoggedSetMetricChanged(SetMetric.FORCE)
+        viewModel.onLoggedSetForceChanged("320")
+        viewModel.onLoggedSetDeviceNameChanged("Hand dynamometer")
+        viewModel.onLoggedSetDeviceRatingChanged("60")
+        assertTrue(viewModel.state.value.loggedSetEdit!!.canSave)
+
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        val corrected = repository.all().single()
+        assertEquals(320.0, corrected.forceNewtons)
+        assertEquals(DeviceAttribution("Hand dynamometer", 60.0), corrected.device)
+        assertNull(corrected.reps)
+        assertNull(corrected.weightKg)
+    }
+
+    @Test
+    fun correctingAForceSetToRepetitionsClearsTheDevice() = runTest(dispatcher) {
+        val device = DeviceAttribution("Hand dynamometer", 60.0)
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    forceNewtons = 320.0,
+                    device = device,
+                    weightKg = null,
+                    performedAtMillis = 1L
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
+        advanceUntilIdle()
+
+        viewModel.editLoggedSet(viewModel.state.value.recentSets.single())
+        val edit = viewModel.state.value.loggedSetEdit!!
+        assertEquals(SetMetric.FORCE, edit.metric)
+        assertEquals(device.name, edit.deviceName)
+        assertEquals("60", edit.deviceRatingKg)
+
+        viewModel.onLoggedSetMetricChanged(SetMetric.REPETITIONS)
+        assertEquals("", viewModel.state.value.loggedSetEdit!!.deviceName)
+        viewModel.onLoggedSetRepsChanged("6")
+        viewModel.saveLoggedSetEdit()
+        advanceUntilIdle()
+
+        val corrected = repository.all().single()
+        assertEquals(6, corrected.reps)
+        assertNull(corrected.forceNewtons)
+        assertNull(corrected.device)
+        assertNull(corrected.weightKg)
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
@@ -5016,7 +5392,8 @@ class WorkoutLoggerViewModelTest {
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
-        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository()
+        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
+        equipment: WorkoutLoggerEquipment = testEquipment()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -5039,7 +5416,7 @@ class WorkoutLoggerViewModelTest {
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-        equipment = testEquipment()
+        equipment = equipment
     )
 
     private fun sessionViewModel(
@@ -9798,7 +10175,9 @@ class WorkoutLoggerViewModelTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) = Unit
 
         override suspend fun delete(planId: Long) {
@@ -9880,6 +10259,10 @@ class WorkoutLoggerViewModelTest {
             require(index >= 0)
             sets[index] = sets[index].copy(
                 reps = correction.reps,
+                durationSeconds = correction.durationSeconds,
+                distanceMeters = correction.distanceMeters,
+                forceNewtons = correction.forceNewtons,
+                device = correction.device,
                 weightKg = correction.weightKg,
                 rir = correction.rir,
                 performedAtMillis = correction.performedAtMillis

@@ -10,6 +10,8 @@ import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.LoadingBar
 import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -38,6 +40,42 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun progressionReplayExcludesStationAttributedSets() = runTest {
+        SeedEquipmentCatalog(database).seed()
+        val log = SqlDelightWorkoutLogRepository(database)
+        val sources = SqlDelightWorkoutPlanSourcesRepository(
+            SqlDelightEquipmentProfileRepository(database),
+            SqlDelightEnginePreferenceRepository(database),
+            log,
+            SqlDelightTrainingGoalRepository(database),
+            SqlDelightPersonalRecordRepository(database, TimeProvider { 100L }),
+            SqlDelightExercisePreferenceRepository(database),
+            SqlDelightExerciseExclusionRepository(database),
+            database
+        )
+        log.add(
+            WorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 1L
+            )
+        )
+        log.add(
+            WorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 100.0,
+                performedAtMillis = 2L,
+                station = StationAttribution(1L, "Rack A", StationLoadBasis.TOTAL)
+            )
+        )
+
+        assertEquals(1, sources.observe().first().progressionHistory.sets.size)
+        assertEquals(80.0, sources.observe().first().progressionHistory.sets.single().weightKg)
     }
 
     @Test
@@ -240,7 +278,9 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
             remainingDisposition = null,
             terminalRemainingSets = null,
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null,
+            forceNewtons = null
         )
         val entryId = database.trainingScheduleQueries.lastInsertedOccurrenceEntryId()
             .executeAsOne()

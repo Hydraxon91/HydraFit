@@ -227,6 +227,51 @@ class ProgressWeightsUseCaseTest {
     }
 
     @Test
+    fun addedLoadProgressesWithTheSameStreakRule() {
+        val addedTarget = target.copy(loadKind = LoadKind.ADDED, weightKg = 10.0)
+        val resolved = useCase.resolve(
+            baseline = mapOf("bench-press" to 10.0),
+            history = history(
+                *(3 downTo 1).map { addedCompleted(day = it, addedTarget) }.toTypedArray()
+            ),
+            nowMillis = NOW,
+            loadKind = LoadKind.ADDED
+        ).getValue("bench-press")
+
+        assertEquals(12.5, resolved.progressedKg)
+        assertEquals(ProgressionOutcome.APPLIED, resolved.explanation.outcome)
+        assertEquals(2.5, resolved.explanation.deltaKg)
+    }
+
+    @Test
+    fun addedAndExternalWorkNeverJudgeEachOther() {
+        val addedTarget = target.copy(loadKind = LoadKind.ADDED, weightKg = 10.0)
+        val addedHistory = history(
+            *(3 downTo 1).map { addedCompleted(day = it, addedTarget) }.toTypedArray()
+        )
+
+        // The added-load run is complete, but it is not evidence for an external prescription.
+        assertEquals(
+            10.0,
+            useCase(mapOf("bench-press" to 10.0), addedHistory, nowMillis = NOW)
+                .getValue("bench-press")
+        )
+        // Nor does external work judge an added-load prescription.
+        val externalHistory = history(
+            *(3 downTo 1).map { completed(day = it) }.toTypedArray()
+        )
+        assertEquals(
+            10.0,
+            useCase.resolve(
+                baseline = mapOf("bench-press" to 10.0),
+                history = externalHistory,
+                nowMillis = NOW,
+                loadKind = LoadKind.ADDED
+            ).getValue("bench-press").progressedKg
+        )
+    }
+
+    @Test
     fun omitsExercisesWithoutABaseline() {
         val result = useCase(
             baseline = emptyMap(),
@@ -318,16 +363,28 @@ class ProgressWeightsUseCaseTest {
 
     private fun missed(day: Int): List<WorkoutSet> = work(day, target = target, weightKg = 70.0)
 
+    private fun addedCompleted(
+        day: Int,
+        addedTarget: WorkoutPrescriptionSnapshot
+    ): List<WorkoutSet> = work(
+        day = day,
+        target = addedTarget,
+        weightKg = requireNotNull(addedTarget.weightKg),
+        kind = LoadKind.ADDED
+    )
+
     private fun work(
         day: Int,
         target: WorkoutPrescriptionSnapshot?,
-        weightKg: Double = 80.0
+        weightKg: Double = 80.0,
+        kind: LoadKind = LoadKind.EXTERNAL
     ): List<WorkoutSet> = List(3) { index ->
         WorkoutSet(
             id = day * 10L + index,
             exerciseId = "bench-press",
             reps = 8,
             weightKg = weightKg,
+            loadKind = kind,
             performedAtMillis = millisOf(day),
             sessionId = "s$day",
             prescriptionSnapshot = target

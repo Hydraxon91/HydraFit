@@ -469,6 +469,66 @@ class WeeklyPlanSanitizerTest {
     )
 
     @Test
+    fun prescribesRecordedAddedLoadAndIgnoresTheModelsNumber() = runTest {
+        val addableCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(
+                Exercise(
+                    id = "weighted-pull-up",
+                    name = "Weighted Pull-Up",
+                    requiredEquipment = setOf(EquipmentTag.BODYWEIGHT),
+                    primaryMuscles = setOf(MuscleGroup.LATS),
+                    movementPattern = MovementPattern.VERTICAL_PULL,
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+                ),
+                Exercise(
+                    id = "weighted-dip",
+                    name = "Weighted Dip",
+                    requiredEquipment = setOf(EquipmentTag.BODYWEIGHT),
+                    primaryMuscles = setOf(MuscleGroup.CHEST_LOWER),
+                    movementPattern = MovementPattern.VERTICAL_PUSH,
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+                )
+            )
+        }
+        val sanitized = WeeklyPlanSanitizer(addableCatalog).sanitize(
+            WeeklyPlan(
+                engine = PlannerEngineId.GEMINI_API,
+                days = listOf(
+                    dayOf(0, listOf("weighted-pull-up")).copy(
+                        exercises = listOf(
+                            PlannedExercise(
+                                exerciseId = "weighted-pull-up",
+                                sets = 3,
+                                reps = 8,
+                                suggestedWeightKg = 80.0
+                            ),
+                            PlannedExercise(
+                                exerciseId = "weighted-dip",
+                                sets = 3,
+                                reps = 8,
+                                suggestedWeightKg = 80.0
+                            )
+                        )
+                    )
+                )
+            ),
+            request(
+                includeWorkoutData = true,
+                suggestedAddedLoadsKg = mapOf("weighted-pull-up" to 10.0),
+                availableEquipment = setOf(EquipmentTag.BODYWEIGHT)
+            )
+        )!!
+
+        val entry = sanitized.days.single().exercises
+            .first { it.exerciseId == "weighted-pull-up" }
+        assertEquals(10.0, entry.suggestedWeightKg)
+        assertEquals(LoadKind.ADDED, entry.loadKind)
+        // The model's 80 kg is recorded but not accepted; the app's recorded added load wins.
+        assertFalse(requireNotNull(entry.explanation?.aiAdjustment).proposedAccepted)
+        assertNull(entry.explanation?.unavailableReason)
+    }
+
+    @Test
     fun recordsTheModelProposalAndTheAppBoundItApplied() = runTest {
         val sanitized = sanitizer.sanitize(
             modelPlan("bench-press", suggestedWeightKg = 200.0),
@@ -669,6 +729,7 @@ class WeeklyPlanSanitizerTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         includeWorkoutData: Boolean = false,
         isDeload: Boolean = false,
+        suggestedAddedLoadsKg: Map<String, Double> = emptyMap(),
         availableEquipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         excludedExerciseIds: Set<String> = emptySet()
@@ -683,6 +744,7 @@ class WeeklyPlanSanitizerTest {
         equipmentMaxWeights = equipmentMaxWeights,
         includeWorkoutData = includeWorkoutData,
         isDeload = isDeload,
+        suggestedAddedLoadsKg = suggestedAddedLoadsKg,
         excludedExerciseIds = excludedExerciseIds
     )
 
