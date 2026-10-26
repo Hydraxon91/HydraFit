@@ -12,6 +12,8 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
@@ -723,6 +725,118 @@ class RoutinesViewModel(
     private fun supersetKey(workoutIndex: Int, entryIndex: Int): String =
         "routine-$workoutIndex-$entryIndex"
 
+    // --- Clusters ---
+
+    /**
+     * Opens the cluster dialog for a slot that can carry one. A slot with a stored cluster is
+     * seeded from it; a slot without one opens on the minimum two empty segments and no invented
+     * numbers, so the user authors every value.
+     */
+    fun onEditCluster(workoutIndex: Int, entryIndex: Int) {
+        val entry = _state.value.editor
+            ?.workouts?.getOrNull(workoutIndex)
+            ?.entries?.getOrNull(entryIndex)
+            ?: return
+        if (!entry.canCarryCluster) return
+        val stored = entry.cluster
+        val editor = if (stored == null) {
+            ClusterEditorState(workoutIndex = workoutIndex, entryIndex = entryIndex)
+        } else {
+            ClusterEditorState(
+                workoutIndex = workoutIndex,
+                entryIndex = entryIndex,
+                kind = stored.kind,
+                segments = stored.segments.map { segment ->
+                    ClusterSegmentEditorState(
+                        reps = segment.reps.toString(),
+                        loadKg = kilogramStepText(segment.weightKg),
+                        rir = segment.rir?.toString() ?: ""
+                    )
+                },
+                restSeconds = stored.restSeconds?.toString() ?: ""
+            )
+        }
+        _state.update { it.copy(clusterEditor = editor) }
+    }
+
+    fun onClusterKindChanged(kind: ClusterKind) =
+        updateClusterEditor { it.copy(kind = kind, error = null) }
+
+    fun onClusterSegmentRepsChanged(index: Int, value: String) =
+        updateClusterSegment(index) { it.copy(reps = value) }
+
+    fun onClusterSegmentLoadChanged(index: Int, value: String) =
+        updateClusterSegment(index) { it.copy(loadKg = value) }
+
+    fun onClusterSegmentRirChanged(index: Int, value: String) =
+        updateClusterSegment(index) { it.copy(rir = value) }
+
+    fun onClusterRestChanged(value: String) =
+        updateClusterEditor { it.copy(restSeconds = value, error = null) }
+
+    fun onClusterAddSegment() = updateClusterEditor { editor ->
+        if (editor.segments.size >= ClusterPrescription.MAX_SEGMENTS) {
+            editor
+        } else {
+            editor.copy(segments = editor.segments + ClusterSegmentEditorState(), error = null)
+        }
+    }
+
+    fun onClusterRemoveSegment() = updateClusterEditor { editor ->
+        if (editor.segments.size <= ClusterPrescription.MIN_SEGMENTS) {
+            editor
+        } else {
+            editor.copy(segments = editor.segments.dropLast(1), error = null)
+        }
+    }
+
+    /** Stores the built prescription on the slot, or keeps the dialog open on the failing rule. */
+    fun onClusterApply() {
+        val editor = _state.value.clusterEditor ?: return
+        when (val parsed = parseClusterEditor(editor)) {
+            is ClusterParseResult.Invalid -> {
+                _state.update { it.copy(clusterEditor = editor.copy(error = parsed.error)) }
+            }
+            is ClusterParseResult.Valid -> {
+                updateEntry(editor.workoutIndex, editor.entryIndex) {
+                    it.copy(cluster = parsed.prescription)
+                }
+                _state.update { it.copy(clusterEditor = null) }
+            }
+        }
+    }
+
+    /** Removes the slot's cluster and closes the dialog. */
+    fun onClusterClear() {
+        val editor = _state.value.clusterEditor ?: return
+        updateEntry(editor.workoutIndex, editor.entryIndex) { it.copy(cluster = null) }
+        _state.update { it.copy(clusterEditor = null) }
+    }
+
+    fun onClusterDismissed() = _state.update { it.copy(clusterEditor = null) }
+
+    private fun updateClusterSegment(
+        index: Int,
+        transform: (ClusterSegmentEditorState) -> ClusterSegmentEditorState
+    ) = updateClusterEditor { editor ->
+        if (index !in editor.segments.indices) {
+            editor
+        } else {
+            editor.copy(
+                segments = editor.segments.mapIndexed { i, segment ->
+                    if (i == index) transform(segment) else segment
+                },
+                error = null
+            )
+        }
+    }
+
+    private fun updateClusterEditor(transform: (ClusterEditorState) -> ClusterEditorState) {
+        _state.update { current ->
+            current.clusterEditor?.let { current.copy(clusterEditor = transform(it)) } ?: current
+        }
+    }
+
     fun onSaveEditor() {
         val editor = _state.value.editor ?: return
         viewModelScope.launch {
@@ -1059,7 +1173,8 @@ private fun RoutineTemplate.toEditor(
                     forceNewtons = entry.forceNewtons?.let(::formatWeight) ?: "",
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
-                    superset = entry.superset
+                    superset = entry.superset,
+                    cluster = entry.cluster
                 )
             }
         )
@@ -1112,7 +1227,10 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     setTargets = entry.setTargets.takeIf {
                         entry.metric == EntryMetric.REPETITIONS
                     },
-                    superset = entry.superset
+                    superset = entry.superset,
+                    // A cluster is rep-based external-load work, so a slot switched to another
+                    // measure or load kind cannot keep one.
+                    cluster = entry.cluster.takeIf { entry.canCarryCluster }
                 )
             }
         )

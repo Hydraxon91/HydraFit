@@ -48,6 +48,7 @@ import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.Superset
@@ -94,6 +95,9 @@ import hydrafit.feature.routines.generated.resources.routines_archive
 import hydrafit.feature.routines.generated.resources.routines_archived_badge
 import hydrafit.feature.routines.generated.resources.routines_cancel
 import hydrafit.feature.routines.generated.resources.routines_cancel_block
+import hydrafit.feature.routines.generated.resources.routines_cluster_action
+import hydrafit.feature.routines.generated.resources.routines_cluster_summary
+import hydrafit.feature.routines.generated.resources.routines_cluster_summary_kg
 import hydrafit.feature.routines.generated.resources.routines_confirm
 import hydrafit.feature.routines.generated.resources.routines_delete
 import hydrafit.feature.routines.generated.resources.routines_delete_message
@@ -381,6 +385,26 @@ fun RoutinesScreen(
             onPairRestChanged = viewModel::onSupersetPairRestChanged,
             onApply = viewModel::onSupersetApply,
             onDismiss = viewModel::onSupersetDismissed
+        )
+    }
+    state.clusterEditor?.let { clusterEditor ->
+        val hasExistingCluster = state.editor
+            ?.workouts?.getOrNull(clusterEditor.workoutIndex)
+            ?.entries?.getOrNull(clusterEditor.entryIndex)
+            ?.cluster != null
+        ClusterPrescriptionDialog(
+            state = clusterEditor,
+            hasExistingCluster = hasExistingCluster,
+            onKindChanged = viewModel::onClusterKindChanged,
+            onSegmentRepsChanged = viewModel::onClusterSegmentRepsChanged,
+            onSegmentLoadChanged = viewModel::onClusterSegmentLoadChanged,
+            onSegmentRirChanged = viewModel::onClusterSegmentRirChanged,
+            onRestChanged = viewModel::onClusterRestChanged,
+            onAddSegment = viewModel::onClusterAddSegment,
+            onRemoveSegment = viewModel::onClusterRemoveSegment,
+            onApply = viewModel::onClusterApply,
+            onClear = viewModel::onClusterClear,
+            onDismiss = viewModel::onClusterDismissed
         )
     }
     state.activation?.let { activation ->
@@ -1007,6 +1031,16 @@ private fun EntryRow(
                             softWrap = false
                         )
                     }
+                    // A cluster is rep-based external-load work, so only this slot can carry one.
+                    TextButton(
+                        onClick = { viewModel.onEditCluster(workoutIndex, entryIndex) }
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.routines_cluster_action),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             }
             // Pairing only groups the two slots' rest; a timed slot can be paired too.
@@ -1043,6 +1077,12 @@ private fun EntryRow(
         entry.setTargets?.let { targets ->
             Text(
                 text = setTargetsSummary(targets),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        entry.cluster?.let { cluster ->
+            Text(
+                text = clusterSummary(cluster),
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -1478,6 +1518,15 @@ private fun supersetSummary(pair: Superset): String = stringResource(
     Res.string.routines_superset_summary,
     pair.transitionSeconds,
     pair.pairRestSeconds
+)
+
+/** A compact one-line description of a cluster: kind, segment count and the load sequence. */
+@Composable
+private fun clusterSummary(cluster: ClusterPrescription): String = stringResource(
+    Res.string.routines_cluster_summary,
+    clusterSummaryKindLabel(cluster.kind),
+    clusterSummarySegmentCount(cluster),
+    stringResource(Res.string.routines_cluster_summary_kg, clusterSummaryLoads(cluster))
 )
 
 @Composable

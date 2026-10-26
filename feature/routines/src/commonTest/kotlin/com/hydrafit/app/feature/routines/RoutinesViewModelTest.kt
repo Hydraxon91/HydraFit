@@ -14,6 +14,9 @@ import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.routine.ArchiveRoutineTemplateUseCase
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.routine.DeleteRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.DuplicateRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
@@ -49,6 +52,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -1311,6 +1315,252 @@ class RoutinesViewModelTest {
         assertEquals(2, saved.sets)
     }
 
+    @Test
+    fun theClusterDialogOpensOnlyForRepBasedExternalSlots() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditCluster(0, 0)
+        assertNotNull(viewModel.state.value.clusterEditor)
+        viewModel.onClusterDismissed()
+
+        listOf(EntryMetric.DURATION, EntryMetric.DISTANCE, EntryMetric.FORCE).forEach { metric ->
+            viewModel.onEntryMetricChanged(0, 0, metric)
+            viewModel.onEditCluster(0, 0)
+            assertNull(viewModel.state.value.clusterEditor)
+        }
+    }
+
+    @Test
+    fun applyingAValidDropSetStoresItAndKeepsTheSlotPrescription() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEntrySetsChanged(0, 0, "4")
+        viewModel.onEntryRepsChanged(0, 0, "6")
+        viewModel.onEntryWeightChanged(0, 0, "80")
+
+        viewModel.onEditCluster(0, 0)
+        assertEquals(2, assertNotNull(viewModel.state.value.clusterEditor).segments.size)
+        setClusterSegment(viewModel, 0, reps = "8", load = "100")
+        setClusterSegment(viewModel, 1, reps = "8", load = "80")
+        viewModel.onClusterAddSegment()
+        setClusterSegment(viewModel, 2, reps = "6", load = "60", rir = "1")
+        viewModel.onClusterApply()
+
+        assertNull(viewModel.state.value.clusterEditor)
+        val entry = editorEntry(viewModel)
+        assertEquals(
+            ClusterPrescription(
+                kind = ClusterKind.DROP_SET,
+                segments = listOf(
+                    ClusterSegmentTarget(reps = 8, weightKg = 100.0),
+                    ClusterSegmentTarget(reps = 8, weightKg = 80.0),
+                    ClusterSegmentTarget(reps = 6, weightKg = 60.0, rir = 1)
+                )
+            ),
+            entry.cluster
+        )
+        assertEquals("4", entry.sets)
+        assertEquals("6", entry.reps)
+        assertEquals("80", entry.weight)
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(entry.cluster, saved.cluster)
+        assertEquals(4, saved.sets)
+        assertEquals(6, saved.reps)
+        assertEquals(80.0, saved.weightKg)
+    }
+
+    @Test
+    fun applyingAValidRestPauseStoresOneRepeatedLoadAndItsRest() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditCluster(0, 0)
+        viewModel.onClusterKindChanged(ClusterKind.REST_PAUSE)
+        setClusterSegment(viewModel, 0, reps = "8", load = "60")
+        setClusterSegment(viewModel, 1, reps = "8", load = "60")
+        viewModel.onClusterRestChanged("20")
+        viewModel.onClusterApply()
+
+        val entry = editorEntry(viewModel)
+        assertEquals(
+            ClusterPrescription(
+                kind = ClusterKind.REST_PAUSE,
+                segments = listOf(
+                    ClusterSegmentTarget(reps = 8, weightKg = 60.0),
+                    ClusterSegmentTarget(reps = 8, weightKg = 60.0)
+                ),
+                restSeconds = 20
+            ),
+            entry.cluster
+        )
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+        assertEquals(
+            entry.cluster,
+            viewModel.state.value.templates.single().workouts.single().entries.single().cluster
+        )
+    }
+
+    @Test
+    fun anInvalidClusterKeepsTheDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+
+        viewModel.onEditCluster(0, 0)
+        setClusterSegment(viewModel, 0, reps = "8", load = "100")
+        setClusterSegment(viewModel, 1, reps = "8", load = "100")
+        viewModel.onClusterApply()
+        assertEquals(
+            ClusterError.DROP_LOAD_NOT_DECREASING,
+            assertNotNull(viewModel.state.value.clusterEditor).error
+        )
+        assertNull(editorEntry(viewModel).cluster)
+        viewModel.onClusterDismissed()
+
+        viewModel.onEditCluster(0, 0)
+        viewModel.onClusterKindChanged(ClusterKind.REST_PAUSE)
+        setClusterSegment(viewModel, 0, reps = "8", load = "60")
+        setClusterSegment(viewModel, 1, reps = "8", load = "60")
+        viewModel.onClusterApply()
+        assertEquals(
+            ClusterError.REST_PAUSE_NO_REST,
+            assertNotNull(viewModel.state.value.clusterEditor).error
+        )
+        assertNull(editorEntry(viewModel).cluster)
+
+        viewModel.onClusterRestChanged("20")
+        viewModel.onClusterApply()
+        assertNull(viewModel.state.value.clusterEditor)
+        assertNotNull(editorEntry(viewModel).cluster)
+    }
+
+    @Test
+    fun aNonPositiveClusterNumberKeepsTheDialogOpenAndWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditCluster(0, 0)
+
+        setClusterSegment(viewModel, 0, reps = "0", load = "100")
+        setClusterSegment(viewModel, 1, reps = "8", load = "80")
+        viewModel.onClusterApply()
+        assertEquals(
+            ClusterError.REPS_RANGE,
+            assertNotNull(viewModel.state.value.clusterEditor).error
+        )
+
+        setClusterSegment(viewModel, 0, reps = "8", load = "0")
+        viewModel.onClusterApply()
+        assertEquals(
+            ClusterError.LOAD,
+            assertNotNull(viewModel.state.value.clusterEditor).error
+        )
+
+        setClusterSegment(viewModel, 0, reps = "8", load = "100", rir = "5")
+        viewModel.onClusterApply()
+        assertEquals(
+            ClusterError.RIR_RANGE,
+            assertNotNull(viewModel.state.value.clusterEditor).error
+        )
+        assertNull(editorEntry(viewModel).cluster)
+    }
+
+    @Test
+    fun clearingRemovesTheClusterAndKeepsTheSlotPrescription() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditCluster(0, 0)
+        setClusterSegment(viewModel, 0, reps = "8", load = "100")
+        setClusterSegment(viewModel, 1, reps = "8", load = "80")
+        viewModel.onClusterApply()
+        assertNotNull(editorEntry(viewModel).cluster)
+
+        viewModel.onEditCluster(0, 0)
+        viewModel.onClusterClear()
+
+        assertNull(viewModel.state.value.clusterEditor)
+        assertNull(editorEntry(viewModel).cluster)
+        assertEquals("3", editorEntry(viewModel).sets)
+        assertEquals("8", editorEntry(viewModel).reps)
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+        assertNull(
+            viewModel.state.value.templates.single().workouts.single().entries.single().cluster
+        )
+    }
+
+    @Test
+    fun theClusterSegmentListStaysWithinTwoToEight() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditCluster(0, 0)
+
+        repeat(3) { viewModel.onClusterRemoveSegment() }
+        assertEquals(2, assertNotNull(viewModel.state.value.clusterEditor).segments.size)
+
+        repeat(10) { viewModel.onClusterAddSegment() }
+        assertEquals(8, assertNotNull(viewModel.state.value.clusterEditor).segments.size)
+    }
+
+    @Test
+    fun dismissingTheClusterDialogWritesNothing() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditCluster(0, 0)
+        setClusterSegment(viewModel, 0, reps = "8", load = "100")
+        setClusterSegment(viewModel, 1, reps = "8", load = "80")
+
+        viewModel.onClusterDismissed()
+
+        assertNull(viewModel.state.value.clusterEditor)
+        assertNull(editorEntry(viewModel).cluster)
+    }
+
+    @Test
+    fun reopeningASlotSeedsTheClusterDialogFromItsStoredValue() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditCluster(0, 0)
+        setClusterSegment(viewModel, 0, reps = "8", load = "100")
+        setClusterSegment(viewModel, 1, reps = "8", load = "80")
+        viewModel.onClusterApply()
+
+        viewModel.onEditCluster(0, 0)
+        val dialog = assertNotNull(viewModel.state.value.clusterEditor)
+        assertEquals(ClusterKind.DROP_SET, dialog.kind)
+        assertEquals(listOf("8", "8"), dialog.segments.map { it.reps })
+        assertEquals(listOf("100", "80"), dialog.segments.map { it.loadKg })
+        assertEquals(listOf("", ""), dialog.segments.map { it.rir })
+        assertEquals("", dialog.restSeconds)
+    }
+
+    private fun setClusterSegment(
+        viewModel: RoutinesViewModel,
+        index: Int,
+        reps: String,
+        load: String,
+        rir: String = ""
+    ) {
+        viewModel.onClusterSegmentRepsChanged(index, reps)
+        viewModel.onClusterSegmentLoadChanged(index, load)
+        viewModel.onClusterSegmentRirChanged(index, rir)
+    }
+
     private fun openValidSetTargetsDialog(viewModel: RoutinesViewModel) {
         viewModel.onEditSetTargets(0, 0)
         viewModel.onSetTargetsSetsChanged("3")
@@ -1850,6 +2100,11 @@ private class FakeWorkoutLogRepository : WorkoutLogRepository {
     override suspend fun add(set: WorkoutSet) = Unit
 
     override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
+
+    override suspend fun appendClusterSegments(
+        setId: Long,
+        segments: List<PerformedClusterSegment>
+    ) = Unit
 
     override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
