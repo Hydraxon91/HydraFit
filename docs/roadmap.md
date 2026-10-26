@@ -417,15 +417,22 @@ Gate: corrections replay approved progression consistently, incomplete work is
 not success, each performed set retains identity, and all engines/portable formats
 support the changed contracts. Unsupported inference requires explicit disposition.
 
-### 0.11 — Beyond Rep-Based Sets (0.11.0–0.11.4, 5 publications)
+### 0.11 — Beyond Rep-Based Sets (0.11.0–0.11.4, two planned batch publications)
 
-Former slice ids are recorded in parentheses.
+Former slice ids are recorded in parentheses. The [two-batch delivery plan](0.11-batch-plan.md)
+and [initial evidence research](research-0.11-metrics.md) record the grouping accepted
+2026-10-26: 0.11.0–0.11.2 folded into 0.11.0, then 0.11.3–0.11.4 folded into 0.11.3.
+Each original scope retains its verification and independent review checkpoint.
+The batch budget is 60 hours: 28 for 0.11.0, 14 for 0.11.1 and 18 for 0.11.2.
+Timed sets, timed prescriptions, accepted-plan slot durations and persisted timed
+preparation already shipped in the 2026-10-17 unversioned merge; do not reimplement
+that delivered duration slice.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.11.0 | Duration-only and duration-plus-load sets; persisted timed preparation and duration-based accessory content (former `0.11.0`–`0.11.1`) | OF-10C; WU-01; metric/fatigue/progression contract before schema; end-to-end logging, history, completion, charts and portability; approved hangs/wrist-roller semantics |
-| 0.11.1 | Approved distance-based sets and carries (former `0.11.2`) | OF-10C; metric contract and all consumers/formats in the same release |
-| 0.11.2 | Approved force/device-rated grip metrics (former `0.11.3`) | OF-10C; explicit units/comparability/progression and all consumers/formats |
+| 0.11.0 | EQ-02 equipment load identity and EQ-02-A station split/grid setup; remaining duration-adjacent content is explicitly deferred to a separately sourced content chunk | Station records under existing equipment tags, not a 40-row tag remap; performed-set identity, backup format 25 and additive migration; full consumer and portability chain |
+| 0.11.1 | Approved distance-based sets and carries (former `0.11.2`) | OF-10C; metric contract and all consumers/formats in the same release; exact schema gate at its boundary |
+| 0.11.2 | Approved force/device-rated grip metrics (former `0.11.3`); EX-02-A added-load progression | OF-10C; measured force and device ratings remain separate; added-load progression is success/descriptive only, with no new e1RM formula unless separately validated |
 | 0.11.3 | Supported drop-set clusters; supported rest-pause clusters (former `0.11.4`–`0.11.5`) | OF-10D; research and cluster contract first |
 | 0.11.4 | Supported cardio slice (former `0.11.6`) | OF-10D; measurement/ownership research and approved end-to-end scope first |
 
