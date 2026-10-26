@@ -27,11 +27,13 @@ import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
@@ -51,13 +53,19 @@ class RoutinesViewModel(
     private val timeProvider: TimeProvider,
     private val weightUnitRepository: WeightUnitRepository,
     private val exclusionRepository: ExerciseExclusionRepository,
-    private val preferredWeekdaysRepository: PreferredWeekdaysRepository
+    private val preferredWeekdaysRepository: PreferredWeekdaysRepository,
+    /**
+     * The user's distance display unit. Null keeps the editor on metres; distance is always stored
+     * in metres, so only the authoring label changes.
+     */
+    private val distanceUnitRepository: DistanceUnitRepository? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RoutinesUiState())
     val state: StateFlow<RoutinesUiState> = _state.asStateFlow()
 
     private var weightUnit: WeightUnit = WeightUnit.KG
+    private var distanceUnit: DistanceUnit = DistanceUnit.METERS
 
     /** Builds the ordered per-set targets; stateless, so one instance serves every dialog. */
     private val buildSetPrescription = BuildSetPrescriptionUseCase()
@@ -108,6 +116,9 @@ class RoutinesViewModel(
             }
         }
         viewModelScope.launch {
+            distanceUnitRepository?.unitFlow()?.collect { distanceUnit = it }
+        }
+        viewModelScope.launch {
             scheduleActions.observeActiveActivation().collect { activation ->
                 _state.update { it.copy(activeActivation = activation) }
                 occurrencesJob?.cancel()
@@ -156,6 +167,7 @@ class RoutinesViewModel(
                     sourcePlanId = null,
                     name = "",
                     unit = weightUnit,
+                    distanceUnit = distanceUnit,
                     workouts = emptyList()
                 )
             )
@@ -164,7 +176,7 @@ class RoutinesViewModel(
 
     fun onEditRoutine(template: RoutineTemplate) {
         val names = _state.value.exercises.associate { it.id to it.name }
-        _state.update { it.copy(editor = template.toEditor(weightUnit, names)) }
+        _state.update { it.copy(editor = template.toEditor(weightUnit, distanceUnit, names)) }
     }
 
     fun onEditorNameChanged(name: String) = updateEditor { it.copy(name = name) }
@@ -295,6 +307,9 @@ class RoutinesViewModel(
 
     fun onEntryDurationChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(durationSeconds = value) }
+
+    fun onEntryDistanceChanged(workoutIndex: Int, entryIndex: Int, value: String) =
+        updateEntry(workoutIndex, entryIndex) { it.copy(distance = value) }
 
     fun onEntryWeightChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(weight = value) }
@@ -1002,6 +1017,7 @@ private fun ActivationUiState.withPreview(
 
 private fun RoutineTemplate.toEditor(
     unit: WeightUnit,
+    distanceUnit: DistanceUnit,
     exerciseNames: Map<String, String>
 ): RoutineEditorState = RoutineEditorState(
     id = id,
@@ -1009,6 +1025,7 @@ private fun RoutineTemplate.toEditor(
     sourcePlanId = sourcePlanId,
     name = name,
     unit = unit,
+    distanceUnit = distanceUnit,
     workouts = workouts.sortedBy { it.position }.map { workout ->
         EditorWorkout(
             id = workout.id,
@@ -1025,12 +1042,15 @@ private fun RoutineTemplate.toEditor(
                         ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
                         ?: "",
                     loadKind = entry.loadKind,
-                    metric = if (entry.durationSeconds != null) {
-                        EntryMetric.DURATION
-                    } else {
-                        EntryMetric.REPETITIONS
+                    metric = when {
+                        entry.durationSeconds != null -> EntryMetric.DURATION
+                        entry.distanceMeters != null -> EntryMetric.DISTANCE
+                        else -> EntryMetric.REPETITIONS
                     },
                     durationSeconds = entry.durationSeconds?.toString() ?: "",
+                    distance = entry.distanceMeters
+                        ?.let { distanceUnit.displayWhole(it).toString() }
+                        ?: "",
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
                     superset = entry.superset
@@ -1059,6 +1079,11 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     sets = entry.sets.toIntOrNull() ?: 0,
                     reps = entry.repsValue,
                     durationSeconds = entry.durationValue,
+                    distanceMeters = if (entry.metric == EntryMetric.DISTANCE) {
+                        parseDisplayedDistance(entry.distance, distanceUnit)
+                    } else {
+                        null
+                    },
                     weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT) {
                         null
                     } else {
@@ -1091,6 +1116,21 @@ private fun parseDisplayedWeight(input: String, unit: WeightUnit): Double? {
         throw RoutineTemplateException("Weight must be zero or positive")
     }
     return unit.displayToKilograms(value)
+}
+
+/**
+ * Blank means "no distance recorded" (null), which the domain rejects for a distance slot. A
+ * non-blank value must be a finite, non-negative number in [unit], and is stored as whole metres.
+ */
+private fun parseDisplayedDistance(input: String, unit: DistanceUnit): Int? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.toDoubleOrNull()
+        ?: throw RoutineTemplateException("Distance must be a number")
+    if (!value.isFinite() || value <= 0.0) {
+        throw RoutineTemplateException("Distance must be greater than zero")
+    }
+    return unit.displayToMetres(value)
 }
 
 /**

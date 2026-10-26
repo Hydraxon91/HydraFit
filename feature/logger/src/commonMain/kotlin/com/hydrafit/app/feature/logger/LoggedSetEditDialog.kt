@@ -31,6 +31,8 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
 import hydrafit.feature.logger.generated.resources.logger_confirm
+import hydrafit.feature.logger.generated.resources.logger_distance_input_label
+import hydrafit.feature.logger.generated.resources.logger_distance_label
 import hydrafit.feature.logger.generated.resources.logger_edit_set_failed
 import hydrafit.feature.logger.generated.resources.logger_edit_set_invalid
 import hydrafit.feature.logger.generated.resources.logger_edit_set_load_fixed
@@ -56,6 +58,7 @@ internal fun LoggedSetEditDialog(
     nowMillis: () -> Long,
     onRepsChanged: (String) -> Unit,
     onDurationChanged: (String) -> Unit,
+    onDistanceChanged: (String) -> Unit,
     onMetricChanged: (SetMetric) -> Unit,
     onWeightChanged: (String) -> Unit,
     onRirChanged: (String) -> Unit,
@@ -89,10 +92,31 @@ internal fun LoggedSetEditDialog(
                         enabled = !saving,
                         label = { Text(stringResource(Res.string.logger_seconds_label)) }
                     )
+                    FilterChip(
+                        selected = edit.metric == SetMetric.DISTANCE,
+                        onClick = { onMetricChanged(SetMetric.DISTANCE) },
+                        enabled = !saving,
+                        label = { Text(stringResource(Res.string.logger_distance_label)) }
+                    )
                 }
-                // Only the selected metric's field is shown; the other value is never submitted.
-                if (edit.metric == SetMetric.DURATION) {
-                    OutlinedTextField(
+                // Only the selected metric's field is shown; the others are never submitted.
+                when (edit.metric) {
+                    SetMetric.DISTANCE -> OutlinedTextField(
+                        value = edit.distanceMeters,
+                        onValueChange = onDistanceChanged,
+                        label = {
+                            Text(
+                                stringResource(
+                                    Res.string.logger_distance_input_label,
+                                    edit.distanceUnit.label
+                                )
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        enabled = !saving
+                    )
+                    SetMetric.DURATION -> OutlinedTextField(
                         value = edit.durationSeconds,
                         onValueChange = onDurationChanged,
                         label = { Text(stringResource(Res.string.logger_seconds_label)) },
@@ -100,8 +124,7 @@ internal fun LoggedSetEditDialog(
                         singleLine = true,
                         enabled = !saving
                     )
-                } else {
-                    OutlinedTextField(
+                    SetMetric.REPETITIONS -> OutlinedTextField(
                         value = edit.reps,
                         onValueChange = onRepsChanged,
                         label = { Text(stringResource(Res.string.logger_reps_label)) },

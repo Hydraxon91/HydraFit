@@ -5,10 +5,13 @@ import com.hydrafit.app.core.domain.settings.ResolveRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.settings.SetExerciseRestDurationUseCase
 import com.hydrafit.app.core.domain.settings.TrainingGuidancePreferenceRepository
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -27,9 +30,13 @@ class WorkoutLoggerSettings(
     private val setExerciseRestDurationUseCase: SetExerciseRestDurationUseCase =
         SetExerciseRestDurationUseCase(restPreferenceRepository),
     private val clearExerciseRestDurationUseCase: ClearExerciseRestDurationUseCase =
-        ClearExerciseRestDurationUseCase(restPreferenceRepository)
+        ClearExerciseRestDurationUseCase(restPreferenceRepository),
+    private val distanceUnitRepository: DistanceUnitRepository? = null
 ) {
     fun weightUnitFlow(): Flow<WeightUnit> = weightUnitRepository.unitFlow()
+
+    fun distanceUnitFlow(): Flow<DistanceUnit> =
+        distanceUnitRepository?.unitFlow() ?: flowOf(DistanceUnit.METERS)
 
     fun guidedWorkoutFlow(): Flow<Boolean> = guidedWorkoutPreferenceRepository.guidedWorkoutFlow()
 

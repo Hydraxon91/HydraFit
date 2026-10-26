@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.progress
 
 import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import com.hydrafit.app.core.domain.workout.ProgressRecord
@@ -28,6 +29,8 @@ data class ProgressExerciseOption(val id: String, val name: String)
 data class ProgressUiState(
     val utcOffsetMillis: Long,
     val weightUnit: WeightUnit = WeightUnit.KG,
+    /** The display unit for recorded distance; storage stays whole metres. */
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val exerciseQuery: String = "",
     val exercises: List<ProgressExerciseOption> = emptyList(),
     val selectedExerciseId: String? = null,

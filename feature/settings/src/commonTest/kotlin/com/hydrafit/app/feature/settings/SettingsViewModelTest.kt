@@ -3,8 +3,10 @@ package com.hydrafit.app.feature.settings
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
@@ -78,6 +80,7 @@ class SettingsViewModelTest {
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
@@ -98,6 +101,7 @@ class SettingsViewModelTest {
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
@@ -119,6 +123,7 @@ class SettingsViewModelTest {
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = guidedWorkout
         )
         advanceUntilIdle()
@@ -144,6 +149,7 @@ class SettingsViewModelTest {
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = goals,
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
@@ -175,6 +181,7 @@ class SettingsViewModelTest {
             apiKeyStore = store,
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
@@ -197,6 +204,7 @@ class SettingsViewModelTest {
             apiKeyStore = store,
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
@@ -218,6 +226,7 @@ class SettingsViewModelTest {
             apiKeyStore = store,
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
         advanceUntilIdle()
@@ -237,6 +246,7 @@ class SettingsViewModelTest {
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
             weightUnitRepository = FakeWeightUnitRepository(),
+            distanceUnitRepository = FakeDistanceUnitRepository(),
             guidedWorkoutPreferenceRepository = FakeGuidedWorkoutPreferenceRepository()
         )
 
@@ -316,6 +326,17 @@ class SettingsViewModelTest {
         override fun unitFlow(): Flow<WeightUnit> = flowOf(stored)
 
         override suspend fun setUnit(unit: WeightUnit) {
+            stored = unit
+        }
+    }
+
+    private class FakeDistanceUnitRepository(var stored: DistanceUnit = DistanceUnit.METERS) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = stored
+
+        override fun unitFlow(): Flow<DistanceUnit> = flowOf(stored)
+
+        override suspend fun setUnit(unit: DistanceUnit) {
             stored = unit
         }
     }

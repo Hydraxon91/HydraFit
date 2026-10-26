@@ -24,7 +24,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
@@ -43,6 +45,7 @@ import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
 import hydrafit.feature.progress.generated.resources.progress_exercise_search_label
+import hydrafit.feature.progress.generated.resources.progress_history_distance_line
 import hydrafit.feature.progress.generated.resources.progress_history_duration_line
 import hydrafit.feature.progress.generated.resources.progress_history_empty
 import hydrafit.feature.progress.generated.resources.progress_history_failed
@@ -283,7 +286,7 @@ private fun ChartsSection(
                 if (dayFrom != null && dayTo != null) {
                     ProgressVolumeChart(state.days, dayFrom, dayTo)
                 }
-                ProgressDayTable(state.days, state.weightUnit)
+                ProgressDayTable(state.days, state.weightUnit, state.distanceUnit)
             }
         }
         RecordsSection(state, onShowSupportingSet, onCloseSupportingSet)
@@ -373,8 +376,12 @@ private fun RecordSupportingSet(
                 Text(stringResource(Res.string.progress_record_supporting_missing))
             state.supportingSetMissing ->
                 Text(stringResource(Res.string.progress_record_supporting_missing))
-            state.supportingSet != null ->
-                SupportingSetDetail(state.supportingSet, state.weightUnit, state.utcOffsetMillis)
+            state.supportingSet != null -> SupportingSetDetail(
+                state.supportingSet,
+                state.weightUnit,
+                state.distanceUnit,
+                state.utcOffsetMillis
+            )
         }
         if (record.setIds.size > 1) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -402,6 +409,7 @@ private fun RecordSupportingSet(
 private fun SupportingSetDetail(
     set: WorkoutHistorySet,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     utcOffsetMillis: Long
 ) {
     Text(
@@ -419,8 +427,15 @@ private fun SupportingSetDetail(
     }
     val durationSeconds = set.durationSeconds
     val reps = set.reps
+    val distanceMeters = set.distanceMeters
     Text(
         text = when {
+            distanceMeters != null -> stringResource(
+                Res.string.progress_history_distance_line,
+                formatDistance(distanceMeters, distanceUnit),
+                loadText
+            )
+
             durationSeconds != null -> stringResource(
                 Res.string.progress_history_duration_line,
                 durationSeconds,
@@ -467,7 +482,7 @@ private fun HistorySection(
             state.historyIsEmpty -> Text(stringResource(Res.string.progress_history_empty))
             else -> {
                 state.historySets.forEach { set ->
-                    HistorySetRow(set, state.weightUnit)
+                    HistorySetRow(set, state.weightUnit, state.distanceUnit)
                 }
                 if (state.historyHasMore || state.loadMoreHistoryFailed) {
                     if (state.loadMoreHistoryFailed) {
@@ -487,7 +502,11 @@ private fun HistorySection(
 }
 
 @Composable
-private fun HistorySetRow(set: WorkoutHistorySet, weightUnit: WeightUnit) {
+private fun HistorySetRow(
+    set: WorkoutHistorySet,
+    weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit
+) {
     val role = stringResource(
         if (set.isWarmup) {
             Res.string.progress_history_warmup
@@ -499,8 +518,15 @@ private fun HistorySetRow(set: WorkoutHistorySet, weightUnit: WeightUnit) {
         ?: stringResource(Res.string.progress_weight_none)
     val durationSeconds = set.durationSeconds
     val reps = set.reps
+    val distanceMeters = set.distanceMeters
     Text(
         text = "$role · " + when {
+            distanceMeters != null -> stringResource(
+                Res.string.progress_history_distance_line,
+                formatDistance(distanceMeters, distanceUnit),
+                loadText
+            )
+
             durationSeconds != null -> stringResource(
                 Res.string.progress_history_duration_line,
                 durationSeconds,

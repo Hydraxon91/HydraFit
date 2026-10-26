@@ -46,10 +46,12 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -171,6 +173,43 @@ class RoutinesViewModelTest {
         val counted = viewModel.state.value.templates.single().workouts.single().entries.single()
         assertEquals(12, counted.reps)
         assertNull(counted.durationSeconds)
+    }
+
+    @Test
+    fun authoringADistanceSlotConvertsTheDisplayUnitAndReloadsItInThatUnit() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            distanceUnitRepository = FakeDistanceUnitRepository(DistanceUnit.FEET)
+        )
+        advanceUntilIdle()
+
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Cardio")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntrySetsChanged(0, 0, "1")
+        viewModel.onEntryMetricChanged(0, 0, EntryMetric.DISTANCE)
+        viewModel.onEntryDistanceChanged(0, 0, "3281")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.editor)
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertNull(saved.reps)
+        assertNull(saved.durationSeconds)
+        // 3281 ft is 1000.05 m: the slot stores canonical whole metres whatever unit was typed.
+        assertEquals(1000, saved.distanceMeters)
+
+        // Reopening the stored slot shows its distance in the selected unit, not as metres.
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+        val edited = requireNotNull(viewModel.state.value.editor)
+            .workouts.single().entries.single()
+        assertEquals(EntryMetric.DISTANCE, edited.metric)
+        assertEquals("3281", edited.distance)
+        assertEquals("", edited.reps)
+        assertEquals("", edited.durationSeconds)
     }
 
     @Test
@@ -1231,7 +1270,8 @@ class RoutinesViewModelTest {
         exclusionRepository: ExerciseExclusionRepository = FakeExerciseExclusionRepository(),
         preferredWeekdaysRepository: PreferredWeekdaysRepository =
             FakePreferredWeekdaysRepository(),
-        timeProvider: TimeProvider = this.timeProvider
+        timeProvider: TimeProvider = this.timeProvider,
+        distanceUnitRepository: DistanceUnitRepository? = null
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
@@ -1265,7 +1305,8 @@ class RoutinesViewModelTest {
             timeProvider = timeProvider,
             weightUnitRepository = weightUnitRepository,
             exclusionRepository = exclusionRepository,
-            preferredWeekdaysRepository = preferredWeekdaysRepository
+            preferredWeekdaysRepository = preferredWeekdaysRepository,
+            distanceUnitRepository = distanceUnitRepository
         )
     }
 
@@ -1336,6 +1377,15 @@ private class FakeWeightUnitRepository : WeightUnitRepository {
     override suspend fun setUnit(unit: WeightUnit) {
         this.unit.value = unit
     }
+}
+
+private class FakeDistanceUnitRepository(private val unit: DistanceUnit = DistanceUnit.METERS) :
+    DistanceUnitRepository {
+    override suspend fun selectedUnit(): DistanceUnit = unit
+
+    override fun unitFlow(): Flow<DistanceUnit> = flowOf(unit)
+
+    override suspend fun setUnit(unit: DistanceUnit) = Unit
 }
 
 /**

@@ -13,11 +13,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.domain.time.isoDateUtc
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_chart_caption
+import hydrafit.feature.progress.generated.resources.progress_table_distance
 import hydrafit.feature.progress.generated.resources.progress_table_duration
 import hydrafit.feature.progress.generated.resources.progress_table_row
 import hydrafit.feature.progress.generated.resources.progress_table_row_no_volume
@@ -94,11 +97,20 @@ internal fun ProgressVolumeChart(
 internal fun progressDayDurationResource(day: ProgressDay): StringResource? =
     if (day.totalDurationSeconds > 0L) Res.string.progress_table_duration else null
 
+/**
+ * The distance line for a day's table row, or null when the day recorded no distance work. Recorded
+ * distance is descriptive only: it never feeds a record, progression or estimated one-rep max, and a
+ * day without distance work shows no distance total rather than a misleading zero.
+ */
+internal fun progressDayDistanceResource(day: ProgressDay): StringResource? =
+    if (day.totalDistanceMeters > 0L) Res.string.progress_table_distance else null
+
 /** The accessible numeric equivalent of the chart: one row per recorded day, newest first. */
 @Composable
 internal fun ProgressDayTable(
     days: List<ProgressDay>,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     modifier: Modifier = Modifier
 ) {
     val ordered = days.sortedByDescending { it.localEpochDay }
@@ -134,6 +146,16 @@ internal fun ProgressDayTable(
             if (durationResource != null) {
                 Text(
                     text = stringResource(durationResource, day.totalDurationSeconds),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            val distanceResource = progressDayDistanceResource(day)
+            if (distanceResource != null) {
+                Text(
+                    text = stringResource(
+                        distanceResource,
+                        formatDistance(day.totalDistanceMeters, distanceUnit)
+                    ),
                     style = MaterialTheme.typography.bodySmall
                 )
             }

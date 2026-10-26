@@ -32,6 +32,7 @@ import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
@@ -51,7 +52,12 @@ class SplitBuilderViewModel(
     private val planBuilderActions: PlanBuilderActions,
     private val planHistory: PlanHistoryRepository,
     private val exerciseCatalog: ExerciseCatalog,
-    private val enginePreference: EnginePreferenceRepository
+    private val enginePreference: EnginePreferenceRepository,
+    /**
+     * The user's distance display unit. Null keeps the measure dialog on metres; the plan stores
+     * whole metres either way, so only the field and slot line change.
+     */
+    private val distanceUnitRepository: DistanceUnitRepository? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SplitBuilderUiState())
@@ -85,6 +91,11 @@ class SplitBuilderViewModel(
         viewModelScope.launch {
             planBuilderActions.observeActiveActivation().collectLatest { active ->
                 _state.update { it.copy(hasActiveBlock = active != null) }
+            }
+        }
+        viewModelScope.launch {
+            distanceUnitRepository?.unitFlow()?.collectLatest { unit ->
+                _state.update { it.copy(distanceUnit = unit) }
             }
         }
         viewModelScope.launch {
@@ -690,18 +701,29 @@ class SplitBuilderViewModel(
 
     /** Opens the measure dialog for one slot of the shown plan, seeded from its current measure. */
     fun onMeasureRequested(dayIndex: Int, position: Int) {
-        val slot = _state.value.plan?.days
+        val current = _state.value
+        val slot = current.plan?.days
             ?.firstOrNull { it.dayIndex == dayIndex }
             ?.exercises
             ?.getOrNull(position) ?: return
-        val timed = slot.durationSeconds != null
+        val metric = when {
+            slot.durationSeconds != null -> MeasureMetric.SECONDS
+            slot.distanceMeters != null -> MeasureMetric.DISTANCE
+            else -> MeasureMetric.REPS
+        }
+        // A distance field is seeded in the display unit, so reopening an edit never reinterprets it.
+        val value = when (metric) {
+            MeasureMetric.REPS -> slot.reps
+            MeasureMetric.SECONDS -> slot.durationSeconds
+            MeasureMetric.DISTANCE -> slot.distanceMeters?.let(current.distanceUnit::displayWhole)
+        }
         _state.update {
             it.copy(
                 measureDialog = MeasureDialogState(
                     dayIndex = dayIndex,
                     position = position,
-                    metric = if (timed) MeasureMetric.SECONDS else MeasureMetric.REPS,
-                    value = (slot.durationSeconds ?: slot.reps)?.toString().orEmpty()
+                    metric = metric,
+                    value = value?.toString().orEmpty()
                 )
             )
         }
@@ -738,17 +760,34 @@ class SplitBuilderViewModel(
         val dialog = current.measureDialog ?: return
         val entered = dialog.value.toIntOrNull()
         val repBounds = PrescriptionBounds.MIN_REPS..PrescriptionBounds.MAX_REPS
+        val distanceBounds =
+            PrescriptionBounds.MIN_DISTANCE_METERS..PrescriptionBounds.MAX_DISTANCE_METERS
+        // The field is in the display unit; the stored value is always whole metres.
+        val distanceMetres = if (dialog.metric == MeasureMetric.DISTANCE) {
+            entered?.let { current.distanceUnit.displayToMetres(it.toDouble()) }
+        } else {
+            null
+        }
         val valid = when (dialog.metric) {
             MeasureMetric.REPS -> entered != null && entered in repBounds
             MeasureMetric.SECONDS -> entered != null && entered > 0
+            MeasureMetric.DISTANCE -> distanceMetres != null && distanceMetres in distanceBounds
         }
         if (!valid) {
             // A digits-only field that cannot be parsed as an Int is a value beyond the recordable
             // range, not a missing one; an empty field is simply not a positive count yet.
-            val error = when {
-                dialog.metric == MeasureMetric.REPS -> MeasureError.REPS_RANGE
-                dialog.value.isNotEmpty() && entered == null -> MeasureError.SECONDS_TOO_LARGE
-                else -> MeasureError.SECONDS_RANGE
+            val error = when (dialog.metric) {
+                MeasureMetric.REPS -> MeasureError.REPS_RANGE
+                MeasureMetric.SECONDS -> if (dialog.value.isNotEmpty() && entered == null) {
+                    MeasureError.SECONDS_TOO_LARGE
+                } else {
+                    MeasureError.SECONDS_RANGE
+                }
+                MeasureMetric.DISTANCE -> if (dialog.value.isNotEmpty() && entered == null) {
+                    MeasureError.DISTANCE_TOO_LARGE
+                } else {
+                    MeasureError.DISTANCE_RANGE
+                }
             }
             _state.update { it.copy(measureDialog = dialog.copy(error = error)) }
             return
@@ -764,7 +803,8 @@ class SplitBuilderViewModel(
                         dialog.dayIndex,
                         dialog.position,
                         reps,
-                        durationSeconds
+                        durationSeconds,
+                        distanceMetres
                     ),
                     measureDialog = null
                 )
@@ -777,7 +817,8 @@ class SplitBuilderViewModel(
                 dialog.dayIndex,
                 dialog.position,
                 reps,
-                durationSeconds
+                durationSeconds,
+                distanceMetres
             )
             if (updated == null) {
                 // The slot no longer exists: nothing was written, so close without a change.
@@ -989,7 +1030,8 @@ class SplitBuilderViewModel(
         dayIndex: Int,
         position: Int,
         reps: Int?,
-        durationSeconds: Int?
+        durationSeconds: Int?,
+        distanceMeters: Int?
     ): WeeklyPlan = copy(
         days = days.map { day ->
             if (day.dayIndex != dayIndex) {
@@ -998,7 +1040,11 @@ class SplitBuilderViewModel(
                 day.copy(
                     exercises = day.exercises.mapIndexed { index, exercise ->
                         if (index == position) {
-                            exercise.copy(reps = reps, durationSeconds = durationSeconds)
+                            exercise.copy(
+                                reps = reps,
+                                durationSeconds = durationSeconds,
+                                distanceMeters = distanceMeters
+                            )
                         } else {
                             exercise
                         }

@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.StationFilter
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -35,7 +36,12 @@ class ProgressViewModel(
     private val progressRepository: ExerciseProgressRepository,
     exerciseCatalog: ExerciseCatalog,
     weightUnitRepository: WeightUnitRepository,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    /**
+     * The user's distance display unit. Null keeps distance readouts on metres; recorded sets store
+     * whole metres either way, so only the rendered label changes.
+     */
+    distanceUnitRepository: DistanceUnitRepository? = null
 ) : ViewModel() {
 
     private val _state =
@@ -95,6 +101,11 @@ class ProgressViewModel(
         viewModelScope.launch {
             weightUnitRepository.unitFlow().collect { unit ->
                 _state.update { it.copy(weightUnit = unit) }
+            }
+        }
+        viewModelScope.launch {
+            distanceUnitRepository?.unitFlow()?.collect { unit ->
+                _state.update { it.copy(distanceUnit = unit) }
             }
         }
         viewModelScope.launch {

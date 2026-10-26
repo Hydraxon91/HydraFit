@@ -28,7 +28,8 @@ val loggerModule: Module = module {
             trainingGuidancePreferenceRepository = get(),
             resolveRestDurationUseCase = get(),
             setExerciseRestDurationUseCase = get(),
-            clearExerciseRestDurationUseCase = get()
+            clearExerciseRestDurationUseCase = get(),
+            distanceUnitRepository = get()
         )
     }
     factory {
@@ -68,6 +69,7 @@ val loggerModule: Module = module {
             historyRepository = get(),
             exerciseNoteRepository = get(),
             weightUnitRepository = get(),
+            distanceUnitRepository = get(),
             timeProvider = get()
         )
     }

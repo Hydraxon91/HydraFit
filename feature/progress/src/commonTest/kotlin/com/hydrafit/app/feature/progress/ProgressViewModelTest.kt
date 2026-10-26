@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
@@ -19,6 +20,7 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -89,6 +91,13 @@ class ProgressViewModelTest {
         }
     }
 
+    private class FakeDistanceUnitRepository(private val unit: DistanceUnit = DistanceUnit.METERS) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = unit
+        override fun unitFlow(): Flow<DistanceUnit> = flowOf(unit)
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
+    }
+
     /** Mutable clock, so a test can advance the instant between reads. */
     private class FakeTimeProvider(var now: Long, var offset: Long) : TimeProvider {
         override fun nowMillis(): Long = now
@@ -107,12 +116,14 @@ class ProgressViewModelTest {
         repository: FakeProgressRepository = FakeProgressRepository(),
         unitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
         catalog: ExerciseCatalog = FakeCatalog(listOf(exercise("squat", "Squat"))),
-        timeProvider: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis)
+        timeProvider: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis),
+        distanceUnitRepository: DistanceUnitRepository? = null
     ) = ProgressViewModel(
         progressRepository = repository,
         exerciseCatalog = catalog,
         weightUnitRepository = unitRepository,
-        timeProvider = timeProvider
+        timeProvider = timeProvider,
+        distanceUnitRepository = distanceUnitRepository
     )
 
     @Test
@@ -132,6 +143,23 @@ class ProgressViewModelTest {
             assertEquals(expectedDayTo - 27L, request.dayFrom)
             assertEquals(nowMillis, request.nowMillis)
             assertEquals(offsetMillis, request.utcOffsetMillis)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun theSelectedDistanceUnitReachesTheStateThatRendersDayAndSetDistances() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val vm = viewModel(
+                distanceUnitRepository = FakeDistanceUnitRepository(DistanceUnit.FEET)
+            )
+            advanceUntilIdle()
+
+            // Without a wired repository the state keeps metres; with one, rendering uses its unit.
+            assertEquals(DistanceUnit.FEET, vm.state.value.distanceUnit)
         } finally {
             Dispatchers.resetMain()
         }

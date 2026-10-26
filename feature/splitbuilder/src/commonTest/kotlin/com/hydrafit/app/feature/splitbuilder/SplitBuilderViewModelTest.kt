@@ -64,10 +64,12 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -1198,6 +1200,35 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun distanceMeasureIsEnteredInTheSelectedUnitAndStoredInMetres() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history,
+            distanceUnitRepository = FakeDistanceUnitRepository(DistanceUnit.FEET)
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        viewModel.onMeasureMetricChanged(MeasureMetric.DISTANCE)
+        viewModel.onMeasureValueChanged("16")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        val draftSlot = viewModel.state.value.plan!!.days.first().exercises.first()
+        assertNull(draftSlot.reps)
+        assertNull(draftSlot.durationSeconds)
+        // The field is feet; storage stays canonical whole metres (16 ft is 4.8768 m).
+        assertEquals(5, draftSlot.distanceMeters)
+        assertNull(history.latest())
+
+        // Reopening seeds the field from the stored metres in the display unit, not as raw metres.
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        assertEquals(MeasureMetric.DISTANCE, viewModel.state.value.measureDialog?.metric)
+        assertEquals("16", viewModel.state.value.measureDialog?.value)
+    }
+
+    @Test
     fun acceptedPlanMeasureEditPersistsInPlace() = runTest(dispatcher) {
         val history = FakePlanHistoryRepository()
         history.accept(acceptedPlan().copy(id = 1L))
@@ -1259,6 +1290,22 @@ class SplitBuilderViewModelTest {
         advanceUntilIdle()
 
         assertEquals(MeasureError.SECONDS_TOO_LARGE, viewModel.state.value.measureDialog?.error)
+        assertEquals(8, viewModel.state.value.plan!!.days.single().exercises.single().reps)
+        assertEquals(8, history.latest()!!.days.single().exercises.single().reps)
+
+        // A distance is bounded in metres after the entered display unit is converted.
+        viewModel.onMeasureMetricChanged(MeasureMetric.DISTANCE)
+        viewModel.onMeasureValueChanged("99999999999")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(MeasureError.DISTANCE_TOO_LARGE, viewModel.state.value.measureDialog?.error)
+
+        viewModel.onMeasureValueChanged("0")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(MeasureError.DISTANCE_RANGE, viewModel.state.value.measureDialog?.error)
         assertEquals(8, viewModel.state.value.plan!!.days.single().exercises.single().reps)
         assertEquals(8, history.latest()!!.days.single().exercises.single().reps)
     }
@@ -1974,6 +2021,7 @@ class SplitBuilderViewModelTest {
         planHistory: FakePlanHistoryRepository = FakePlanHistoryRepository(),
         sourcesRepository: WorkoutPlanSourcesRepository? = null,
         timeProvider: TimeProvider = TimeProvider { 0L },
+        distanceUnitRepository: DistanceUnitRepository? = null,
         onActivation: () -> Unit = {}
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
@@ -1999,7 +2047,8 @@ class SplitBuilderViewModelTest {
             ),
             planHistory = planHistory,
             exerciseCatalog = catalog,
-            enginePreference = preference
+            enginePreference = preference,
+            distanceUnitRepository = distanceUnitRepository
         )
     }
 
@@ -2178,7 +2227,8 @@ class SplitBuilderViewModelTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?
         ) {
             val plan = state.value ?: return
             if (plan.id != planId) return
@@ -2192,7 +2242,11 @@ class SplitBuilderViewModelTest {
                                 if (index != position) {
                                     exercise
                                 } else {
-                                    exercise.copy(reps = reps, durationSeconds = durationSeconds)
+                                    exercise.copy(
+                                        reps = reps,
+                                        durationSeconds = durationSeconds,
+                                        distanceMeters = distanceMeters
+                                    )
                                 }
                             }
                         )
@@ -2259,7 +2313,8 @@ class SplitBuilderViewModelTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit
@@ -2344,6 +2399,15 @@ class SplitBuilderViewModelTest {
         override suspend fun setSelected(tags: Set<EquipmentTag>) {
             state.value = tags
         }
+    }
+
+    private class FakeDistanceUnitRepository(private val unit: DistanceUnit = DistanceUnit.METERS) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = unit
+
+        override fun unitFlow(): Flow<DistanceUnit> = flowOf(unit)
+
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
     }
 
     private class FakeWorkoutLogRepository : WorkoutLogRepository {

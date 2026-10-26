@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
@@ -65,7 +66,9 @@ data class LoggedSetRow(
     val occurrenceId: Long? = null,
     val sessionId: String? = null,
     /** Elapsed whole seconds for a timed set, or null for counted work. */
-    val durationSeconds: Int? = null
+    val durationSeconds: Int? = null,
+    /** Whole metres for a distance set, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 )
 
 /** Null identity is unrecorded, never a shared session boundary. */
@@ -77,16 +80,18 @@ internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
  * fields are mutually exclusive because the chosen metric alone is submitted, so a form can never
  * write both.
  */
-enum class SetMetric { REPETITIONS, DURATION }
+enum class SetMetric { REPETITIONS, DURATION, DISTANCE }
 
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
 data class LoggedSetEdit(
     val row: LoggedSetRow,
     val weightUnit: WeightUnit,
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     /** The metric being corrected; the other field is retained but never submitted. */
     val metric: SetMetric,
     val reps: String,
     val durationSeconds: String,
+    val distanceMeters: String,
     val weightInput: String,
     val originalWeightInput: String,
     val rir: String,
@@ -104,6 +109,7 @@ data class LoggedSetEdit(
         get() = when (metric) {
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
+            SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
         }
 
     /** Repetitions to write, or null when this correction records seconds instead. */
@@ -113,6 +119,14 @@ data class LoggedSetEdit(
     /** Whole seconds to write, or null when this correction records repetitions instead. */
     val correctionDurationSeconds: Int?
         get() = if (metric == SetMetric.DURATION) durationSeconds.toIntOrNull() else null
+
+    /** Whole metres to write, or null for a rep/timed correction. */
+    val correctionDistanceMeters: Int?
+        get() = if (metric == SetMetric.DISTANCE) {
+            distanceMeters.toDoubleOrNull()?.let(distanceUnit::displayToMetres)
+        } else {
+            null
+        }
 }
 
 /**
@@ -170,6 +184,8 @@ data class DraftSet(
     val isWarmup: Boolean = false,
     /** Elapsed whole seconds for a timed slot, or null for counted work. */
     val durationSeconds: Int? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val distanceMeters: Int? = null,
     /**
      * The slot's frozen ordered per-set targets, or null when its sets share one repeated
      * prescription. A guided or planned draft keeps them so each logged set records the target it
@@ -193,6 +209,12 @@ data class DraftEdit(
     val draft: DraftSet,
     val reps: String,
     val durationSeconds: String = "",
+    val distanceMeters: String = "",
+    /**
+     * The display unit [distanceMeters] was typed in; frozen for the editor's lifetime like the
+     * weight unit so a later preference change cannot reinterpret the same digits.
+     */
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val weightInput: String,
     /**
      * The display unit [weightInput] was typed in. The editor freezes it for its lifetime so a
@@ -212,12 +234,15 @@ data class DraftEdit(
     /** True when the frozen draft records elapsed seconds instead of repetitions. */
     val isTimed: Boolean get() = draft.durationSeconds != null
 
+    /** True when the frozen draft records a distance instead of reps or seconds. */
+    val isDistance: Boolean get() = draft.distanceMeters != null
+
     /** True when the frozen measure's field holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
-        get() = if (isTimed) {
-            (durationSeconds.toIntOrNull() ?: 0) > 0
-        } else {
-            (reps.toIntOrNull() ?: 0) > 0
+        get() = when {
+            isDistance -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
+            isTimed -> (durationSeconds.toIntOrNull() ?: 0) > 0
+            else -> (reps.toIntOrNull() ?: 0) > 0
         }
 
     /**
@@ -231,6 +256,7 @@ data class DraftEdit(
         this.draft.exerciseId == draft.exerciseId &&
         this.draft.sets == draft.sets &&
         isTimed == (draft.durationSeconds != null) &&
+        isDistance == (draft.distanceMeters != null) &&
         this.draft.orderedPrefill == draft.orderedPrefill
 }
 
@@ -319,6 +345,8 @@ data class WorkoutLoggerUiState(
     val metric: SetMetric = SetMetric.REPETITIONS,
     val reps: String = "",
     val durationSeconds: String = "",
+    val distanceMeters: String = "",
+    val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val weightInput: String = "",
     val rir: String = "",
     val isWarmup: Boolean = false,
@@ -611,6 +639,7 @@ data class WorkoutLoggerUiState(
         get() = when (metric) {
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
+            SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
         }
 
     /**

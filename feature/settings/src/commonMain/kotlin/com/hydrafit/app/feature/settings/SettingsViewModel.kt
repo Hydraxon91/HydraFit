@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.TrainingGoal
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
@@ -23,6 +25,7 @@ class SettingsViewModel(
     private val apiKeyStore: ApiKeyStore,
     private val trainingGoalRepository: TrainingGoalRepository,
     private val weightUnitRepository: WeightUnitRepository,
+    private val distanceUnitRepository: DistanceUnitRepository,
     private val guidedWorkoutPreferenceRepository: GuidedWorkoutPreferenceRepository
 ) : ViewModel() {
 
@@ -68,6 +71,13 @@ class SettingsViewModel(
         }
     }
 
+    fun onDistanceUnitSelected(unit: DistanceUnit) {
+        viewModelScope.launch {
+            distanceUnitRepository.setUnit(unit)
+            _state.update { it.copy(distanceUnit = unit) }
+        }
+    }
+
     fun onApiKeyChanged(value: String) {
         _state.update { it.copy(apiKeyInput = value.trim()) }
     }
@@ -92,6 +102,7 @@ class SettingsViewModel(
             val goal = trainingGoalRepository.selectedGoal()
             val shareWorkoutData = preference.isWorkoutDataSharingEnabled()
             val unit = weightUnitRepository.selectedUnit()
+            val distanceUnit = distanceUnitRepository.selectedUnit()
             val guidedWorkoutEnabled = guidedWorkoutPreferenceRepository.isGuidedWorkoutEnabled()
             _state.update {
                 it.copy(
@@ -99,6 +110,7 @@ class SettingsViewModel(
                     selectedEngine = if (stored in available) stored else available.firstOrNull(),
                     selectedGoal = goal,
                     weightUnit = unit,
+                    distanceUnit = distanceUnit,
                     guidedWorkoutEnabled = guidedWorkoutEnabled,
                     workoutDataSharingEnabled = shareWorkoutData,
                     apiKeyConfigured = !apiKeyStore.load().isNullOrBlank(),

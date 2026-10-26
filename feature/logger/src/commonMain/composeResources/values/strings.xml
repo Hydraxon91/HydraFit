@@ -7,6 +7,8 @@
     <string name="logger_search_label">Search exercises</string>
     <string name="logger_reps_label">Reps</string>
     <string name="logger_seconds_label">Seconds</string>
+    <string name="logger_distance_label">Distance</string>
+    <string name="logger_distance_input_label">Distance (%1$s)</string>
     <string name="logger_weight_label">Weight (%1$s)</string>
     <string name="logger_add_weight">Add weight</string>
     <string name="logger_rir_label">RIR (optional)</string>
@@ -92,6 +94,7 @@
     <string name="logger_draft_edit_apply">Apply edit</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
     <string name="logger_draft_timed_line">%1$s  %2$d x %3$d s · ~%4$s</string>
+    <string name="logger_draft_distance_line">%1$s  %2$d x %3$s · ~%4$s</string>
     <string name="logger_draft_prescribed_effort">Prescribed RIR %1$d · RPE %2$d (RPE is the same closeness-to-failure scale, 10 − RIR)</string>
     <string name="logger_draft_prescribed_effort_varies">Prescribed RIR differs by set (0–10 closeness-to-failure scale, RPE = 10 − RIR)</string>
     <string name="logger_draft_set_targets_summary">Per-set targets: %1$s</string>
@@ -109,6 +112,7 @@
     <string name="logger_guided_title">Guided workout</string>
     <string name="logger_guided_target">Target: %1$d × %2$s</string>
     <string name="logger_guided_target_timed">Target: %1$d s × %2$s</string>
+    <string name="logger_guided_target_distance">Target: %1$s × %2$s</string>
     <string name="logger_guided_all_done">All prescribed sets recorded</string>
     <string name="logger_guided_set_failed">That set was not saved. The set is still pending; try again.</string>
     <string name="logger_log_failed">That set could not be saved. Keep your entries and try again.</string>
@@ -214,6 +218,7 @@
     <string name="logger_history_set_count">Recorded sets: %1$d</string>
     <string name="logger_history_set_line">%1$d reps · %2$s</string>
     <string name="logger_history_set_duration_line">%1$d s · %2$s</string>
+    <string name="logger_history_set_distance_line">%1$s · %2$s</string>
     <string name="logger_history_no_sets">No recorded sets</string>
     <string name="logger_history_session_missing">Recorded session (session record missing)</string>
     <string name="logger_history_unassigned_set">Set with no session</string>
@@ -256,10 +261,13 @@
     <string name="logger_summary_target_sets_none">Target: %1$d × %2$d</string>
     <string name="logger_summary_target_sets_timed">Target: %1$d × %2$d s @ %3$s</string>
     <string name="logger_summary_target_sets_none_timed">Target: %1$d × %2$d s</string>
+    <string name="logger_summary_target_sets_distance">Target: %1$d × %2$s @ %3$s</string>
+    <string name="logger_summary_target_sets_none_distance">Target: %1$d × %2$s</string>
     <string name="logger_summary_totals">%1$d recorded sets · %2$d prescribed</string>
     <string name="logger_summary_close">Close</string>
     <string name="logger_summary_edit_set_description">Edit %1$s set %2$d, %3$d reps</string>
     <string name="logger_summary_edit_set_duration_description">Edit %1$s set %2$d, %3$d seconds</string>
+    <string name="logger_summary_edit_set_distance_description">Edit %1$s set %2$d, %3$s</string>
     <string name="logger_summary_remaining">%1$d not recorded</string>
     <string name="logger_summary_not_performed">Not performed</string>
     <string name="logger_summary_skipped">Skipped</string>

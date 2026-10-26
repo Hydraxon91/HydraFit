@@ -50,6 +50,9 @@
     <string name="settings_unit_section">Weight unit</string>
     <string name="settings_unit_kg">Kilograms (kg)</string>
     <string name="settings_unit_lb">Pounds (lb)</string>
+    <string name="settings_distance_unit_section">Distance unit</string>
+    <string name="settings_distance_unit_meters">Metres (m)</string>
+    <string name="settings_distance_unit_feet">Feet (ft)</string>
     <string name="settings_gemini_unavailable">Add a Gemini API key to enable the cloud engine.</string>
     <string name="settings_local_llm_slow">On-device planning can take several minutes, depending on your phone’s processor.</string>
     <string name="settings_api_key_section">Gemini API key</string>
@@ -192,6 +195,7 @@
     <string name="settings_workout_import_no_time">No time</string>
     <string name="settings_workout_import_no_weight">No weight</string>
     <string name="settings_workout_import_row_duration">%1$d s</string>
+    <string name="settings_workout_import_row_distance">%1$d m</string>
     <string name="settings_workout_import_warmup">Warm-up</string>
     <string name="settings_workout_import_working">Working set</string>
     <string name="settings_workout_import_unknown_set_type">Set type not recorded</string>
@@ -221,7 +225,7 @@
     <string name="settings_workout_import_session_confirmed">Session confirmed</string>
     <string name="settings_workout_import_session_workout">Workout: %1$s</string>
     <string name="settings_workout_import_session_untitled">This export has no workout title, so rows for one date start as one session. Move a row to a new session to split them.</string>
-    <string name="settings_workout_import_acknowledge_metadata">Some source fields (distance, notes, RPE) are not imported.</string>
+    <string name="settings_workout_import_acknowledge_metadata">Some source fields (notes, RPE) are not imported.</string>
     <string name="settings_workout_import_acknowledge_history">Importing changes my workout history and fatigue, and cannot be undone.</string>
     <string name="settings_workout_import_notices_title">Notes</string>
     <string name="settings_workout_import_problems_title">Before you import</string>

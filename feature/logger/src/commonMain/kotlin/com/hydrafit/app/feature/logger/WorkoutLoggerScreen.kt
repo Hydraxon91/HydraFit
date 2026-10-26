@@ -72,7 +72,9 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
@@ -98,6 +100,9 @@ import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
 import hydrafit.feature.logger.generated.resources.logger_dismiss
+import hydrafit.feature.logger.generated.resources.logger_distance_input_label
+import hydrafit.feature.logger.generated.resources.logger_distance_label
+import hydrafit.feature.logger.generated.resources.logger_draft_distance_line
 import hydrafit.feature.logger.generated.resources.logger_draft_edit
 import hydrafit.feature.logger.generated.resources.logger_draft_edit_apply
 import hydrafit.feature.logger.generated.resources.logger_draft_edit_title
@@ -173,9 +178,11 @@ import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
 import hydrafit.feature.logger.generated.resources.logger_guided_set_started
 import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
+import hydrafit.feature.logger.generated.resources.logger_guided_target_distance
 import hydrafit.feature.logger.generated.resources.logger_guided_target_timed
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_history_open
+import hydrafit.feature.logger.generated.resources.logger_history_set_distance_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_instructions
@@ -339,6 +346,7 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
                 screen = state.summary,
                 records = recordsState,
                 weightUnit = state.weightUnit,
+                distanceUnit = state.distanceUnit,
                 utcOffsetMillis = state.utcOffsetMillis,
                 onRetry = viewModel::retryWorkoutSummary,
                 onRecordsRetry = recordsViewModel::onRetry,
@@ -366,6 +374,7 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
                     nowMillis = viewModel::currentTimeMillis,
                     onRepsChanged = viewModel::onLoggedSetRepsChanged,
                     onDurationChanged = viewModel::onLoggedSetDurationChanged,
+                    onDistanceChanged = viewModel::onLoggedSetDistanceChanged,
                     onMetricChanged = viewModel::onLoggedSetMetricChanged,
                     onWeightChanged = viewModel::onLoggedSetWeightChanged,
                     onRirChanged = viewModel::onLoggedSetRirChanged,
@@ -427,6 +436,7 @@ fun WorkoutLoggerRoute(
         onExerciseSearchChanged = viewModel::onExerciseSearchChanged,
         onRepsChanged = viewModel::onRepsChanged,
         onDurationSecondsChanged = viewModel::onDurationSecondsChanged,
+        onDistanceChanged = viewModel::onDistanceChanged,
         onMetricChanged = viewModel::onMetricChanged,
         onWeightChanged = viewModel::onWeightChanged,
         onStationSelected = viewModel::onStationSelected,
@@ -438,6 +448,7 @@ fun WorkoutLoggerRoute(
         onEditLoggedSet = viewModel::editLoggedSet,
         onLoggedSetRepsChanged = viewModel::onLoggedSetRepsChanged,
         onLoggedSetDurationChanged = viewModel::onLoggedSetDurationChanged,
+        onLoggedSetDistanceChanged = viewModel::onLoggedSetDistanceChanged,
         onLoggedSetMetricChanged = viewModel::onLoggedSetMetricChanged,
         onLoggedSetWeightChanged = viewModel::onLoggedSetWeightChanged,
         onLoggedSetRirChanged = viewModel::onLoggedSetRirChanged,
@@ -449,6 +460,7 @@ fun WorkoutLoggerRoute(
         onEditDraft = viewModel::editDraft,
         onDraftRepsChanged = viewModel::onDraftRepsChanged,
         onDraftDurationSecondsChanged = viewModel::onDraftDurationSecondsChanged,
+        onDraftDistanceChanged = viewModel::onDraftDistanceChanged,
         onDraftWeightChanged = viewModel::onDraftWeightChanged,
         onDraftRirChanged = viewModel::onDraftRirChanged,
         onDraftWeightRevealed = viewModel::onDraftWeightRevealed,
@@ -595,6 +607,7 @@ fun WorkoutLoggerScreen(
     onExerciseSearchChanged: (String) -> Unit,
     onRepsChanged: (String) -> Unit,
     onDurationSecondsChanged: (String) -> Unit,
+    onDistanceChanged: (String) -> Unit,
     onMetricChanged: (SetMetric) -> Unit,
     onWeightChanged: (String) -> Unit,
     onStationSelected: (Long?) -> Unit,
@@ -606,6 +619,7 @@ fun WorkoutLoggerScreen(
     onEditLoggedSet: (LoggedSetRow) -> Unit,
     onLoggedSetRepsChanged: (String) -> Unit,
     onLoggedSetDurationChanged: (String) -> Unit,
+    onLoggedSetDistanceChanged: (String) -> Unit,
     onLoggedSetMetricChanged: (SetMetric) -> Unit,
     onLoggedSetWeightChanged: (String) -> Unit,
     onLoggedSetRirChanged: (String) -> Unit,
@@ -617,6 +631,7 @@ fun WorkoutLoggerScreen(
     onEditDraft: (DraftSet) -> Unit,
     onDraftRepsChanged: (String) -> Unit,
     onDraftDurationSecondsChanged: (String) -> Unit,
+    onDraftDistanceChanged: (String) -> Unit,
     onDraftWeightChanged: (String) -> Unit,
     onDraftRirChanged: (String) -> Unit,
     onDraftWeightRevealed: () -> Unit,
@@ -1049,12 +1064,41 @@ fun WorkoutLoggerScreen(
                     onClick = { onMetricChanged(SetMetric.DURATION) },
                     label = { Text(stringResource(Res.string.logger_seconds_label)) }
                 )
+                FilterChip(
+                    selected = state.metric == SetMetric.DISTANCE,
+                    onClick = { onMetricChanged(SetMetric.DISTANCE) },
+                    label = { Text(stringResource(Res.string.logger_distance_label)) }
+                )
             }
         }
         item {
             // Only the selected metric's field is shown, and only its value is ever submitted, so a
-            // manual set can never record both a rep count and a duration.
-            if (state.metric == SetMetric.DURATION) {
+            // manual set can never record two measurements at once.
+            if (state.metric == SetMetric.DISTANCE) {
+                OutlinedTextField(
+                    value = state.distanceMeters,
+                    onValueChange = onDistanceChanged,
+                    label = {
+                        Text(
+                            stringResource(
+                                Res.string.logger_distance_input_label,
+                                state.distanceUnit.label
+                            )
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(LoggerTestTags.DISTANCE_INPUT)
+                )
+            } else if (state.metric == SetMetric.DURATION) {
                 OutlinedTextField(
                     value = state.durationSeconds,
                     onValueChange = onDurationSecondsChanged,
@@ -1249,6 +1293,7 @@ fun WorkoutLoggerScreen(
                     GuidedWorkoutSection(
                         guided = guided,
                         weightUnit = state.weightUnit,
+                        distanceUnit = state.distanceUnit,
                         exerciseLoadBasis = state.exerciseLoadBasis,
                         writeFailed = state.guidedSetWriteFailed,
                         writeInProgress = state.draftWriteInProgress,
@@ -1320,16 +1365,24 @@ fun WorkoutLoggerScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = if (draft.durationSeconds != null) {
-                                stringResource(
+                            text = when {
+                                draft.distanceMeters != null -> stringResource(
+                                    Res.string.logger_draft_distance_line,
+                                    draft.name,
+                                    draft.sets,
+                                    formatDistance(draft.distanceMeters, state.distanceUnit),
+                                    weight
+                                )
+
+                                draft.durationSeconds != null -> stringResource(
                                     Res.string.logger_draft_timed_line,
                                     draft.name,
                                     draft.sets,
                                     draft.durationSeconds,
                                     weight
                                 )
-                            } else {
-                                "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+
+                                else -> "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
                             }
                         )
                         draft.setTargets?.let { targets ->
@@ -1490,6 +1543,12 @@ fun WorkoutLoggerScreen(
                     ""
                 }
                 val measurement = when {
+                    row.distanceMeters != null -> stringResource(
+                        Res.string.logger_history_set_distance_line,
+                        formatDistance(row.distanceMeters, state.distanceUnit),
+                        weight
+                    )
+
                     row.durationSeconds != null -> stringResource(
                         Res.string.logger_history_set_duration_line,
                         row.durationSeconds,
@@ -1618,6 +1677,7 @@ fun WorkoutLoggerScreen(
             nowMillis = nowMillis,
             onRepsChanged = onLoggedSetRepsChanged,
             onDurationChanged = onLoggedSetDurationChanged,
+            onDistanceChanged = onLoggedSetDistanceChanged,
             onMetricChanged = onLoggedSetMetricChanged,
             onWeightChanged = onLoggedSetWeightChanged,
             onRirChanged = onLoggedSetRirChanged,
@@ -1699,6 +1759,7 @@ fun WorkoutLoggerScreen(
                 appliesOnly = state.isGuidedActive && edit.draft.occurrenceEntryId != null,
                 onRepsChanged = onDraftRepsChanged,
                 onDurationSecondsChanged = onDraftDurationSecondsChanged,
+                onDraftDistanceChanged = onDraftDistanceChanged,
                 onWeightChanged = onDraftWeightChanged,
                 onRirChanged = onDraftRirChanged,
                 onRevealWeight = onDraftWeightRevealed,
@@ -1758,6 +1819,7 @@ private fun DraftEditDialog(
     appliesOnly: Boolean,
     onRepsChanged: (String) -> Unit,
     onDurationSecondsChanged: (String) -> Unit,
+    onDraftDistanceChanged: (String) -> Unit,
     onWeightChanged: (String) -> Unit,
     onRirChanged: (String) -> Unit,
     onRevealWeight: () -> Unit,
@@ -1779,18 +1841,31 @@ private fun DraftEditDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Only the draft's frozen measure is shown and submitted, so a timed draft
-                // edits seconds and a counted draft edits repetitions — never both.
-                if (edit.isTimed) {
-                    OutlinedTextField(
+                // Only the draft's frozen measure is shown and submitted, so a distance draft edits
+                // its distance, a timed draft its seconds and a counted draft its repetitions.
+                when {
+                    edit.isDistance -> OutlinedTextField(
+                        value = edit.distanceMeters,
+                        onValueChange = onDraftDistanceChanged,
+                        label = {
+                            Text(
+                                stringResource(
+                                    Res.string.logger_distance_input_label,
+                                    edit.distanceUnit.label
+                                )
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true
+                    )
+                    edit.isTimed -> OutlinedTextField(
                         value = edit.durationSeconds,
                         onValueChange = onDurationSecondsChanged,
                         label = { Text(stringResource(Res.string.logger_seconds_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
                     )
-                } else {
-                    OutlinedTextField(
+                    else -> OutlinedTextField(
                         value = edit.reps,
                         onValueChange = onRepsChanged,
                         label = { Text(stringResource(Res.string.logger_reps_label)) },
@@ -2639,6 +2714,7 @@ private fun WarmupAction.labelResource(): StringResource = when (this) {
 private fun GuidedWorkoutSection(
     guided: GuidedWorkoutProgress,
     weightUnit: WeightUnit,
+    distanceUnit: DistanceUnit,
     exerciseLoadBasis: Map<String, LoadBasis>,
     writeFailed: Boolean,
     writeInProgress: Boolean,
@@ -2824,6 +2900,7 @@ private fun GuidedWorkoutSection(
                                 }
                             }
                             val targetSeconds = exercise.durationSeconds
+                            val targetDistance = exercise.distanceMeters
                             val loadText = loadWeightText(
                                 exercise.loadKind,
                                 exercise.weightKg,
@@ -2831,14 +2908,20 @@ private fun GuidedWorkoutSection(
                                 exerciseLoadBasis[exercise.exerciseId]
                             )
                             Text(
-                                text = if (targetSeconds != null) {
-                                    stringResource(
+                                text = when {
+                                    targetDistance != null -> stringResource(
+                                        Res.string.logger_guided_target_distance,
+                                        formatDistance(targetDistance, distanceUnit),
+                                        loadText
+                                    )
+
+                                    targetSeconds != null -> stringResource(
                                         Res.string.logger_guided_target_timed,
                                         targetSeconds,
                                         loadText
                                     )
-                                } else {
-                                    stringResource(
+
+                                    else -> stringResource(
                                         Res.string.logger_guided_target,
                                         exercise.reps ?: 0,
                                         loadText

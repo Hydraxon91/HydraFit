@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hydrafit.app.core.domain.unit.DistanceUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
@@ -37,6 +39,7 @@ import hydrafit.feature.logger.generated.resources.logger_history_note_cleared
 import hydrafit.feature.logger.generated.resources.logger_history_rir
 import hydrafit.feature.logger.generated.resources.logger_history_session_note_title
 import hydrafit.feature.logger.generated.resources.logger_history_set_count
+import hydrafit.feature.logger.generated.resources.logger_history_set_distance_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_duration_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_history_sets_failed
@@ -78,6 +81,7 @@ fun WorkoutHistoryDetailRoute(
         },
         onLoggedSetRepsChanged = loggerViewModel::onLoggedSetRepsChanged,
         onLoggedSetDurationChanged = loggerViewModel::onLoggedSetDurationChanged,
+        onLoggedSetDistanceChanged = loggerViewModel::onLoggedSetDistanceChanged,
         onLoggedSetMetricChanged = loggerViewModel::onLoggedSetMetricChanged,
         onLoggedSetWeightChanged = loggerViewModel::onLoggedSetWeightChanged,
         onLoggedSetRirChanged = loggerViewModel::onLoggedSetRirChanged,
@@ -100,6 +104,7 @@ fun WorkoutHistoryDetailScreen(
     onEditSet: (WorkoutHistorySet) -> Unit,
     onLoggedSetRepsChanged: (String) -> Unit,
     onLoggedSetDurationChanged: (String) -> Unit,
+    onLoggedSetDistanceChanged: (String) -> Unit,
     onLoggedSetMetricChanged: (SetMetric) -> Unit,
     onLoggedSetWeightChanged: (String) -> Unit,
     onLoggedSetRirChanged: (String) -> Unit,
@@ -238,6 +243,7 @@ fun WorkoutHistoryDetailScreen(
                         set = set,
                         utcOffsetMillis = state.utcOffsetMillis,
                         loadText = loadWeightText(set.loadKind, set.weightKg, state.weightUnit),
+                        distanceUnit = state.distanceUnit,
                         editing = loggerState.loggedSetEdit?.row?.id == set.id,
                         onEdit = { onEditSet(set) }
                     )
@@ -330,6 +336,7 @@ fun WorkoutHistoryDetailScreen(
             nowMillis = nowMillis,
             onRepsChanged = onLoggedSetRepsChanged,
             onDurationChanged = onLoggedSetDurationChanged,
+            onDistanceChanged = onLoggedSetDistanceChanged,
             onMetricChanged = onLoggedSetMetricChanged,
             onWeightChanged = onLoggedSetWeightChanged,
             onRirChanged = onLoggedSetRirChanged,
@@ -345,6 +352,7 @@ private fun WorkoutHistorySetRow(
     set: WorkoutHistorySet,
     utcOffsetMillis: Long,
     loadText: String,
+    distanceUnit: DistanceUnit,
     editing: Boolean,
     onEdit: () -> Unit
 ) {
@@ -375,8 +383,15 @@ private fun WorkoutHistorySetRow(
         }
         val durationSeconds = set.durationSeconds
         val reps = set.reps
+        val distanceMeters = set.distanceMeters
         Text(
             text = when {
+                distanceMeters != null -> stringResource(
+                    Res.string.logger_history_set_distance_line,
+                    formatDistance(distanceMeters, distanceUnit),
+                    loadText
+                )
+
                 durationSeconds != null -> stringResource(
                     Res.string.logger_history_set_duration_line,
                     durationSeconds,

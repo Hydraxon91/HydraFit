@@ -75,7 +75,9 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.navigation.AppTab
@@ -132,6 +134,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_service_una
 import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_distance
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_timed
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
@@ -197,6 +200,10 @@ import hydrafit.feature.splitbuilder.generated.resources.split_loading
 import hydrafit.feature.splitbuilder.generated.resources.split_loading_progress
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_action
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_dialog_title
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_distance
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_distance_input
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_distance
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_distance_large
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_reps
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds_large
@@ -740,6 +747,8 @@ fun SplitBuilderScreen(
                                         sets = exercise.sets,
                                         reps = exercise.reps,
                                         durationSeconds = exercise.durationSeconds,
+                                        distanceMeters = exercise.distanceMeters,
+                                        distanceUnit = state.distanceUnit,
                                         weight = weight
                                     ),
                                     modifier = Modifier.weight(1f)
@@ -808,6 +817,7 @@ fun SplitBuilderScreen(
             MeasureDialog(
                 dialog = dialog,
                 targetName = targetName,
+                distanceUnit = state.distanceUnit,
                 onMetricChanged = onMeasureMetricChanged,
                 onValueChanged = onMeasureValueChanged,
                 onConfirm = onMeasureConfirmed,
@@ -856,9 +866,10 @@ private fun withLoadBasis(weight: String, basis: LoadBasis?): String = when (bas
 }
 
 /**
- * The slot line: `name  sets x reps  weight` for counted work and `name  sets × seconds s  weight`
- * for a timed slot, so seconds are never shown as a rep count. A slot with no measure is impossible
- * under the model's exactly-one invariant; it falls back to the bare name rather than a `0` sentinel.
+ * The slot line: `name  sets x reps  weight` for counted work, `name  sets × seconds s  weight`
+ * for a timed slot, and `name  sets × distance  weight` for a distance slot, so no measure is shown
+ * as another one. A slot with no measure is impossible under the model's exactly-one invariant; it
+ * falls back to the bare name rather than a `0` sentinel.
  */
 @Composable
 private fun exerciseLine(
@@ -866,6 +877,8 @@ private fun exerciseLine(
     sets: Int,
     reps: Int?,
     durationSeconds: Int?,
+    distanceMeters: Int?,
+    distanceUnit: DistanceUnit,
     weight: String
 ): String = when {
     durationSeconds != null -> stringResource(
@@ -873,6 +886,13 @@ private fun exerciseLine(
         name,
         sets,
         durationSeconds,
+        weight
+    )
+    distanceMeters != null -> stringResource(
+        Res.string.split_exercise_line_distance,
+        name,
+        sets,
+        formatDistance(distanceMeters, distanceUnit),
         weight
     )
     reps != null -> stringResource(Res.string.split_exercise_line, name, sets, reps, weight)
@@ -883,15 +903,16 @@ private fun exerciseLine(
 private fun MeasureDialog(
     dialog: MeasureDialogState,
     targetName: String,
+    distanceUnit: DistanceUnit,
     onMetricChanged: (MeasureMetric) -> Unit,
     onValueChanged: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val metricLabel = if (dialog.metric == MeasureMetric.SECONDS) {
-        Res.string.split_measure_seconds
-    } else {
-        Res.string.split_measure_reps
+    val metricLabel = when (dialog.metric) {
+        MeasureMetric.REPS -> Res.string.split_measure_reps
+        MeasureMetric.SECONDS -> Res.string.split_measure_seconds
+        MeasureMetric.DISTANCE -> Res.string.split_measure_distance
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -909,18 +930,34 @@ private fun MeasureDialog(
                         onClick = { onMetricChanged(MeasureMetric.SECONDS) },
                         label = { Text(stringResource(Res.string.split_measure_seconds)) }
                     )
+                    FilterChip(
+                        selected = dialog.metric == MeasureMetric.DISTANCE,
+                        onClick = { onMetricChanged(MeasureMetric.DISTANCE) },
+                        label = { Text(stringResource(Res.string.split_measure_distance)) }
+                    )
                 }
                 OutlinedTextField(
                     value = dialog.value,
                     onValueChange = onValueChanged,
-                    label = { Text(stringResource(metricLabel)) },
+                    label = {
+                        Text(
+                            if (dialog.metric == MeasureMetric.DISTANCE) {
+                                stringResource(
+                                    Res.string.split_measure_distance_input,
+                                    distanceUnit.label
+                                )
+                            } else {
+                                stringResource(metricLabel)
+                            }
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     isError = dialog.error != null
                 )
                 dialog.error?.let { error ->
                     Text(
-                        text = stringResource(error.labelResource()),
+                        text = error.labelText(distanceUnit),
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -939,10 +976,18 @@ private fun MeasureDialog(
     )
 }
 
-private fun MeasureError.labelResource(): StringResource = when (this) {
-    MeasureError.REPS_RANGE -> Res.string.split_measure_error_reps
-    MeasureError.SECONDS_RANGE -> Res.string.split_measure_error_seconds
-    MeasureError.SECONDS_TOO_LARGE -> Res.string.split_measure_error_seconds_large
+/** The localized reason for a rejected measure; the distance bound is stated in the shown unit. */
+@Composable
+private fun MeasureError.labelText(distanceUnit: DistanceUnit): String = when (this) {
+    MeasureError.REPS_RANGE -> stringResource(Res.string.split_measure_error_reps)
+    MeasureError.SECONDS_RANGE -> stringResource(Res.string.split_measure_error_seconds)
+    MeasureError.SECONDS_TOO_LARGE -> stringResource(Res.string.split_measure_error_seconds_large)
+    MeasureError.DISTANCE_RANGE -> stringResource(
+        Res.string.split_measure_error_distance,
+        formatDistance(PrescriptionBounds.MIN_DISTANCE_METERS, distanceUnit),
+        formatDistance(PrescriptionBounds.MAX_DISTANCE_METERS, distanceUnit)
+    )
+    MeasureError.DISTANCE_TOO_LARGE -> stringResource(Res.string.split_measure_error_distance_large)
 }
 
 @Composable

@@ -500,6 +500,7 @@ class WorkoutImportViewModel(
                 unitLabel = row.unit.label,
                 reps = row.reps,
                 durationSeconds = row.durationSeconds,
+                distanceMeters = row.distanceMeters,
                 warmup = row.warmup,
                 diagnostics = row.diagnostics,
                 included = row.sourceRowIndex !in excludedRows,

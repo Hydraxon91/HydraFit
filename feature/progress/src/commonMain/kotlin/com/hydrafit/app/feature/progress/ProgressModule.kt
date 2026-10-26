@@ -10,6 +10,7 @@ val progressModule: Module = module {
             progressRepository = get(),
             exerciseCatalog = get(),
             weightUnitRepository = get(),
+            distanceUnitRepository = get(),
             timeProvider = get()
         )
     }
