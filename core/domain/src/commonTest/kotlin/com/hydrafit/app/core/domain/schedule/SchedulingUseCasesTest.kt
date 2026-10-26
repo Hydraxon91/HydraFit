@@ -25,6 +25,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeekForEpochDay
 import com.hydrafit.app.core.domain.time.daysFromCivil
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -1087,6 +1088,11 @@ private class FakeWorkoutLogRepository : WorkoutLogRepository {
             )
         )
     )
+
+    override suspend fun appendClusterSegments(
+        setId: Long,
+        segments: List<PerformedClusterSegment>
+    ) = Unit
 
     override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

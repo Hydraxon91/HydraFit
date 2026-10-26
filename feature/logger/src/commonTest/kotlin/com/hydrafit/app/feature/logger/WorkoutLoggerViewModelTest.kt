@@ -73,6 +73,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertTiming
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
@@ -10294,6 +10295,11 @@ class WorkoutLoggerViewModelTest {
                 )
             )
         )
+
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.fatigue.TrainingCoverageRepository
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -558,6 +559,11 @@ class FatigueHeatmapViewModelTest {
 
         override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
 
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
+
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
         override suspend fun delete(id: Long) = Unit
@@ -584,6 +590,11 @@ class FatigueHeatmapViewModelTest {
         override suspend fun add(set: WorkoutSet) = Unit
 
         override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
+
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

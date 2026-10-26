@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
@@ -139,6 +140,41 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     rir = segment.rir?.toLong()
                 )
             }
+        }
+    }
+
+    override suspend fun appendClusterSegments(
+        setId: Long,
+        segments: List<PerformedClusterSegment>
+    ) {
+        if (segments.isEmpty()) return
+        database.workoutClusterQueries.transaction {
+            val parent = setQueries.selectSetById(setId).executeAsOneOrNull()
+                ?: throw IllegalArgumentException("That cluster no longer exists")
+            val planned = parent.clusterPlannedSegments?.toInt()
+                ?: throw IllegalArgumentException("That set is not a cluster")
+            val existing = database.workoutClusterQueries.selectSegmentsForSet(setId)
+                .executeAsList()
+            val performedAfter = existing.size + 1 + segments.size
+            require(performedAfter <= planned) {
+                "A completed cluster cannot record more segments than were prescribed"
+            }
+            segments.forEachIndexed { index, segment ->
+                require(segment.position == existing.size + 1 + index) {
+                    "Resumed cluster segments must continue the recorded order"
+                }
+                database.workoutClusterQueries.insertSegment(
+                    setId = setId,
+                    position = segment.position.toLong(),
+                    reps = segment.reps.toLong(),
+                    weightKg = segment.weightKg,
+                    rir = segment.rir?.toLong()
+                )
+            }
+            database.workoutClusterQueries.assignClusterPerformedSegments(
+                clusterPerformedSegments = performedAfter.toLong(),
+                id = setId
+            )
         }
     }
 

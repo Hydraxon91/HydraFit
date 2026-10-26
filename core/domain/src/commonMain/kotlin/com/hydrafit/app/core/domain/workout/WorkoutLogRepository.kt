@@ -13,6 +13,12 @@ interface WorkoutLogRepository {
      */
     suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster)
 
+    /**
+     * Appends the segments performed after an interrupted cluster, keeping the parent's identity and
+     * opening segment. A completed cluster cannot be extended beyond its prescription.
+     */
+    suspend fun appendClusterSegments(setId: Long, segments: List<PerformedClusterSegment>)
+
     /** Attaches a set to a session; used when auto-start or the legacy backfill assigns an id. */
     suspend fun assignSession(setId: Long, sessionId: String)
 

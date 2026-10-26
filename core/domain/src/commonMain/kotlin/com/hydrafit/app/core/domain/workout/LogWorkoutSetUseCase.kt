@@ -61,6 +61,15 @@ class LogWorkoutSetUseCase(
         }
     }
 
+    /**
+     * Adds the segments performed after an interrupted cluster. The parent keeps its identity and
+     * opening segment, and the position becomes satisfied only once every prescribed segment exists.
+     */
+    suspend fun resumeCluster(setId: Long, segments: List<PerformedClusterSegment>) {
+        segments.forEach { it.requireValid() }
+        repository.appendClusterSegments(setId, segments)
+    }
+
     private fun validate(set: WorkoutSet) {
         WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
         requireValidSetMeasurement(

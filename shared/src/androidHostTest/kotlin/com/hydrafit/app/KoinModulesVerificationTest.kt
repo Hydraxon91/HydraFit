@@ -133,6 +133,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOccurrenceRecordsUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
@@ -1283,6 +1284,11 @@ class KoinModulesVerificationTest {
         override suspend fun add(set: WorkoutSet) = Unit
 
         override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
+
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
