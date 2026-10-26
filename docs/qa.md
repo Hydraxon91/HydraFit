@@ -34,8 +34,8 @@ exact on-screen text.
 - **Post-review corrections:** added consumer tests for station filtering, logger write attribution,
   station CRUD/copy, backup detach/restore and old-format rejection; strict station decoding; complete
   station-option queries; hidden merge-only id-zero chips; editor saving/trim/error and retire
-  confirmation. Fresh matrix `0110-full-matrix-closure.log` (787 executed / 0 up-to-date). Targeted
-  reviewer closure is still required.
+  confirmation. Fresh matrix `0110-full-matrix-final.log` (787 executed / 0 up-to-date) after the
+  SI-09 chart-reset fix. Targeted reviewer closure is still required.
 
 ## 0.8.2 C1 coverage read contract — 2026-10-15
 
