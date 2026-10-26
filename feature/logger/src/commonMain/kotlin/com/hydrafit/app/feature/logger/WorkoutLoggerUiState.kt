@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -68,7 +69,11 @@ data class LoggedSetRow(
     /** Elapsed whole seconds for a timed set, or null for counted work. */
     val durationSeconds: Int? = null,
     /** Whole metres for a distance set, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force set, or null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** The measuring device recorded with a force set, or null for none. Descriptive only. */
+    val device: DeviceAttribution? = null
 )
 
 /** Null identity is unrecorded, never a shared session boundary. */
@@ -76,33 +81,103 @@ internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
     sessionId != null && (previous == null || sessionId != previous.sessionId)
 
 /**
- * Which single measurement a form records: repetitions or elapsed whole seconds. The two entry
- * fields are mutually exclusive because the chosen metric alone is submitted, so a form can never
- * write both.
+ * Which single measurement a form records: repetitions, elapsed whole seconds, distance or measured
+ * force. The entry fields are mutually exclusive because the chosen metric alone is submitted, so a
+ * form can never write two.
  */
-enum class SetMetric { REPETITIONS, DURATION, DISTANCE }
+enum class SetMetric { REPETITIONS, DURATION, DISTANCE, FORCE }
+
+/**
+ * True when the device fields describe a storable attribution: a blank name means no device and no
+ * rating, and a rating must be finite and positive. A rating without a name is never accepted.
+ */
+internal fun deviceInputIsValid(name: String, ratingKg: String): Boolean {
+    val trimmedName = name.trim()
+    val trimmedRating = ratingKg.trim()
+    return when {
+        trimmedName.isEmpty() -> trimmedRating.isEmpty()
+        trimmedRating.isEmpty() -> true
+        else -> trimmedRating.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true
+    }
+}
+
+/** The device an editor describes, or null when the name is blank. Rating stays descriptive. */
+internal fun deviceInputOrNull(name: String, ratingKg: String): DeviceAttribution? {
+    val trimmedName = name.trim()
+    if (trimmedName.isEmpty()) return null
+    return DeviceAttribution(trimmedName, ratingKg.trim().toDoubleOrNull())
+}
+
+/**
+ * The stored value as entry text that parses back to the *same* double.
+ *
+ * Force and a device rating are prefilled into an editable field and re-read on submit, so a
+ * one-decimal display formatter would rewrite an untouched 247.35 N as 247.4 N. A weight avoids
+ * that by remembering its original text; these fields instead round-trip exactly, which keeps every
+ * prefill, quick-fill and no-op correction from drifting the measurement. Exponential output is
+ * expanded to plain decimal digits, because the entry filters accept only digits and a dot.
+ */
+internal fun exactEntryText(value: Double): String {
+    val text = value.toString()
+    if ('E' !in text && 'e' !in text) return text.removeSuffix(".0")
+    // A very small or very large value prints in exponential form, which the digits-and-dot entry
+    // filters would truncate on the next keystroke. Expand the mantissa textually so the whole
+    // representable range survives, including magnitudes beyond Long.
+    val marker = text.indexOfFirst { it == 'E' || it == 'e' }
+    val mantissa = text.substring(0, marker)
+    val exponent = text.substring(marker + 1).toInt()
+    val negative = mantissa.startsWith("-")
+    val unsigned = mantissa.removePrefix("-")
+    val dot = unsigned.indexOf('.')
+    val digits = unsigned.replace(".", "")
+    val integerDigits = if (dot < 0) unsigned.length else dot
+    val point = integerDigits + exponent
+    val raw = when {
+        point <= 0 -> "0." + "0".repeat(-point) + digits
+        point >= digits.length -> digits + "0".repeat(point - digits.length)
+        else -> digits.substring(0, point) + "." + digits.substring(point)
+    }
+    // Trailing zeros are only redundant after a decimal point; stripping them from a plain integer
+    // would change its magnitude.
+    val expanded = if ('.' in raw) raw.trimEnd('0').trimEnd('.') else raw
+    return if (negative) "-$expanded" else expanded
+}
 
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
 data class LoggedSetEdit(
     val row: LoggedSetRow,
     val weightUnit: WeightUnit,
     val distanceUnit: DistanceUnit = DistanceUnit.METERS,
-    /** The metric being corrected; the other field is retained but never submitted. */
+    /** The metric being corrected; the other fields are retained but never submitted. */
     val metric: SetMetric,
     val reps: String,
     val durationSeconds: String,
     val distanceMeters: String,
+    /** Measured force in canonical newtons, entered without a unit suffix. */
+    val forceNewtons: String = "",
+    /** The measuring device's name, or blank for none; only submitted for a force correction. */
+    val deviceName: String = "",
+    /** The device's stated resistance rating in kilograms, or blank for none. */
+    val deviceRatingKg: String = "",
     val weightInput: String,
     val originalWeightInput: String,
     val rir: String,
     val performedAtMillis: Long
 ) {
     val canSave: Boolean get() = enteredMetricIsPositive &&
+        deviceIsValid &&
         (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true) &&
         (
             weightInput.isBlank() ||
                 weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0 } == true
             )
+
+    /**
+     * True when the device fields are storable. A force correction may carry no device at all, but a
+     * rating without a name is never valid.
+     */
+    val deviceIsValid: Boolean
+        get() = metric != SetMetric.FORCE || deviceInputIsValid(deviceName, deviceRatingKg)
 
     /** True when the selected metric holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
@@ -110,20 +185,34 @@ data class LoggedSetEdit(
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
             SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
+            SetMetric.FORCE -> forceNewtons.toDoubleOrNull()
+                ?.let { it.isFinite() && it > 0.0 } == true
         }
 
-    /** Repetitions to write, or null when this correction records seconds instead. */
+    /** Repetitions to write, or null when this correction records another measure. */
     val correctionReps: Int?
         get() = if (metric == SetMetric.REPETITIONS) reps.toIntOrNull() else null
 
-    /** Whole seconds to write, or null when this correction records repetitions instead. */
+    /** Whole seconds to write, or null when this correction records another measure. */
     val correctionDurationSeconds: Int?
         get() = if (metric == SetMetric.DURATION) durationSeconds.toIntOrNull() else null
 
-    /** Whole metres to write, or null for a rep/timed correction. */
+    /** Whole metres to write, or null for a non-distance correction. */
     val correctionDistanceMeters: Int?
         get() = if (metric == SetMetric.DISTANCE) {
             distanceMeters.toDoubleOrNull()?.let(distanceUnit::displayToMetres)
+        } else {
+            null
+        }
+
+    /** Measured newtons to write, or null for a non-force correction. */
+    val correctionForceNewtons: Double?
+        get() = if (metric == SetMetric.FORCE) forceNewtons.toDoubleOrNull() else null
+
+    /** The desired device state for a force correction; null explicitly records no device. */
+    val correctionDevice: DeviceAttribution?
+        get() = if (metric == SetMetric.FORCE) {
+            deviceInputOrNull(deviceName, deviceRatingKg)
         } else {
             null
         }
@@ -186,6 +275,10 @@ data class DraftSet(
     val durationSeconds: Int? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** The measuring device carried by a force slot, or null for none. Descriptive only. */
+    val device: DeviceAttribution? = null,
     /**
      * The slot's frozen ordered per-set targets, or null when its sets share one repeated
      * prescription. A guided or planned draft keeps them so each logged set records the target it
@@ -210,6 +303,12 @@ data class DraftEdit(
     val reps: String,
     val durationSeconds: String = "",
     val distanceMeters: String = "",
+    /** Measured force in canonical newtons, entered without a unit suffix. */
+    val forceNewtons: String = "",
+    /** The measuring device's name, or blank for none; only submitted for a force draft. */
+    val deviceName: String = "",
+    /** The device's stated resistance rating in kilograms, or blank for none. */
+    val deviceRatingKg: String = "",
     /**
      * The display unit [distanceMeters] was typed in; frozen for the editor's lifetime like the
      * weight unit so a later preference change cannot reinterpret the same digits.
@@ -237,9 +336,19 @@ data class DraftEdit(
     /** True when the frozen draft records a distance instead of reps or seconds. */
     val isDistance: Boolean get() = draft.distanceMeters != null
 
+    /** True when the frozen draft records measured force instead of the other measures. */
+    val isForce: Boolean get() = draft.forceNewtons != null
+
+    /**
+     * True when the device fields are storable. Only a force draft can carry one, and a rating
+     * without a name is never valid.
+     */
+    val deviceIsValid: Boolean get() = !isForce || deviceInputIsValid(deviceName, deviceRatingKg)
+
     /** True when the frozen measure's field holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
         get() = when {
+            isForce -> forceNewtons.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true
             isDistance -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
             isTimed -> (durationSeconds.toIntOrNull() ?: 0) > 0
             else -> (reps.toIntOrNull() ?: 0) > 0
@@ -257,6 +366,7 @@ data class DraftEdit(
         this.draft.sets == draft.sets &&
         isTimed == (draft.durationSeconds != null) &&
         isDistance == (draft.distanceMeters != null) &&
+        isForce == (draft.forceNewtons != null) &&
         this.draft.orderedPrefill == draft.orderedPrefill
 }
 
@@ -346,6 +456,12 @@ data class WorkoutLoggerUiState(
     val reps: String = "",
     val durationSeconds: String = "",
     val distanceMeters: String = "",
+    /** Measured force in canonical newtons for the manual form, entered as a plain number. */
+    val forceNewtons: String = "",
+    /** The measuring device's name for a force set, or blank for none. Descriptive only. */
+    val deviceName: String = "",
+    /** The device's stated resistance rating in kilograms, or blank for none. */
+    val deviceRatingKg: String = "",
     val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val weightInput: String = "",
     val rir: String = "",
@@ -632,7 +748,14 @@ data class WorkoutLoggerUiState(
         }
 
     val canLog: Boolean
-        get() = selectedExerciseId != null && enteredMetricIsPositive
+        get() = selectedExerciseId != null && enteredMetricIsPositive && deviceIsValid
+
+    /**
+     * True when the manual form's device fields may be submitted: only a force reading may carry a
+     * device, and a rating without a name is never valid.
+     */
+    val deviceIsValid: Boolean
+        get() = metric != SetMetric.FORCE || deviceInputIsValid(deviceName, deviceRatingKg)
 
     /** True when the metric selected in the manual form holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
@@ -640,14 +763,18 @@ data class WorkoutLoggerUiState(
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
             SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
+            SetMetric.FORCE -> forceNewtons.toDoubleOrNull()
+                ?.let { it.isFinite() && it > 0.0 } == true
         }
 
     /**
      * Whether the weight field is shown: always for weighted exercises, and for bodyweight
-     * exercises only once the user reveals it to log a weighted variant.
+     * exercises only once the user reveals it to log a weighted variant. A force reading is
+     * load-free, so it never shows a load field.
      */
     val showWeightField: Boolean
         get() {
+            if (metric == SetMetric.FORCE) return false
             val option = exercises.firstOrNull { it.id == selectedExerciseId }
             return when (option?.loadCapability) {
                 ExerciseLoadCapability.BODYWEIGHT_ONLY -> false

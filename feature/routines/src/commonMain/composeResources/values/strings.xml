@@ -26,6 +26,8 @@
     <string name="routines_seconds_label">Seconds</string>
     <string name="routines_distance_label">Distance</string>
     <string name="routines_distance_input_label">Distance (%1$s)</string>
+    <string name="routines_force_label">Force</string>
+    <string name="routines_force_unit">N</string>
     <string name="routines_weight_label">Weight (%1$s)</string>
     <string name="routines_weight_optional">Optional</string>
     <string name="routines_workout_number">Workout %1$d</string>

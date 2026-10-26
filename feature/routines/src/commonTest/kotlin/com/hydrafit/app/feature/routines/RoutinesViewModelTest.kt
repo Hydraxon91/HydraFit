@@ -48,6 +48,7 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
@@ -210,6 +211,121 @@ class RoutinesViewModelTest {
         assertEquals("3281", edited.distance)
         assertEquals("", edited.reps)
         assertEquals("", edited.durationSeconds)
+    }
+
+    @Test
+    fun aForceSlotReloadsAsForceAndSavesBackUnchanged() = runTest(dispatcher) {
+        routines.seed(
+            RoutineTemplate(
+                name = "Grip",
+                workouts = listOf(
+                    RoutineWorkout(
+                        name = "Day 1",
+                        entries = listOf(
+                            RoutineEntry(
+                                exerciseId = "bench-press",
+                                sets = 3,
+                                forceNewtons = 250.0,
+                                loadKind = LoadKind.ADDED
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onEditRoutine(viewModel.state.value.templates.single())
+        val edited = requireNotNull(viewModel.state.value.editor)
+            .workouts.single().entries.single()
+        assertEquals(EntryMetric.FORCE, edited.metric)
+        assertEquals("250", edited.forceNewtons)
+        assertEquals("", edited.weight)
+        assertEquals("", edited.reps)
+        assertEquals("", edited.durationSeconds)
+        assertEquals("", edited.distance)
+
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(250.0, saved.forceNewtons)
+        assertNull(saved.weightKg)
+        // A force slot is load-free, but its existing load identity is not rewritten.
+        assertEquals(LoadKind.ADDED, saved.loadKind)
+        assertNull(saved.reps)
+        assertNull(saved.durationSeconds)
+        assertNull(saved.distanceMeters)
+    }
+
+    @Test
+    fun authoringAForceSlotDropsATypedLoad() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Grip")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntryMetricChanged(0, 0, EntryMetric.FORCE)
+        viewModel.onEntryForceChanged(0, 0, "120")
+        viewModel.onEntryWeightChanged(0, 0, "60")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.editor)
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(120.0, saved.forceNewtons)
+        assertNull(saved.weightKg)
+        assertEquals(LoadKind.EXTERNAL, saved.loadKind)
+        assertNull(saved.reps)
+        assertNull(saved.durationSeconds)
+        assertNull(saved.distanceMeters)
+    }
+
+    @Test
+    fun invalidForceKeepsTheEditorAndShowsTheSpecificError() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Grip")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntryMetricChanged(0, 0, EntryMetric.FORCE)
+
+        val invalidInputs = listOf(
+            "abc" to "Force must be a number",
+            "0" to "Force must be greater than zero",
+            "Infinity" to "Force must be greater than zero",
+            "5001" to "Force must be between 0.1 and 5000.0 newtons"
+        )
+        invalidInputs.forEach { (input, message) ->
+            viewModel.onEntryForceChanged(0, 0, input)
+            viewModel.onSaveEditor()
+            advanceUntilIdle()
+
+            assertNotNull(viewModel.state.value.editor)
+            assertEquals(message, viewModel.state.value.message)
+            assertTrue(viewModel.state.value.templates.isEmpty())
+        }
+
+        // The recorded upper bound is still accepted, with no clamp applied.
+        viewModel.onEntryForceChanged(0, 0, "5000")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.editor)
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(5000.0, saved.forceNewtons)
+        assertNull(saved.weightKg)
     }
 
     @Test
@@ -865,6 +981,33 @@ class RoutinesViewModelTest {
             ),
             assertNotNull(editorEntry(viewModel).setTargets)
         )
+    }
+
+    @Test
+    fun aForceMeasureDropsTheOrderedTargetsAndTheTypedLoadOnSave() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        openNewRoutineWithBenchSlot(viewModel)
+        viewModel.onEditSetTargets(0, 0)
+        viewModel.onSetTargetsSetsChanged("3")
+        viewModel.onSetTargetsStartRepsChanged("8")
+        viewModel.onSetTargetsEndRepsChanged("8")
+        viewModel.onSetTargetsStartLoadChanged("60")
+        viewModel.onSetTargetsEndLoadChanged("60")
+        viewModel.onSetTargetsApply()
+        assertNotNull(editorEntry(viewModel).setTargets)
+
+        viewModel.onEntryMetricChanged(0, 0, EntryMetric.FORCE)
+        viewModel.onEntryForceChanged(0, 0, "150")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val saved = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(150.0, saved.forceNewtons)
+        // Ordered per-set targets describe rep work and a force slot is load-free, so neither is
+        // saved against a measure that cannot perform them.
+        assertNull(saved.setTargets)
+        assertNull(saved.weightKg)
     }
 
     @Test

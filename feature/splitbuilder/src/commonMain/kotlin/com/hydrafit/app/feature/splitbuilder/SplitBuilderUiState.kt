@@ -41,8 +41,8 @@ data class PlanningDatesState(
     val error: String? = null
 )
 
-/** Which measure a slot's dialog edits: a rep count, elapsed whole seconds, or a distance. */
-enum class MeasureMetric { REPS, SECONDS, DISTANCE }
+/** Which measure a slot's dialog edits: reps, elapsed seconds, a distance, or measured force. */
+enum class MeasureMetric { REPS, SECONDS, DISTANCE, FORCE }
 
 /**
  * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work is
@@ -88,7 +88,9 @@ enum class MeasureError {
     SECONDS_RANGE,
     SECONDS_TOO_LARGE,
     DISTANCE_RANGE,
-    DISTANCE_TOO_LARGE
+    DISTANCE_TOO_LARGE,
+    FORCE_RANGE,
+    FORCE_TOO_LARGE
 }
 
 /**

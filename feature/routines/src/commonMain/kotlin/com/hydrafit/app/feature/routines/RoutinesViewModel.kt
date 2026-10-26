@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
@@ -310,6 +311,9 @@ class RoutinesViewModel(
 
     fun onEntryDistanceChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(distance = value) }
+
+    fun onEntryForceChanged(workoutIndex: Int, entryIndex: Int, value: String) =
+        updateEntry(workoutIndex, entryIndex) { it.copy(forceNewtons = value) }
 
     fun onEntryWeightChanged(workoutIndex: Int, entryIndex: Int, value: String) =
         updateEntry(workoutIndex, entryIndex) { it.copy(weight = value) }
@@ -1043,6 +1047,7 @@ private fun RoutineTemplate.toEditor(
                         ?: "",
                     loadKind = entry.loadKind,
                     metric = when {
+                        entry.forceNewtons != null -> EntryMetric.FORCE
                         entry.durationSeconds != null -> EntryMetric.DURATION
                         entry.distanceMeters != null -> EntryMetric.DISTANCE
                         else -> EntryMetric.REPETITIONS
@@ -1051,6 +1056,7 @@ private fun RoutineTemplate.toEditor(
                     distance = entry.distanceMeters
                         ?.let { distanceUnit.displayWhole(it).toString() }
                         ?: "",
+                    forceNewtons = entry.forceNewtons?.let(::formatWeight) ?: "",
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
                     superset = entry.superset
@@ -1084,14 +1090,28 @@ private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
                     } else {
                         null
                     },
-                    weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT) {
+                    forceNewtons = if (entry.metric == EntryMetric.FORCE) {
+                        parseDisplayedForce(entry.forceNewtons)
+                    } else {
+                        null
+                    },
+                    // A force slot is load-free, so a typed weight is dropped exactly as the other
+                    // measures are; the slot's load identity itself is preserved.
+                    weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT ||
+                        entry.metric == EntryMetric.FORCE
+                    ) {
                         null
                     } else {
                         parseDisplayedWeight(entry.weight, unit)
                     },
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
-                    setTargets = entry.setTargets,
+                    // Ordered per-set targets describe rep work; a slot measured another way cannot
+                    // perform them, so they are dropped rather than saved against a force or timed
+                    // measure that would silently ignore them.
+                    setTargets = entry.setTargets.takeIf {
+                        entry.metric == EntryMetric.REPETITIONS
+                    },
                     superset = entry.superset
                 )
             }
@@ -1131,6 +1151,28 @@ private fun parseDisplayedDistance(input: String, unit: DistanceUnit): Int? {
         throw RoutineTemplateException("Distance must be greater than zero")
     }
     return unit.displayToMetres(value)
+}
+
+/**
+ * Blank means "no force recorded" (null), which the domain rejects for a force slot. A non-blank
+ * value must be a finite, positive number of canonical newtons within [PrescriptionBounds], and is
+ * stored as typed: newtons are not a unit the user chooses.
+ */
+private fun parseDisplayedForce(input: String): Double? {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return null
+    val value = trimmed.toDoubleOrNull()
+        ?: throw RoutineTemplateException("Force must be a number")
+    if (!value.isFinite() || value <= 0.0) {
+        throw RoutineTemplateException("Force must be greater than zero")
+    }
+    if (value !in PrescriptionBounds.MIN_FORCE_NEWTONS..PrescriptionBounds.MAX_FORCE_NEWTONS) {
+        throw RoutineTemplateException(
+            "Force must be between ${PrescriptionBounds.MIN_FORCE_NEWTONS} and " +
+                "${PrescriptionBounds.MAX_FORCE_NEWTONS} newtons"
+        )
+    }
+    return value
 }
 
 /**

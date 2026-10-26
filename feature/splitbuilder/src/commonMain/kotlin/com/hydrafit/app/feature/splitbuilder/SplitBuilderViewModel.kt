@@ -31,6 +31,7 @@ import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
@@ -707,6 +708,7 @@ class SplitBuilderViewModel(
             ?.exercises
             ?.getOrNull(position) ?: return
         val metric = when {
+            slot.forceNewtons != null -> MeasureMetric.FORCE
             slot.durationSeconds != null -> MeasureMetric.SECONDS
             slot.distanceMeters != null -> MeasureMetric.DISTANCE
             else -> MeasureMetric.REPS
@@ -716,6 +718,7 @@ class SplitBuilderViewModel(
             MeasureMetric.REPS -> slot.reps
             MeasureMetric.SECONDS -> slot.durationSeconds
             MeasureMetric.DISTANCE -> slot.distanceMeters?.let(current.distanceUnit::displayWhole)
+            MeasureMetric.FORCE -> slot.forceNewtons?.let(::formatWeight)
         }
         _state.update {
             it.copy(
@@ -736,14 +739,36 @@ class SplitBuilderViewModel(
         }
     }
 
-    /** Keeps only digits, so the field can never carry a sign, separator or decimal point. */
+    /**
+     * Keeps only digits for a count, duration or distance; a force value additionally allows one
+     * decimal point, because canonical newtons are fractional (0.1 N is the recorded minimum).
+     */
     fun onMeasureValueChanged(value: String) {
         _state.update { current ->
             val dialog = current.measureDialog ?: return@update current
-            current.copy(
-                measureDialog = dialog.copy(value = value.filter(Char::isDigit), error = null)
-            )
+            val filtered = if (dialog.metric == MeasureMetric.FORCE) {
+                forceInput(value)
+            } else {
+                value.filter(Char::isDigit)
+            }
+            current.copy(measureDialog = dialog.copy(value = filtered, error = null))
         }
+    }
+
+    /** Keeps digits and at most one decimal point, so the field can never carry a sign. */
+    private fun forceInput(value: String): String {
+        val filtered = StringBuilder()
+        var seenDecimal = false
+        value.forEach { character ->
+            when {
+                character.isDigit() -> filtered.append(character)
+                character == '.' && !seenDecimal -> {
+                    seenDecimal = true
+                    filtered.append(character)
+                }
+            }
+        }
+        return filtered.toString()
     }
 
     fun onMeasureDialogDismissed() {
@@ -762,9 +787,17 @@ class SplitBuilderViewModel(
         val repBounds = PrescriptionBounds.MIN_REPS..PrescriptionBounds.MAX_REPS
         val distanceBounds =
             PrescriptionBounds.MIN_DISTANCE_METERS..PrescriptionBounds.MAX_DISTANCE_METERS
+        val forceBounds =
+            PrescriptionBounds.MIN_FORCE_NEWTONS..PrescriptionBounds.MAX_FORCE_NEWTONS
         // The field is in the display unit; the stored value is always whole metres.
         val distanceMetres = if (dialog.metric == MeasureMetric.DISTANCE) {
             entered?.let { current.distanceUnit.displayToMetres(it.toDouble()) }
+        } else {
+            null
+        }
+        // Force is unitless canonical newtons, so the typed value is the stored value.
+        val forceNewtons = if (dialog.metric == MeasureMetric.FORCE) {
+            dialog.value.toDoubleOrNull()
         } else {
             null
         }
@@ -772,6 +805,8 @@ class SplitBuilderViewModel(
             MeasureMetric.REPS -> entered != null && entered in repBounds
             MeasureMetric.SECONDS -> entered != null && entered > 0
             MeasureMetric.DISTANCE -> distanceMetres != null && distanceMetres in distanceBounds
+            MeasureMetric.FORCE ->
+                forceNewtons != null && forceNewtons.isFinite() && forceNewtons in forceBounds
         }
         if (!valid) {
             // A digits-only field that cannot be parsed as an Int is a value beyond the recordable
@@ -788,13 +823,19 @@ class SplitBuilderViewModel(
                 } else {
                     MeasureError.DISTANCE_RANGE
                 }
+                MeasureMetric.FORCE -> if (forceNewtons != null &&
+                    forceNewtons > PrescriptionBounds.MAX_FORCE_NEWTONS
+                ) {
+                    MeasureError.FORCE_TOO_LARGE
+                } else {
+                    MeasureError.FORCE_RANGE
+                }
             }
             _state.update { it.copy(measureDialog = dialog.copy(error = error)) }
             return
         }
-        val value = requireNotNull(entered)
-        val reps = if (dialog.metric == MeasureMetric.REPS) value else null
-        val durationSeconds = if (dialog.metric == MeasureMetric.SECONDS) value else null
+        val reps = if (dialog.metric == MeasureMetric.REPS) requireNotNull(entered) else null
+        val durationSeconds = if (dialog.metric == MeasureMetric.SECONDS) entered else null
         val accepted = shownPlan?.takeIf { current.isPlanAccepted }
         if (accepted == null) {
             _state.update { state ->
@@ -804,7 +845,8 @@ class SplitBuilderViewModel(
                         dialog.position,
                         reps,
                         durationSeconds,
-                        distanceMetres
+                        distanceMetres,
+                        forceNewtons
                     ),
                     measureDialog = null
                 )
@@ -818,7 +860,8 @@ class SplitBuilderViewModel(
                 dialog.position,
                 reps,
                 durationSeconds,
-                distanceMetres
+                distanceMetres,
+                forceNewtons
             )
             if (updated == null) {
                 // The slot no longer exists: nothing was written, so close without a change.
@@ -1031,7 +1074,8 @@ class SplitBuilderViewModel(
         position: Int,
         reps: Int?,
         durationSeconds: Int?,
-        distanceMeters: Int?
+        distanceMeters: Int?,
+        forceNewtons: Double?
     ): WeeklyPlan = copy(
         days = days.map { day ->
             if (day.dayIndex != dayIndex) {
@@ -1043,7 +1087,17 @@ class SplitBuilderViewModel(
                             exercise.copy(
                                 reps = reps,
                                 durationSeconds = durationSeconds,
-                                distanceMeters = distanceMeters
+                                distanceMeters = distanceMeters,
+                                forceNewtons = forceNewtons,
+                                // Force is load-free and ordered targets describe rep work, so an
+                                // edit that changes the measure drops the load or the targets that
+                                // the new measure can no longer carry.
+                                suggestedWeightKg = if (forceNewtons != null) {
+                                    null
+                                } else {
+                                    exercise.suggestedWeightKg
+                                },
+                                setTargets = if (reps != null) exercise.setTargets else null
                             )
                         } else {
                             exercise

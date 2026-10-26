@@ -10,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.unit.formatDistance
+import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
@@ -20,6 +23,8 @@ import hydrafit.feature.logger.generated.resources.logger_replace_note
 import hydrafit.feature.logger.generated.resources.logger_replace_recorded
 import hydrafit.feature.logger.generated.resources.logger_replace_stale
 import hydrafit.feature.logger.generated.resources.logger_replace_target
+import hydrafit.feature.logger.generated.resources.logger_replace_target_distance
+import hydrafit.feature.logger.generated.resources.logger_replace_target_force
 import hydrafit.feature.logger.generated.resources.logger_replace_target_timed
 import hydrafit.feature.logger.generated.resources.logger_replace_title
 import org.jetbrains.compose.resources.stringResource
@@ -28,6 +33,7 @@ import org.jetbrains.compose.resources.stringResource
 fun OccurrenceReplacementDialog(
     state: OccurrenceReplacementUiState,
     unit: WeightUnit,
+    distanceUnit: DistanceUnit,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -57,6 +63,10 @@ fun OccurrenceReplacementDialog(
                             enabled = !state.saving
                         ) {
                             val seconds = entry.durationSeconds
+                            val distance = entry.distanceMeters?.let {
+                                formatDistance(it, distanceUnit)
+                            }
+                            val newtons = entry.forceNewtons?.let(::formatWeight)
                             val basis = loadBasisFor(
                                 requiresDumbbell = EquipmentTag.DUMBBELL in entry.requiredEquipment,
                                 isUnilateral = entry.isUnilateral
@@ -68,22 +78,35 @@ fun OccurrenceReplacementDialog(
                                 basis
                             )
                             val noLoadReason = if (entry.loadKind == LoadKind.EXTERNAL &&
-                                entry.weightKg == null
+                                entry.weightKg == null &&
+                                newtons == null
                             ) {
                                 noLoadReasonText(entry.explanation)
                             } else {
                                 null
                             }
-                            val target = if (seconds != null) {
-                                stringResource(
+                            val target = when {
+                                newtons != null -> stringResource(
+                                    Res.string.logger_replace_target_force,
+                                    entry.exerciseName,
+                                    entry.sets,
+                                    newtons
+                                )
+                                distance != null -> stringResource(
+                                    Res.string.logger_replace_target_distance,
+                                    entry.exerciseName,
+                                    entry.sets,
+                                    distance,
+                                    weight
+                                )
+                                seconds != null -> stringResource(
                                     Res.string.logger_replace_target_timed,
                                     entry.exerciseName,
                                     entry.sets,
                                     seconds,
                                     weight
                                 )
-                            } else {
-                                stringResource(
+                                else -> stringResource(
                                     Res.string.logger_replace_target,
                                     entry.exerciseName,
                                     entry.sets,

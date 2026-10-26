@@ -113,6 +113,8 @@ internal fun WorkoutHistorySet.toLoggedSetRow(key: WorkoutHistoryKey): LoggedSet
     reps = reps,
     durationSeconds = durationSeconds,
     distanceMeters = distanceMeters,
+    forceNewtons = forceNewtons,
+    device = device,
     weightKg = weightKg,
     rir = rir,
     isWarmup = isWarmup,

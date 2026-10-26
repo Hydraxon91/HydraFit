@@ -27,6 +27,8 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
+import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
@@ -41,6 +43,8 @@ import hydrafit.feature.progress.generated.resources.progress_charts_failed
 import hydrafit.feature.progress.generated.resources.progress_charts_no_eligible
 import hydrafit.feature.progress.generated.resources.progress_charts_retry
 import hydrafit.feature.progress.generated.resources.progress_charts_title
+import hydrafit.feature.progress.generated.resources.progress_device_attributed
+import hydrafit.feature.progress.generated.resources.progress_device_attributed_rated
 import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
@@ -49,6 +53,7 @@ import hydrafit.feature.progress.generated.resources.progress_history_distance_l
 import hydrafit.feature.progress.generated.resources.progress_history_duration_line
 import hydrafit.feature.progress.generated.resources.progress_history_empty
 import hydrafit.feature.progress.generated.resources.progress_history_failed
+import hydrafit.feature.progress.generated.resources.progress_history_force_line
 import hydrafit.feature.progress.generated.resources.progress_history_line
 import hydrafit.feature.progress.generated.resources.progress_history_load_more
 import hydrafit.feature.progress.generated.resources.progress_history_load_more_failed
@@ -428,8 +433,14 @@ private fun SupportingSetDetail(
     val durationSeconds = set.durationSeconds
     val reps = set.reps
     val distanceMeters = set.distanceMeters
+    val forceNewtons = set.forceNewtons
     Text(
         text = when {
+            forceNewtons != null -> stringResource(
+                Res.string.progress_history_force_line,
+                formatWeight(forceNewtons)
+            )
+
             distanceMeters != null -> stringResource(
                 Res.string.progress_history_distance_line,
                 formatDistance(distanceMeters, distanceUnit),
@@ -448,6 +459,12 @@ private fun SupportingSetDetail(
         },
         style = MaterialTheme.typography.bodyMedium
     )
+    set.device?.takeIf { forceNewtons != null }?.let { device ->
+        Text(
+            text = deviceAttributionText(device),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
     if (set.isWarmup) {
         Text(
             stringResource(Res.string.progress_history_warmup),
@@ -519,8 +536,14 @@ private fun HistorySetRow(
     val durationSeconds = set.durationSeconds
     val reps = set.reps
     val distanceMeters = set.distanceMeters
+    val forceNewtons = set.forceNewtons
     Text(
         text = "$role · " + when {
+            forceNewtons != null -> stringResource(
+                Res.string.progress_history_force_line,
+                formatWeight(forceNewtons)
+            )
+
             distanceMeters != null -> stringResource(
                 Res.string.progress_history_distance_line,
                 formatDistance(distanceMeters, distanceUnit),
@@ -539,6 +562,26 @@ private fun HistorySetRow(
         },
         style = MaterialTheme.typography.bodySmall
     )
+    set.device?.takeIf { forceNewtons != null }?.let { device ->
+        Text(
+            text = deviceAttributionText(device),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun deviceAttributionText(device: DeviceAttribution): String {
+    val ratingKg = device.ratingKg
+    return if (ratingKg == null) {
+        stringResource(Res.string.progress_device_attributed, device.name)
+    } else {
+        stringResource(
+            Res.string.progress_device_attributed_rated,
+            device.name,
+            formatWeight(ratingKg)
+        )
+    }
 }
 
 @Composable

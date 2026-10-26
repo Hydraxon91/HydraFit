@@ -108,6 +108,8 @@ import hydrafit.feature.routines.generated.resources.routines_empty
 import hydrafit.feature.routines.generated.resources.routines_entry_excluded
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
+import hydrafit.feature.routines.generated.resources.routines_force_label
+import hydrafit.feature.routines.generated.resources.routines_force_unit
 import hydrafit.feature.routines.generated.resources.routines_move_down
 import hydrafit.feature.routines.generated.resources.routines_move_up
 import hydrafit.feature.routines.generated.resources.routines_name_label
@@ -860,7 +862,10 @@ private fun EntryRow(
                 Text(stringResource(Res.string.routines_remove))
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             FilterChip(
                 selected = entry.metric == EntryMetric.REPETITIONS,
                 onClick = {
@@ -885,6 +890,13 @@ private fun EntryRow(
                     viewModel.onEntryMetricChanged(workoutIndex, entryIndex, EntryMetric.DISTANCE)
                 },
                 label = { Text(stringResource(Res.string.routines_distance_label)) }
+            )
+            FilterChip(
+                selected = entry.metric == EntryMetric.FORCE,
+                onClick = {
+                    viewModel.onEntryMetricChanged(workoutIndex, entryIndex, EntryMetric.FORCE)
+                },
+                label = { Text(stringResource(Res.string.routines_force_label)) }
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -929,17 +941,32 @@ private fun EntryRow(
                     singleLine = true,
                     modifier = Modifier.width(88.dp)
                 )
+                EntryMetric.FORCE -> OutlinedTextField(
+                    value = entry.forceNewtons,
+                    onValueChange = {
+                        viewModel.onEntryForceChanged(workoutIndex, entryIndex, it)
+                    },
+                    label = { Text(stringResource(Res.string.routines_force_label)) },
+                    suffix = { Text(stringResource(Res.string.routines_force_unit)) },
+                    singleLine = true,
+                    modifier = Modifier.width(120.dp)
+                )
             }
-            OutlinedTextField(
-                value = entry.weight,
-                onValueChange = { viewModel.onEntryWeightChanged(workoutIndex, entryIndex, it) },
-                label = {
-                    Text(stringResource(Res.string.routines_weight_label, weightUnit.label))
-                },
-                placeholder = { Text(stringResource(Res.string.routines_weight_optional)) },
-                singleLine = true,
-                modifier = Modifier.width(120.dp)
-            )
+            // A force slot is load-free, so no load field is offered for it.
+            if (entry.metric != EntryMetric.FORCE) {
+                OutlinedTextField(
+                    value = entry.weight,
+                    onValueChange = {
+                        viewModel.onEntryWeightChanged(workoutIndex, entryIndex, it)
+                    },
+                    label = {
+                        Text(stringResource(Res.string.routines_weight_label, weightUnit.label))
+                    },
+                    placeholder = { Text(stringResource(Res.string.routines_weight_optional)) },
+                    singleLine = true,
+                    modifier = Modifier.width(120.dp)
+                )
+            }
         }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),

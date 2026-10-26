@@ -37,6 +37,7 @@ import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
+import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -505,6 +506,7 @@ class WorkoutLoggerViewModel(
             current.copy(
                 weightInput = weightInputFor(last.weightKg, unit),
                 metric = when {
+                    last.forceNewtons != null -> SetMetric.FORCE
                     last.distanceMeters != null -> SetMetric.DISTANCE
                     last.durationSeconds != null -> SetMetric.DURATION
                     else -> SetMetric.REPETITIONS
@@ -515,6 +517,9 @@ class WorkoutLoggerViewModel(
                     ?.let { current.distanceUnit.displayWhole(it) }
                     ?.toString()
                     .orEmpty(),
+                forceNewtons = last.forceNewtons?.let(::exactEntryText).orEmpty(),
+                deviceName = last.device?.name.orEmpty(),
+                deviceRatingKg = last.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                 // An added-load history reveals the field on an addable bodyweight exercise.
                 weightRevealed = current.weightRevealed ||
                     (option?.canAddLoad == true && last.weightKg != null),
@@ -538,6 +543,7 @@ class WorkoutLoggerViewModel(
                 exerciseInstructions = null,
                 weightInput = weightInputFor(row.weightKg, unit),
                 metric = when {
+                    row.forceNewtons != null -> SetMetric.FORCE
                     row.distanceMeters != null -> SetMetric.DISTANCE
                     row.durationSeconds != null -> SetMetric.DURATION
                     else -> SetMetric.REPETITIONS
@@ -548,6 +554,9 @@ class WorkoutLoggerViewModel(
                     ?.let { meters -> it.distanceUnit.displayWhole(meters) }
                     ?.toString()
                     .orEmpty(),
+                forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
+                deviceName = row.device?.name.orEmpty(),
+                deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                 // Reveal the weight field for a bodyweight exercise only when that row had a weight.
                 weightRevealed = row.weightKg != null,
                 isWarmup = row.isWarmup,
@@ -620,6 +629,7 @@ class WorkoutLoggerViewModel(
                     // The editor opens on the metric the row was recorded with; the other fields are
                     // seeded but only submitted when the user switches to one of them.
                     metric = when {
+                        row.forceNewtons != null -> SetMetric.FORCE
                         row.distanceMeters != null -> SetMetric.DISTANCE
                         row.durationSeconds != null -> SetMetric.DURATION
                         else -> SetMetric.REPETITIONS
@@ -630,6 +640,9 @@ class WorkoutLoggerViewModel(
                         ?.let { meters -> it.distanceUnit.displayWhole(meters) }
                         ?.toString()
                         .orEmpty(),
+                    forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
+                    deviceName = row.device?.name.orEmpty(),
+                    deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                     weightInput = weight,
                     originalWeightInput = weight,
                     rir = row.rir?.toString().orEmpty(),
@@ -650,16 +663,54 @@ class WorkoutLoggerViewModel(
         copy(distanceMeters = value.filter { it.isDigit() || it == '.' })
     }
 
-    /** Switching the metric clears the fields the user just left, so nothing stale is submitted. */
+    fun onLoggedSetForceChanged(value: String) = updateLoggedSetEdit {
+        copy(forceNewtons = value.filter { it.isDigit() || it == '.' })
+    }
+
+    fun onLoggedSetDeviceNameChanged(value: String) = updateLoggedSetEdit {
+        copy(deviceName = value)
+    }
+
+    fun onLoggedSetDeviceRatingChanged(value: String) = updateLoggedSetEdit {
+        copy(deviceRatingKg = value.filter { it.isDigit() || it == '.' })
+    }
+
+    /**
+     * Switching the metric clears the fields the user just left, so nothing stale is submitted. A
+     * device belongs to a force reading only, so leaving Force also clears it.
+     */
     fun onLoggedSetMetricChanged(metric: SetMetric) = updateLoggedSetEdit {
         when (metric) {
             SetMetric.REPETITIONS -> copy(
                 metric = metric,
                 durationSeconds = "",
+                distanceMeters = "",
+                forceNewtons = "",
+                deviceName = "",
+                deviceRatingKg = ""
+            )
+            SetMetric.DURATION -> copy(
+                metric = metric,
+                reps = "",
+                distanceMeters = "",
+                forceNewtons = "",
+                deviceName = "",
+                deviceRatingKg = ""
+            )
+            SetMetric.DISTANCE -> copy(
+                metric = metric,
+                reps = "",
+                durationSeconds = "",
+                forceNewtons = "",
+                deviceName = "",
+                deviceRatingKg = ""
+            )
+            SetMetric.FORCE -> copy(
+                metric = metric,
+                reps = "",
+                durationSeconds = "",
                 distanceMeters = ""
             )
-            SetMetric.DURATION -> copy(metric = metric, reps = "", distanceMeters = "")
-            SetMetric.DISTANCE -> copy(metric = metric, reps = "", durationSeconds = "")
         }
     }
 
@@ -678,6 +729,8 @@ class WorkoutLoggerViewModel(
                 reps = set.reps,
                 durationSeconds = set.durationSeconds,
                 distanceMeters = set.distanceMeters,
+                forceNewtons = set.forceNewtons,
+                device = set.device,
                 weightKg = set.weightKg,
                 rir = set.rir,
                 isWarmup = set.isWarmup,
@@ -717,6 +770,7 @@ class WorkoutLoggerViewModel(
         if (current.savingLoggedSet || !edit.canSave) return
         if (edit.performedAtMillis > runtime.nowMillis()) return
         val weight = when {
+            edit.metric == SetMetric.FORCE -> null
             edit.row.loadKind == LoadKind.BODYWEIGHT -> null
             edit.weightInput == edit.originalWeightInput -> edit.row.weightKg
             edit.weightInput.isBlank() -> null
@@ -735,7 +789,9 @@ class WorkoutLoggerViewModel(
                         rir = edit.rir.toIntOrNull(),
                         performedAtMillis = edit.performedAtMillis,
                         durationSeconds = edit.correctionDurationSeconds,
-                        distanceMeters = edit.correctionDistanceMeters
+                        distanceMeters = edit.correctionDistanceMeters,
+                        forceNewtons = edit.correctionForceNewtons,
+                        device = edit.correctionDevice
                     )
                 )
             } catch (cancelled: CancellationException) {
@@ -813,15 +869,65 @@ class WorkoutLoggerViewModel(
         }
     }
 
-    /** Switching the manual form's metric clears the other fields, so only one can be submitted. */
+    /** Force is entered in canonical newtons and submitted unchanged. */
+    fun onForceChanged(value: String) {
+        manualInputGeneration++
+        _state.update {
+            it.copy(forceNewtons = value.filter { char -> char.isDigit() || char == '.' })
+        }
+    }
+
+    fun onDeviceNameChanged(value: String) {
+        manualInputGeneration++
+        _state.update { it.copy(deviceName = value) }
+    }
+
+    /** The rating is descriptive; it is never converted into measured force or lifted mass. */
+    fun onDeviceRatingChanged(value: String) {
+        manualInputGeneration++
+        _state.update {
+            it.copy(deviceRatingKg = value.filter { char -> char.isDigit() || char == '.' })
+        }
+    }
+
+    /**
+     * Switching the manual form's metric clears the other fields, so only one can be submitted. A
+     * device belongs to a force reading only, so leaving Force also clears it.
+     */
     fun onMetricChanged(metric: SetMetric) {
         manualInputGeneration++
         _state.update {
             when (metric) {
-                SetMetric.REPETITIONS ->
-                    it.copy(metric = metric, durationSeconds = "", distanceMeters = "")
-                SetMetric.DURATION -> it.copy(metric = metric, reps = "", distanceMeters = "")
-                SetMetric.DISTANCE -> it.copy(metric = metric, reps = "", durationSeconds = "")
+                SetMetric.REPETITIONS -> it.copy(
+                    metric = metric,
+                    durationSeconds = "",
+                    distanceMeters = "",
+                    forceNewtons = "",
+                    deviceName = "",
+                    deviceRatingKg = ""
+                )
+                SetMetric.DURATION -> it.copy(
+                    metric = metric,
+                    reps = "",
+                    distanceMeters = "",
+                    forceNewtons = "",
+                    deviceName = "",
+                    deviceRatingKg = ""
+                )
+                SetMetric.DISTANCE -> it.copy(
+                    metric = metric,
+                    reps = "",
+                    durationSeconds = "",
+                    forceNewtons = "",
+                    deviceName = "",
+                    deviceRatingKg = ""
+                )
+                SetMetric.FORCE -> it.copy(
+                    metric = metric,
+                    reps = "",
+                    durationSeconds = "",
+                    distanceMeters = ""
+                )
             }
         }
     }
@@ -871,6 +977,8 @@ class WorkoutLoggerViewModel(
         if (manualLogSubmissionInProgress) return
         val current = _state.value
         val exerciseId = current.selectedExerciseId ?: return
+        // A rating without a device name is not a storable attribution, so the form cannot submit.
+        if (!current.deviceIsValid) return
         // Exactly one metric is submitted, so the field the user did not select is never parsed: the
         // selected one must be a positive whole number or the submission is refused outright.
         val reps = if (current.metric == SetMetric.REPETITIONS) current.reps.toIntOrNull() else null
@@ -884,9 +992,25 @@ class WorkoutLoggerViewModel(
         } else {
             null
         }
-        if ((reps ?: 0) <= 0 && (durationSeconds ?: 0) <= 0 && (distanceMeters ?: 0) <= 0) return
-        // A hidden weight field (bodyweight exercise not revealed) never logs a weight, even if a
-        // value was retained from a previous exercise.
+        val forceNewtons = if (current.metric == SetMetric.FORCE) {
+            current.forceNewtons.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 }
+        } else {
+            null
+        }
+        val device = if (forceNewtons != null) {
+            deviceInputOrNull(current.deviceName, current.deviceRatingKg)
+        } else {
+            null
+        }
+        if ((reps ?: 0) <= 0 &&
+            (durationSeconds ?: 0) <= 0 &&
+            (distanceMeters ?: 0) <= 0 &&
+            (forceNewtons ?: 0.0) <= 0.0
+        ) {
+            return
+        }
+        // A hidden weight field (bodyweight exercise not revealed, or any force reading) never logs
+        // a weight, even if a value was retained from a previous exercise.
         val typedWeight = if (current.showWeightField) {
             current.weightInput.toDoubleOrNull()
                 ?.let { current.weightUnit.displayToKilograms(it) }
@@ -895,16 +1019,22 @@ class WorkoutLoggerViewModel(
         }
         val capability = exercises.firstOrNull { it.id == exerciseId }?.loadCapability
             ?: ExerciseLoadCapability.EXTERNAL
-        val (loadKind, weightKg) = when (capability) {
-            ExerciseLoadCapability.BODYWEIGHT_ONLY -> LoadKind.BODYWEIGHT to null
-            ExerciseLoadCapability.BODYWEIGHT_ADDABLE ->
-                if (typedWeight != null) {
-                    LoadKind.ADDED to typedWeight
-                } else {
-                    LoadKind.BODYWEIGHT to null
-                }
-            ExerciseLoadCapability.EXTERNAL -> LoadKind.EXTERNAL to typedWeight
-            ExerciseLoadCapability.UNSPECIFIED -> LoadKind.LEGACY_UNSPECIFIED to typedWeight
+        val (loadKind, weightKg) = if (forceNewtons != null) {
+            // A force reading is load-free, but it still belongs to the exercise's own load identity:
+            // a grip measurement on a bodyweight exercise is not an external load.
+            WorkoutLoadPolicy.defaultKind(capability) to null
+        } else {
+            when (capability) {
+                ExerciseLoadCapability.BODYWEIGHT_ONLY -> LoadKind.BODYWEIGHT to null
+                ExerciseLoadCapability.BODYWEIGHT_ADDABLE ->
+                    if (typedWeight != null) {
+                        LoadKind.ADDED to typedWeight
+                    } else {
+                        LoadKind.BODYWEIGHT to null
+                    }
+                ExerciseLoadCapability.EXTERNAL -> LoadKind.EXTERNAL to typedWeight
+                ExerciseLoadCapability.UNSPECIFIED -> LoadKind.LEGACY_UNSPECIFIED to typedWeight
+            }
         }
 
         // Capture attribution at submission: the link and its day come from the tapped context, so a
@@ -916,6 +1046,8 @@ class WorkoutLoggerViewModel(
             reps = reps,
             durationSeconds = durationSeconds,
             distanceMeters = distanceMeters,
+            forceNewtons = forceNewtons,
+            device = device,
             weightKg = weightKg,
             loadKind = loadKind,
             performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
@@ -933,7 +1065,8 @@ class WorkoutLoggerViewModel(
                 current.performedAtMillis != null,
                 reps,
                 durationSeconds,
-                distanceMeters
+                distanceMeters,
+                forceNewtons
             ),
             timingProvenance = if (current.performedAtMillis != null) {
                 WorkoutTimingProvenance.CATCH_UP
@@ -1113,6 +1246,7 @@ class WorkoutLoggerViewModel(
                         explanation = exercise.explanation,
                         durationSeconds = prefill?.durationSeconds ?: exercise.durationSeconds,
                         distanceMeters = prefill?.distanceMeters ?: exercise.distanceMeters,
+                        forceNewtons = prefill?.forceNewtons ?: exercise.forceNewtons,
                         setTargets = exercise.setTargets,
                         orderedPrefill = prefill
                     )
@@ -1196,7 +1330,11 @@ class WorkoutLoggerViewModel(
             retry != null -> retry.draft
             else -> draft
         }
-        if (retry == null && resolved.loadKind == LoadKind.EXTERNAL && resolved.weightKg == null) {
+        if (retry == null &&
+            resolved.forceNewtons == null &&
+            resolved.loadKind == LoadKind.EXTERNAL &&
+            resolved.weightKg == null
+        ) {
             setMissingLoadPrompt(draft)
             return
         }
@@ -1236,6 +1374,9 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
+                    forceNewtons = base.forceNewtons?.let(::formatWeight).orEmpty(),
+                    deviceName = base.device?.name.orEmpty(),
+                    deviceRatingKg = base.device?.ratingKg?.let(::formatWeight).orEmpty(),
                     distanceUnit = current.distanceUnit,
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     weightUnit = current.weightUnit,
@@ -1267,6 +1408,20 @@ class WorkoutLoggerViewModel(
     /** Edits the frozen distance of a distance draft, entered in the user's display unit. */
     fun onDraftDistanceChanged(value: String) = updateDraftEdit {
         copy(distanceMeters = value.filter { it.isDigit() || it == '.' })
+    }
+
+    /** Edits the frozen force of a force draft, entered in canonical newtons. */
+    fun onDraftForceChanged(value: String) = updateDraftEdit {
+        copy(forceNewtons = value.filter { it.isDigit() || it == '.' })
+    }
+
+    fun onDraftDeviceNameChanged(value: String) = updateDraftEdit {
+        copy(deviceName = value)
+    }
+
+    /** The rating is descriptive; it is never converted into measured force or lifted mass. */
+    fun onDraftDeviceRatingChanged(value: String) = updateDraftEdit {
+        copy(deviceRatingKg = value.filter { it.isDigit() || it == '.' })
     }
 
     fun onDraftWeightChanged(value: String) = updateDraftEdit {
@@ -1310,6 +1465,9 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
+                    forceNewtons = base.forceNewtons?.let(::formatWeight).orEmpty(),
+                    deviceName = base.device?.name.orEmpty(),
+                    deviceRatingKg = base.device?.ratingKg?.let(::formatWeight).orEmpty(),
                     distanceUnit = current.distanceUnit,
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     weightUnit = current.weightUnit,
@@ -1329,7 +1487,7 @@ class WorkoutLoggerViewModel(
      */
     fun confirmDraftEdit() {
         val edit = _state.value.draftEdit ?: return
-        if (!edit.enteredMetricIsPositive) return
+        if (!edit.enteredMetricIsPositive || !edit.deviceIsValid) return
         val draft = edit.draft
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
@@ -1476,6 +1634,20 @@ class WorkoutLoggerViewModel(
                 edit.weightUnit.displayToKilograms(it)
             }
         }
+        if (edit.isForce) {
+            // A force reading is load-free and carries no reps, seconds or distance. Its device is
+            // descriptive identity only, and a blank name explicitly records none. The slot's own load
+            // identity stays as prescribed, so the set still matches the target it followed.
+            return edit.draft.copy(
+                reps = null,
+                durationSeconds = null,
+                distanceMeters = null,
+                forceNewtons = edit.forceNewtons.toDoubleOrNull(),
+                device = deviceInputOrNull(edit.deviceName, edit.deviceRatingKg),
+                weightKg = null,
+                loadKind = edit.draft.loadKind
+            )
+        }
         val (kind, weight) = when (capability) {
             ExerciseLoadCapability.EXTERNAL -> LoadKind.EXTERNAL to typed
             ExerciseLoadCapability.BODYWEIGHT_ONLY -> LoadKind.BODYWEIGHT to null
@@ -1498,6 +1670,8 @@ class WorkoutLoggerViewModel(
             reps = reps,
             durationSeconds = duration,
             distanceMeters = distance,
+            forceNewtons = null,
+            device = null,
             weightKg = weight,
             loadKind = kind
         )
@@ -1537,6 +1711,7 @@ class WorkoutLoggerViewModel(
             explanation = entry.explanation,
             durationSeconds = prefill?.durationSeconds ?: entry.durationSeconds,
             distanceMeters = prefill?.distanceMeters ?: entry.distanceMeters,
+            forceNewtons = prefill?.forceNewtons ?: entry.forceNewtons,
             setTargets = entry.setTargets,
             orderedPrefill = prefill
         )
@@ -1704,6 +1879,7 @@ class WorkoutLoggerViewModel(
         }
         drafts.firstOrNull { draft ->
             retryFor(draft) == null &&
+                draft.forceNewtons == null &&
                 draft.loadKind == LoadKind.EXTERNAL &&
                 draft.weightKg == null
         }?.let { missing ->
@@ -1910,7 +2086,9 @@ class WorkoutLoggerViewModel(
         // counted reps or timed seconds; comparing only reps would miss a timed edit entirely.
         val prefill = draft.orderedPrefill
         val measureOverridden = prefill != null &&
-            if (draft.durationSeconds != null || prefill.durationSeconds != null) {
+            if (draft.forceNewtons != null || prefill.forceNewtons != null) {
+                draft.forceNewtons != prefill.forceNewtons
+            } else if (draft.durationSeconds != null || prefill.durationSeconds != null) {
                 draft.durationSeconds != prefill.durationSeconds
             } else if (draft.distanceMeters != null || prefill.distanceMeters != null) {
                 draft.distanceMeters != prefill.distanceMeters
@@ -1944,6 +2122,11 @@ class WorkoutLoggerViewModel(
                     _state.value.performedAtMillis
                 }
             )
+            val setForce = if (followsTarget) {
+                prescribed?.forceNewtons
+            } else {
+                draft.forceNewtons
+            }
             sessionId = logResolved(
                 WorkoutSet(
                     exerciseId = draft.exerciseId,
@@ -1958,7 +2141,11 @@ class WorkoutLoggerViewModel(
                     } else {
                         draft.distanceMeters
                     },
+                    forceNewtons = setForce,
+                    // A device belongs to a force reading only; it never accompanies another measure.
+                    device = if (setForce != null) draft.device else null,
                     weightKg = when {
+                        setForce != null -> null
                         draft.loadKind == LoadKind.BODYWEIGHT -> null
                         followsTarget -> prescribed?.weightKg
                         else -> draft.weightKg
@@ -1995,7 +2182,8 @@ class WorkoutLoggerViewModel(
                             backdated,
                             draft.reps,
                             draft.durationSeconds,
-                            draft.distanceMeters
+                            draft.distanceMeters,
+                            draft.forceNewtons
                         )
                     },
                     rir = edit?.rir?.toIntOrNull(),
@@ -2313,15 +2501,17 @@ class WorkoutLoggerViewModel(
         backdated: Boolean,
         reps: Int?,
         durationSeconds: Int?,
-        distanceMeters: Int?
+        distanceMeters: Int?,
+        forceNewtons: Double?
     ): WorkoutPrescriptionSnapshot? {
         val captured = captureSlotPrescription(exerciseId, kind, link, backdated) ?: return null
-        // A reps/duration/distance switch is a legitimate edit, but the captured slot keeps its own
-        // measure. Recording the slot's target against a differently measured set would contradict
-        // itself, so the set simply carries no target and its exposure stays unjudgeable.
+        // A reps/duration/distance/force switch is a legitimate edit, but the captured slot keeps
+        // its own measure. Recording the slot's target against a differently measured set would
+        // contradict itself, so the set simply carries no target and its exposure stays unjudgeable.
         val sameMeasurement = (captured.reps != null) == (reps != null) &&
             (captured.durationSeconds != null) == (durationSeconds != null) &&
-            (captured.distanceMeters != null) == (distanceMeters != null)
+            (captured.distanceMeters != null) == (distanceMeters != null) &&
+            (captured.forceNewtons != null) == (forceNewtons != null)
         return captured.takeIf { sameMeasurement }
     }
 
@@ -2360,6 +2550,7 @@ class WorkoutLoggerViewModel(
             reps = prescribed.reps,
             durationSeconds = prescribed.durationSeconds,
             distanceMeters = prescribed.distanceMeters,
+            forceNewtons = prescribed.forceNewtons,
             loadKind = prescribed.loadKind,
             weightKg = prescribed.weightKg,
             isDeload = isDeload,
@@ -2386,6 +2577,7 @@ class WorkoutLoggerViewModel(
                 reps = entry.reps,
                 durationSeconds = entry.durationSeconds,
                 distanceMeters = entry.distanceMeters,
+                forceNewtons = entry.forceNewtons,
                 loadKind = entry.loadKind,
                 weightKg = entry.weightKg,
                 isDeload = isDeloadWeek(activeActivation?.weekNumber),
@@ -2402,6 +2594,7 @@ class WorkoutLoggerViewModel(
             reps = entry.reps,
             durationSeconds = entry.durationSeconds,
             distanceMeters = entry.distanceMeters,
+            forceNewtons = entry.forceNewtons,
             loadKind = entry.loadKind,
             weightKg = entry.suggestedWeightKg,
             isDeload = isDeloadWeek(acceptedPlan?.weekNumber),
@@ -2717,7 +2910,11 @@ class WorkoutLoggerViewModel(
             retry != null -> retry.draft
             else -> draft
         }
-        if (retry == null && resolved.loadKind == LoadKind.EXTERNAL && resolved.weightKg == null) {
+        if (retry == null &&
+            resolved.forceNewtons == null &&
+            resolved.loadKind == LoadKind.EXTERNAL &&
+            resolved.weightKg == null
+        ) {
             setMissingLoadPrompt(draft)
             return
         }
@@ -3349,6 +3546,8 @@ class WorkoutLoggerViewModel(
                     reps = set.reps,
                     durationSeconds = set.durationSeconds,
                     distanceMeters = set.distanceMeters,
+                    forceNewtons = set.forceNewtons,
+                    device = set.device,
                     weightKg = set.weightKg,
                     rir = set.rir,
                     isWarmup = set.isWarmup,

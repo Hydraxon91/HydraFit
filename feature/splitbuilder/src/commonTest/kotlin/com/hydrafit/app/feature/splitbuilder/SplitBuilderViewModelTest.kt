@@ -1229,6 +1229,119 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun acceptedForceMeasureOpensOnForceAndPersistsTheTypedValue() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(forceAcceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        // Reopening a force slot seeds its canonical value, and nothing else is offered as a measure.
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        assertEquals(MeasureMetric.FORCE, viewModel.state.value.measureDialog?.metric)
+        assertEquals("250", viewModel.state.value.measureDialog?.value)
+
+        viewModel.onMeasureValueChanged("312.5")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        val shownSlot = viewModel.state.value.plan!!.days.single().exercises.single()
+        assertEquals(312.5, shownSlot.forceNewtons)
+        assertNull(shownSlot.reps)
+        assertNull(shownSlot.durationSeconds)
+        assertNull(shownSlot.distanceMeters)
+        assertNull(viewModel.state.value.measureDialog)
+
+        val persisted = history.latest()!!.days.single().exercises.single()
+        assertEquals(312.5, persisted.forceNewtons)
+        // The plan keeps its identity; only the slot's measure is updated in place.
+        assertEquals(1L, history.latest()!!.id)
+        assertEquals(0L, history.latest()!!.acceptedAtMillis)
+    }
+
+    @Test
+    fun switchingAWeightedSlotToForceClearsTheShownLoadAndOrderedTargets() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        val targets = SlotSetTargets.of(listOf(SetTarget(reps = 8, weightKg = 30.0)))
+        val base = forceAcceptedPlan()
+        history.accept(
+            base.copy(
+                id = 1L,
+                days = listOf(
+                    base.days.single().copy(
+                        exercises = listOf(
+                            base.days.single().exercises.single().copy(
+                                reps = 8,
+                                forceNewtons = null,
+                                suggestedWeightKg = 30.0,
+                                setTargets = targets
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        viewModel.onMeasureMetricChanged(MeasureMetric.FORCE)
+        viewModel.onMeasureValueChanged("250")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        val slot = viewModel.state.value.plan!!.days.single().exercises.single()
+        assertEquals(250.0, slot.forceNewtons)
+        // Force is load-free and ordered targets are rep work, so neither survives the change.
+        assertNull(slot.suggestedWeightKg)
+        assertNull(slot.setTargets)
+    }
+
+    @Test
+    fun forceMeasureEditWritesNothingOnInvalidInput() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(forceAcceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+
+        // A parsed value above the recorded maximum is too large to record.
+        viewModel.onMeasureValueChanged("6000")
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(MeasureError.FORCE_TOO_LARGE, viewModel.state.value.measureDialog?.error)
+        assertEquals(
+            250.0,
+            viewModel.state.value.plan!!.days.single().exercises.single().forceNewtons
+        )
+        assertEquals(250.0, history.latest()!!.days.single().exercises.single().forceNewtons)
+
+        // Values below the 0.1 N minimum and unparseable input stay on the range message.
+        for (invalid in listOf("0", "0.05", ".")) {
+            viewModel.onMeasureValueChanged(invalid)
+            viewModel.onMeasureConfirmed()
+            advanceUntilIdle()
+
+            assertEquals(MeasureError.FORCE_RANGE, viewModel.state.value.measureDialog?.error)
+            assertEquals(
+                250.0,
+                viewModel.state.value.plan!!.days.single().exercises.single().forceNewtons
+            )
+            assertEquals(250.0, history.latest()!!.days.single().exercises.single().forceNewtons)
+        }
+    }
+
+    @Test
     fun acceptedPlanMeasureEditPersistsInPlace() = runTest(dispatcher) {
         val history = FakePlanHistoryRepository()
         history.accept(acceptedPlan().copy(id = 1L))
@@ -1346,6 +1459,27 @@ class SplitBuilderViewModelTest {
                         durationSeconds = 45,
                         name = "Goblet Squat",
                         movementPattern = MovementPattern.SQUAT
+                    )
+                )
+            )
+        )
+    )
+
+    private fun forceAcceptedPlan() = AcceptedPlan(
+        engine = PlannerEngineId.DETERMINISTIC,
+        acceptedAtMillis = 0L,
+        days = listOf(
+            AcceptedDay(
+                dayIndex = 0,
+                focus = SplitFocus.PUSH,
+                exercises = listOf(
+                    AcceptedExercise(
+                        exerciseId = "goblet-squat",
+                        sets = 3,
+                        reps = null,
+                        name = "Goblet Squat",
+                        movementPattern = MovementPattern.SQUAT,
+                        forceNewtons = 250.0
                     )
                 )
             )
@@ -2228,7 +2362,8 @@ class SplitBuilderViewModelTest {
             position: Int,
             reps: Int?,
             durationSeconds: Int?,
-            distanceMeters: Int?
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) {
             val plan = state.value ?: return
             if (plan.id != planId) return
@@ -2245,7 +2380,8 @@ class SplitBuilderViewModelTest {
                                     exercise.copy(
                                         reps = reps,
                                         durationSeconds = durationSeconds,
-                                        distanceMeters = distanceMeters
+                                        distanceMeters = distanceMeters,
+                                        forceNewtons = forceNewtons
                                     )
                                 }
                             }
@@ -2314,7 +2450,8 @@ class SplitBuilderViewModelTest {
             position: Int,
             reps: Int?,
             durationSeconds: Int?,
-            distanceMeters: Int?
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

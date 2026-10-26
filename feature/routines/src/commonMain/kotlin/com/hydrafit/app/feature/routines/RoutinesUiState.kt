@@ -19,7 +19,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 data class RoutineExerciseOption(val id: String, val name: String, val isExcluded: Boolean = false)
 
 /** Which measurement a slot is prescribed in; they are exclusive, never two and never none. */
-enum class EntryMetric { REPETITIONS, DURATION, DISTANCE }
+enum class EntryMetric { REPETITIONS, DURATION, DISTANCE, FORCE }
 
 /** One editable prescription slot; numbers stay as text until save so partial input is allowed. */
 data class EditorEntry(
@@ -37,6 +37,8 @@ data class EditorEntry(
     val durationSeconds: String = "",
     /** Distance as text in [RoutineEditorState.distanceUnit], used when [metric] is DISTANCE. */
     val distance: String = "",
+    /** Measured force in canonical newtons as text, used when [metric] is [EntryMetric.FORCE]. */
+    val forceNewtons: String = "",
     /** The approved progression policy for this slot, or null when the user has not set one. */
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
@@ -48,7 +50,7 @@ data class EditorEntry(
     val repsValue: Int?
         get() = if (metric == EntryMetric.REPETITIONS) reps.toIntOrNull() else null
 
-    /** The prescribed whole seconds, or null when the slot is counted. */
+    /** The prescribed whole seconds, or null when the slot is counted or measured by force. */
     val durationValue: Int?
         get() = if (metric == EntryMetric.DURATION) durationSeconds.toIntOrNull() else null
 }

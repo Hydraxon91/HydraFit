@@ -135,6 +135,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_timeout
 import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_distance
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_force
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_timed
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
@@ -204,9 +205,14 @@ import hydrafit.feature.splitbuilder.generated.resources.split_measure_distance
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_distance_input
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_distance
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_distance_large
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_force
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_force_large
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_reps
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_error_seconds_large
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_force
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_force_input
+import hydrafit.feature.splitbuilder.generated.resources.split_measure_force_value
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_reps
 import hydrafit.feature.splitbuilder.generated.resources.split_measure_seconds
 import hydrafit.feature.splitbuilder.generated.resources.split_muscle_biceps
@@ -748,6 +754,7 @@ fun SplitBuilderScreen(
                                         reps = exercise.reps,
                                         durationSeconds = exercise.durationSeconds,
                                         distanceMeters = exercise.distanceMeters,
+                                        forceNewtons = exercise.forceNewtons,
                                         distanceUnit = state.distanceUnit,
                                         weight = weight
                                     ),
@@ -867,9 +874,10 @@ private fun withLoadBasis(weight: String, basis: LoadBasis?): String = when (bas
 
 /**
  * The slot line: `name  sets x reps  weight` for counted work, `name  sets × seconds s  weight`
- * for a timed slot, and `name  sets × distance  weight` for a distance slot, so no measure is shown
- * as another one. A slot with no measure is impossible under the model's exactly-one invariant; it
- * falls back to the bare name rather than a `0` sentinel.
+ * for a timed slot, `name  sets × distance  weight` for a distance slot, and `name  sets × N N`
+ * for a force slot, so no measure is shown as another one. A slot with no measure is impossible
+ * under the model's exactly-one invariant; it falls back to the bare name rather than a `0`
+ * sentinel.
  */
 @Composable
 private fun exerciseLine(
@@ -878,6 +886,7 @@ private fun exerciseLine(
     reps: Int?,
     durationSeconds: Int?,
     distanceMeters: Int?,
+    forceNewtons: Double?,
     distanceUnit: DistanceUnit,
     weight: String
 ): String = when {
@@ -895,10 +904,21 @@ private fun exerciseLine(
         formatDistance(distanceMeters, distanceUnit),
         weight
     )
+    forceNewtons != null -> stringResource(
+        Res.string.split_exercise_line_force,
+        name,
+        sets,
+        stringResource(
+            Res.string.split_measure_force_value,
+            formatWeight(forceNewtons)
+        ),
+        weight
+    )
     reps != null -> stringResource(Res.string.split_exercise_line, name, sets, reps, weight)
     else -> name
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MeasureDialog(
     dialog: MeasureDialogState,
@@ -913,13 +933,17 @@ private fun MeasureDialog(
         MeasureMetric.REPS -> Res.string.split_measure_reps
         MeasureMetric.SECONDS -> Res.string.split_measure_seconds
         MeasureMetric.DISTANCE -> Res.string.split_measure_distance
+        MeasureMetric.FORCE -> Res.string.split_measure_force
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.split_measure_dialog_title, targetName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     FilterChip(
                         selected = dialog.metric == MeasureMetric.REPS,
                         onClick = { onMetricChanged(MeasureMetric.REPS) },
@@ -935,23 +959,35 @@ private fun MeasureDialog(
                         onClick = { onMetricChanged(MeasureMetric.DISTANCE) },
                         label = { Text(stringResource(Res.string.split_measure_distance)) }
                     )
+                    FilterChip(
+                        selected = dialog.metric == MeasureMetric.FORCE,
+                        onClick = { onMetricChanged(MeasureMetric.FORCE) },
+                        label = { Text(stringResource(Res.string.split_measure_force)) }
+                    )
                 }
                 OutlinedTextField(
                     value = dialog.value,
                     onValueChange = onValueChanged,
                     label = {
                         Text(
-                            if (dialog.metric == MeasureMetric.DISTANCE) {
-                                stringResource(
+                            when (dialog.metric) {
+                                MeasureMetric.DISTANCE -> stringResource(
                                     Res.string.split_measure_distance_input,
                                     distanceUnit.label
                                 )
-                            } else {
-                                stringResource(metricLabel)
+                                MeasureMetric.FORCE ->
+                                    stringResource(Res.string.split_measure_force_input)
+                                else -> stringResource(metricLabel)
                             }
                         )
                     },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (dialog.metric == MeasureMetric.FORCE) {
+                            KeyboardType.Decimal
+                        } else {
+                            KeyboardType.Number
+                        }
+                    ),
                     singleLine = true,
                     isError = dialog.error != null
                 )
@@ -988,6 +1024,12 @@ private fun MeasureError.labelText(distanceUnit: DistanceUnit): String = when (t
         formatDistance(PrescriptionBounds.MAX_DISTANCE_METERS, distanceUnit)
     )
     MeasureError.DISTANCE_TOO_LARGE -> stringResource(Res.string.split_measure_error_distance_large)
+    MeasureError.FORCE_RANGE -> stringResource(
+        Res.string.split_measure_error_force,
+        formatWeight(PrescriptionBounds.MIN_FORCE_NEWTONS),
+        formatWeight(PrescriptionBounds.MAX_FORCE_NEWTONS)
+    )
+    MeasureError.FORCE_TOO_LARGE -> stringResource(Res.string.split_measure_error_force_large)
 }
 
 @Composable
