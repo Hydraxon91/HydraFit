@@ -35,7 +35,8 @@ exact on-screen text.
   station CRUD/copy, backup detach/restore and old-format rejection; strict station decoding; complete
   station-option queries; hidden merge-only id-zero chips; editor saving/trim/error and retire
   confirmation. Fresh matrix `0110-full-matrix-final.log` (787 executed / 0 up-to-date) after the
-  SI-09 chart-reset fix. Targeted reviewer closure is still required.
+  SI-09 chart-reset fix. Independent reviewer targeted closure returned **CLOSED** at
+  `755811c8`; see `docs/review-0.11.0-snapshot.md`.
 
 ## 0.8.2 C1 coverage read contract — 2026-10-15
 
