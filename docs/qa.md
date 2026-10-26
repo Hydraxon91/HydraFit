@@ -4164,5 +4164,32 @@ separation, progression isolation, portability gates, fatigue and planning exclu
 Declared limits stay as stated above, and the replacement dialog's rendering is compile-verified
 rather than unit-tested because it is Compose-only.
 
+## 0.11.2 emulator acceptance — 2026-10-26 (`emulator-5554`)
+
+- **Build and migration.** `androidApp-debug.apk` from `688a7f3f` was installed with `adb install -r`
+  over an installed `0.7.6-dev` build whose data predated the measurement work. The app launched
+  without an app crash, the database migrated to schema 63 in place, and its 24 existing sets, 8
+  sessions and 5 routines were preserved. A read-only pull before acceptance recorded the baseline;
+  a read-only pull after it confirmed exactly 24 sets, 0 force sets, 0 device-attributed sets, and
+  that the pre-existing rows and sessions were unchanged.
+- **Automated pass.** `progress-force-set.yaml` passed: Exercise Progress showed `Recorded history
+  (all dates)` with `Working set · 247.4 N` and `Device: Grip meter (60.2 kg)`, and no `No weight
+  recorded` fallback, then returned to the Logger. Evidence: `/tmp/hf0112-accept-5/flow1.log`,
+  `flow1-progress-pass.png`.
+- **User-verified on device.** Logging a force set recorded 247.35 N with device `Grip meter` rated
+  60.25 kg; the history detail showed `247.4 N` and `Device: Grip meter (60.2 kg)`; correcting only
+  RIR left both unchanged; deleting the synthetic set removed it (0 force sets after); a routine
+  slot switched to Force showed no weight field, saved `forceNewtons 150` with `reps NULL` and
+  `weightKg NULL`, and was archived, leaving no active fixture. These were completed by hand after
+  flow-literal failures, so they are observations rather than executed assertions.
+- **Flow defects found and not re-run.** The one-decimal formatter rounds exact halves to even
+  (60.25 → `60.2`, while 247.35 → `247.4`); the Progress heading is `Recorded history (all dates)`;
+  the routines force field and its chip both read `Force` and the value and unit are separate nodes;
+  and the Logger's centre-screen `scrollUntilVisible` moves the nested exercise picker instead of the
+  page. The flows now carry these corrections, but the Logger correction/delete and routines save
+  paths are documented above as user-verified, not flow-asserted.
+- **Still unverified.** A device backup restore or merge carrying force/device, the added-load
+  planner suggestion on device, and the station/distance surfaces (not re-accepted in this round).
+
 
 
