@@ -3,6 +3,8 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -53,6 +55,35 @@ class SqlDelightWorkoutLogRepositoryTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun correctingValuesPreservesTheFrozenStationAttribution() = runTest {
+        val station = StationAttribution(1L, "Rack A", StationLoadBasis.TOTAL)
+        repository.add(set("barbell-bench-press", 100L, station))
+        val id = repository.all().single().id
+
+        database.workoutLogQueries.updateSetValues(
+            reps = 6L,
+            durationSeconds = null,
+            weightKg = 90.0,
+            rir = null,
+            id = id
+        )
+
+        assertEquals(station, repository.all().single().station)
+    }
+
+    @Test
+    fun partialStoredStationAttributionIsRejectedRatherThanBecomingGenericHistory() = runTest {
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(exerciseId,reps,weightKg,performedAt,loadKind," +
+                "stationId,stationName,stationLoadBasis) " +
+                "VALUES ('barbell-bench-press',5,50.0,100,'EXTERNAL',1,NULL,'TOTAL')"
+        )
+
+        assertFailsWith<IllegalArgumentException> { repository.all() }
     }
 
     @Test
@@ -674,12 +705,14 @@ class SqlDelightWorkoutLogRepositoryTest {
         assertNull(repository.lastSetBySession("session-empty"))
     }
 
-    private fun set(exerciseId: String, performedAt: Long) = DomainWorkoutSet(
-        exerciseId = exerciseId,
-        reps = 5,
-        weightKg = 50.0,
-        performedAtMillis = performedAt
-    )
+    private fun set(exerciseId: String, performedAt: Long, station: StationAttribution? = null) =
+        DomainWorkoutSet(
+            exerciseId = exerciseId,
+            reps = 5,
+            weightKg = 50.0,
+            performedAtMillis = performedAt,
+            station = station
+        )
 
     private companion object {
         const val DAY = 24L * 60L * 60L * 1000L

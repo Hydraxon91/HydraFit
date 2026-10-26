@@ -103,6 +103,24 @@ class SqlDelightEquipmentProfileRepositoryTest {
     }
 
     @Test
+    fun retiringAStationKeepsItsRowAndMarksItInactive() = runTest {
+        val context = repository.current().context
+        val id = repository.saveStation(
+            context,
+            EquipmentStation(
+                profileId = context.profileId,
+                equipmentId = EquipmentTag.CABLE_MACHINE,
+                name = "Cable row A"
+            )
+        )
+
+        repository.retireStation(repository.current().context, id)
+
+        val retired = repository.current().active.stations.single { it.id == id }
+        assertTrue(retired.retired)
+    }
+
+    @Test
     fun switchAwayAndBackRejectsTheOriginalEditorAndLeavesStateUntouched() = runTest {
         val second = repository.create("Travel")
         val original = repository.current()

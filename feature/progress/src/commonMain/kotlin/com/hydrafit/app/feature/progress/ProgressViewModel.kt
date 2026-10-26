@@ -397,15 +397,15 @@ class ProgressViewModel(
             try {
                 progressRepository.observeStationOptions(exerciseId).collect { options ->
                     if (generation != stationOptionsGeneration) return@collect
-                    _state.update { current ->
-                        current.copy(
-                            stationOptions = options,
-                            stationFilter = current.stationFilter.takeIf { filter ->
-                                filter !is StationFilter.Station ||
-                                    options.any { it.id == filter.id }
-                            } ?: StationFilter.All
-                        )
-                    }
+                    val current = _state.value
+                    val nextFilter = current.stationFilter.takeIf { filter ->
+                        filter !is StationFilter.Station ||
+                            options.any { it.id == filter.id }
+                    } ?: StationFilter.All
+                    _state.update { it.copy(stationOptions = options, stationFilter = nextFilter) }
+                    // The chip and the chart must agree: a disappeared station resets the filter
+                    // and must re-issue the chart request instead of leaving the old one alive.
+                    if (nextFilter != current.stationFilter) startCharts()
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled

@@ -85,6 +85,13 @@ class SqlDelightExerciseProgressRepositoryTest {
         writer.add(set(time = 1, weight = 90.0, station = stationA))
         writer.add(set(time = 2, weight = 100.0, station = stationB))
         writer.add(set(time = 3, weight = 110.0))
+        writer.add(
+            set(
+                time = 4,
+                weight = 120.0,
+                station = StationAttribution(0L, "Merged cable row", StationLoadBasis.TOTAL)
+            )
+        )
 
         val all = repository.observeProgress(progressRequest()).first()
         val onlyA = repository.observeProgress(
@@ -94,7 +101,7 @@ class SqlDelightExerciseProgressRepositoryTest {
             progressRequest().copy(stationFilter = StationFilter.Unattributed)
         ).first()
 
-        assertEquals(3, all.days.single().workingSets)
+        assertEquals(4, all.days.single().workingSets)
         assertEquals(1, onlyA.days.single().workingSets)
         assertEquals(1, unattributed.days.single().workingSets)
         assertEquals(
