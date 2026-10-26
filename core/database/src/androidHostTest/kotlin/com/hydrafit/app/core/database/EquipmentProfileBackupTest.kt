@@ -4,11 +4,15 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupJson
 import com.hydrafit.app.core.domain.backup.BackupValidator
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingBar
 import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.OwnedPlate
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -76,6 +80,64 @@ class EquipmentProfileBackupTest {
         assertEquals(expected.context.profileId, profiles.current().context.profileId)
         assertEquals(0L, profiles.current().context.revision)
         assertEquals(file, backups.export("test", 1L))
+    }
+
+    @Test
+    fun stationsAndFrozenSetAttributionRoundTripThroughBackup() = runTest {
+        val context = profiles.current().context
+        val stationId = profiles.saveStation(
+            context,
+            EquipmentStation(
+                profileId = context.profileId,
+                equipmentId = EquipmentTag.CABLE_MACHINE,
+                name = "Cable row A",
+                loadBasis = StationLoadBasis.TOTAL,
+                minWeightKg = 5.0,
+                maxWeightKg = 120.0,
+                incrementKg = 2.5
+            )
+        )
+        val attribution = StationAttribution(stationId, "Cable row A", StationLoadBasis.TOTAL)
+        database.workoutSessionQueries.insertSession("session-1", 90L, 200L, 1L)
+        SqlDelightWorkoutLogRepository(database).add(
+            WorkoutSet(
+                exerciseId = "seated-cable-row",
+                reps = 10,
+                weightKg = 70.0,
+                performedAtMillis = 100L,
+                sessionId = "session-1",
+                station = attribution
+            )
+        )
+        val file = backups.export("test", 1L)
+        val validated = BackupValidator(SqlDelightBackupCatalog())
+            .prepareForRestore(BackupJson.decode(BackupJson.encode(file)))
+
+        backups.restore(validated)
+
+        assertEquals("Cable row A", profiles.current().active.stations.single().name)
+        assertEquals(attribution, SqlDelightWorkoutLogRepository(database).all().single().station)
+    }
+
+    @Test
+    fun aPreStationFormatCannotCarryStationSectionsOrSetAttribution() = runTest {
+        val file = backups.export("test", 1L)
+        val validator = BackupValidator(SqlDelightBackupCatalog())
+        val withStation = file.copy(
+            formatVersion = 24,
+            equipmentStations = file.equipmentStations.ifEmpty {
+                listOf(
+                    com.hydrafit.app.core.domain.backup.BackupEquipmentStationRecord(
+                        id = 1L,
+                        profileId = file.equipmentProfiles.first().id,
+                        equipmentId = EquipmentTag.CABLE_MACHINE.id,
+                        name = "Cable row A",
+                        loadBasis = "TOTAL"
+                    )
+                )
+            }
+        )
+        assertFailsWith<BackupException> { validator.validate(withStation) }
     }
 
     @Test

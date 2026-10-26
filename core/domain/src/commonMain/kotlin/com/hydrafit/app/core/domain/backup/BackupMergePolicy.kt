@@ -39,7 +39,9 @@ object BackupMergePolicy {
                 startedAtElapsedMillis = set.startedAtElapsedMillis,
                 completedAtElapsedMillis = set.completedAtElapsedMillis,
                 durationSeconds = set.durationSeconds,
-                prescriptionSnapshot = set.prescriptionSnapshot
+                prescriptionSnapshot = set.prescriptionSnapshot,
+                stationName = set.stationName,
+                stationLoadBasis = set.stationLoadBasis
             )
         }
 
@@ -99,7 +101,7 @@ object BackupMergePolicy {
         BackupMergeExcludedCount(BackupMergeExcludedCategory.OCCURRENCES, file.occurrences.size),
         BackupMergeExcludedCount(
             BackupMergeExcludedCategory.EQUIPMENT_PROFILES,
-            file.equipmentProfiles.size
+            file.equipmentProfiles.size + file.equipmentStations.size
         ),
         BackupMergeExcludedCount(
             BackupMergeExcludedCategory.SETTINGS,

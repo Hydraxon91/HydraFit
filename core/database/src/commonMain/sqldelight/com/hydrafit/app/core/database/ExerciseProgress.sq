@@ -8,7 +8,8 @@ SELECT workoutSet.id, workoutSet.exerciseId,
        COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
        workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
        workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId,
-       workoutSet.durationSeconds
+       workoutSet.durationSeconds, workoutSet.stationId, workoutSet.stationName,
+       workoutSet.stationLoadBasis
 FROM workoutSet
 LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
 LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
@@ -21,7 +22,8 @@ SELECT workoutSet.id, workoutSet.exerciseId,
        COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
        workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
        workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId,
-       workoutSet.durationSeconds
+       workoutSet.durationSeconds, workoutSet.stationId, workoutSet.stationName,
+       workoutSet.stationLoadBasis
 FROM workoutSet
 LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
 LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
@@ -36,7 +38,8 @@ SELECT workoutSet.id, workoutSet.exerciseId,
        COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
        workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
        workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId,
-       workoutSet.durationSeconds
+       workoutSet.durationSeconds, workoutSet.stationId, workoutSet.stationName,
+       workoutSet.stationLoadBasis
 FROM workoutSet
 LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
 LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
@@ -52,7 +55,8 @@ SELECT workoutSet.id, workoutSet.exerciseId,
        COALESCE(exerciseOverride.name, exercise.name) AS exerciseName,
        workoutSet.reps, workoutSet.weightKg, workoutSet.loadKind, workoutSet.isWarmup,
        workoutSet.rir, workoutSet.performedAt, workoutSet.timingProvenance, workoutSet.occurrenceId,
-       workoutSet.durationSeconds
+       workoutSet.durationSeconds, workoutSet.stationId, workoutSet.stationName,
+       workoutSet.stationLoadBasis
 FROM workoutSet
 LEFT JOIN exercise ON exercise.id = workoutSet.exerciseId
 LEFT JOIN exerciseOverride ON exerciseOverride.exerciseId = workoutSet.exerciseId
@@ -64,14 +68,16 @@ observeExerciseSets:
 SELECT count(*) FROM workoutSet WHERE exerciseId = :exerciseId;
 
 selectExerciseReplayFirstPage:
-SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds,
+       stationId, stationName, stationLoadBasis
 FROM workoutSet
 WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
 ORDER BY performedAt ASC, id ASC
 LIMIT :pageLimit;
 
 selectExerciseReplayTiesAtCursor:
-SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds,
+       stationId, stationName, stationLoadBasis
 FROM workoutSet
 WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
   AND performedAt = :cursorTime
@@ -80,7 +86,8 @@ ORDER BY performedAt ASC, id ASC
 LIMIT :pageLimit;
 
 selectExerciseReplayAfterCursorTime:
-SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds,
+       stationId, stationName, stationLoadBasis
 FROM workoutSet
 WHERE exerciseId = :exerciseId AND performedAt <= :nowMillis
   AND performedAt > :cursorTime

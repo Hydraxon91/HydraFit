@@ -16,6 +16,7 @@ internal fun BackupFile.withNonConflictingEquipment(reservedIds: Set<String>): B
         equipmentProfiles.flatMap { profile ->
             profile.selectedEquipment + profile.ceilings.map { it.equipmentId }
         } +
+        equipmentStations.map { it.equipmentId } +
         customExercises.flatMap { it.requiredEquipment.split(',') } +
         exerciseOverrides.flatMap { it.requiredEquipment?.split(',').orEmpty() } +
         activationEntries.flatMap { it.requiredEquipment.split(',') } +
@@ -35,6 +36,9 @@ internal fun BackupFile.withNonConflictingEquipment(reservedIds: Set<String>): B
                     it.copy(equipmentId = mapping[it.equipmentId] ?: it.equipmentId)
                 }
             )
+        },
+        equipmentStations = equipmentStations.map {
+            it.copy(equipmentId = mapping[it.equipmentId] ?: it.equipmentId)
         },
         customExercises = customExercises.map {
             it.copy(requiredEquipment = EquipmentIdentity.remapCsv(it.requiredEquipment, mapping))

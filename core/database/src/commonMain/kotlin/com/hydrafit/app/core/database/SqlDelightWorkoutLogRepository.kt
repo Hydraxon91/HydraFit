@@ -55,6 +55,14 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                 prescriptionSnapshot = encodedTarget
             )
             val setId = setQueries.lastInsertedSetId().executeAsOne()
+            set.station?.let { station ->
+                setQueries.assignStation(
+                    stationId = station.id,
+                    stationName = station.name,
+                    stationLoadBasis = station.loadBasis.name,
+                    id = setId
+                )
+            }
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
                     occurrenceId = set.occurrenceId,

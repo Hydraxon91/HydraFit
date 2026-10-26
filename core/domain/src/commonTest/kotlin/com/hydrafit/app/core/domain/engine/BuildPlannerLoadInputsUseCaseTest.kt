@@ -3,6 +3,8 @@ package com.hydrafit.app.core.domain.engine
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -48,6 +50,25 @@ class BuildPlannerLoadInputsUseCaseTest {
 
         // Epley(100kg x 8) = 126.666...
         assertEquals(126.66666666666667, result.suggestedWeightsKg.getValue("bench-press"), 1e-9)
+    }
+
+    @Test
+    fun stationAttributedSetsDoNotSeedTheGenericBaseline() = runTest {
+        val station = StationAttribution(1L, "Cable row A", StationLoadBasis.TOTAL)
+        val result = useCase(
+            sources = sources(
+                listOf(
+                    set("bench-press", day = 99, station = station),
+                    set("bench-press", day = 100, station = station)
+                )
+            ),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW_MILLIS
+        )
+
+        assertTrue("bench-press" !in result.suggestedWeightsKg)
+        assertTrue("bench-press" in result.withheldWeightExerciseIds)
     }
 
     @Test
@@ -639,7 +660,8 @@ class BuildPlannerLoadInputsUseCaseTest {
         kind: LoadKind = LoadKind.LEGACY_UNSPECIFIED,
         target: WorkoutPrescriptionSnapshot? = null,
         sessionId: String? = "s$day",
-        reps: Int = 8
+        reps: Int = 8,
+        station: StationAttribution? = null
     ) = WorkoutSet(
         exerciseId = exerciseId,
         reps = reps,
@@ -647,7 +669,8 @@ class BuildPlannerLoadInputsUseCaseTest {
         loadKind = kind,
         performedAtMillis = day * DAY_MILLIS,
         sessionId = sessionId,
-        prescriptionSnapshot = target
+        prescriptionSnapshot = target,
+        station = station
     )
 
     private fun sources(sets: List<WorkoutSet>) = WorkoutPlanSources(

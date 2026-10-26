@@ -2,6 +2,8 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -88,7 +90,9 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
                     while (true) {
                         context.ensureActive()
                         val rows = replayPage(request, cursor)
-                        rows.forEach(calculator::accept)
+                        rows.forEach { set ->
+                            if (request.includes(set.station?.id)) calculator.accept(set)
+                        }
                         val last = rows.lastOrNull() ?: break
                         cursor = last.performedAtMillis to last.id
                         if (rows.size < REPLAY_PAGE_SIZE.toInt()) break
@@ -142,7 +146,10 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         performedAt: Long,
         timingProvenance: String,
         occurrenceId: Long?,
-        durationSeconds: Long?
+        durationSeconds: Long?,
+        stationId: Long?,
+        stationName: String?,
+        stationLoadBasis: String?
     ) = WorkoutHistorySet(
         id = id,
         exerciseId = exerciseId,
@@ -150,6 +157,7 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
+        station = stationOf(stationId, stationName, stationLoadBasis),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
@@ -167,18 +175,32 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         performedAt: Long,
         isWarmup: Long,
         occurrenceId: Long?,
-        durationSeconds: Long?
+        durationSeconds: Long?,
+        stationId: Long?,
+        stationName: String?,
+        stationLoadBasis: String?
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
+        station = stationOf(stationId, stationName, stationLoadBasis),
         performedAtMillis = performedAt,
         isWarmup = isWarmup != 0L,
         occurrenceId = occurrenceId,
         durationSeconds = durationSeconds?.toInt()
     )
+
+    private fun stationOf(
+        stationId: Long?,
+        stationName: String?,
+        stationLoadBasis: String?
+    ): StationAttribution? {
+        if (stationId == null || stationName == null) return null
+        val basis = StationLoadBasis.fromStored(stationLoadBasis) ?: return null
+        return StationAttribution(stationId, stationName, basis)
+    }
 
     private companion object {
         const val REPLAY_PAGE_SIZE = 256L

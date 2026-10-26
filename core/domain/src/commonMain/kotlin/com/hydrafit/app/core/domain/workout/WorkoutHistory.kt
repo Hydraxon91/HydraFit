@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+
 /**
  * One identity in the workout history. History is keyed by explicit identity only: a session id, or
  * a single recorded set that has no session. Null identities are never grouped with one another and
@@ -101,7 +103,9 @@ data class WorkoutHistorySet(
      * so a correction reached from history keeps the same occurrence attribution as one reached from
      * the Logger, including cancelling that occurrence's rest prompt.
      */
-    val occurrenceId: Long? = null
+    val occurrenceId: Long? = null,
+    /** The frozen physical station attribution, or null for legacy and unattributed work. */
+    val station: StationAttribution? = null
 )
 
 internal const val WORKOUT_HISTORY_DEFAULT_PAGE_SIZE = 30

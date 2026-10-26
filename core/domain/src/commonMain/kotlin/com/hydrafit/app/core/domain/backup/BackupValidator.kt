@@ -12,9 +12,12 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
@@ -117,6 +120,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         file.activationEntries.groupBy { it.workoutId }.values.forEach { entries ->
             checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
         }
+        validateStations(file)
         file.occurrenceEntries.groupBy { it.occurrenceId }.values.forEach { entries ->
             checkSupersets(entries.sortedBy { it.position }.map { it.exerciseId to it.superset })
         }
@@ -693,6 +697,68 @@ class BackupValidator(private val catalog: BackupCatalog) {
             fail(BackupFailure.INVALID_VALUE)
         }
         snapshot.weightKg?.let { value -> finite(value) }
+    }
+
+    private fun validateStations(file: BackupFile) {
+        val hasSetAttribution = file.workoutSets.any {
+            it.stationId != null || it.stationName != null || it.stationLoadBasis != null
+        }
+        if (file.formatVersion < EQUIPMENT_STATION_FORMAT_VERSION) {
+            if (file.equipmentStations.isNotEmpty() || hasSetAttribution) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            return
+        }
+        uniqueBy(file.equipmentStations) { it.id }
+        val profileIds = file.equipmentProfiles.mapTo(mutableSetOf()) { it.id }
+        val equipmentIds = file.equipment.mapTo(mutableSetOf()) { it.id }
+        file.equipmentStations.forEach { station ->
+            if (station.id <= 0L ||
+                station.profileId !in profileIds ||
+                station.equipmentId !in equipmentIds
+            ) {
+                fail(BackupFailure.INVALID_REFERENCE)
+            }
+            try {
+                EquipmentStation(
+                    id = station.id,
+                    profileId = station.profileId,
+                    equipmentId = EquipmentTag(station.equipmentId),
+                    name = station.name,
+                    loadBasis = StationLoadBasis.fromStored(station.loadBasis)
+                        ?: fail(BackupFailure.INVALID_VALUE),
+                    minWeightKg = station.minWeightKg,
+                    maxWeightKg = station.maxWeightKg,
+                    incrementKg = station.incrementKg,
+                    retired = station.retired
+                )
+            } catch (_: IllegalArgumentException) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        file.equipmentStations.filterNot { it.retired }
+            .groupBy { it.profileId to it.equipmentId }
+            .values
+            .forEach { sameEquipment ->
+                val names = sameEquipment.map { it.name.lowercase() }
+                if (names.distinct().size != names.size) fail(BackupFailure.INVALID_VALUE)
+            }
+        val stationIds = file.equipmentStations.mapTo(mutableSetOf()) { it.id }
+        file.workoutSets.forEach { set ->
+            val id = set.stationId
+            val name = set.stationName
+            val basis = set.stationLoadBasis
+            if (id == null && name == null && basis == null) return@forEach
+            if (id == null || name == null || basis == null) fail(BackupFailure.INVALID_VALUE)
+            val decoded = StationLoadBasis.fromStored(basis)
+                ?: fail(BackupFailure.INVALID_VALUE)
+            if (id > 0L && id !in stationIds) fail(BackupFailure.INVALID_REFERENCE)
+            try {
+                com.hydrafit.app.core.domain.equipment.StationAttribution(id, name, decoded)
+            } catch (_: IllegalArgumentException) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
     }
 
     private fun <E : Enum<E>> enum(value: String?, values: List<E>) {

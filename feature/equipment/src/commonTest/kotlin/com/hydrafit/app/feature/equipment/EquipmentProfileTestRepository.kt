@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.equipment
 
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
@@ -18,13 +19,15 @@ internal fun testProfile(
     name: String,
     selected: Set<EquipmentTag> = emptySet(),
     maxWeightsKg: Map<EquipmentTag, Double> = emptyMap(),
-    loadingInventory: LoadingInventory = LoadingInventory()
+    loadingInventory: LoadingInventory = LoadingInventory(),
+    stations: List<EquipmentStation> = emptyList()
 ) = EquipmentProfile(
     id = id,
     name = name,
     selected = selected,
     maxWeightsKg = maxWeightsKg,
-    loadingInventory = loadingInventory
+    loadingInventory = loadingInventory,
+    stations = stations
 )
 
 /**
@@ -44,6 +47,7 @@ internal class EquipmentProfileTestRepository(
         EquipmentProfileState(EquipmentProfileContext(activeId, 0L), profiles)
     )
     private var nextId = (profiles.maxOfOrNull { it.id } ?: 0L) + 1L
+    private var nextStationId = (profiles.flatMap { it.stations }.maxOfOrNull { it.id } ?: 0L) + 1L
 
     /** When set, every write waits on it first, exposing an in-flight result to the test. */
     var gate: CompletableDeferred<Unit>? = null
@@ -99,7 +103,10 @@ internal class EquipmentProfileTestRepository(
             name = name,
             selected = source?.selected ?: emptySet(),
             maxWeightsKg = source?.maxWeightsKg ?: emptyMap(),
-            loadingInventory = source?.loadingInventory ?: LoadingInventory()
+            loadingInventory = source?.loadingInventory ?: LoadingInventory(),
+            stations = source?.stations.orEmpty().map {
+                it.copy(id = nextStationId++, profileId = nextId - 1L)
+            }
         )
         publish(profiles = flow.value.profiles + created, activeId = flow.value.context.profileId)
         return created.id
@@ -182,6 +189,48 @@ internal class EquipmentProfileTestRepository(
         publish(
             profiles = flow.value.profiles.map {
                 if (it.id == context.profileId) it.copy(loadingInventory = inventory) else it
+            },
+            activeId = context.profileId
+        )
+    }
+
+    override suspend fun saveStation(
+        context: EquipmentProfileContext,
+        station: EquipmentStation
+    ): Long {
+        gate?.await()
+        requireContext(context)
+        val id = if (station.id == 0L) nextStationId++ else station.id
+        val persisted = station.copy(id = id, profileId = context.profileId)
+        publish(
+            profiles = flow.value.profiles.map {
+                if (it.id != context.profileId) {
+                    it
+                } else {
+                    it.copy(
+                        stations = it.stations.filterNot { row -> row.id == id } + persisted
+                    )
+                }
+            },
+            activeId = context.profileId
+        )
+        return id
+    }
+
+    override suspend fun retireStation(context: EquipmentProfileContext, stationId: Long) {
+        gate?.await()
+        requireContext(context)
+        publish(
+            profiles = flow.value.profiles.map {
+                if (it.id != context.profileId) {
+                    it
+                } else {
+                    it.copy(
+                        stations = it.stations.map { row ->
+                            if (row.id == stationId) row.copy(retired = true) else row
+                        }
+                    )
+                }
             },
             activeId = context.profileId
         )

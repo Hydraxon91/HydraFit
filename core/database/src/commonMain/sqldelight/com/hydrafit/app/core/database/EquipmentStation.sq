@@ -1,0 +1,49 @@
+CREATE TABLE equipmentStation (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    profileId INTEGER NOT NULL REFERENCES equipmentProfile(id),
+    equipmentId TEXT NOT NULL REFERENCES equipment(id),
+    name TEXT NOT NULL,
+    loadBasis TEXT NOT NULL DEFAULT 'TOTAL',
+    minWeightKg REAL,
+    maxWeightKg REAL,
+    incrementKg REAL,
+    retired INTEGER NOT NULL DEFAULT 0
+);
+
+selectStations:
+SELECT * FROM equipmentStation ORDER BY profileId, equipmentId, name;
+
+selectStationsForProfile:
+SELECT * FROM equipmentStation WHERE profileId = ? ORDER BY equipmentId, name;
+
+selectStation:
+SELECT * FROM equipmentStation WHERE id = ?;
+
+countActiveStationsForProfile:
+SELECT count(*) FROM equipmentStation
+WHERE profileId = ? AND retired = 0;
+
+insertStation:
+INSERT INTO equipmentStation(profileId, equipmentId, name, loadBasis, minWeightKg, maxWeightKg, incrementKg, retired)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedStationId:
+SELECT last_insert_rowid();
+
+restoreStation:
+INSERT INTO equipmentStation(id, profileId, equipmentId, name, loadBasis, minWeightKg, maxWeightKg, incrementKg, retired)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateStation:
+UPDATE equipmentStation
+SET equipmentId = ?, name = ?, loadBasis = ?, minWeightKg = ?, maxWeightKg = ?, incrementKg = ?
+WHERE id = ? AND profileId = ?;
+
+retireStation:
+UPDATE equipmentStation SET retired = 1 WHERE id = ? AND profileId = ?;
+
+deleteStationsForProfile:
+DELETE FROM equipmentStation WHERE profileId = ?;
+
+deleteAllStations:
+DELETE FROM equipmentStation;

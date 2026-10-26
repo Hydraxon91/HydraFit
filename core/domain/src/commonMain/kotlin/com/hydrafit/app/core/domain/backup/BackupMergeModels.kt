@@ -55,7 +55,13 @@ data class BackupMergedSet(
     val completedAtElapsedMillis: Long?,
     val durationSeconds: Int?,
     /** The recorded target, carried verbatim so a merge never reinterprets it. */
-    val prescriptionSnapshot: String?
+    val prescriptionSnapshot: String?,
+    /**
+     * Frozen station label and basis, or null. Equipment profiles are outside merge, so the local
+     * station id is deliberately not carried; the label remains displayable with id zero.
+     */
+    val stationName: String? = null,
+    val stationLoadBasis: String? = null
 )
 
 /** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */

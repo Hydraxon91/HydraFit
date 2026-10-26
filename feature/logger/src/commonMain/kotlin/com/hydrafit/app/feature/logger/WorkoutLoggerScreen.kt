@@ -70,6 +70,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -239,6 +240,9 @@ import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_short_rest_coaching
 import hydrafit.feature.logger.generated.resources.logger_short_rest_dismiss
 import hydrafit.feature.logger.generated.resources.logger_skip
+import hydrafit.feature.logger.generated.resources.logger_station_attributed
+import hydrafit.feature.logger.generated.resources.logger_station_choose
+import hydrafit.feature.logger.generated.resources.logger_station_none
 import hydrafit.feature.logger.generated.resources.logger_superset_next
 import hydrafit.feature.logger.generated.resources.logger_superset_pair_note
 import hydrafit.feature.logger.generated.resources.logger_superset_resume_turn
@@ -425,6 +429,7 @@ fun WorkoutLoggerRoute(
         onDurationSecondsChanged = viewModel::onDurationSecondsChanged,
         onMetricChanged = viewModel::onMetricChanged,
         onWeightChanged = viewModel::onWeightChanged,
+        onStationSelected = viewModel::onStationSelected,
         onRirChanged = viewModel::onRirChanged,
         onWarmupToggled = viewModel::onWarmupToggled,
         onLog = viewModel::log,
@@ -592,6 +597,7 @@ fun WorkoutLoggerScreen(
     onDurationSecondsChanged: (String) -> Unit,
     onMetricChanged: (SetMetric) -> Unit,
     onWeightChanged: (String) -> Unit,
+    onStationSelected: (Long?) -> Unit,
     onRirChanged: (String) -> Unit,
     onWarmupToggled: (Boolean) -> Unit,
     onLog: () -> Unit,
@@ -1104,6 +1110,15 @@ fun WorkoutLoggerScreen(
                 TextButton(onClick = onRevealWeight) {
                     Text(stringResource(Res.string.logger_add_weight))
                 }
+            }
+        }
+        if (state.availableStations.isNotEmpty()) {
+            item {
+                StationSelector(
+                    stations = state.availableStations,
+                    selectedStationId = state.selectedStationId,
+                    onStationSelected = onStationSelected
+                )
             }
         }
         item {
@@ -2966,6 +2981,43 @@ private fun GuidedWorkoutSection(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StationSelector(
+    stations: List<EquipmentStation>,
+    selectedStationId: Long?,
+    onStationSelected: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = stations.firstOrNull { it.id == selectedStationId }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(
+                text = selected?.let {
+                    stringResource(Res.string.logger_station_attributed, it.name)
+                } ?: stringResource(Res.string.logger_station_choose)
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.logger_station_none)) },
+                onClick = {
+                    expanded = false
+                    onStationSelected(null)
+                }
+            )
+            stations.forEach { station ->
+                DropdownMenuItem(
+                    text = { Text(station.name) },
+                    onClick = {
+                        expanded = false
+                        onStationSelected(station.id)
+                    }
+                )
             }
         }
     }

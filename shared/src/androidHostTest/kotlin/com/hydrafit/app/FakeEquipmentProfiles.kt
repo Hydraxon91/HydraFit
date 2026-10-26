@@ -1,5 +1,6 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
@@ -33,4 +34,10 @@ internal object FakeEquipmentProfiles : EquipmentProfileRepository {
         context: EquipmentProfileContext,
         inventory: LoadingInventory
     ) = error("unused")
+    override suspend fun saveStation(
+        context: EquipmentProfileContext,
+        station: EquipmentStation
+    ): Long = error("unused")
+    override suspend fun retireStation(context: EquipmentProfileContext, stationId: Long) =
+        error("unused")
 }

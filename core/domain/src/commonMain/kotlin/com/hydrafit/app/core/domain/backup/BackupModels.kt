@@ -7,10 +7,16 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 24
+const val BACKUP_FORMAT_VERSION: Int = 25
 
 /** Format 24 carries explicit two-entry superset membership and user-configured rest. */
 const val SUPERSET_FORMAT_VERSION: Int = 24
+
+/**
+ * Format 25 adds profile-scoped equipment stations and a performed set's frozen station
+ * attribution. Earlier formats restore with no stations and no attributed sets.
+ */
+const val EQUIPMENT_STATION_FORMAT_VERSION: Int = 25
 
 /**
  * Format 22 adds a prescription slot's approved progression policy to routine, accepted-plan,
@@ -90,7 +96,9 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
  * rep-measured. Version 19 adds an accepted plan slot's duration; formats 1-18 restore every
  * accepted-plan slot as rep-measured, and a duration in an older file is rejected rather than
  * reinterpreted. Version 20 adds the persisted warm-up preparation overrides; formats 1-19 restore
- * with none, so every preparation action uses its built-in default.
+ * with none, so every preparation action uses its built-in default. Version 25 adds profile-scoped
+ * equipment stations and a performed set's frozen station attribution; formats 1-24 restore with no
+ * stations and unattributed sets, and merge keeps the frozen label while dropping the local id.
  */
 @Serializable
 data class BackupFile(
@@ -180,7 +188,9 @@ data class BackupFile(
      * Persisted warm-up preparation overrides, format 20 and later: one record per preparation
      * action. Absent in formats 1-19, which restore every preparation action to its built-in default.
      */
-    val warmupPreparationOverrides: List<BackupWarmupPreparationOverrideRecord> = emptyList()
+    val warmupPreparationOverrides: List<BackupWarmupPreparationOverrideRecord> = emptyList(),
+    /** Profile-scoped physical stations, format 25 and later. */
+    val equipmentStations: List<BackupEquipmentStationRecord> = emptyList()
 )
 
 /**
@@ -321,6 +331,20 @@ data class BackupEquipmentRecord(
     val maxWeightKg: Double?
 )
 
+/** One profile-scoped station, including its optional complete loading grid. */
+@Serializable
+data class BackupEquipmentStationRecord(
+    val id: Long,
+    val profileId: Long,
+    val equipmentId: String,
+    val name: String,
+    val loadBasis: String,
+    val minWeightKg: Double? = null,
+    val maxWeightKg: Double? = null,
+    val incrementKg: Double? = null,
+    val retired: Boolean = false
+)
+
 @Serializable
 data class BackupWorkoutSetRecord(
     val id: Long,
@@ -352,7 +376,13 @@ data class BackupWorkoutSetRecord(
      * by [WorkoutPrescriptionSnapshotJson]. Formats 1-20 have no target, so a restored legacy set
      * reports "unknown target" rather than inheriting today's accepted plan.
      */
-    val prescriptionSnapshot: String? = null
+    val prescriptionSnapshot: String? = null,
+    /** Local station identity, format 25 and later; null for legacy and unattributed work. */
+    val stationId: Long? = null,
+    /** Frozen station name, format 25 and later. */
+    val stationName: String? = null,
+    /** Frozen station load basis, format 25 and later. */
+    val stationLoadBasis: String? = null
 )
 
 @Serializable

@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.equipment
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,9 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -32,9 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.equipment.Equipment
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseExclusion
@@ -42,6 +47,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -105,6 +111,23 @@ import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
+import hydrafit.feature.equipment.generated.resources.equipment_station_add
+import hydrafit.feature.equipment.generated.resources.equipment_station_basis
+import hydrafit.feature.equipment.generated.resources.equipment_station_basis_per_hand
+import hydrafit.feature.equipment.generated.resources.equipment_station_basis_per_side
+import hydrafit.feature.equipment.generated.resources.equipment_station_basis_total
+import hydrafit.feature.equipment.generated.resources.equipment_station_edit_title
+import hydrafit.feature.equipment.generated.resources.equipment_station_equipment
+import hydrafit.feature.equipment.generated.resources.equipment_station_grid
+import hydrafit.feature.equipment.generated.resources.equipment_station_grid_summary
+import hydrafit.feature.equipment.generated.resources.equipment_station_increment
+import hydrafit.feature.equipment.generated.resources.equipment_station_max
+import hydrafit.feature.equipment.generated.resources.equipment_station_min
+import hydrafit.feature.equipment.generated.resources.equipment_station_name
+import hydrafit.feature.equipment.generated.resources.equipment_station_no_grid
+import hydrafit.feature.equipment.generated.resources.equipment_station_none
+import hydrafit.feature.equipment.generated.resources.equipment_station_retire
+import hydrafit.feature.equipment.generated.resources.equipment_stations_section
 import hydrafit.feature.equipment.generated.resources.equipment_technique_considerations
 import hydrafit.feature.equipment.generated.resources.equipment_tier_high
 import hydrafit.feature.equipment.generated.resources.equipment_tier_low
@@ -185,6 +208,17 @@ fun EquipmentProfilerRoute(
         onSaveEquipmentRenamed = viewModel::onSaveEquipmentRenamed,
         onDeleteEquipment = viewModel::onDeleteEquipment,
         onDismissEquipmentEditor = viewModel::onDismissEquipmentEditor,
+        onAddStation = viewModel::onAddStation,
+        onEditStation = viewModel::onEditStation,
+        onStationEquipmentChanged = viewModel::onStationEquipmentChanged,
+        onStationNameChanged = viewModel::onStationNameChanged,
+        onStationLoadBasisChanged = viewModel::onStationLoadBasisChanged,
+        onStationMinChanged = viewModel::onStationMinChanged,
+        onStationMaxChanged = viewModel::onStationMaxChanged,
+        onStationIncrementChanged = viewModel::onStationIncrementChanged,
+        onSaveStation = viewModel::onSaveStation,
+        onRetireStation = viewModel::onRetireStation,
+        onDismissStationEditor = viewModel::onDismissStationEditor,
         onSearchChanged = viewModel::onSearchChanged,
         onEditExercise = viewModel::onEditExercise,
         onOpenInstructions = viewModel::onOpenInstructions,
@@ -279,6 +313,17 @@ fun EquipmentProfilerScreen(
     onSaveEquipmentRenamed: () -> Unit,
     onDeleteEquipment: () -> Unit,
     onDismissEquipmentEditor: () -> Unit,
+    onAddStation: () -> Unit,
+    onEditStation: (EquipmentStation) -> Unit,
+    onStationEquipmentChanged: (EquipmentTag) -> Unit,
+    onStationNameChanged: (String) -> Unit,
+    onStationLoadBasisChanged: (StationLoadBasis) -> Unit,
+    onStationMinChanged: (String) -> Unit,
+    onStationMaxChanged: (String) -> Unit,
+    onStationIncrementChanged: (String) -> Unit,
+    onSaveStation: () -> Unit,
+    onRetireStation: (Long) -> Unit,
+    onDismissStationEditor: () -> Unit,
     onSearchChanged: (String) -> Unit,
     onEditExercise: (String) -> Unit,
     onOpenInstructions: (String) -> Unit,
@@ -348,6 +393,11 @@ fun EquipmentProfilerScreen(
             onManageEquipment = onManageEquipment,
             onNewEquipmentNameChanged = onNewEquipmentNameChanged,
             onAddEquipment = onAddEquipment
+        )
+        StationsSection(
+            stations = state.activeStations,
+            onAdd = onAddStation,
+            onEdit = onEditStation
         )
         OutlinedTextField(
             value = state.search,
@@ -450,6 +500,21 @@ fun EquipmentProfilerScreen(
             onSave = onSaveEquipmentRenamed,
             onDelete = onDeleteEquipment,
             onDismiss = onDismissEquipmentEditor
+        )
+    }
+    if (state.stationEditor.isOpen) {
+        StationEditorDialog(
+            state = state.stationEditor,
+            equipment = state.equipment,
+            onEquipmentChanged = onStationEquipmentChanged,
+            onNameChanged = onStationNameChanged,
+            onLoadBasisChanged = onStationLoadBasisChanged,
+            onMinChanged = onStationMinChanged,
+            onMaxChanged = onStationMaxChanged,
+            onIncrementChanged = onStationIncrementChanged,
+            onSave = onSaveStation,
+            onRetire = onRetireStation,
+            onDismiss = onDismissStationEditor
         )
     }
     val suggestion = state.exerciseEditor.suggestion
@@ -675,6 +740,209 @@ private fun InventorySection(
             )
         }
     }
+}
+
+@Composable
+private fun StationsSection(
+    stations: List<EquipmentStation>,
+    onAdd: () -> Unit,
+    onEdit: (EquipmentStation) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = stringResource(Res.string.equipment_stations_section),
+            style = MaterialTheme.typography.titleMedium
+        )
+        TextButton(onClick = onAdd) {
+            Text(stringResource(Res.string.equipment_station_add))
+        }
+    }
+    if (stations.isEmpty()) {
+        Text(
+            text = stringResource(Res.string.equipment_station_none),
+            style = MaterialTheme.typography.bodySmall
+        )
+    } else {
+        stations.forEach { station ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = station.name, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = station.equipmentId.displayName,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = if (station.hasGrid) {
+                            stringResource(
+                                Res.string.equipment_station_grid_summary,
+                                formatWeight(requireNotNull(station.minWeightKg)),
+                                formatWeight(requireNotNull(station.maxWeightKg)),
+                                formatWeight(requireNotNull(station.incrementKg))
+                            )
+                        } else {
+                            stringResource(Res.string.equipment_station_no_grid)
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(onClick = { onEdit(station) }) {
+                    Text(stringResource(Res.string.equipment_edit))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StationEditorDialog(
+    state: StationEditorState,
+    equipment: List<Equipment>,
+    onEquipmentChanged: (EquipmentTag) -> Unit,
+    onNameChanged: (String) -> Unit,
+    onLoadBasisChanged: (StationLoadBasis) -> Unit,
+    onMinChanged: (String) -> Unit,
+    onMaxChanged: (String) -> Unit,
+    onIncrementChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onRetire: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var basisExpanded by remember { mutableStateOf(false) }
+    var equipmentExpanded by remember { mutableStateOf(false) }
+    val equipmentName = equipment.firstOrNull { it.id == state.equipmentId }?.name
+        ?: state.equipmentId?.displayName.orEmpty()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = onSave, enabled = state.canSave) {
+                Text(stringResource(Res.string.equipment_edit_save))
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!state.isNew) {
+                    TextButton(onClick = { onRetire(state.stationId) }) {
+                        Text(stringResource(Res.string.equipment_station_retire))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.equipment_cancel))
+                }
+            }
+        },
+        title = {
+            Text(
+                stringResource(
+                    if (state.isNew) {
+                        Res.string.equipment_station_add
+                    } else {
+                        Res.string.equipment_station_edit_title
+                    }
+                )
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box {
+                    TextButton(onClick = { equipmentExpanded = true }) {
+                        Text(
+                            text = stringResource(Res.string.equipment_station_equipment) +
+                                ": " + equipmentName
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = equipmentExpanded,
+                        onDismissRequest = { equipmentExpanded = false }
+                    ) {
+                        equipment.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item.name) },
+                                onClick = {
+                                    equipmentExpanded = false
+                                    onEquipmentChanged(item.id)
+                                }
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = state.name,
+                    onValueChange = onNameChanged,
+                    label = { Text(stringResource(Res.string.equipment_station_name)) },
+                    singleLine = true
+                )
+                Box {
+                    TextButton(onClick = { basisExpanded = true }) {
+                        Text(
+                            text = stringResource(Res.string.equipment_station_basis) + ": " +
+                                state.loadBasis.label()
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = basisExpanded,
+                        onDismissRequest = { basisExpanded = false }
+                    ) {
+                        StationLoadBasis.entries.forEach { basis ->
+                            DropdownMenuItem(
+                                text = { Text(basis.label()) },
+                                onClick = {
+                                    basisExpanded = false
+                                    onLoadBasisChanged(basis)
+                                }
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = stringResource(Res.string.equipment_station_grid),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedTextField(
+                    value = state.minInput,
+                    onValueChange = onMinChanged,
+                    label = { Text(stringResource(Res.string.equipment_station_min)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+                OutlinedTextField(
+                    value = state.maxInput,
+                    onValueChange = onMaxChanged,
+                    label = { Text(stringResource(Res.string.equipment_station_max)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+                OutlinedTextField(
+                    value = state.incrementInput,
+                    onValueChange = onIncrementChanged,
+                    label = { Text(stringResource(Res.string.equipment_station_increment)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+                if (state.error != null) {
+                    Text(
+                        text = stringResource(Res.string.equipment_save_error),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun StationLoadBasis.label(): String = when (this) {
+    StationLoadBasis.TOTAL -> stringResource(Res.string.equipment_station_basis_total)
+    StationLoadBasis.PER_HAND -> stringResource(Res.string.equipment_station_basis_per_hand)
+    StationLoadBasis.PER_SIDE -> stringResource(Res.string.equipment_station_basis_per_side)
 }
 
 @Composable

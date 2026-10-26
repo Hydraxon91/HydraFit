@@ -1,9 +1,11 @@
 package com.hydrafit.app.feature.progress
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.ProgressDay
 import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
+import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 
 /** The three explicit chart ranges. Only the chart window changes; records and history are all-time. */
@@ -32,6 +34,9 @@ data class ProgressUiState(
     /** The current catalog name, or null when the selected id is no longer in the catalog. */
     val selectedExerciseName: String? = null,
     val range: ProgressRange = ProgressRange.DAYS_28,
+    /** Distinct station labels observed in this exercise's history. */
+    val stationOptions: List<StationAttribution> = emptyList(),
+    val stationFilter: StationFilter = StationFilter.All,
     /** Inclusive civil-day window the charts cover; null before an exercise is selected. */
     val chartDayFrom: Long? = null,
     val chartDayTo: Long? = null,
@@ -76,4 +81,7 @@ data class ProgressUiState(
 
     val historyIsEmpty: Boolean
         get() = hasSelectedExercise && !historyLoading && !historyFailed && historySets.isEmpty()
+
+    val hasStationOptions: Boolean
+        get() = stationOptions.isNotEmpty()
 }

@@ -29,6 +29,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
+import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_back
@@ -74,6 +75,9 @@ import hydrafit.feature.progress.generated.resources.progress_record_supporting_
 import hydrafit.feature.progress.generated.resources.progress_records_all_time_note
 import hydrafit.feature.progress.generated.resources.progress_records_none
 import hydrafit.feature.progress.generated.resources.progress_records_title
+import hydrafit.feature.progress.generated.resources.progress_station_all
+import hydrafit.feature.progress.generated.resources.progress_station_station
+import hydrafit.feature.progress.generated.resources.progress_station_unattributed
 import hydrafit.feature.progress.generated.resources.progress_title
 import hydrafit.feature.progress.generated.resources.progress_weight_none
 import org.jetbrains.compose.resources.StringResource
@@ -107,6 +111,7 @@ fun ProgressRoute(
         onExerciseQueryChanged = viewModel::onExerciseQueryChanged,
         onExerciseSelected = viewModel::onExerciseSelected,
         onRangeSelected = viewModel::onRangeSelected,
+        onStationFilterSelected = viewModel::onStationFilterSelected,
         onRetryCharts = viewModel::onRetryCharts,
         onRetryHistory = viewModel::onRetryHistory,
         onLoadMoreHistory = viewModel::onLoadMoreHistory,
@@ -123,6 +128,7 @@ fun ProgressScreen(
     onExerciseQueryChanged: (String) -> Unit,
     onExerciseSelected: (String) -> Unit,
     onRangeSelected: (ProgressRange) -> Unit,
+    onStationFilterSelected: (StationFilter) -> Unit,
     onRetryCharts: () -> Unit,
     onRetryHistory: () -> Unit,
     onLoadMoreHistory: () -> Unit,
@@ -156,6 +162,7 @@ fun ProgressScreen(
         ExerciseSelector(state, onExerciseQueryChanged, onExerciseSelected)
         if (state.hasSelectedExercise) {
             RangeSelector(state.range, onRangeSelected)
+            StationFilterSelector(state, onStationFilterSelected)
             ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
             HistorySection(state, onRetryHistory, onLoadMoreHistory)
         } else {
@@ -210,6 +217,34 @@ private fun RangeSelector(range: ProgressRange, onRangeSelected: (ProgressRange)
                 onClick = { onRangeSelected(option) },
                 label = { Text(stringResource(option.labelResource())) },
                 modifier = Modifier.testTag(ProgressTestTags.range(option))
+            )
+        }
+    }
+}
+
+@Composable
+private fun StationFilterSelector(state: ProgressUiState, onSelected: (StationFilter) -> Unit) {
+    if (!state.hasStationOptions) return
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = state.stationFilter == StationFilter.All,
+            onClick = { onSelected(StationFilter.All) },
+            label = { Text(stringResource(Res.string.progress_station_all)) }
+        )
+        FilterChip(
+            selected = state.stationFilter == StationFilter.Unattributed,
+            onClick = { onSelected(StationFilter.Unattributed) },
+            label = { Text(stringResource(Res.string.progress_station_unattributed)) }
+        )
+        state.stationOptions.forEach { station ->
+            FilterChip(
+                selected = state.stationFilter == StationFilter.Station(station.id),
+                onClick = {
+                    if (station.id > 0L) onSelected(StationFilter.Station(station.id))
+                },
+                label = {
+                    Text(stringResource(Res.string.progress_station_station, station.name))
+                }
             )
         }
     }

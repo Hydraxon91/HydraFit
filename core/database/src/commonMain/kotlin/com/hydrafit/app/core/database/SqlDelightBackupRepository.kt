@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.backup.BackupEntryTargetExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentCeilingRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentProfileRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentRecord
+import com.hydrafit.app.core.domain.backup.BackupEquipmentStationRecord
 import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseOverrideRecord
@@ -138,7 +139,10 @@ class SqlDelightBackupRepository(
                         startedAtElapsedMillis = it.startedAtElapsedMillis,
                         completedAtElapsedMillis = it.completedAtElapsedMillis,
                         durationSeconds = it.durationSeconds?.toInt(),
-                        prescriptionSnapshot = it.prescriptionSnapshot
+                        prescriptionSnapshot = it.prescriptionSnapshot,
+                        stationId = it.stationId,
+                        stationName = it.stationName,
+                        stationLoadBasis = it.stationLoadBasis
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -541,6 +545,21 @@ class SqlDelightBackupRepository(
                         profile.loadingInventory
                     )
                 },
+                equipmentStations = profiles.profiles.flatMap { profile ->
+                    profile.stations.map { station ->
+                        BackupEquipmentStationRecord(
+                            id = station.id,
+                            profileId = station.profileId,
+                            equipmentId = station.equipmentId.id,
+                            name = station.name,
+                            loadBasis = station.loadBasis.name,
+                            minWeightKg = station.minWeightKg,
+                            maxWeightKg = station.maxWeightKg,
+                            incrementKg = station.incrementKg,
+                            retired = station.retired
+                        )
+                    }
+                },
                 activeEquipmentProfileId = profiles.context.profileId,
                 importProvenance = database.workoutImportQueries.selectAllProvenance()
                     .executeAsList().map {
@@ -647,6 +666,15 @@ class SqlDelightBackupRepository(
                     durationSeconds = it.durationSeconds?.toLong(),
                     prescriptionSnapshot = it.prescriptionSnapshot
                 )
+                if (it.stationName != null && it.stationLoadBasis != null) {
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignStation(
+                        stationId = 0L,
+                        stationName = it.stationName,
+                        stationLoadBasis = it.stationLoadBasis,
+                        id = setId
+                    )
+                }
             }
             selection.bodyWeightToInsert.forEach {
                 database.bodyWeightQueries.insertMeasurement(
@@ -743,6 +771,7 @@ class SqlDelightBackupRepository(
             database.routineTemplateQueries.deleteAllTemplates()
             database.exerciseQueries.deleteAllCustom()
             database.equipmentProfileQueries.deleteState()
+            database.equipmentStationQueries.deleteAllStations()
             database.equipmentProfileQueries.deleteAllEntries()
             database.equipmentProfileQueries.deleteAllProfiles()
             database.equipmentQueries.deleteCustomEquipment()
@@ -1208,6 +1237,14 @@ class SqlDelightBackupRepository(
                     durationSeconds = set.durationSeconds?.toLong(),
                     prescriptionSnapshot = set.prescriptionSnapshot
                 )
+                if (set.stationId != null) {
+                    database.workoutLogQueries.assignStation(
+                        stationId = set.stationId,
+                        stationName = requireNotNull(set.stationName),
+                        stationLoadBasis = requireNotNull(set.stationLoadBasis),
+                        id = set.id
+                    )
+                }
             }
 
             file.importProvenance.forEach { record ->
@@ -1292,6 +1329,19 @@ class SqlDelightBackupRepository(
         database.equipmentProfileQueries.restoreState(
             if (file.formatVersion >= 14) requireNotNull(file.activeEquipmentProfileId) else 1L
         )
+        file.equipmentStations.forEach { station ->
+            database.equipmentStationQueries.restoreStation(
+                id = station.id,
+                profileId = station.profileId,
+                equipmentId = station.equipmentId,
+                name = station.name,
+                loadBasis = station.loadBasis,
+                minWeightKg = station.minWeightKg,
+                maxWeightKg = station.maxWeightKg,
+                incrementKg = station.incrementKg,
+                retired = if (station.retired) 1L else 0L
+            )
+        }
     }
 
     /** Reads the single planner-settings row; null when the user has never changed any setting. */

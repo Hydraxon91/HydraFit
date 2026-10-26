@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+
 data class WorkoutSet(
     val id: Long = 0,
     val exerciseId: String,
@@ -37,7 +39,12 @@ data class WorkoutSet(
      */
     val durationSeconds: Int? = null,
     /** Immutable prescribed target, not the actual performance or a reference to today's plan. */
-    val prescriptionSnapshot: WorkoutPrescriptionSnapshot? = null
+    val prescriptionSnapshot: WorkoutPrescriptionSnapshot? = null,
+    /**
+     * The physical station this set was performed on, frozen at logging, or null for legacy and
+     * unattributed work. A station identity is independent of the mutable station row.
+     */
+    val station: StationAttribution? = null
 ) {
     /**
      * The set's measurement when its stored shape is valid, or null when the row is neither a

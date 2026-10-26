@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.workout.WarmupEquipment
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import kotlinx.coroutines.flow.Flow
@@ -17,5 +18,10 @@ class WorkoutLoggerEquipment(private val profiles: EquipmentProfileRepository) {
             selectedTags = state.active.selected,
             maxWeights = state.active.maxWeightsKg
         )
+    }
+
+    /** Stations belong to the active profile and follow profile switches and edits. */
+    fun stationsFlow(): Flow<List<EquipmentStation>> = profiles.observe().map { state ->
+        state.active.stations
     }
 }

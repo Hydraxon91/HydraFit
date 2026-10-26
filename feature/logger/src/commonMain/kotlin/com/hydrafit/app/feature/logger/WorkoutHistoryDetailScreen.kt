@@ -55,6 +55,7 @@ import hydrafit.feature.logger.generated.resources.logger_history_warmup
 import hydrafit.feature.logger.generated.resources.logger_history_working
 import hydrafit.feature.logger.generated.resources.logger_note_retry
 import hydrafit.feature.logger.generated.resources.logger_recorded_at
+import hydrafit.feature.logger.generated.resources.logger_station_attributed
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -388,6 +389,12 @@ private fun WorkoutHistorySetRow(
             },
             style = MaterialTheme.typography.bodyMedium
         )
+        set.station?.let { station ->
+            Text(
+                text = stringResource(Res.string.logger_station_attributed, station.name),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         set.rir?.let { rir ->
             Text(
                 text = stringResource(Res.string.logger_history_rir, rir),

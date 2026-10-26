@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.equipment.Equipment
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -138,6 +139,12 @@ internal class OnboardingFixture {
             context: EquipmentProfileContext,
             inventory: LoadingInventory
         ) = error("Direct write")
+        override suspend fun saveStation(
+            context: EquipmentProfileContext,
+            station: EquipmentStation
+        ): Long = error("Direct write")
+        override suspend fun retireStation(context: EquipmentProfileContext, stationId: Long) =
+            error("Direct write")
     }
     val goals = object : TrainingGoalRepository {
         override suspend fun selectedGoal() = TrainingGoal.BALANCED

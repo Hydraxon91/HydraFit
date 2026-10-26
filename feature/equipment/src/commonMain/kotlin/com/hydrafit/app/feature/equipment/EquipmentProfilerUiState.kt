@@ -2,11 +2,13 @@ package com.hydrafit.app.feature.equipment
 
 import com.hydrafit.app.core.domain.equipment.CatalogExerciseProfile
 import com.hydrafit.app.core.domain.equipment.Equipment
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.exercisecontent.ExerciseCautions
@@ -147,6 +149,42 @@ data class EquipmentEditorState(
         get() = tag != null
 }
 
+/** Draft for one profile-scoped station. A blank grid means the station has no saved step range. */
+data class StationEditorState(
+    val stationId: Long = 0L,
+    val equipmentId: EquipmentTag? = null,
+    val name: String = "",
+    val loadBasis: StationLoadBasis = StationLoadBasis.TOTAL,
+    val minInput: String = "",
+    val maxInput: String = "",
+    val incrementInput: String = "",
+    val saving: Boolean = false,
+    val error: String? = null
+) {
+    val isOpen: Boolean get() = equipmentId != null
+
+    val isNew: Boolean get() = stationId == 0L
+
+    private val gridInputs = listOf(minInput, maxInput, incrementInput)
+
+    val hasGridInput: Boolean get() = gridInputs.any { it.isNotBlank() }
+
+    val canSave: Boolean
+        get() = name.isNotBlank() &&
+            (
+                !hasGridInput ||
+                    (
+                        gridInputs.all { it.isNotBlank() } &&
+                            minInput.toDoubleOrNull()?.let { it >= 0.0 } == true &&
+                            maxInput.toDoubleOrNull()?.let { max ->
+                                val min = minInput.toDoubleOrNull() ?: return@let false
+                                max >= min
+                            } == true &&
+                            incrementInput.toDoubleOrNull()?.let { it > 0.0 } == true
+                        )
+                )
+}
+
 data class EquipmentProfilerUiState(
     val equipment: List<Equipment> = emptyList(),
     val selectedTags: Set<EquipmentTag> = emptySet(),
@@ -168,6 +206,7 @@ data class EquipmentProfilerUiState(
     val profileDelete: EquipmentProfileDeleteState? = null,
     /** A failed profile-owned write that has no dialog of its own (switch or selection). */
     val profileFailure: EquipmentProfileFailure? = null,
+    val stationEditor: StationEditorState = StationEditorState(),
     val loadingEditor: LoadingInventoryEditorState = LoadingInventoryEditorState(),
     val calculator: LoadingCalculatorState = LoadingCalculatorState(),
     val isLoading: Boolean = true
@@ -190,6 +229,9 @@ data class EquipmentProfilerUiState(
 
     val customExercises: List<Exercise>
         get() = visibleExercises.filter { it.isCustom }
+
+    val activeStations: List<EquipmentStation>
+        get() = profile?.stations.orEmpty().filterNot { it.retired }
 }
 
 /**

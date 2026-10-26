@@ -56,8 +56,12 @@ class BuildPlannerLoadInputsUseCase(
         fun contributesToLoadMath(exerciseId: String, kind: LoadKind): Boolean =
             WorkoutLoadPolicy.contributesToLoadMath(capabilityOf(exerciseId), kind)
 
+        // A station-attributed set belongs to one physical stack and must never seed the generic
+        // exercise baseline or progression. Withholding the number is safer than mixing stations.
         val loadSets = sources.loggedWorkoutSets.filter {
-            it.performedAtMillis <= nowMillis && contributesToLoadMath(it.exerciseId, it.loadKind)
+            it.station == null &&
+                it.performedAtMillis <= nowMillis &&
+                contributesToLoadMath(it.exerciseId, it.loadKind)
         }
         val contributes = { id: String, kind: LoadKind -> contributesToLoadMath(id, kind) }
         val recentQualifyingSets = recentQualifyingSets(loadSets, nowMillis, contributes)
@@ -128,7 +132,9 @@ class BuildPlannerLoadInputsUseCase(
 
         val recentWeights = if (sources.workoutDataSharingEnabled) {
             buildRecentWeights(
-                sources.loggedWorkoutSets.filter { it.performedAtMillis <= nowMillis },
+                sources.loggedWorkoutSets.filter {
+                    it.station == null && it.performedAtMillis <= nowMillis
+                },
                 utcOffsetMillis
             )
         } else {

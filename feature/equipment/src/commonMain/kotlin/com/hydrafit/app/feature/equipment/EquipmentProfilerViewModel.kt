@@ -6,11 +6,13 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.equipment.CatalogProfileMatch
 import com.hydrafit.app.core.domain.equipment.CatalogProfileMatcher
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MAX_LOADING_TICKS
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.equipment.parseNativeTicks
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.unit.formatWeight
@@ -338,6 +340,132 @@ class EquipmentProfilerViewModel(
 
     fun onDismissEquipmentEditor() {
         _state.update { it.copy(equipmentEditor = EquipmentEditorState()) }
+    }
+
+    fun onAddStation(tag: EquipmentTag? = null) {
+        val equipment = tag
+            ?: _state.value.selectedTags.firstOrNull()
+            ?: _state.value.equipment.firstOrNull()?.id
+            ?: return
+        _state.update {
+            it.copy(stationEditor = StationEditorState(equipmentId = equipment))
+        }
+    }
+
+    fun onEditStation(station: EquipmentStation) {
+        _state.update {
+            it.copy(
+                stationEditor = StationEditorState(
+                    stationId = station.id,
+                    equipmentId = station.equipmentId,
+                    name = station.name,
+                    loadBasis = station.loadBasis,
+                    minInput = station.minWeightKg?.let(::formatWeight).orEmpty(),
+                    maxInput = station.maxWeightKg?.let(::formatWeight).orEmpty(),
+                    incrementInput = station.incrementKg?.let(::formatWeight).orEmpty()
+                )
+            )
+        }
+    }
+
+    fun onStationEquipmentChanged(tag: EquipmentTag) {
+        _state.update {
+            it.copy(stationEditor = it.stationEditor.copy(equipmentId = tag, error = null))
+        }
+    }
+
+    fun onStationNameChanged(value: String) {
+        _state.update {
+            it.copy(stationEditor = it.stationEditor.copy(name = value, error = null))
+        }
+    }
+
+    fun onStationLoadBasisChanged(value: StationLoadBasis) {
+        _state.update {
+            it.copy(stationEditor = it.stationEditor.copy(loadBasis = value, error = null))
+        }
+    }
+
+    fun onStationMinChanged(value: String) {
+        updateStationGrid { copy(minInput = value) }
+    }
+
+    fun onStationMaxChanged(value: String) {
+        updateStationGrid { copy(maxInput = value) }
+    }
+
+    fun onStationIncrementChanged(value: String) {
+        updateStationGrid { copy(incrementInput = value) }
+    }
+
+    private fun updateStationGrid(change: StationEditorState.() -> StationEditorState) {
+        _state.update {
+            it.copy(stationEditor = it.stationEditor.change().copy(error = null))
+        }
+    }
+
+    fun onSaveStation() {
+        val editor = _state.value.stationEditor
+        val equipmentId = editor.equipmentId ?: return
+        if (!editor.canSave) return
+        val context = profileContext ?: return
+        val profileId = context.profileId
+        val minimum = editor.minInput.takeIf(String::isNotBlank)?.toDouble()
+        val maximum = editor.maxInput.takeIf(String::isNotBlank)?.toDouble()
+        val increment = editor.incrementInput.takeIf(String::isNotBlank)?.toDouble()
+        viewModelScope.launch {
+            try {
+                profileRepository.saveStation(
+                    context,
+                    EquipmentStation(
+                        id = editor.stationId,
+                        profileId = profileId,
+                        equipmentId = equipmentId,
+                        name = editor.name,
+                        loadBasis = editor.loadBasis,
+                        minWeightKg = minimum,
+                        maxWeightKg = maximum,
+                        incrementKg = increment
+                    )
+                )
+                closeStationEditorWhileOn(profileId)
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        stationEditor = it.stationEditor.copy(
+                            error = failure.message ?: "",
+                            saving = false
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun onRetireStation(stationId: Long) {
+        val context = profileContext ?: return
+        val profileId = context.profileId
+        viewModelScope.launch {
+            try {
+                profileRepository.retireStation(context, stationId)
+                closeStationEditorWhileOn(profileId)
+            } catch (failure: Exception) {
+                _state.update {
+                    it.copy(
+                        stationEditor = it.stationEditor.copy(error = failure.message ?: "")
+                    )
+                }
+            }
+        }
+    }
+
+    private fun closeStationEditorWhileOn(profileId: Long) {
+        if (profileContext?.profileId != profileId) return
+        _state.update { it.copy(stationEditor = StationEditorState()) }
+    }
+
+    fun onDismissStationEditor() {
+        _state.update { it.copy(stationEditor = StationEditorState()) }
     }
 
     // --- Equipment profiles: create, copy, rename, switch and confirmed delete ---

@@ -337,4 +337,8 @@
     <string name="logger_loading_calculator_missing_lower">This inventory has no reachable load below the target.</string>
     <string name="logger_loading_calculator_missing_upper">This inventory has no reachable load above the target.</string>
     <string name="logger_loading_calculator_read_only_note">This helper only calculates. It never changes your logged sets or the prescription.</string>
+    <string name="logger_station_label">Station</string>
+    <string name="logger_station_none">No station</string>
+    <string name="logger_station_choose">Choose station</string>
+    <string name="logger_station_attributed">Station: %1$s</string>
 </resources>

@@ -199,6 +199,18 @@ class WorkoutLoggerViewModel(
             }
         }
         viewModelScope.launch {
+            equipment.stationsFlow().collectLatest { stations ->
+                _state.update { current ->
+                    val available = current.copy(stations = stations).availableStations
+                    current.copy(
+                        stations = stations,
+                        selectedStationId = current.selectedStationId
+                            ?.takeIf { id -> available.any { it.id == id } }
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
             // Preparation overrides are global, not per occurrence, so an edit made in an earlier
             // workout still applies here: a change rebuilds the current guidance rather than waiting
             // for the next occurrence.
@@ -396,6 +408,7 @@ class WorkoutLoggerViewModel(
         _state.update {
             it.copy(
                 selectedExerciseId = exerciseId,
+                selectedStationId = null,
                 exerciseInstructions = null,
                 weightInput = planWeight,
                 reps = planReps?.toString() ?: it.reps,
@@ -416,6 +429,19 @@ class WorkoutLoggerViewModel(
         }
         // Load the exercise setup note when an exercise is selected.
         onNoteExerciseSelected(exerciseId)
+    }
+
+    /** Selects a station for the manual form, or clears it when [stationId] is null. */
+    fun onStationSelected(stationId: Long?) {
+        val current = _state.value
+        val exerciseId = current.selectedExerciseId ?: return
+        val allowed = stationId == null || current.availableStations.any { it.id == stationId }
+        if (!allowed) return
+        manualInputGeneration++
+        _state.update { it.copy(selectedStationId = stationId) }
+        // Station evidence is a separate comparison population; refresh the form from that station's
+        // own latest set instead of leaving the exercise-level planner number in place.
+        viewModelScope.launch { prefillFromLastSet(exerciseId, current.weightUnit) }
     }
 
     fun openManualInstructions() {
@@ -454,8 +480,13 @@ class WorkoutLoggerViewModel(
 
     /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
     private suspend fun prefillFromLastSet(exerciseId: String, unit: WeightUnit) {
+        val stationId = _state.value.selectedStationId
         val last = getWorkoutLog()
-            .filter { it.exerciseId == exerciseId && !it.isWarmup }
+            .filter {
+                it.exerciseId == exerciseId &&
+                    !it.isWarmup &&
+                    if (stationId == null) it.station == null else it.station?.id == stationId
+            }
             .maxByOrNull { it.performedAtMillis }
             ?: return
         if (_state.value.selectedExerciseId != exerciseId) return
@@ -861,7 +892,8 @@ class WorkoutLoggerViewModel(
                 WorkoutTimingProvenance.CATCH_UP
             } else {
                 WorkoutTimingProvenance.UNKNOWN
-            }
+            },
+            station = current.selectedStationAttribution
         )
         // Capture the form identity at submission: if the user replaces any input, or the surrounding
         // context changes, a later completion must not reset the newer value or report a failure for
@@ -1938,7 +1970,8 @@ class WorkoutLoggerViewModel(
                     name = it.name,
                     isBodyweight = it.loadCapability != ExerciseLoadCapability.EXTERNAL,
                     isUnilateral = it.isUnilateral,
-                    loadCapability = it.loadCapability
+                    loadCapability = it.loadCapability,
+                    requiredEquipment = it.requiredEquipment
                 )
             }
             .sortedWith(compareBy({ priority[it.id] ?: Int.MAX_VALUE }, { it.name }))

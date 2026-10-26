@@ -19,6 +19,9 @@ CREATE TABLE workoutSet (
     completedAtElapsedMillis INTEGER,
     durationSeconds INTEGER,
     prescriptionSnapshot TEXT,
+    stationId INTEGER,
+    stationName TEXT,
+    stationLoadBasis TEXT,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
@@ -55,6 +58,17 @@ updateSetValuesAndInvalidateTiming:
 UPDATE workoutSet
 SET reps = ?, durationSeconds = ?, weightKg = ?, rir = ?, timingProvenance = 'UNKNOWN',
     startedAtElapsedMillis = NULL, completedAtElapsedMillis = NULL
+WHERE id = ?;
+
+-- Station attribution is frozen at logging. It is never inferred from today's equipment profile.
+assignStation:
+UPDATE workoutSet
+SET stationId = ?, stationName = ?, stationLoadBasis = ?
+WHERE id = ?;
+
+clearStation:
+UPDATE workoutSet
+SET stationId = NULL, stationName = NULL, stationLoadBasis = NULL
 WHERE id = ?;
 
 selectLastSetBySession:

@@ -207,7 +207,10 @@ SELECT
     w.performedAt AS performedAt,
     w.timingProvenance AS timingProvenance,
     w.occurrenceId AS occurrenceId,
-    w.durationSeconds AS durationSeconds
+    w.durationSeconds AS durationSeconds,
+    w.stationId AS stationId,
+    w.stationName AS stationName,
+    w.stationLoadBasis AS stationLoadBasis
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId
@@ -234,7 +237,10 @@ SELECT
     w.performedAt AS performedAt,
     w.timingProvenance AS timingProvenance,
     w.occurrenceId AS occurrenceId,
-    w.durationSeconds AS durationSeconds
+    w.durationSeconds AS durationSeconds,
+    w.stationId AS stationId,
+    w.stationName AS stationName,
+    w.stationLoadBasis AS stationLoadBasis
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId

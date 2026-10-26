@@ -71,6 +71,31 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun stationEditorSavesProfileScopedGridAndExposesItForTheLogger() = runTest(dispatcher) {
+        val profiles = EquipmentProfileTestRepository()
+        val viewModel = viewModel(profiles = profiles)
+        advanceUntilIdle()
+
+        viewModel.onAddStation()
+        viewModel.onStationEquipmentChanged(EquipmentTag.BARBELL)
+        viewModel.onStationNameChanged("Rack A")
+        viewModel.onStationMinChanged("20")
+        viewModel.onStationMaxChanged("200")
+        viewModel.onStationIncrementChanged("2.5")
+        assertTrue(viewModel.state.value.stationEditor.canSave)
+        viewModel.onSaveStation()
+        advanceUntilIdle()
+
+        val station = viewModel.state.value.activeStations.single()
+        assertEquals("Rack A", station.name)
+        assertEquals(EquipmentTag.BARBELL, station.equipmentId)
+        assertTrue(station.hasGrid)
+        assertEquals(20.0, station.minWeightKg)
+        assertEquals(200.0, station.maxWeightKg)
+        assertEquals(2.5, station.incrementKg)
+    }
+
+    @Test
     fun instructionsUseStableIdentityAndPreserveEquipmentAndEditorState() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()

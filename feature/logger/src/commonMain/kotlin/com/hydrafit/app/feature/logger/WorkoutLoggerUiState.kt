@@ -4,7 +4,10 @@ import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
+import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -26,7 +29,8 @@ data class ExerciseOption(
     val name: String,
     val isBodyweight: Boolean,
     val isUnilateral: Boolean = false,
-    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL
+    val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
+    val requiredEquipment: Set<EquipmentTag> = emptySet()
 ) {
     /** Only an addable bodyweight movement may reveal a field for added kilograms. */
     val canAddLoad: Boolean get() = loadCapability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE
@@ -306,7 +310,11 @@ data class WorkoutLoggerUiState(
     /** Dumbbell load basis per exercise id; non-dumbbell and unknown ids stay absent. */
     val exerciseLoadBasis: Map<String, LoadBasis> = emptyMap(),
     val exerciseSearch: String = "",
+    /** Active profile stations; retired rows stay in history but are not offered here. */
+    val stations: List<EquipmentStation> = emptyList(),
     val selectedExerciseId: String? = null,
+    /** The station chosen for the manual form, or null to log unattributed work. */
+    val selectedStationId: Long? = null,
     /** Which metric the manual form records; the other entry field is never submitted. */
     val metric: SetMetric = SetMetric.REPETITIONS,
     val reps: String = "",
@@ -622,6 +630,22 @@ data class WorkoutLoggerUiState(
     /** True when the selected exercise is one-side-at-a-time, so the entered weight is per hand. */
     val selectedExerciseIsUnilateral: Boolean
         get() = exercises.firstOrNull { it.id == selectedExerciseId }?.isUnilateral == true
+
+    /** Stations compatible with the selected exercise's current equipment tags. */
+    val availableStations: List<EquipmentStation>
+        get() {
+            val required = exercises.firstOrNull { it.id == selectedExerciseId }
+                ?.requiredEquipment
+                .orEmpty()
+            return stations.filter { !it.retired && it.equipmentId in required }
+        }
+
+    val selectedStation: EquipmentStation?
+        get() = availableStations.firstOrNull { it.id == selectedStationId }
+
+    /** The frozen attribution submitted with the next set, or null for unattributed work. */
+    val selectedStationAttribution: StationAttribution?
+        get() = selectedStation?.attribution()
 
     /** Exercises matching the picker search, or all of them when the search is blank. */
     val visibleExercises: List<ExerciseOption>

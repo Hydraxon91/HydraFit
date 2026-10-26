@@ -84,4 +84,7 @@
     <string name="bodyweight_duplicate_title">Replace the measurement for this day?</string>
     <string name="bodyweight_duplicate_message">A measurement for %1$s already exists. Replacing it overwrites the stored value.</string>
     <string name="bodyweight_duplicate_replace">Replace</string>
+    <string name="progress_station_all">All stations</string>
+    <string name="progress_station_unattributed">No station</string>
+    <string name="progress_station_station">Station: %1$s</string>
 </resources>
