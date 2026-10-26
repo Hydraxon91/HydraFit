@@ -502,8 +502,9 @@ swapped slot is self-describing like any other accepted entry.
   2. (S) Make the plan view prefer the snapshot name (S5-001).
 
 Recent-set corrections use `CorrectWorkoutSetUseCase` through `WorkoutLogMutations`.
-`SessionResegmenter.resegmentAfterSetCorrection` updates reps, nullable weight and nullable RIR
-on the same row in one SQLDelight transaction. It invokes the existing time-resegmentation
+`SessionResegmenter.resegmentAfterSetCorrection` updates the performed measure (reps, whole
+seconds or whole metres), nullable weight and nullable RIR on the same row in one SQLDelight
+transaction. It invokes the existing time-resegmentation
 algorithm only when the performed time changes; unchanged time uses a bounded row lookup and
 leaves session bounds untouched. Exercise, warm-up, load kind, muscle/plan snapshots and occurrence
 links are never replaced. Recorded BODYWEIGHT stays non-numeric; EXTERNAL, ADDED and legacy loads
@@ -530,8 +531,9 @@ lost nor changes that migration's behavior. SQLDelight's resolver rejects `sqlit
 Performed sets use exclusive nullable repetitions or positive whole `durationSeconds`; seconds
 are never encoded as reps. Migration `52.sqm` preserves existing counted sets. Timed working sets
 remain in history, coverage and count-based completion but do not enter rep-derived fatigue,
-strength records or planner load calculations. CSV export includes duration; Strong and Hevy import
-explicit seconds and reject rows with both positive measures. FitNotes remains rep-only.
+strength records or planner load calculations. CSV export includes duration and distance; providers
+import explicit seconds or a stated-unit distance and reject a row carrying more than one positive
+measure.
 
 Migration `53.sqm` carries the same metric choice into user-authored routine slots and frozen
 activation/occurrence entries, preserving ids, snapshots and indexes. Authoring requires the user
@@ -583,7 +585,8 @@ Injected profile-insert failure tests require rollback of the entire replacement
   `34.sqm`/`35.sqm` timing provenance and elapsed instants), new tables (`21.sqm` `personalRecord`,
   `25.sqm` routine templates, `26.sqm` activations/occurrences/schedule cursor, `36.sqm` rest
   preferences/countdown, `37.sqm` training-guidance preferences, `60.sqm` equipment stations plus
-  nullable performed-set station columns).
+  nullable performed-set station columns, `61.sqm` whole-metre distance on performed sets and the four
+  prescription stores plus the metres/feet preference).
 - **Consistency:** high; the current `.sq` matches the cumulative migrations exactly, including column
   order. A one-off 0.6.0 exception reordered columns — adding, removing and retyping nothing — in
   `exercise`, `exerciseOverride` (`involvements` declared before `loadCapability`, since `19.sqm` added
@@ -931,6 +934,8 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   formats 1–10 restore as returning users with undecided weekdays. Unsupported setup values,
   duplicate/unknown weekdays and non-null selections outside 2–6 days are rejected before staging.
   The internal setup revision is a concurrency token, not backup data; restore starts it at zero.
+  Format 26 adds whole-metre distance on performed sets and the four prescription stores plus the
+  metres/feet preference; formats 1–25 reject a distance field and restore the metres default.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
@@ -1270,7 +1275,8 @@ persistence:
 - **Parsing** (`:core:domain` `transfer/WorkoutCsvParser`) reads one explicitly-chosen provider layout
   (`FITNOTES`, `STRONG`, `HEVY`) with `CsvTableReader`. It never sniffs a layout from headers or
   values, and it produces source-local records only: a civil date, an optional time of day, the
-  original exercise name and native weight with its unit. It does not invent a UTC instant, a session
+  original exercise name, native weight with its unit, and the row's reps, seconds or distance with
+  its stated distance unit. It does not invent a UTC instant, a session
   id, a warm-up flag, an RIR value or an exercise mapping, and a value it cannot represent becomes a
   typed row diagnostic instead of fabricated data.
 - **Preview** (`transfer/PreviewWorkoutImport`) resolves those records into an approved plan: explicit
@@ -1312,14 +1318,19 @@ additive-migration rule and `backup.md` in the mechanics skill for the format de
 
 Sharing a prescription is a separate, narrower contract than a backup. `core/domain`'s
 `transfer/PrescriptionModels.kt` defines the versioned `hydrafit-routines` document: an ordered list
-of routines (name, optional focus, ordered slots with sets/reps/load kind) plus only the custom
-exercise definitions those slots reference, each as resolved values. It has no representation for
+of routines (name, optional focus, ordered slots with sets and one of reps, whole seconds or whole
+metres, plus load kind) plus only the custom exercise definitions those slots reference, each as
+resolved values. It has no representation for
 performed history, personal records, notes, credentials, equipment inventories, schedule state, cycle
 progress or engine explanations, and `PrescriptionJson` rejects an unknown field rather than ignoring
 it, so a document cannot smuggle one in. `includesWeights` is the recorded user choice: the exporter
 omits prescribed weights unless it is true, and a document that claims to be weights-free but carries
 one is rejected. `PrescriptionValidator` checks the format/version, the shared prescription bounds,
-the shape bounds and the internal references without touching storage or a catalog.
+the shape bounds and the internal references without touching storage or a catalog. The current
+document version is 6: v2 added timed seconds, v3 the progression policy, v4 ordered per-set targets,
+v5 supersets and v6 whole-metre distance. A field introduced in a later version is rejected in an
+earlier document rather than dropped or reinterpreted, and a measured slot must have exactly one of
+reps, seconds and metres.
 
 `ExportPrescriptionsUseCase` reads only the chosen routines and the catalog rows they reference, so
 the privacy surface is what it reads rather than what it filters. Import is the mirror image and is
@@ -1378,6 +1389,23 @@ engines behave the same. It groups only already-selected adjacent curated biceps
 slots, never reorders, adds or re-prescribes, and leaves an existing manual group alone. The curated
 set excludes custom exercises and close-grip bench press, which the catalog classifies as a compound
 `HORIZONTAL_PUSH` rather than an isolation pattern.
+
+### 1.24 Distance as the third set measure (0.11.1)
+
+Reps, whole seconds and whole metres are mutually exclusive measures for performed sets and for
+routine, accepted-plan, activation and occurrence slots. Additive `61.sqm` adds nullable
+`distanceMeters` to those five stores; existing rows keep their rep or duration measure and are never
+backfilled. `PrescriptionBounds` bounds a distance to positive whole metres, and a distance entry is
+converted from the selected display unit at authoring time, so storage stays canonical metres.
+
+The metres/feet preference (`plannerEngine.distanceUnit`, default `METERS`) is presentation only:
+`formatDistance` renders stored metres in that unit, while e1RM, strength records, fatigue and planner
+load inputs read reps and load only, so distance never contributes to them. A distance slot may still
+carry its own separate load. CSV import reads provider distance columns with their stated unit
+(`m`, `km`, `mi`) into whole metres and rejects a row carrying more than one positive measure; the
+canonical identity prefix is `distance:<n>`. Backup format 26 and prescription interchange v6 carry
+distance and the preference, while older files reject a distance field rather than dropping or
+reinterpreting it; the PDF prints `"<n> m"`.
 
 ## 2. Decision log
 

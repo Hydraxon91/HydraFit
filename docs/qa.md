@@ -3997,3 +3997,50 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   equipment identity). No host render assertion covers the SplitBuilder/Logger disclosure strings;
   their evidence is device-observed.
 
+## 0.11.1 — distance as a third measurement (2026-10-26)
+
+- **Scope.** Distance is an exclusive third set measurement in canonical whole metres alongside reps
+  and elapsed seconds. Authored/frozen in routines and accepted plans, snapped into activations and
+  occurrences, logged with an optional load (carries), corrected, shown in Logger/history/summary and
+  progress, exported/imported (CSV, prescription interchange v6, PDF) and backed up (format 26).
+  Metres/feet preference is stored and restored. Distance never enters rep-based e1RM, external
+  volume, fatigue or automatic progression, and timed/distance cannot coexist in one set.
+- **Schema and formats.** Additive `61.sqm` adds `distanceMeters` to `workoutSet`, `routineEntry`,
+  `planHistoryEntry`, `activationEntry` and `occurrenceEntry`, plus `plannerEngine.distanceUnit`
+  defaulting to `METERS`; no backfill. Recorded snapshot format 4 and backup format 26 gate the new
+  field, and interchange v6 carries it.
+- **Verification.** `0111-full-matrix-final-4.log`: 409 tasks executed, 0 up-to-date — host suite
+  (2,871+ tests across 16 modules), `verifySqlDelightMigration`, `ktlintCheck` for the nine affected
+  modules. Debug assembly and both iOS compiles passed in `0111-assemble-ios-final-2.log`; scoped
+  ktlint pass/check in `0111-parent-ktlint-check.log` and the follow-up fix logs. Forward test runs:
+  `0111-full-matrix-tests.log` (coder) and the final matrix after the review corrections.
+- **Tests added.** Domain: `SetMeasurementTest` distance case, `WorkoutPrescriptionSnapshotTest`
+  format gate, `DistanceUnitTest` (metres↔feet, `displayWhole`, `formatDistance`),
+  `ExerciseProgressCalculatorTest.distanceSetsFeedTheDayTrendButNeverRecordsOrEstimates`,
+  `WarmupGuidanceTest.doesNotRampADistanceSlotEvenWhenItCarriesLoad`, CSV/interchange/PDF cases.
+  Database: `DistanceMigrationTest` (schema 62 idle default, column presence, no backfill),
+  `SqlDelightBackupRepositoryTest.distanceSetsAndPreferenceRoundTripThroughBackupAtTheCurrentFormat`
+  (metres restored from a `FEET` preference, format-25 rejection),
+  `BackupValidatorTest.acceptsAPrescriptionSnapshotWhosePerformedWorkDiffersFromItsTarget` (a missed
+  rep, shortened timed set and partly completed carry stay restorable) with both distance-direction
+  kind rejections, and
+  `SqlDelightSessionResegmenterTest.changingTheMeasurementKindClearsTheRecordedTargetButAValueCorrectionKeepsIt`.
+  Features: routines/SplitBuilder authoring unit conversion, Logger manual/correction/draft distance,
+  progress day totals, settings unit selection.
+- **Decisions recorded during review.** A prescription target may differ in value from the performed
+  set (only the measurement kind must match); and a correction that changes a set's measurement kind
+  clears its recorded target, mirroring the logger rule that a differently measured set carries none.
+  CSV import intentionally rejects a row holding both reps and a positive distance instead of
+  importing the reps.
+- **Known flake.** `:shared:testAndroidHostTest` raised `UncaughtExceptionsBeforeTest`
+  (`Dispatchers.Main was accessed …`) twice across runs when `DefaultWorkoutPlannerEngineProviderTest`
+  followed `KoinModulesVerificationTest`; three reruns and the final matrix passed. The harness race
+  predates this slice (`ba2f5c67`) and was not modified.
+- **Limits.** No emulator acceptance for any distance surface; the on-device `61.sqm` upgrade and a
+  device backup restore/merge carrying distance remain unverified. Backup/interchange tests exercise
+  the real repository paths but not a second install. Distance charts are the day-total line only. A
+  backup exported by an unreleased pre-correction 0.11.0 developer build could contain a
+  kind-mismatched set/target pair and would now fail restore validation as a whole; no published
+  version can produce that shape, and every current writer enforces the kind rule.
+
+

@@ -32,6 +32,15 @@ grid. A set's station fields are written by `assignStation` after the ordinary i
 existing insert signatures and legacy rows remain unchanged. Positive station ids are local
 profile identities; zero is reserved for a frozen label imported by add-only merge.
 
+0.11.1 distance: additive `61.sqm` adds nullable `distanceMeters` to `workoutSet`, `routineEntry`,
+`planHistoryEntry`, `activationEntry` and `occurrenceEntry`, plus
+`plannerEngine.distanceUnit` (text, default `METERS`). Existing rows keep their rep or duration
+measure; there is no backfill or data rewrite. `insertSet` keeps its existing signature, so a
+distance set is written by `assignDistance(distanceMetres, id)` after `lastInsertedSetId()` inside
+the same transaction (`DistanceMigrationTest` covers the chain and the write). Stored distance is
+always whole metres; `SqlDelightDistanceUnitRepository` reads and writes only the display
+preference and falls back to metres for an absent or unknown stored value.
+
 Query files: `Equipment.sq`, `EquipmentProfile.sq`, `EquipmentStation.sq`, `Exercise.sq`,
 `ExerciseExclusion.sq`, `ExerciseNote.sq`,
 `ExerciseOverride.sq`, `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`,

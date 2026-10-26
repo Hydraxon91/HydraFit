@@ -14,10 +14,13 @@ or one station. UI copy lives in each feature's `strings.xml`.
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
-with a Reps/Seconds choice and a value field, backed by `MeasureDialogState`. A timed slot renders
-`sets × seconds s`; a slot whose measure is somehow absent renders the bare name rather than a `0`
-sentinel. Invalid input writes nothing and reports a specific reason (rep range, non-positive
-seconds, or seconds beyond the recordable range). A draft edit is state-only and carries into
+with a Reps/Seconds/Distance choice and a value field, backed by `MeasureDialogState`. A timed slot
+renders `sets × seconds s`, a distance slot renders its stored metres in the selected display unit,
+and a slot whose measure is somehow absent renders the bare name rather than a `0` sentinel. Invalid
+input writes nothing and reports a specific reason (rep range, non-positive seconds, seconds beyond
+the recordable range, or a distance outside the metre bounds, including an unparseable oversized
+value). A distance is entered in the selected unit and converted to whole metres before bounds
+checking, so the stored slot is never unit-dependent. A draft edit is state-only and carries into
 acceptance; an accepted-plan edit persists through `SetAcceptedExerciseMeasureUseCase` in place, like
 a swap, and leaves the frozen volume assessment and the slot's recorded reasons untouched.
 
@@ -106,6 +109,29 @@ Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) 
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable
 for manual logging/routines; the full catalog is not filtered by planner eligibility.
 Self-resisted lateral neck flexion uses the existing no-number load UI, not kg resistance.
+
+## Distance prescription and logging (0.11.1)
+
+Distance is the third exclusive measure: positive whole metres stored canonically, never a rep count
+or seconds. Routines offers a Repetitions/Seconds/Distance choice with a distance field labelled in
+the selected unit; `parseDisplayedDistance` converts the typed number to metres and rejects blank or
+negative input, so only the selected measure is saved. The same choice flows through routine
+activation, occurrence edits, accepted plans (`MeasureMetric.DISTANCE` in SplitBuilder) and the
+recorded set, and a stored distance reopens in the display unit it was authored in.
+
+The Logger accepts a distance for manual and guided logging, copies a guided target's metres into
+the recorded set, snapshots them into `WorkoutPrescriptionSnapshot`, and lets the correction editor
+change distance as the performed measure without touching load snapshots. History details and the
+post-workout summary render the recorded distance; Progress shows a day total and a per-set line.
+`formatDistance(meters, unit)` uses the metres/feet preference from `Settings` and has an Int and a
+Long overload, so summed day totals cannot narrow. Storage stays metres regardless of the preference.
+
+A distance never enters rep-derived e1RM, strength records, modeled fatigue or planner load inputs,
+and a distance slot keeps its load separate from the distance. CSV import reads FitNotes/Strong
+`Distance` + `Distance Unit` and Hevy `distance_miles`/`distance_km` into metres; malformed values or
+an unknown unit are row diagnostics, a row with more than one of reps/seconds/distance is rejected as
+`AMBIGUOUS_ROW_SHAPE`, and the canonical identity prefix is `distance:<n>`. See `backup.md` for the
+CSV, interchange and backup format detail.
 
 ## Anatomical fatigue map (0.9.2)
 

@@ -1,16 +1,18 @@
 # Planning mechanics
 
 User-authored routines, frozen activation/occurrence slots and accepted-plan slots support
-exclusive reps or whole seconds. The engines themselves still prescribe reps only and never invent a
-duration: an accepted-plan slot's seconds are always the user's own measure edit, made in
-SplitBuilder's per-slot measure action (Reps/Seconds plus a value; invalid input writes nothing). A
-draft edit is state-only and carries into acceptance; an accepted-plan edit persists in place like a
-swap and keeps the plan's id and acceptance time. Swap preserves the replaced slot's measure,
-plan-to-routine conversion carries it, and Regenerate produces a fresh rep-based plan, so a user-set
-duration is not preserved across regeneration. A timed slot is skipped by rep-based load progression
-rather than counted as zero reps, and performed timed sets do not enter rep-derived fatigue/load
-inputs. Informational soreness/exhaustion storage is deferred; do not infer that the existing
-fatigue-based skip/reduce behavior consumes user reports.
+exclusive reps, whole seconds or whole metres. The engines themselves still prescribe reps only and
+never invent a duration or a distance: an accepted-plan slot's seconds or metres are always the
+user's own measure edit, made in SplitBuilder's per-slot measure action (Reps/Seconds/Distance plus a
+value; a distance is entered in the selected display unit and stored as whole metres; invalid input
+writes nothing). A draft edit is state-only and carries into acceptance; an accepted-plan edit
+persists in place like a swap and keeps the plan's id and acceptance time. Swap preserves the
+replaced slot's measure, plan-to-routine conversion carries it, and Regenerate produces a fresh
+rep-based plan, so a user-set duration or distance is not preserved across regeneration. A timed or
+distance slot is skipped by rep-based load progression rather than counted as zero reps, and
+performed timed/distance sets do not enter rep-derived fatigue or load inputs; a distance slot keeps
+its own load separate from the distance. Informational soreness/exhaustion storage is deferred; do
+not infer that the existing fatigue-based skip/reduce behavior consumes user reports.
 
 ## Curated planner superset pairing (0.10.3)
 
