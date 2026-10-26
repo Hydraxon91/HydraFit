@@ -19,18 +19,24 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
                 "That set no longer exists"
             }.toDomain()
             WorkoutLoadPolicy.validateShape(set.loadKind, correction.weightKg)
+            val measureKindChanged =
+                (set.reps != null) != (correction.reps != null) ||
+                    (set.durationSeconds != null) != (correction.durationSeconds != null) ||
+                    (set.distanceMeters != null) != (correction.distanceMeters != null)
             if (set.performedAtMillis != correction.performedAtMillis) {
                 resegmentTime(setId, correction.performedAtMillis, utcOffsetMillis)
             }
             if (
                 set.reps != correction.reps ||
                 set.durationSeconds != correction.durationSeconds ||
+                set.distanceMeters != correction.distanceMeters ||
                 set.weightKg != correction.weightKg ||
                 set.rir != correction.rir
             ) {
                 setQueries.updateSetValuesAndInvalidateTiming(
                     reps = correction.reps?.toLong(),
                     durationSeconds = correction.durationSeconds?.toLong(),
+                    distanceMeters = correction.distanceMeters?.toLong(),
                     weightKg = correction.weightKg,
                     rir = correction.rir?.toLong(),
                     id = setId
@@ -39,10 +45,17 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
                 setQueries.updateSetValues(
                     reps = correction.reps?.toLong(),
                     durationSeconds = correction.durationSeconds?.toLong(),
+                    distanceMeters = correction.distanceMeters?.toLong(),
                     weightKg = correction.weightKg,
                     rir = correction.rir?.toLong(),
                     id = setId
                 )
+            }
+            // A target recorded for repaired reps cannot describe a set that now records seconds or
+            // metres: the exposure becomes unjudgeable instead of silently mismatched, the same rule
+            // the logger applies when it decides not to capture a target at all.
+            if (measureKindChanged) {
+                setQueries.clearPrescriptionSnapshot(setId)
             }
         }
     }

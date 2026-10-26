@@ -112,6 +112,29 @@ class BackupValidatorTest {
                 )
             )
         }
+        // The distance direction is rejected the same way, in both orientations: a rep target on
+        // distance work and a distance target on rep work both leave the exposure unjudgeable.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(
+                        reps = null,
+                        distanceMeters = 400,
+                        prescriptionSnapshot = snapshot()
+                    )
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(
+                        reps = 5,
+                        prescriptionSnapshot = snapshot(reps = null, distanceMeters = 400)
+                    )
+                )
+            )
+        }
     }
 
     @Test
@@ -119,6 +142,40 @@ class BackupValidatorTest {
         validator.validate(
             profiledFile(BACKUP_FORMAT_VERSION).copy(
                 workoutSets = listOf(set(prescriptionSnapshot = snapshot()))
+            )
+        )
+    }
+
+    @Test
+    fun acceptsAPrescriptionSnapshotWhosePerformedWorkDiffersFromItsTarget() {
+        // The recorded target is the prescription; a missed rep, a shortened timed set, a partly
+        // completed carry or any later correction legitimately changes the performed value without
+        // invalidating the file. Only the measurement kind has to agree.
+        validator.validate(
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(reps = 6, prescriptionSnapshot = snapshot(reps = 5)),
+                    set(
+                        id = 2,
+                        reps = null,
+                        durationSeconds = 30,
+                        weightKg = null,
+                        loadKind = "BODYWEIGHT",
+                        prescriptionSnapshot = snapshot(
+                            reps = null,
+                            durationSeconds = 45,
+                            loadKind = "BODYWEIGHT",
+                            weightKg = null
+                        )
+                    ),
+                    set(
+                        id = 3,
+                        reps = null,
+                        distanceMeters = 450,
+                        weightKg = 40.0,
+                        prescriptionSnapshot = snapshot(reps = null, distanceMeters = 400)
+                    )
+                )
             )
         )
     }
@@ -1535,6 +1592,7 @@ class BackupValidatorTest {
         occurrenceEntryId: Long? = null,
         reps: Int? = 5,
         durationSeconds: Int? = null,
+        distanceMeters: Int? = null,
         prescriptionSnapshot: String? = null
     ) = BackupWorkoutSetRecord(
         id = id,
@@ -1556,6 +1614,7 @@ class BackupValidatorTest {
         startedAtElapsedMillis = startedAtElapsedMillis,
         completedAtElapsedMillis = completedAtElapsedMillis,
         durationSeconds = durationSeconds,
+        distanceMeters = distanceMeters,
         prescriptionSnapshot = prescriptionSnapshot
     )
 
@@ -1573,12 +1632,17 @@ class BackupValidatorTest {
         weightKg: Double? = 100.0,
         policy: SlotProgressionPolicy? = null,
         setIndex: Int? = null,
-        targetRir: Int? = null
+        targetRir: Int? = null,
+        reps: Int? = 5,
+        durationSeconds: Int? = null,
+        distanceMeters: Int? = null
     ) = WorkoutPrescriptionSnapshotJson.encode(
         WorkoutPrescriptionSnapshot(
             exerciseId = exerciseId,
             sets = 3,
-            reps = 5,
+            reps = reps,
+            durationSeconds = durationSeconds,
+            distanceMeters = distanceMeters,
             loadKind = LoadKind.valueOf(loadKind),
             weightKg = weightKg,
             isDeload = false,

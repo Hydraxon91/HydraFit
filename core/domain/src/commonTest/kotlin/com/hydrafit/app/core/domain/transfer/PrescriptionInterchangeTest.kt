@@ -556,6 +556,62 @@ class PrescriptionInterchangeTest {
         }
 
     @Test
+    fun exportsADistanceSlotAtTheCurrentVersionAndRefusesItInAnEarlierOne() = runBlocking {
+        val distanceRoutine = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Day 1",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "back-squat",
+                            sets = 1,
+                            reps = null,
+                            distanceMeters = 5_000,
+                            weightKg = null,
+                            loadKind = LoadKind.BODYWEIGHT
+                        )
+                    )
+                )
+            )
+        )
+        val distanceRepository = object : RoutineTemplateRepository {
+            override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(listOf(distanceRoutine))
+
+            override suspend fun get(id: Long): RoutineTemplate? =
+                distanceRoutine.takeIf { it.id == id }
+
+            override suspend fun save(template: RoutineTemplate): Long = 0L
+            override suspend fun setArchived(id: Long, archivedAtMillis: Long?) = Unit
+            override suspend fun isReferencedByActivation(id: Long): Boolean = false
+            override suspend fun delete(id: Long) = Unit
+        }
+
+        val document =
+            ExportPrescriptionsUseCase(distanceRepository, catalog)(listOf(7L), false, "t", 1L)
+
+        assertEquals(PRESCRIPTION_DISTANCE_FORMAT_VERSION, document.formatVersion)
+        val slot = document.routines.single().allEntries().single()
+        assertNull(slot.reps)
+        assertNull(slot.durationSeconds)
+        assertEquals(5_000, slot.distanceMeters)
+        PrescriptionValidator.validate(document)
+        // Metres survive the JSON contract rather than only the object graph.
+        assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+
+        // A document that predates distance refuses the metres instead of dropping them.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(
+                    document.copy(formatVersion = PRESCRIPTION_DISTANCE_FORMAT_VERSION - 1)
+                )
+            }.failure
+        )
+    }
+
+    @Test
     fun aCurrentDocumentRefusesASlotMeasuredByBothOrByNeither() {
         fun document(entry: PrescriptionEntryRecord) = PrescriptionDocument(
             format = PRESCRIPTION_FORMAT,
@@ -573,11 +629,19 @@ class PrescriptionInterchangeTest {
         PrescriptionValidator.validate(
             document(entry("back-squat").copy(reps = null, durationSeconds = 90))
         )
+        PrescriptionValidator.validate(
+            document(entry("back-squat").copy(reps = null, distanceMeters = 5_000))
+        )
         listOf(
             entry("back-squat").copy(reps = 8, durationSeconds = 90),
+            entry("back-squat").copy(reps = 8, distanceMeters = 5_000),
+            entry("back-squat").copy(durationSeconds = 90, distanceMeters = 5_000),
             entry("back-squat").copy(reps = null, durationSeconds = null),
             entry("back-squat").copy(reps = null, durationSeconds = 0),
-            entry("back-squat").copy(reps = null, durationSeconds = -60)
+            entry("back-squat").copy(reps = null, durationSeconds = -60),
+            entry("back-squat").copy(reps = null, distanceMeters = 0),
+            entry("back-squat").copy(reps = null, distanceMeters = -5_000),
+            entry("back-squat").copy(reps = null, distanceMeters = 100_001)
         ).forEach { invalid ->
             assertEquals(
                 PrescriptionFailure.INVALID_VALUE,

@@ -28,7 +28,8 @@ class ConvertPlanToTemplateUseCase {
                         loadKind = exercise.loadKind,
                         progressionPolicy = exercise.progressionPolicy,
                         setTargets = exercise.setTargets,
-                        superset = exercise.superset
+                        superset = exercise.superset,
+                        distanceMeters = exercise.distanceMeters
                     )
                 }
             )
@@ -54,7 +55,8 @@ class ConvertPlanToTemplateUseCase {
                         loadKind = exercise.loadKind,
                         progressionPolicy = exercise.progressionPolicy,
                         setTargets = exercise.setTargets,
-                        superset = exercise.superset
+                        superset = exercise.superset,
+                        distanceMeters = exercise.distanceMeters
                     )
                 }
             )

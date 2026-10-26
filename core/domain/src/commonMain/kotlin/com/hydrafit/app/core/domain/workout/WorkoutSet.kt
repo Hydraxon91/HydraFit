@@ -44,7 +44,9 @@ data class WorkoutSet(
      * The physical station this set was performed on, frozen at logging, or null for legacy and
      * unattributed work. A station identity is independent of the mutable station row.
      */
-    val station: StationAttribution? = null
+    val station: StationAttribution? = null,
+    /** Whole metres for a distance set, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 ) {
     /**
      * The set's measurement when its stored shape is valid, or null when the row is neither a
@@ -53,10 +55,22 @@ data class WorkoutSet(
      */
     val measurement: SetMeasurement?
         get() = when {
-            durationSeconds != null && durationSeconds > 0 && reps == null ->
+            distanceMeters != null &&
+                distanceMeters > 0 &&
+                reps == null &&
+                durationSeconds == null ->
+                SetMeasurement.Distance(distanceMeters)
+
+            durationSeconds != null &&
+                durationSeconds > 0 &&
+                reps == null &&
+                distanceMeters == null ->
                 SetMeasurement.Duration(durationSeconds)
 
-            durationSeconds == null && reps != null && reps > 0 ->
+            durationSeconds == null &&
+                distanceMeters == null &&
+                reps != null &&
+                reps > 0 ->
                 SetMeasurement.Repetitions(reps)
 
             else -> null
@@ -71,13 +85,22 @@ data class WorkoutSet(
  * stays null rather than carrying a sentinel.
  */
 fun requireValidSetMeasurement(reps: Int?, durationSeconds: Int?) {
+    requireValidSetMeasurement(reps, durationSeconds, null)
+}
+
+fun requireValidSetMeasurement(reps: Int?, durationSeconds: Int?, distanceMeters: Int?) {
     val hasReps = reps != null && reps > 0
     val hasDuration = durationSeconds != null && durationSeconds > 0
-    require(hasReps != hasDuration) {
-        "A set is measured by positive repetitions or positive whole seconds, exactly one of them"
+    val hasDistance = distanceMeters != null && distanceMeters > 0
+    require(listOf(hasReps, hasDuration, hasDistance).count { it } == 1) {
+        "A set is measured by positive repetitions, positive whole seconds or positive metres, " +
+            "exactly one of them"
     }
     require(reps == null || reps > 0) { "Reps must be positive when present" }
     require(durationSeconds == null || durationSeconds > 0) {
         "Duration must be positive whole seconds when present"
+    }
+    require(distanceMeters == null || distanceMeters > 0) {
+        "Distance must be positive whole metres when present"
     }
 }

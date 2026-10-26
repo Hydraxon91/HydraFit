@@ -19,6 +19,7 @@ import com.hydrafit.app.core.domain.backup.BackupPreferenceRecord
 import com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
+import com.hydrafit.app.core.domain.backup.DISTANCE_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
@@ -136,7 +137,8 @@ class SqlDelightBackupRepositoryTest {
             weightKg = 60.0,
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = encoded
+            setTargets = encoded,
+            distanceMeters = null
         )
 
         val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
@@ -167,7 +169,8 @@ class SqlDelightBackupRepositoryTest {
             weightKg = 100.0,
             loadKind = "EXTERNAL",
             progressionPolicy = encoded,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
 
         val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
@@ -707,7 +710,8 @@ class SqlDelightBackupRepositoryTest {
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
 
         val file = repository.export(appVersion = "t", exportedAtMillis = 1L)
@@ -1224,6 +1228,65 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun distanceSetsAndPreferenceRoundTripThroughBackupAtTheCurrentFormat() = runTest {
+        seedRepresentativeData()
+        database.workoutLogQueries.insertSetWithTimingProvenance(
+            exerciseId = "back-squat",
+            reps = null,
+            weightKg = 40.0,
+            performedAt = 20,
+            isWarmup = 0,
+            involvements = "QUADS:1.0",
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "s1",
+            loadKind = "EXTERNAL",
+            timingProvenance = "LIVE",
+            startedAtElapsedMillis = null,
+            completedAtElapsedMillis = null,
+            durationSeconds = null,
+            prescriptionSnapshot = null
+        )
+        val distanceSetId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+        database.workoutLogQueries.assignDistance(400L, distanceSetId)
+        database.plannerEngineQueries.updateDistanceUnit("FEET")
+
+        val catalog = SqlDelightBackupCatalog()
+        val exported = repository.export("t", 1L)
+        assertEquals(BACKUP_FORMAT_VERSION, exported.formatVersion)
+        BackupValidator(catalog).validate(exported)
+
+        val record = exported.workoutSets.first { it.distanceMeters != null }
+        assertNull(record.reps)
+        assertNull(record.durationSeconds)
+        assertEquals(400, record.distanceMeters)
+        assertEquals(40.0, record.weightKg)
+        assertEquals("FEET", exported.settings?.distanceUnit)
+
+        // The restore path writes the canonical metres back, never a converted display value.
+        repository.restore(exported)
+        val restored = database.workoutLogQueries.selectAllSets().executeAsList()
+            .first { it.distanceMeters != null }
+        assertEquals(distanceSetId, restored.id)
+        assertNull(restored.reps)
+        assertNull(restored.durationSeconds)
+        assertEquals(400L, restored.distanceMeters)
+        assertEquals(
+            "FEET",
+            database.plannerEngineQueries.selectDistanceUnit().executeAsOneOrNull()
+        )
+
+        // Format 25 cannot express distance: a file that carries it is rejected, not reinterpreted.
+        val older = exported.copy(formatVersion = DISTANCE_FORMAT_VERSION - 1)
+        assertEquals(
+            BackupFailure.INVALID_VALUE,
+            assertFailsWith<BackupException> { BackupValidator(catalog).validate(older) }.failure
+        )
+    }
+
+    @Test
     fun timedPrescriptionsRoundTripThroughBackupWithAnActiveOccurrence() = runTest {
         seedRepresentativeData()
         listOf("routineEntry", "activationEntry", "occurrenceEntry").forEach { table ->
@@ -1383,7 +1446,8 @@ class SqlDelightBackupRepositoryTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         database.routineTemplateQueries.insertTemplate("Block", 1, 1, 1, null, null)
         val templateId = database.routineTemplateQueries.lastInsertedTemplateId().executeAsOne()
@@ -1399,7 +1463,8 @@ class SqlDelightBackupRepositoryTest {
             weightKg = 100.0,
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         database.equipmentQueries.insert("CUSTOM-1", "Custom Rack", 0)
         database.planVolumeExplanationQueries.insert(
@@ -1501,7 +1566,8 @@ class SqlDelightBackupRepositoryTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         val activationEntryId =
             database.trainingScheduleQueries.lastInsertedActivationEntryId().executeAsOne()
@@ -1544,7 +1610,8 @@ class SqlDelightBackupRepositoryTest {
             remainingDisposition = null,
             terminalRemainingSets = null,
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         val occurrenceEntryId =
             database.trainingScheduleQueries.lastInsertedOccurrenceEntryId().executeAsOne()

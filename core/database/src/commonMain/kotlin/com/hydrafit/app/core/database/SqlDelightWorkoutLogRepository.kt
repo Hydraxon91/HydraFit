@@ -63,6 +63,9 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     id = setId
                 )
             }
+            set.distanceMeters?.let { meters ->
+                setQueries.assignDistance(meters.toLong(), setId)
+            }
             if (set.occurrenceId != null || set.occurrenceEntryId != null) {
                 setQueries.assignOccurrence(
                     occurrenceId = set.occurrenceId,

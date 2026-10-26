@@ -30,6 +30,7 @@ CREATE TABLE routineEntry (
     progressionPolicy TEXT,
     setTargets TEXT,
     superset TEXT,
+    distanceMeters INTEGER,
     FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
 );
 
@@ -70,8 +71,8 @@ insertWorkoutWithId:
 INSERT INTO routineWorkout(id, templateId, position, name, focus) VALUES (?, ?, ?, ?, ?);
 
 insertEntryWithId:
-INSERT INTO routineEntry(id, workoutId, position, exerciseId, sets, reps, durationSeconds, weightKg, loadKind, progressionPolicy, setTargets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO routineEntry(id, workoutId, position, exerciseId, sets, reps, durationSeconds, weightKg, loadKind, progressionPolicy, setTargets, distanceMeters)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateTemplate:
 UPDATE routineTemplate
@@ -91,12 +92,12 @@ lastInsertedWorkoutId:
 SELECT last_insert_rowid();
 
 insertEntry:
-INSERT INTO routineEntry(workoutId, position, exerciseId, sets, reps, durationSeconds, weightKg, loadKind, progressionPolicy, setTargets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO routineEntry(workoutId, position, exerciseId, sets, reps, durationSeconds, weightKg, loadKind, progressionPolicy, setTargets, distanceMeters)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateEntry:
 UPDATE routineEntry
-SET position = ?, exerciseId = ?, sets = ?, reps = ?, durationSeconds = ?, weightKg = ?, loadKind = ?, progressionPolicy = ?, setTargets = ?
+SET position = ?, exerciseId = ?, sets = ?, reps = ?, durationSeconds = ?, distanceMeters = ?, weightKg = ?, loadKind = ?, progressionPolicy = ?, setTargets = ?
 WHERE id = ?;
 
 lastInsertedEntryId:

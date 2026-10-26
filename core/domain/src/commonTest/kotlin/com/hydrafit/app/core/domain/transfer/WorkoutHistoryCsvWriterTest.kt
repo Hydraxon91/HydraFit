@@ -13,6 +13,7 @@ class WorkoutHistoryCsvWriterTest {
         performedAt: Long = 0L,
         reps: Int? = 5,
         durationSeconds: Int? = null,
+        distanceMeters: Int? = null,
         weightKg: Double? = 100.0,
         name: String = "Back Squat",
         sessionId: String? = "s1",
@@ -32,7 +33,8 @@ class WorkoutHistoryCsvWriterTest {
         loadKind = "EXTERNAL",
         isWarmup = isWarmup,
         rir = rir,
-        timingProvenance = "LIVE"
+        timingProvenance = "LIVE",
+        distanceMeters = distanceMeters
     )
 
     @Test
@@ -120,6 +122,25 @@ class WorkoutHistoryCsvWriterTest {
         assertEquals("", rows[0].split(",")[durationIndex])
         assertEquals("", rows[1].split(",")[repsIndex])
         assertEquals("90", rows[1].split(",")[durationIndex])
+    }
+
+    @Test
+    fun writesTheDistanceColumnOnlyForADistanceSet() {
+        val text = WorkoutHistoryCsvWriter.write(
+            listOf(
+                row(),
+                row(setId = 2L, reps = null, weightKg = null, distanceMeters = 5000)
+            )
+        )
+        val rows = text.trimEnd().split("\r\n").drop(1)
+        val repsIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("reps")
+        val durationIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("durationSeconds")
+        val distanceIndex = WorkoutHistoryCsvWriter.COLUMNS.indexOf("distanceMeters")
+        // Distance is its own column: a counted set leaves it blank and a distance set fills only it.
+        assertEquals("", rows[0].split(",")[distanceIndex])
+        assertEquals("", rows[1].split(",")[repsIndex])
+        assertEquals("", rows[1].split(",")[durationIndex])
+        assertEquals("5000", rows[1].split(",")[distanceIndex])
     }
 
     @Test

@@ -7,7 +7,10 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 25
+const val BACKUP_FORMAT_VERSION: Int = 26
+
+/** Format 26 adds whole-metre set/prescription distance and the metres/feet preference. */
+const val DISTANCE_FORMAT_VERSION: Int = 26
 
 /** Format 24 carries explicit two-entry superset membership and user-configured rest. */
 const val SUPERSET_FORMAT_VERSION: Int = 24
@@ -298,7 +301,9 @@ data class BackupSettingsRecord(
     val shareWorkoutData: Boolean,
     val weightUnit: String,
     /** Defaults off when decoding a version 1 backup that predates guided-workout opt-in. */
-    val guidedWorkoutEnabled: Boolean = false
+    val guidedWorkoutEnabled: Boolean = false,
+    /** Metres/feet preference, format 26 and later; earlier formats restore metres. */
+    val distanceUnit: String = "METERS"
 )
 
 @Serializable
@@ -382,7 +387,9 @@ data class BackupWorkoutSetRecord(
     /** Frozen station name, format 25 and later. */
     val stationName: String? = null,
     /** Frozen station load basis, format 25 and later. */
-    val stationLoadBasis: String? = null
+    val stationLoadBasis: String? = null,
+    /** Whole metres for a distance set, format 26 and later. */
+    val distanceMeters: Int? = null
 )
 
 @Serializable
@@ -432,7 +439,9 @@ data class BackupPlanEntryRecord(
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
-    val superset: String? = null
+    val superset: String? = null,
+    /** Whole metres for a distance slot, format 26 and later. */
+    val distanceMeters: Int? = null
 )
 
 @Serializable
@@ -593,7 +602,9 @@ data class BackupRoutineEntryRecord(
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
-    val superset: String? = null
+    val superset: String? = null,
+    /** Whole metres for a distance slot, format 26 and later. */
+    val distanceMeters: Int? = null
 )
 
 @Serializable
@@ -647,7 +658,9 @@ data class BackupActivationEntryRecord(
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
-    val superset: String? = null
+    val superset: String? = null,
+    /** Whole metres for a distance slot, format 26 and later. */
+    val distanceMeters: Int? = null
 )
 
 @Serializable
@@ -690,7 +703,9 @@ data class BackupOccurrenceEntryRecord(
     val progressionPolicy: String? = null,
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
-    val superset: String? = null
+    val superset: String? = null,
+    /** Whole metres for a distance slot, format 26 and later. */
+    val distanceMeters: Int? = null
 )
 
 @Serializable

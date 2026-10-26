@@ -41,7 +41,8 @@ object BackupMergePolicy {
                 durationSeconds = set.durationSeconds,
                 prescriptionSnapshot = set.prescriptionSnapshot,
                 stationName = set.stationName,
-                stationLoadBasis = set.stationLoadBasis
+                stationLoadBasis = set.stationLoadBasis,
+                distanceMeters = set.distanceMeters
             )
         }
 

@@ -99,7 +99,9 @@ data class ProgressDay(
      * Descriptive total of this day's recorded timed sets, in whole seconds; 0 when the day has no
      * timed work. It feeds the day trend only and never a record, progression or e1RM.
      */
-    val totalDurationSeconds: Long = 0L
+    val totalDurationSeconds: Long = 0L,
+    /** Descriptive total of this day's recorded distance sets, in whole metres. */
+    val totalDistanceMeters: Long = 0L
 )
 
 data class ExerciseProgress(

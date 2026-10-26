@@ -26,13 +26,20 @@ class SetAcceptedExerciseMeasureUseCase(private val planHistory: PlanHistoryRepo
         dayIndex: Int,
         position: Int,
         reps: Int?,
-        durationSeconds: Int?
+        durationSeconds: Int?,
+        distanceMeters: Int? = null
     ): AcceptedExercise? {
-        requireValidSetMeasurement(reps, durationSeconds)
+        requireValidSetMeasurement(reps, durationSeconds, distanceMeters)
         if (reps != null && reps > PrescriptionBounds.MAX_REPS) {
             throw IllegalArgumentException(
                 "Reps must be between ${PrescriptionBounds.MIN_REPS} and ${PrescriptionBounds.MAX_REPS}"
             )
+        }
+        if (distanceMeters != null &&
+            distanceMeters !in
+            PrescriptionBounds.MIN_DISTANCE_METERS..PrescriptionBounds.MAX_DISTANCE_METERS
+        ) {
+            throw IllegalArgumentException("Distance must be within the prescription bounds")
         }
         val day = plan.days.firstOrNull { it.dayIndex == dayIndex } ?: return null
         val entry = day.exercises.getOrNull(position) ?: return null
@@ -41,8 +48,13 @@ class SetAcceptedExerciseMeasureUseCase(private val planHistory: PlanHistoryRepo
             dayIndex = dayIndex,
             position = position,
             reps = reps,
-            durationSeconds = durationSeconds
+            durationSeconds = durationSeconds,
+            distanceMeters = distanceMeters
         )
-        return entry.copy(reps = reps, durationSeconds = durationSeconds)
+        return entry.copy(
+            reps = reps,
+            durationSeconds = durationSeconds,
+            distanceMeters = distanceMeters
+        )
     }
 }

@@ -2,6 +2,9 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import kotlin.test.AfterTest
@@ -201,6 +204,73 @@ class SqlDelightSessionResegmenterTest {
             assertEquals(0.0, log.all().first { it.id == set.id }.weightKg)
         }
         assertEquals(bounds, sessions.all())
+    }
+
+    @Test
+    fun changingTheMeasurementKindClearsTheRecordedTargetButAValueCorrectionKeepsIt() = runTest {
+        insertSession("s1", 100, 200, 0)
+        val target = WorkoutPrescriptionSnapshotJson.encode(
+            WorkoutPrescriptionSnapshot(
+                exerciseId = "exercise",
+                sets = 3,
+                reps = 8,
+                loadKind = LoadKind.EXTERNAL,
+                weightKg = 20.0,
+                isDeload = false
+            )
+        )
+        database.workoutLogQueries.insertSetWithIdAndTimingProvenance(
+            id = 1,
+            exerciseId = "exercise",
+            reps = 5,
+            weightKg = 20.0,
+            performedAt = 150,
+            isWarmup = 0,
+            involvements = null,
+            weekNumber = null,
+            cycleNumber = null,
+            dayIndex = null,
+            rir = null,
+            sessionId = "s1",
+            occurrenceId = null,
+            occurrenceEntryId = null,
+            loadKind = "EXTERNAL",
+            timingProvenance = "LIVE",
+            startedAtElapsedMillis = null,
+            completedAtElapsedMillis = null,
+            durationSeconds = null,
+            prescriptionSnapshot = target
+        )
+
+        // A value-only correction still describes the same kind of work, so the target stays.
+        resegmenter.resegmentAfterSetCorrection(
+            1,
+            WorkoutSetCorrection(reps = 6, weightKg = 20.0, rir = null, performedAtMillis = 150),
+            0L
+        )
+        assertEquals(
+            target,
+            database.workoutLogQueries.selectSetById(1).executeAsOne()
+                .prescriptionSnapshot
+        )
+
+        // Switching to metres makes the rep target meaningless: it is cleared, not left contradicting
+        // the set it is attached to.
+        resegmenter.resegmentAfterSetCorrection(
+            1,
+            WorkoutSetCorrection(
+                reps = null,
+                weightKg = 20.0,
+                rir = null,
+                performedAtMillis = 150,
+                distanceMeters = 400
+            ),
+            0L
+        )
+        val corrected = database.workoutLogQueries.selectSetById(1).executeAsOne()
+        assertNull(corrected.reps)
+        assertEquals(400L, corrected.distanceMeters)
+        assertNull(corrected.prescriptionSnapshot)
     }
 
     @Test

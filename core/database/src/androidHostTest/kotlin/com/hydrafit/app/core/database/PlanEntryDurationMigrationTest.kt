@@ -63,7 +63,8 @@ class PlanEntryDurationMigrationTest {
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         val timed = database.planHistoryQueries.selectEntriesForDay(7L)
             .executeAsList().first { it.durationSeconds != null }
@@ -99,7 +100,8 @@ class PlanEntryDurationMigrationTest {
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         assertEquals(1001L, database.planHistoryQueries.lastInsertedPlanId().executeAsOne())
     }
@@ -139,7 +141,8 @@ class PlanEntryDurationMigrationTest {
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         assertEquals(1001L, database.planHistoryQueries.lastInsertedPlanId().executeAsOne())
     }
@@ -167,7 +170,8 @@ class PlanEntryDurationMigrationTest {
             loadCapability = "BODYWEIGHT_ONLY",
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         database.planHistoryQueries.insertEntry(
             dayId = dayId,
@@ -182,7 +186,8 @@ class PlanEntryDurationMigrationTest {
             loadCapability = "EXTERNAL",
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
 
         val entries = database.planHistoryQueries.selectEntriesForDay(dayId).executeAsList()

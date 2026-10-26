@@ -105,7 +105,9 @@ data class WorkoutHistorySet(
      */
     val occurrenceId: Long? = null,
     /** The frozen physical station attribution, or null for legacy and unattributed work. */
-    val station: StationAttribution? = null
+    val station: StationAttribution? = null,
+    /** Whole metres for a distance set, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 )
 
 internal const val WORKOUT_HISTORY_DEFAULT_PAGE_SIZE = 30

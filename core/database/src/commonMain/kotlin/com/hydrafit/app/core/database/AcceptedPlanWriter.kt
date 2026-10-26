@@ -46,7 +46,8 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
                     loadKind = exercise.loadKind.name,
                     progressionPolicy = exercise.progressionPolicy
                         ?.let(SlotProgressionPolicyJson::encode),
-                    setTargets = exercise.setTargets?.let(SlotSetTargetsJson::encode)
+                    setTargets = exercise.setTargets?.let(SlotSetTargetsJson::encode),
+                    distanceMeters = exercise.distanceMeters?.toLong()
                 )
                 queries.setEntrySuperset(
                     superset = exercise.superset?.let(

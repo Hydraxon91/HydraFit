@@ -85,7 +85,8 @@ class PrescriptionDurationMigrationTest {
             weightKg = null,
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         val timedRoutine = database.routineTemplateQueries
             .selectEntriesForWorkout(7L).executeAsList().first { it.durationSeconds != null }
@@ -202,7 +203,8 @@ class PrescriptionDurationMigrationTest {
             weightKg = null,
             loadKind = "BODYWEIGHT",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         database.routineTemplateQueries.insertEntry(
             workoutId = 7L,
@@ -214,7 +216,8 @@ class PrescriptionDurationMigrationTest {
             weightKg = null,
             loadKind = "EXTERNAL",
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
 
         val entries = database.routineTemplateQueries.selectEntriesForWorkout(7L).executeAsList()

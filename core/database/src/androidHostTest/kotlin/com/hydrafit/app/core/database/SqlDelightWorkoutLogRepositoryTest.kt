@@ -66,6 +66,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         database.workoutLogQueries.updateSetValues(
             reps = 6L,
             durationSeconds = null,
+            distanceMeters = null,
             weightKg = 90.0,
             rir = null,
             id = id
@@ -142,7 +143,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         )
         val saved = repository.all().single()
         assertEquals(target, saved.prescriptionSnapshot)
-        database.workoutLogQueries.updateSetValues(6, null, 70.0, null, saved.id)
+        database.workoutLogQueries.updateSetValues(6, null, null, 70.0, null, saved.id)
         assertEquals(target, repository.all().single().prescriptionSnapshot)
         assertEquals(6, repository.all().single().reps)
         // The target is written by the same insert as the set, so a rejected insert leaves no row

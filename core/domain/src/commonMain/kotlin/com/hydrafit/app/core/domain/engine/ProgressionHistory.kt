@@ -45,14 +45,16 @@ data class ProgressionHistory(
                     target.loadKind == LoadKind.EXTERNAL &&
                     target.reps != null &&
                     target.durationSeconds == null &&
+                    target.distanceMeters == null &&
                     (target.weightKg ?: 0.0) > 0.0 &&
                     group.all {
                         // A blank or explicit-zero recorded load cannot establish weighted target
                         // success or failure, so it makes the whole exposure unjudgeable rather
-                        // than a miss. Bodyweight/added/timed work is excluded the same way.
+                        // than a miss. Bodyweight/added/timed/distance work is excluded the same way.
                         it.loadKind == LoadKind.EXTERNAL &&
                             it.reps != null &&
                             it.durationSeconds == null &&
+                            it.distanceMeters == null &&
                             (it.weightKg ?: 0.0) > 0.0
                     }
                 val outcome = if (ended == null ||
@@ -142,6 +144,7 @@ data class ProgressionHistory(
             !recorded.isDeload &&
             recorded.reps == target.reps &&
             recorded.durationSeconds == target.durationSeconds &&
+            recorded.distanceMeters == target.distanceMeters &&
             recorded.loadKind == target.loadKind &&
             // Loads are compared on the gram, the same precision the write path rounds to, so a
             // reformatted value never silently degrades an exposure to unjudgeable.

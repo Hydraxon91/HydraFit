@@ -220,6 +220,9 @@ internal fun buildWarmupRamps(
         if (entry.movementPattern in planned) continue
         if (entry.loadCapability != ExerciseLoadCapability.EXTERNAL) continue
         if (entry.loadKind != LoadKind.EXTERNAL) continue
+        // A distance slot is a carry or a locomotion bout, not a rep-loaded lift: there is no
+        // meaningful share of its load to ramp through, and distance never progresses automatically.
+        if (entry.distanceMeters != null) continue
         if (!isEquipmentAvailable(entry, equipment)) continue
         val working = entry.weightKg ?: continue
         if (!working.isFinite() || working <= 0.0) continue

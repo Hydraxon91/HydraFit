@@ -64,15 +64,17 @@ interface PlanHistoryRepository {
 
     /**
      * Replaces one slot's measure in place, keeping the plan's id, acceptance time, exercise and sets:
-     * an UPDATE, not a re-accept. [reps] and [durationSeconds] are mutually exclusive — exactly one is
-     * non-null — and a missing day/position is a no-op that leaves the plan untouched.
+     * an UPDATE, not a re-accept. [reps], [durationSeconds] and [distanceMeters] are mutually
+     * exclusive — exactly one is non-null — and a missing day/position is a no-op that leaves the
+     * plan untouched.
      */
     suspend fun setMeasure(
         planId: Long,
         dayIndex: Int,
         position: Int,
         reps: Int?,
-        durationSeconds: Int?
+        durationSeconds: Int?,
+        distanceMeters: Int? = null
     )
 
     suspend fun delete(planId: Long)

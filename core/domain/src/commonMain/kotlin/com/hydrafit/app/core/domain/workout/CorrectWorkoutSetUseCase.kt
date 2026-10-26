@@ -8,7 +8,11 @@ class CorrectWorkoutSetUseCase(
     private val timeProvider: TimeProvider
 ) {
     suspend operator fun invoke(setId: Long, correction: WorkoutSetCorrection) {
-        requireValidSetMeasurement(correction.reps, correction.durationSeconds)
+        requireValidSetMeasurement(
+            correction.reps,
+            correction.durationSeconds,
+            correction.distanceMeters
+        )
         require(correction.rir == null || correction.rir in 0..10) {
             "RIR must be between 0 and 10"
         }

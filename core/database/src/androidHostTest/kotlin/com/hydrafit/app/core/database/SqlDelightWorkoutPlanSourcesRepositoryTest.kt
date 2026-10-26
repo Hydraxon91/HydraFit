@@ -278,7 +278,8 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
             remainingDisposition = null,
             terminalRemainingSets = null,
             progressionPolicy = null,
-            setTargets = null
+            setTargets = null,
+            distanceMeters = null
         )
         val entryId = database.trainingScheduleQueries.lastInsertedOccurrenceEntryId()
             .executeAsOne()

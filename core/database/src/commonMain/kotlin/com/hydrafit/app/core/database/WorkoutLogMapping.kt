@@ -26,7 +26,8 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     startedAtElapsedMillis = startedAtElapsedMillis,
     completedAtElapsedMillis = completedAtElapsedMillis,
     durationSeconds = durationSeconds?.toInt(),
-    prescriptionSnapshot = prescriptionSnapshot?.let(WorkoutPrescriptionSnapshotJson::decode)
+    prescriptionSnapshot = prescriptionSnapshot?.let(WorkoutPrescriptionSnapshotJson::decode),
+    distanceMeters = distanceMeters?.toInt()
 )
 
 /**

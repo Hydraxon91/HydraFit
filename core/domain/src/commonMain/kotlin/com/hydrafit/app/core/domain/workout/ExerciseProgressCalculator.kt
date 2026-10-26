@@ -35,10 +35,9 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         } else {
             null
         }
-        // A timed set is real recorded work for the day trend (count and seconds) but contributes
-        // no rep-derived record: its seconds are never read as reps and its null reps are never
-        // substituted with a placeholder.
-        if (set.durationSeconds != null) return
+        // Timed and distance sets are real recorded work for the day trend (count plus seconds or
+        // metres) but contribute no rep-derived record. Their values are never read as reps.
+        if (set.durationSeconds != null || set.distanceMeters != null) return
         candidates(set).forEach { candidate ->
             if (!earlier.containsKey(candidate.key)) {
                 earlier[candidate.key] = records[candidate.key]?.value
@@ -92,6 +91,7 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         var reps = 0L
         var volume: Double? = null
         var durationSeconds = 0L
+        var distanceMeters = 0L
         val loads = linkedMapOf<ProgressRecordKey, Accumulator>()
         val repetitions = linkedMapOf<ProgressRecordKey, Accumulator>()
         val estimates = linkedMapOf<ProgressRecordKey, Accumulator>()
@@ -101,6 +101,11 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             val timedSeconds = set.durationSeconds
             if (timedSeconds != null) {
                 durationSeconds += timedSeconds
+                return
+            }
+            val distance = set.distanceMeters
+            if (distance != null) {
+                distanceMeters += distance
                 return
             }
             val repCount = set.reps ?: return
@@ -122,7 +127,8 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             loads.values.map { it.snapshot() },
             repetitions.values.map { it.snapshot() },
             estimates.values.singleOrNull()?.snapshot(),
-            durationSeconds
+            durationSeconds,
+            distanceMeters
         )
     }
 

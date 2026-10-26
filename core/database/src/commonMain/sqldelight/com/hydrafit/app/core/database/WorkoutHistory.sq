@@ -210,7 +210,8 @@ SELECT
     w.durationSeconds AS durationSeconds,
     w.stationId AS stationId,
     w.stationName AS stationName,
-    w.stationLoadBasis AS stationLoadBasis
+    w.stationLoadBasis AS stationLoadBasis,
+    w.distanceMeters AS distanceMeters
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId
@@ -240,7 +241,8 @@ SELECT
     w.durationSeconds AS durationSeconds,
     w.stationId AS stationId,
     w.stationName AS stationName,
-    w.stationLoadBasis AS stationLoadBasis
+    w.stationLoadBasis AS stationLoadBasis,
+    w.distanceMeters AS distanceMeters
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId

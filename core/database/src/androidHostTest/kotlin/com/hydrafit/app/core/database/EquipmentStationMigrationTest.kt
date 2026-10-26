@@ -37,7 +37,7 @@ class EquipmentStationMigrationTest {
 
         HydraFitDatabase.Schema.migrate(driver, 60, HydraFitDatabase.Schema.version)
 
-        assertEquals(61L, HydraFitDatabase.Schema.version)
+        assertEquals(62L, HydraFitDatabase.Schema.version)
         assertNull(HistoricalDatabaseFixtures.text(driver, "SELECT stationId FROM workoutSet"))
         assertNull(HistoricalDatabaseFixtures.text(driver, "SELECT stationName FROM workoutSet"))
         assertNull(

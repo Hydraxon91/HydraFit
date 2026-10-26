@@ -14,18 +14,26 @@ object PrescriptionBounds {
     const val MAX_SETS = 8
     const val MIN_REPS = 1
     const val MAX_REPS = 100
+    const val MIN_DISTANCE_METERS = 1
+    const val MAX_DISTANCE_METERS = 100_000
 
     /**
-     * Throws [RoutineTemplateException] when a slot is outside the bounds, carries both or neither
-     * measurement, or has a bad load. [reps] is the counted metric and [durationSeconds] the timed
-     * one; at most one is non-null.
+     * Throws [RoutineTemplateException] when a slot is outside the bounds, carries more than one
+     * measurement, has none, or has a bad load. [reps], [durationSeconds] and [distanceMeters] are
+     * mutually exclusive.
      */
-    fun validate(sets: Int, reps: Int?, durationSeconds: Int?, weightKg: Double?) {
+    fun validate(
+        sets: Int,
+        reps: Int?,
+        durationSeconds: Int?,
+        weightKg: Double?,
+        distanceMeters: Int? = null
+    ) {
         if (sets !in MIN_SETS..MAX_SETS) {
             throw RoutineTemplateException("Sets must be between $MIN_SETS and $MAX_SETS")
         }
         try {
-            requireValidSetMeasurement(reps, durationSeconds)
+            requireValidSetMeasurement(reps, durationSeconds, distanceMeters)
         } catch (e: IllegalArgumentException) {
             throw RoutineTemplateException(
                 e.message ?: "A slot needs a positive rep count or positive whole seconds"
@@ -33,6 +41,11 @@ object PrescriptionBounds {
         }
         if (reps != null && reps !in MIN_REPS..MAX_REPS) {
             throw RoutineTemplateException("Reps must be between $MIN_REPS and $MAX_REPS")
+        }
+        if (distanceMeters != null && distanceMeters !in MIN_DISTANCE_METERS..MAX_DISTANCE_METERS) {
+            throw RoutineTemplateException(
+                "Distance must be between $MIN_DISTANCE_METERS and $MAX_DISTANCE_METERS metres"
+            )
         }
         if (weightKg != null && (!weightKg.isFinite() || weightKg < 0.0)) {
             throw RoutineTemplateException("Weight must be zero or positive")

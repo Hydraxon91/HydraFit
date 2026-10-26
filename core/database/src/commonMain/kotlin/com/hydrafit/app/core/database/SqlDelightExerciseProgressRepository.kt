@@ -158,7 +158,8 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         durationSeconds: Long?,
         stationId: Long?,
         stationName: String?,
-        stationLoadBasis: String?
+        stationLoadBasis: String?,
+        distanceMeters: Long?
     ) = WorkoutHistorySet(
         id = id,
         exerciseId = exerciseId,
@@ -172,7 +173,8 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         performedAtMillis = performedAt,
         timingProvenance = decodeWorkoutTimingProvenance(timingProvenance),
         durationSeconds = durationSeconds?.toInt(),
-        occurrenceId = occurrenceId
+        occurrenceId = occurrenceId,
+        distanceMeters = distanceMeters?.toInt()
     )
 
     private fun replaySet(
@@ -187,7 +189,8 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         durationSeconds: Long?,
         stationId: Long?,
         stationName: String?,
-        stationLoadBasis: String?
+        stationLoadBasis: String?,
+        distanceMeters: Long?
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
@@ -198,7 +201,8 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         performedAtMillis = performedAt,
         isWarmup = isWarmup != 0L,
         occurrenceId = occurrenceId,
-        durationSeconds = durationSeconds?.toInt()
+        durationSeconds = durationSeconds?.toInt(),
+        distanceMeters = distanceMeters?.toInt()
     )
 
     private companion object {

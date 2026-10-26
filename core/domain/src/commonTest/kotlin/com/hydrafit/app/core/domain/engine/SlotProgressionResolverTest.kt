@@ -190,6 +190,24 @@ class SlotProgressionResolverTest {
     private val useCase = ResolveSlotProgressionUseCase()
 
     @Test
+    fun aDistanceSlotNeverReceivesAProgressionSuggestion() {
+        // Distance has no rep range or load step, so even a strong run of distance exposures must not
+        // produce an advance/review decision. A null rep measure is the slot's own exclusion.
+        val history = RecordedHistory()
+            .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)
+            .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)
+            .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)
+            .build()
+
+        val suggestion = useCase(request(reps = null), history, NOW)
+
+        assertEquals(SlotProgressionAction.HOLD, suggestion.action)
+        assertNull(suggestion.suggestedReps)
+        assertNull(suggestion.suggestedLoadKg)
+        assertEquals(0, suggestion.comparableSuccesses)
+    }
+
+    @Test
     fun threeComparableSuccessesAdvanceOneRepInsideTheRange() {
         val history = RecordedHistory()
             .exposure(recordedTarget(reps = 5, weightKg = 100.0), met = 3)

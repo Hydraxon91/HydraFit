@@ -101,6 +101,34 @@ class WorkoutSummaryTest {
     }
 
     @Test
+    fun carriesADistancePrescriptionAndSetInMetresWithoutARepCount() {
+        val summary = buildWorkoutSummary(
+            occurrence = occurrence(
+                entry(id = 40, sets = 2).copy(reps = null, distanceMeters = 5_000)
+            ),
+            sets = listOf(
+                set(id = 1, occurrenceEntryId = 40, reps = null, distanceMeters = 5_000),
+                set(id = 2, occurrenceEntryId = 40, reps = null, distanceMeters = 4_800)
+            ),
+            sessions = emptyList(),
+            sessionNotes = emptyMap(),
+            activation = activation()
+        )
+
+        val exercise = summary.exercises.single()
+        assertEquals(2, exercise.prescribedSets)
+        assertNull(exercise.prescribedReps)
+        assertNull(exercise.prescribedDurationSeconds)
+        assertEquals(5_000, exercise.prescribedDistanceMeters)
+        assertEquals(2, exercise.recordedSets)
+        assertEquals(0, exercise.remainingSets)
+        assertEquals(2, summary.recordedWorkingSets)
+        assertEquals(listOf(5_000, 4_800), exercise.performedSets.map { it.distanceMeters })
+        assertTrue(exercise.performedSets.all { it.reps == null })
+        assertTrue(exercise.performedSets.all { it.durationSeconds == null })
+    }
+
+    @Test
     fun derivesRemainingWorkFromRecordedSetsAndCarriesTheOmittedDisposition() {
         val summary = buildWorkoutSummary(
             occurrence = occurrence(
@@ -363,6 +391,7 @@ class WorkoutSummaryTest {
         sets: Int = 3,
         reps: Int = 8,
         weightKg: Double? = 100.0,
+        distanceMeters: Int? = null,
         sourceActivationEntryId: Long? = null,
         remainingDisposition: RemainingDisposition? = null,
         terminalRemainingSets: Int? = null
@@ -379,7 +408,8 @@ class WorkoutSummaryTest {
         loadCapability = ExerciseLoadCapability.EXTERNAL,
         loadKind = LoadKind.EXTERNAL,
         remainingDisposition = remainingDisposition,
-        terminalRemainingSets = terminalRemainingSets
+        terminalRemainingSets = terminalRemainingSets,
+        distanceMeters = distanceMeters
     )
 
     private fun set(
@@ -391,7 +421,8 @@ class WorkoutSummaryTest {
         sessionId: String? = "session-1",
         occurrenceId: Long? = 30L,
         occurrenceEntryId: Long? = null,
-        durationSeconds: Int? = null
+        durationSeconds: Int? = null,
+        distanceMeters: Int? = null
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
@@ -403,7 +434,8 @@ class WorkoutSummaryTest {
         sessionId = sessionId,
         occurrenceId = occurrenceId,
         occurrenceEntryId = occurrenceEntryId,
-        durationSeconds = durationSeconds
+        durationSeconds = durationSeconds,
+        distanceMeters = distanceMeters
     )
 
     private fun activation(vararg entries: ActivationEntry, workoutName: String = "Workout A") =

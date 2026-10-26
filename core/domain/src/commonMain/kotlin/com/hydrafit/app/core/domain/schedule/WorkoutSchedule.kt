@@ -90,7 +90,9 @@ data class ActivationEntry(
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, frozen with the rest of the prescription. */
     val setTargets: SlotSetTargets? = null,
-    val superset: com.hydrafit.app.core.domain.routine.Superset? = null
+    val superset: com.hydrafit.app.core.domain.routine.Superset? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 )
 
 data class WorkoutOccurrence(
@@ -147,7 +149,9 @@ data class OccurrenceEntry(
     val setTargets: SlotSetTargets? = null,
     val superset: com.hydrafit.app.core.domain.routine.Superset? = null,
     val remainingDisposition: RemainingDisposition? = null,
-    val terminalRemainingSets: Int? = null
+    val terminalRemainingSets: Int? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 )
 
 /** The single-row scheduling cursor: which block is active and which workout is selected next. */

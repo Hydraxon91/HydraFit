@@ -61,7 +61,8 @@ data class BackupMergedSet(
      * station id is deliberately not carried; the label remains displayable with id zero.
      */
     val stationName: String? = null,
-    val stationLoadBasis: String? = null
+    val stationLoadBasis: String? = null,
+    val distanceMeters: Int? = null
 )
 
 /** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */

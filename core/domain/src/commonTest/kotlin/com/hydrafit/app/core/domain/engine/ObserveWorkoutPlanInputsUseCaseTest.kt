@@ -1000,7 +1000,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit

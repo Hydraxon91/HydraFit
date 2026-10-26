@@ -24,7 +24,7 @@ class SetAcceptedExerciseMeasureUseCaseTest {
 
         assertEquals(12, updated?.reps)
         assertNull(updated?.durationSeconds)
-        assertEquals(listOf(MeasureCall(1L, 0, 0, 12, null)), repository.calls)
+        assertEquals(listOf(MeasureCall(1L, 0, 0, 12, null, null)), repository.calls)
     }
 
     @Test
@@ -36,7 +36,59 @@ class SetAcceptedExerciseMeasureUseCaseTest {
 
         assertNull(updated?.reps)
         assertEquals(45, updated?.durationSeconds)
-        assertEquals(listOf(MeasureCall(1L, 0, 0, null, 45)), repository.calls)
+        assertEquals(listOf(MeasureCall(1L, 0, 0, null, 45, null)), repository.calls)
+    }
+
+    @Test
+    fun persistsTheDistanceMeasureOnTheSlot() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = SetAcceptedExerciseMeasureUseCase(repository)
+
+        val updated = useCase(
+            plan(),
+            dayIndex = 0,
+            position = 0,
+            reps = null,
+            durationSeconds = null,
+            distanceMeters = 400
+        )
+
+        assertNull(updated?.reps)
+        assertNull(updated?.durationSeconds)
+        assertEquals(400, updated?.distanceMeters)
+        assertEquals(listOf(MeasureCall(1L, 0, 0, null, null, 400)), repository.calls)
+    }
+
+    @Test
+    fun rejectsDistanceMixedWithAnotherMeasure() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = SetAcceptedExerciseMeasureUseCase(repository)
+
+        assertFailsWith<IllegalArgumentException> {
+            useCase(plan(), 0, 0, reps = 10, durationSeconds = null, distanceMeters = 400)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            useCase(plan(), 0, 0, reps = null, durationSeconds = 45, distanceMeters = 400)
+        }
+        assertTrue(repository.calls.isEmpty())
+    }
+
+    @Test
+    fun rejectsOutOfBoundsDistance() = runTest {
+        val repository = FakePlanHistoryRepository()
+        val useCase = SetAcceptedExerciseMeasureUseCase(repository)
+
+        assertFailsWith<IllegalArgumentException> {
+            useCase(
+                plan(),
+                0,
+                0,
+                reps = null,
+                durationSeconds = null,
+                distanceMeters = PrescriptionBounds.MAX_DISTANCE_METERS + 1
+            )
+        }
+        assertTrue(repository.calls.isEmpty())
     }
 
     @Test
@@ -107,7 +159,8 @@ class SetAcceptedExerciseMeasureUseCaseTest {
         val dayIndex: Int,
         val position: Int,
         val reps: Int?,
-        val durationSeconds: Int?
+        val durationSeconds: Int?,
+        val distanceMeters: Int?
     )
 
     private class FakePlanHistoryRepository : PlanHistoryRepository {
@@ -137,9 +190,10 @@ class SetAcceptedExerciseMeasureUseCaseTest {
             dayIndex: Int,
             position: Int,
             reps: Int?,
-            durationSeconds: Int?
+            durationSeconds: Int?,
+            distanceMeters: Int?
         ) {
-            calls += MeasureCall(planId, dayIndex, position, reps, durationSeconds)
+            calls += MeasureCall(planId, dayIndex, position, reps, durationSeconds, distanceMeters)
         }
 
         override suspend fun delete(planId: Long) = Unit

@@ -17,8 +17,10 @@ data class WorkoutHistoryCsvRow(
     val exerciseName: String,
     /** Repetitions for counted work, blank in the export for a timed set. */
     val reps: Int?,
-    /** Elapsed whole seconds for a timed set, blank for counted work. */
+    /** Elapsed whole seconds for a timed set, blank for counted or distance work. */
     val durationSeconds: Int? = null,
+    /** Whole metres for a distance set, blank for counted or timed work. */
+    val distanceMeters: Int? = null,
     val weightKg: Double?,
     val loadKind: String,
     val isWarmup: Boolean,
@@ -49,6 +51,7 @@ object WorkoutHistoryCsvWriter {
         "exerciseName",
         "reps",
         "durationSeconds",
+        "distanceMeters",
         "weightKg",
         "loadKind",
         "isWarmup",
@@ -73,6 +76,7 @@ object WorkoutHistoryCsvWriter {
                     textField(row.exerciseName),
                     plainField(row.reps?.toString()),
                     plainField(row.durationSeconds?.toString()),
+                    plainField(row.distanceMeters?.toString()),
                     plainField(row.weightKg?.toString()),
                     textField(row.loadKind),
                     plainField(if (row.isWarmup) "true" else "false"),
@@ -147,6 +151,7 @@ class ExportWorkoutHistoryCsvUseCase(
                 exerciseName = names[set.exerciseId] ?: set.exerciseId,
                 reps = set.reps,
                 durationSeconds = set.durationSeconds,
+                distanceMeters = set.distanceMeters,
                 weightKg = set.weightKg,
                 loadKind = set.loadKind.name,
                 isWarmup = set.isWarmup,

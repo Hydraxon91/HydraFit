@@ -56,6 +56,22 @@ class ExerciseProgressCalculatorTest {
     }
 
     @Test
+    fun distanceSetsFeedTheDayTrendButNeverRecordsOrEstimates() {
+        val result = calculate(
+            distance(1, meters = 400, load = 20.0, time = 1),
+            distance(2, meters = 600, load = 20.0, time = 2)
+        )
+        val day = result.days.single()
+        assertEquals(2, day.workingSets)
+        assertEquals(1000L, day.totalDistanceMeters)
+        // A distance carry's load is never turned into rep volume or a one-rep-max estimate.
+        assertEquals(0L, day.totalReps)
+        assertNull(day.externalVolumeKg)
+        assertNull(day.estimatedOneRepMax)
+        assertTrue(result.records.isEmpty())
+    }
+
+    @Test
     fun equalTimestampsUseEarlierBaselineAndKeepAllTiedHolders() {
         val result = calculate(
             set(1, 50.0, 10, time = 1),
@@ -225,6 +241,17 @@ class ExerciseProgressCalculatorTest {
         performedAtMillis = time,
         occurrenceId = 7,
         durationSeconds = seconds
+    )
+
+    private fun distance(id: Long, meters: Int, load: Double?, time: Long = 1) = WorkoutSet(
+        id = id,
+        exerciseId = "squat",
+        reps = null,
+        weightKg = load,
+        loadKind = if (load == null) LoadKind.BODYWEIGHT else LoadKind.EXTERNAL,
+        performedAtMillis = time,
+        occurrenceId = 7,
+        distanceMeters = meters
     )
 
     private companion object {

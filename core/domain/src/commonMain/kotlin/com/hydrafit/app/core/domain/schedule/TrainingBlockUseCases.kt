@@ -266,7 +266,8 @@ class EditUnstartedOccurrenceUseCase(
                         draft.sets,
                         draft.reps,
                         draft.durationSeconds,
-                        draft.weightKg
+                        draft.weightKg,
+                        draft.distanceMeters
                     )
                 } catch (error: RoutineTemplateException) {
                     throw ScheduleException(error.message ?: "Invalid prescription")
@@ -297,6 +298,7 @@ class EditUnstartedOccurrenceUseCase(
                     sets = draft.sets,
                     reps = draft.reps,
                     durationSeconds = draft.durationSeconds,
+                    distanceMeters = draft.distanceMeters,
                     weightKg = weightKg,
                     loadCapability = exercise.loadCapability,
                     loadKind = kind,

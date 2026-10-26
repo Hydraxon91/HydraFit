@@ -168,6 +168,12 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                         // Imported provider history carries no recorded target, so it stays unknown.
                         prescriptionSnapshot = null
                     )
+                    set.distanceMeters?.let { meters ->
+                        setQueries.assignDistance(
+                            distanceMeters = meters.toLong(),
+                            id = setQueries.lastInsertedSetId().executeAsOne()
+                        )
+                    }
                 }
                 if (preview.buckets.any { it.candidateKey == session.candidateKey }) {
                     newLinks.getOrPut(session.candidateKey) { mutableListOf() }.add(sessionId)

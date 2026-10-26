@@ -24,10 +24,20 @@ data class SetTarget(
     /** null = unspecified load; 0.0 = an explicit zero load; positive = stored kilograms. */
     val weightKg: Double? = null,
     /** Prescribed reps in reserve, or null when this set prescribes no effort target. */
-    val targetRir: Int? = null
+    val targetRir: Int? = null,
+    /** Whole metres for a distance target, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 ) {
     fun requireValid() {
-        requireValidSetMeasurement(reps, durationSeconds)
+        requireValidSetMeasurement(reps, durationSeconds, distanceMeters)
+        if (distanceMeters != null) {
+            require(
+                distanceMeters in
+                    PrescriptionBounds.MIN_DISTANCE_METERS..PrescriptionBounds.MAX_DISTANCE_METERS
+            ) {
+                "Distance must be within the prescription bounds"
+            }
+        }
         if (reps != null) {
             require(reps in PrescriptionBounds.MIN_REPS..PrescriptionBounds.MAX_REPS) {
                 "Reps must be between ${PrescriptionBounds.MIN_REPS} and " +

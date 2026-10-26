@@ -91,11 +91,14 @@ data class AcceptedExercise(
     val progressionPolicy: SlotProgressionPolicy? = null,
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
     val setTargets: SlotSetTargets? = null,
-    val superset: Superset? = null
+    val superset: Superset? = null,
+    /** Whole metres for a distance slot, or null for reps and timed work. */
+    val distanceMeters: Int? = null
 ) {
     init {
-        require((reps == null) != (durationSeconds == null)) {
-            "An accepted exercise is either reps-based or timed"
+        val metrics = listOf(reps != null, durationSeconds != null, distanceMeters != null)
+        require(metrics.count { it } == 1) {
+            "An accepted exercise is reps-based, timed, or distance-based, exactly one"
         }
     }
 }
@@ -135,6 +138,7 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     sets = exercise.sets,
                     reps = exercise.reps,
                     durationSeconds = exercise.durationSeconds,
+                    distanceMeters = exercise.distanceMeters,
                     suggestedWeightKg = exercise.suggestedWeightKg,
                     loadKind = exercise.loadKind,
                     loadCapability = exercise.loadCapability,

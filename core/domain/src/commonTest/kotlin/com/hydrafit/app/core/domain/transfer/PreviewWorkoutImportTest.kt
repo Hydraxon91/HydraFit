@@ -471,6 +471,68 @@ class PreviewWorkoutImportTest {
     }
 
     @Test
+    fun aDistanceRowBecomesADistanceSetAndKeepsItsOwnCanonicalIdentity() {
+        val distance = WorkoutCsvParser.parse(
+            WorkoutCsvSource.STRONG,
+            strongCsv(
+                strongRow(
+                    "2024-01-02 10:00:00", "A", "Press", "", "0", "kg", "0", "", "5", "km",
+                    "0", "", "", ""
+                )
+            )
+        )
+        val selection = choices.copy(
+            sessions = listOf(choices.sessions.single().copy(sourceRows = listOf(2)))
+        )
+
+        val preview = PreviewWorkoutImport.build(distance, selection, listOf(exercise))
+
+        assertTrue(preview.canImport, preview.problems.toString())
+        val session = preview.sessions.single()
+        val set = session.sets.single()
+        assertNull(set.reps)
+        assertNull(set.durationSeconds)
+        // The provider's kilometres are stored as canonical whole metres.
+        assertEquals(5_000, set.distanceMeters)
+
+        // A distance row must not canonicalize as a rep or timed row of the same source shape.
+        val countedSameShape = distance.copy(
+            rows = distance.rows.map { it.copy(reps = 5_000, distanceMeters = null) }
+        )
+        assertNotEquals(
+            canonicalBucketContent(countedSameShape.rows),
+            canonicalBucketContent(distance.rows)
+        )
+
+        // And the distance row's own identity is stable, so a repeat read skips instead of importing.
+        val existing = WorkoutSession(
+            id = "existing",
+            startedAtMillis = session.startedAtMillis,
+            endedAtMillis = null,
+            localEpochDay = session.localEpochDay
+        )
+        val again = PreviewWorkoutImport.build(
+            distance,
+            selection,
+            listOf(exercise),
+            provenance = listOf(
+                WorkoutImportProvenance(
+                    source = WorkoutCsvSource.STRONG,
+                    candidateKey = session.candidateKey,
+                    content = session.content,
+                    importedSessionId = "existing"
+                )
+            ),
+            existingSessions = listOf(existing)
+        )
+        assertFalse(again.canImport)
+        assertEquals(
+            listOf(WorkoutImportIssue.UNCHANGED_SOURCE_SKIPPED),
+            again.notices.map { it.issue }
+        )
+    }
+
+    @Test
     fun aStrongCountedRowWithZeroSecondsKeepsItsLegacyCanonicalIdentity() {
         // Seconds was recorded as unsupported metadata on a rep row before duration import existed, so
         // the ledger already stores these exact bytes. Reproducing them is what lets an unchanged

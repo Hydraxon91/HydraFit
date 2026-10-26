@@ -110,9 +110,9 @@ data class SlotProgressionConfig(
  *
  * Comparability is the slot's current prescription: an exposure counts only when its recorded target
  * names the same exercise, set count, rep count and load, is a typed external rep target, and is not a
- * deload. Any other exposure — a changed prescription, a legacy row with no target, a bodyweight or
- * timed target, or an unjudgeable session — breaks the run without counting as a miss, so missing
- * evidence never becomes demonstrated failure.
+ * deload. Any other exposure — a changed prescription, a legacy row with no target, a bodyweight,
+ * timed or distance target, or an unjudgeable session — breaks the run without counting as a miss, so
+ * missing evidence never becomes demonstrated failure.
  *
  * A run of comparable successes advances the prescription; a run of comparable misses asks for review
  * and never removes load automatically. The load step is the user's own number, snapped to the named
@@ -438,8 +438,9 @@ class ResolveSlotProgressionUseCase(
         copy(comparableSuccesses = run.successes, comparableMisses = run.misses)
 
     /**
-     * The slot's judgeable current prescription, or null when the policy cannot apply: a timed slot, a
-     * non-external load kind, or a blank/explicit-zero load that cannot establish weighted success.
+     * The slot's judgeable current prescription, or null when the policy cannot apply: a timed or
+     * distance slot, a non-external load kind, or a blank/explicit-zero load that cannot establish
+     * weighted success.
      */
     private fun SlotProgressionRequest.currentPrescriptionOrNull(): CurrentPrescription? {
         if (reps == null || sets < 1) return null
@@ -458,6 +459,7 @@ class ResolveSlotProgressionUseCase(
             recorded.sets == request.sets &&
             recorded.reps == current.reps &&
             recorded.durationSeconds == null &&
+            recorded.distanceMeters == null &&
             recorded.loadKind == LoadKind.EXTERNAL &&
             !recorded.isDeload &&
             recorded.weightKg != null &&

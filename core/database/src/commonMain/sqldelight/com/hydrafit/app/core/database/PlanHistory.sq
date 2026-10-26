@@ -30,6 +30,7 @@ CREATE TABLE planHistoryEntry (
     progressionPolicy TEXT,
     setTargets TEXT,
     superset TEXT,
+    distanceMeters INTEGER,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -44,8 +45,8 @@ insertDayWithId:
 INSERT INTO planHistoryDay(id, planId, dayIndex, focus) VALUES (?, ?, ?, ?);
 
 insertEntryWithId:
-INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets, distanceMeters)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedPlanId:
 SELECT last_insert_rowid();
@@ -63,8 +64,8 @@ selectAllDays:
 SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
 
 insertEntry:
-INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets, distanceMeters)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
@@ -94,7 +95,7 @@ WHERE position = :position
 -- NULL reps with its seconds, never both and never a zero sentinel.
 updateEntryMeasureAtPosition:
 UPDATE planHistoryEntry
-SET reps = :reps, durationSeconds = :durationSeconds
+SET reps = :reps, durationSeconds = :durationSeconds, distanceMeters = :distanceMeters
 WHERE position = :position
   AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 

@@ -59,15 +59,20 @@ class SetMeasurementTest {
 
     @Test
     fun casesAreDistinguishedExhaustively() {
-        val measurements = listOf(SetMeasurement.Repetitions(8), SetMeasurement.Duration(45))
+        val measurements = listOf(
+            SetMeasurement.Repetitions(8),
+            SetMeasurement.Duration(45),
+            SetMeasurement.Distance(400)
+        )
 
         val described = measurements.map { measurement ->
             when (measurement) {
                 is SetMeasurement.Repetitions -> "reps:${measurement.count}"
                 is SetMeasurement.Duration -> "seconds:${measurement.seconds}"
+                is SetMeasurement.Distance -> "metres:${measurement.meters}"
             }
         }
 
-        assertEquals(listOf("reps:8", "seconds:45"), described)
+        assertEquals(listOf("reps:8", "seconds:45", "metres:400"), described)
     }
 }

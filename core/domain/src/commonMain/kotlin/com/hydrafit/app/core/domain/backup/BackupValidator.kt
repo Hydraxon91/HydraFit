@@ -19,6 +19,7 @@ import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
@@ -29,6 +30,7 @@ import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
 import com.hydrafit.app.core.domain.transfer.WorkoutImportPartition
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
@@ -360,12 +362,23 @@ class BackupValidator(private val catalog: BackupCatalog) {
             ) {
                 fail(BackupFailure.INVALID_VALUE)
             }
+            if (file.formatVersion < DISTANCE_FORMAT_VERSION && it.distanceMeters != null) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             val hasReps = it.reps != null && it.reps > 0
             val hasDuration = it.durationSeconds != null && it.durationSeconds > 0
-            if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+            val hasDistance = it.distanceMeters != null && it.distanceMeters > 0
+            if (listOf(hasReps, hasDuration, hasDistance).count { it } != 1) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             if (it.reps != null && it.reps <= 0) fail(BackupFailure.INVALID_VALUE)
             it.durationSeconds?.let { seconds ->
                 if (seconds <= 0) fail(BackupFailure.INVALID_VALUE)
+            }
+            it.distanceMeters?.let { meters ->
+                if (meters <= 0 || meters > PrescriptionBounds.MAX_DISTANCE_METERS) {
+                    fail(BackupFailure.INVALID_VALUE)
+                }
             }
             if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
                 fail(BackupFailure.INVALID_VALUE)
@@ -406,6 +419,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 entry.reps,
                 entry.durationSeconds,
+                entry.distanceMeters,
                 PLAN_ENTRY_DURATION_FORMAT_VERSION
             )
             entry.suggestedWeightKg?.let { value -> finite(value) }
@@ -504,7 +518,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
             reference(entry.workoutId, routineWorkoutIds)
             exercise(entry.exerciseId, knownExercises)
             enum(entry.loadKind, LoadKind.entries)
-            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                entry.distanceMeters
+            )
             entry.weightKg?.let { value -> finite(value) }
         }
         file.activations.forEach {
@@ -522,7 +541,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadCapability, ExerciseLoadCapability.entries)
             enum(entry.loadKind, LoadKind.entries)
             equipment(entry.requiredEquipment, knownEquipment)
-            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                entry.distanceMeters
+            )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -543,7 +567,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(entry.loadKind, LoadKind.entries)
             enum(entry.remainingDisposition, RemainingDisposition.entries)
             equipment(entry.requiredEquipment, knownEquipment)
-            prescriptionMetric(file.formatVersion, entry.reps, entry.durationSeconds)
+            prescriptionMetric(
+                file.formatVersion,
+                entry.reps,
+                entry.durationSeconds,
+                entry.distanceMeters
+            )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
         }
@@ -578,6 +607,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 it.reps,
                 it.durationSeconds,
+                null,
                 WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
             )
         }
@@ -586,6 +616,12 @@ class BackupValidator(private val catalog: BackupCatalog) {
             enum(settings.engineId, PlannerEngineId.entries)
             enum(settings.trainingGoal, TrainingGoal.entries)
             enum(settings.weightUnit, WeightUnit.entries)
+            if (file.formatVersion < DISTANCE_FORMAT_VERSION &&
+                settings.distanceUnit != "METERS"
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            enum(settings.distanceUnit, DistanceUnit.entries)
         }
     }
 
@@ -644,16 +680,28 @@ class BackupValidator(private val catalog: BackupCatalog) {
         version: Int,
         reps: Int?,
         durationSeconds: Int?,
+        distanceMeters: Int?,
         durationFormatVersion: Int = PRESCRIPTION_DURATION_FORMAT_VERSION
     ) {
         if (version < durationFormatVersion && durationSeconds != null) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (version < DISTANCE_FORMAT_VERSION && distanceMeters != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         val hasReps = reps != null && reps > 0
         val hasDuration = durationSeconds != null && durationSeconds > 0
-        if (hasReps == hasDuration) fail(BackupFailure.INVALID_VALUE)
+        val hasDistance = distanceMeters != null && distanceMeters > 0
+        if (listOf(hasReps, hasDuration, hasDistance).count { it } != 1) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (reps != null && reps <= 0) fail(BackupFailure.INVALID_VALUE)
         durationSeconds?.let { if (it <= 0) fail(BackupFailure.INVALID_VALUE) }
+        distanceMeters?.let {
+            if (it <= 0 || it > PrescriptionBounds.MAX_DISTANCE_METERS) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
     }
 
     /**
@@ -691,9 +739,19 @@ class BackupValidator(private val catalog: BackupCatalog) {
         ) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (formatVersion < DISTANCE_FORMAT_VERSION && snapshot.distanceMeters != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (snapshot.exerciseId != set.exerciseId) fail(BackupFailure.INVALID_REFERENCE)
         if (snapshot.loadKind.name != set.loadKind) fail(BackupFailure.INVALID_VALUE)
-        if ((snapshot.reps == null) != (set.durationSeconds != null)) {
+        // The recorded target is the prescription and the set is the performed work, so their values
+        // legitimately differ (a missed rep, a shortened timed set, a corrected set). Only the
+        // measurement kind must agree: recording a rep target against distance work, or vice versa,
+        // would make the exposure unjudgeable rather than merely different.
+        if ((snapshot.reps != null) != (set.reps != null) ||
+            (snapshot.durationSeconds != null) != (set.durationSeconds != null) ||
+            (snapshot.distanceMeters != null) != (set.distanceMeters != null)
+        ) {
             fail(BackupFailure.INVALID_VALUE)
         }
         snapshot.weightKg?.let { value -> finite(value) }

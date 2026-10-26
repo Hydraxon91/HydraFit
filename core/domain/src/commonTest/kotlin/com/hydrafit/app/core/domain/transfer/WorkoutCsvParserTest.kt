@@ -55,17 +55,81 @@ class WorkoutCsvParserTest {
     fun fitNotesPreservesUnsupportedMetadataAsDiagnosticsOnAValidRow() {
         val parsed = parse(
             WorkoutCsvSource.FITNOTES,
-            "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit,Time",
-            "2024-01-02,Rowing,100,10,500,m,00:03:20"
+            "Date,Exercise,Weight (lbs),Reps,Time",
+            "2024-01-02,Squat,100,10,00:03:20"
         )
 
         val row = parsed.rows.single()
-        assertEquals(
-            listOf("Distance", "Distance Unit", "Time"),
-            row.diagnostics.map { it.field }
-        )
+        assertEquals(listOf("Time"), row.diagnostics.map { it.field })
         assertTrue(row.diagnostics.all { it.code == WorkoutCsvDiagnosticCode.UNSUPPORTED_METADATA })
-        assertEquals(listOf("500", "m", "00:03:20"), row.diagnostics.map { it.value })
+        assertEquals(listOf("00:03:20"), row.diagnostics.map { it.value })
+    }
+
+    @Test
+    fun fitNotesImportsADistanceSetInWholeMetres() {
+        val parsed = parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit,Time",
+            "2024-01-02,Rowing,100,,500,m,00:03:20"
+        )
+
+        val row = parsed.rows.single()
+        assertEquals(500, row.distanceMeters)
+        assertNull(row.reps)
+        assertNull(row.durationSeconds)
+    }
+
+    @Test
+    fun fitNotesConvertsAProviderDistanceUnitToMetres() {
+        val parsed = parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit",
+            "2024-01-02,Rowing,100,,2.5,km"
+        )
+
+        assertEquals(2500, parsed.rows.single().distanceMeters)
+    }
+
+    @Test
+    fun fitNotesRejectsARowThatRecordsBothRepsAndADistance() {
+        val parsed = parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit",
+            "2024-01-02,Rowing,100,10,500,m"
+        )
+
+        assertEquals(
+            WorkoutCsvDiagnosticCode.AMBIGUOUS_ROW_SHAPE,
+            parsed.rejectedRows.single().diagnostics.first().code
+        )
+    }
+
+    @Test
+    fun fitNotesRejectsAMalformedDistanceValue() {
+        val parsed = parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit",
+            "2024-01-02,Rowing,100,,far,m"
+        )
+
+        assertEquals(
+            WorkoutCsvDiagnosticCode.INVALID_DISTANCE,
+            parsed.rejectedRows.single().diagnostics.first().code
+        )
+    }
+
+    @Test
+    fun fitNotesRejectsAnUnknownDistanceUnit() {
+        val parsed = parse(
+            WorkoutCsvSource.FITNOTES,
+            "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit",
+            "2024-01-02,Rowing,100,,500,yd"
+        )
+
+        assertEquals(
+            WorkoutCsvDiagnosticCode.INVALID_DISTANCE_UNIT,
+            parsed.rejectedRows.single().diagnostics.first().code
+        )
     }
 
     @Test
@@ -125,13 +189,14 @@ class WorkoutCsvParserTest {
     }
 
     @Test
-    fun fitNotesRejectsADistanceOnlyRowAsAnUnsupportedShape() {
+    fun fitNotesRejectsAnEmptyRowShapeAsUnsupported() {
         val parsed = parse(
             WorkoutCsvSource.FITNOTES,
             "Date,Exercise,Weight (lbs),Reps,Distance,Distance Unit,Time",
-            "2024-01-02,Run,,,5000,m,00:30:00"
+            "2024-01-02,Run,,,0,m,00:30:00"
         )
 
+        // A zero distance is treated as "not recorded", so the row has no measurement at all.
         assertEquals(
             WorkoutCsvDiagnosticCode.UNSUPPORTED_ROW_SHAPE,
             parsed.rejectedRows.single().diagnostics.first().code
@@ -546,7 +611,7 @@ class WorkoutCsvParserTest {
             HEVY_KG_HEADER,
             commaRow(
                 "Row", "15 Sep 2023, 09:30", "15 Sep 2023, 10:15", "", "Dumbbell Row", "", "",
-                "1", "warmup", "20", "10", "1.5", "", "7"
+                "1", "warmup", "20", "10", "", "", "7"
             )
         )
 
@@ -555,10 +620,24 @@ class WorkoutCsvParserTest {
         assertEquals(20.0, row.weight)
         assertEquals(true, row.warmup)
         assertNull(row.durationSeconds)
-        assertEquals(
-            listOf("distance_km", "rpe"),
-            row.diagnostics.map { it.field }
+        assertEquals(listOf("rpe"), row.diagnostics.map { it.field })
+    }
+
+    @Test
+    fun hevyImportsAKilometreDistanceSet() {
+        val parsed = parse(
+            WorkoutCsvSource.HEVY,
+            HEVY_KG_HEADER,
+            commaRow(
+                "Row", "15 Sep 2023, 09:30", "15 Sep 2023, 10:15", "", "Rowing Machine", "", "",
+                "1", "normal", "", "", "2.5", "", ""
+            )
         )
+
+        val row = parsed.rows.single()
+        assertEquals(2500, row.distanceMeters)
+        assertNull(row.reps)
+        assertTrue(row.diagnostics.isEmpty())
     }
 
     @Test
