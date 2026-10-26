@@ -704,15 +704,19 @@ identifies one physical stack. A zero station id is reserved for a frozen label 
 merge, whose equipment profiles are excluded; it never matches a station filter.
 
 - **Rules:** the station fields are all absent or all present; the station row owns an optional
-  complete min/max/increment grid. Copying a profile gives its stations new identities; retiring keeps
-  the row for display. A positive station id is not a foreign key on `workoutSet`, so deleting a
-  profile cannot rewrite recorded history. Station-attributed sets are excluded from the generic
+  complete min/max/increment grid. Copying a profile gives its stations new identities; retiring hides
+  a station from the Logger while its recorded sets keep the frozen label. No retired-station browser
+  exists yet. A positive station id is not a foreign key on `workoutSet`, so deleting a profile cannot
+  rewrite recorded history. Station-attributed sets are excluded from the generic
   planner baseline, progression history and AI recent-weight context; the Logger uses that station's
   own history for prefill. Manual PRs and plan/routine prescriptions remain exercise-level in this
   slice. Progress charts filter All, unattributed or one station; All preserves existing behavior.
 - **Persistence:** additive `60.sqm` creates `equipmentStation` and adds nullable station columns to
   `workoutSet`; existing rows stay unattributed. Backup format 25 carries station rows and frozen
   attribution; older files restore with neither, and merge keeps the label/basis without a local id.
+  A profile deletion removes its station rows; export converts any still-attributed set to the
+  merge-only id zero so the file never carries a positive reference without its station row. The
+  history query supplies the complete station filter list independently of the loaded page.
 - **Limits:** guided/draft logging does not choose a station yet; station identity does not imply a
   machine/cable/barbell conversion factor, and no station row is auto-created from a ceiling.
 

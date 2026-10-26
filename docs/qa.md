@@ -20,8 +20,8 @@ exact on-screen text.
 - Host evidence: `:core:domain:testAndroidHostTest`, `:core:database:testAndroidHostTest`,
   `:feature:equipment:testAndroidHostTest`, `:feature:logger:testAndroidHostTest`,
   `:feature:progress:testAndroidHostTest`, `verifySqlDelightMigration`, `ktlintCheck`,
-  `:androidApp:assembleDebug`, both iOS simulator compiles, Koin verification. Full matrix log:
-  `0110-full-matrix.log` (150 executed / 637 up-to-date).
+  `:androidApp:assembleDebug`, both iOS simulator compiles, Koin verification. Fresh matrix log:
+  `0110-full-matrix-fresh.log` (787 executed / 0 up-to-date).
 - Emulator smoke: Equipment → Stations section and “No stations yet” rendered; Add station opened
   the station dialog; selected Cable machine, named “Cable row A”, saved; the row appeared without a
   grid. Log → searched/selected Lat Pulldown → “Choose station” appeared → selecting “Cable row A”
@@ -31,6 +31,11 @@ exact on-screen text.
 - **Limits:** this was a parent-owned bounded smoke, not a formally delegated `ui-runner` journey;
   no guided/draft station selection exists yet; the 60.sqm on-device upgrade and station-filter chart
   interaction were not exercised; no database/set write was performed.
+- **Post-review corrections:** added consumer tests for station filtering, logger write attribution,
+  station CRUD/copy, backup detach/restore and old-format rejection; strict station decoding; complete
+  station-option queries; hidden merge-only id-zero chips; editor saving/trim/error and retire
+  confirmation. Fresh matrix `0110-full-matrix-closure.log` (787 executed / 0 up-to-date). Targeted
+  reviewer closure is still required.
 
 ## 0.8.2 C1 coverage read contract — 2026-10-15
 
