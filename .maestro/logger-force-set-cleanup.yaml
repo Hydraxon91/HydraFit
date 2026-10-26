@@ -1,0 +1,27 @@
+# Cleanup flow: deletes only the synthetic force set created by `logger-force-set.yaml`, identified
+# by its device line in a session that contains exactly one recorded set. It refuses to guess if the
+# row is not uniquely identifiable by that device line.
+appId: com.hydrafit.app
+name: Delete the synthetic force set
+tags:
+  - cleanup
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Device: Grip meter \(60\.2 kg\)$'
+    direction: DOWN
+- tapOn:
+    text: '^Delete$'
+    childOf:
+      containsChild:
+        text: '^Device: Grip meter \(60\.2 kg\)$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Device: Grip meter \(60\.2 kg\)$'

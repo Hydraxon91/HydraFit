@@ -1,0 +1,84 @@
+# Write flow: logs one synthetic force set with a device, checks the history detail, then corrects
+# only its RIR and checks the force and device survived byte-for-byte in the record. The set is
+# RETAINED for `progress-force-set.yaml`; `logger-force-set-cleanup.yaml` deletes it.
+# Contract and evidence: see README.md and docs/qa.md (0.11.2).
+appId: com.hydrafit.app
+name: Logger force set with a device and a no-op correction
+tags:
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+# A fresh session keeps the synthetic set unambiguous.
+- tapOn:
+    text: '^New session$'
+    retryTapIfNoChange: false
+- assertVisible: '^Session active$'
+# Selecting an exercise opens its setup-note editor; the form sits below it.
+- tapOn:
+    text: '^Back Squat$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Force$'
+    direction: DOWN
+- tapOn:
+    text: '^Force$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Force \(N\)$'
+    direction: DOWN
+- tapOn: '^Force \(N\)$'
+- eraseText
+- inputText: '247.35'
+- hideKeyboard
+- tapOn: '^Device name \(optional\)$'
+- inputText: 'Grip meter'
+- hideKeyboard
+- tapOn: '^Device rating \(kg, optional\)$'
+- inputText: '60.25'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: '^Log set$'
+    direction: DOWN
+- tapOn:
+    text: '^Log set$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Workout history$'
+    direction: UP
+- tapOn:
+    text: '^Workout history$'
+    retryTapIfNoChange: false
+- assertVisible: '^Recorded sets: 1$'
+- tapOn:
+    text: '^Recorded: .*$'
+    index: 0
+    retryTapIfNoChange: false
+- assertVisible: '^Back Squat$'
+# One-decimal display of the stored newtons, and the device identity as recorded.
+- assertVisible: '^247\.4 N$'
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'
+# A correction that touches only RIR must not round the force or the rating.
+- tapOn:
+    text: '^Edit set$'
+    retryTapIfNoChange: false
+- tapOn: '^RIR.*'
+- eraseText
+- inputText: '2'
+- hideKeyboard
+- tapOn:
+    text: '^Save changes$'
+    retryTapIfNoChange: false
+- assertVisible: '^247\.4 N$'
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'

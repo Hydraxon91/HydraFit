@@ -1,0 +1,40 @@
+# Write flow (resume, parent-scrolled state): the synthetic force set's row is visible in Recent
+# sets. Correct only its RIR through the existing editor, assert the force and device survive, then
+# delete that one set. Starts and ends on the Logger with the row in view.
+appId: com.hydrafit.app
+name: Force set RIR correction and cleanup
+tags:
+  - writes
+  - cleanup
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'
+- assertVisible: '.*247\.4 N$'
+# Edit only the row that carries the synthetic set's device line.
+- tapOn:
+    text: '^Edit set$'
+    childOf:
+      containsChild:
+        text: '^Device: Grip meter \(60\.2 kg\)$'
+    retryTapIfNoChange: false
+- tapOn: '^RIR.*'
+- eraseText
+- inputText: '2'
+- hideKeyboard
+- tapOn:
+    text: '^Save changes$'
+    retryTapIfNoChange: false
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'
+- assertVisible: '.*247\.4 N$'
+# Cleanup: delete that set only.
+- tapOn:
+    text: '^Delete$'
+    childOf:
+      containsChild:
+        text: '^Device: Grip meter \(60\.2 kg\)$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Device: Grip meter \(60\.2 kg\)$'

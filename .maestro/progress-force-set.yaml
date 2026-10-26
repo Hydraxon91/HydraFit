@@ -1,0 +1,42 @@
+# Read-only flow: the retained synthetic force set from `logger-force-set.yaml` must appear on the
+# Exercise Progress surface with its newtons and device line, and must never render a rep or weight
+# fallback. Writes nothing.
+appId: com.hydrafit.app
+name: Progress shows a recorded force set with its device
+tags:
+  - smoke
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Log$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Exercise progress$'
+    retryTapIfNoChange: false
+- assertVisible: '^Exercise progress$'
+- tapOn: '^Search exercises$'
+# A strict prefix keeps the tap from matching the search field's own echoed text.
+- inputText: 'Back Squ'
+- hideKeyboard
+- tapOn:
+    text: '^Back Squat$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Recorded history \(all dates\)$'
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      text: '.*247\.4 N.*'
+    direction: DOWN
+- assertVisible: '.*247\.4 N.*'
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'
+- assertNotVisible: '^No weight recorded$'
+# Return to the Logger (pop the pushed destination) so the next prepared flow starts from a
+# visible tab bar.
+- back
+- assertVisible: '^Log workout$'

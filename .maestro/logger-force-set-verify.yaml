@@ -1,0 +1,42 @@
+# Write flow (resume): the synthetic force set logged by the first attempt is already stored. This
+# flow asserts its history detail, corrects only its RIR, and asserts the force and device survive.
+# It writes nothing else and leaves the set in place for `progress-force-set.yaml`.
+appId: com.hydrafit.app
+name: Force set correction keeps force and device
+tags:
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible: '^Log workout$'
+- scrollUntilVisible:
+    element:
+      text: '^Device: Grip meter \(60\.2 kg\)$'
+    direction: DOWN
+- tapOn:
+    text: '^Workout history$'
+    retryTapIfNoChange: false
+- assertVisible: '^Recorded sets: 1$'
+- tapOn:
+    text: '^Recorded: .*$'
+    index: 0
+    retryTapIfNoChange: false
+- assertVisible: '^Back Squat$'
+- assertVisible: '^247\.4 N$'
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'
+# A correction that touches only RIR must not round the force or the rating.
+- tapOn:
+    text: '^Edit set$'
+    retryTapIfNoChange: false
+- tapOn: '^RIR.*'
+- eraseText
+- inputText: '2'
+- hideKeyboard
+- tapOn:
+    text: '^Save changes$'
+    retryTapIfNoChange: false
+- assertVisible: '^247\.4 N$'
+- assertVisible: '^Device: Grip meter \(60\.2 kg\)$'

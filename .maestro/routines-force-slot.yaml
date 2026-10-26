@@ -1,0 +1,79 @@
+# Write flow: authors one routine slot measured by force, checks the weight field is gone, saves it,
+# and archives the routine again as cleanup. The 0.11.2 rule is that a force slot is load-free, so a
+# typed weight cannot survive beside the force value.
+appId: com.hydrafit.app
+name: Routine force slot authoring and cleanup
+tags:
+  - routines
+  - writes
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- tapOn:
+    text: '^New routine$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Add workout$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Add exercise$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Back Squat$'
+    retryTapIfNoChange: false
+# The force chip replaces the rep count; a force slot carries no weight field at all.
+- tapOn:
+    text: '^Force$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Weight \(.*\)$'
+- assertVisible: '^Sets$'
+# The value field carries no text of its own (its label is the same word as the chip), so it is
+# addressed by its bounds from a fresh hierarchy: the Force EditText under the selected chip.
+- tapOn:
+    point: "483,1147"
+    retryTapIfNoChange: false
+- inputText: '150'
+- hideKeyboard
+# The field renders its value and unit as separate nodes, so assert the value node itself.
+- assertVisible: '^150$'
+- tapOn:
+    text: '^Routine name$'
+    retryTapIfNoChange: false
+- inputText: 'HF UI accept force'
+- assertVisible: '^HF UI accept force$'
+- hideKeyboard
+- tapOn:
+    text: '^Workout name$'
+    retryTapIfNoChange: false
+- inputText: 'Day 1'
+- assertVisible: '^Day 1$'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: '^Save$'
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: '^Save$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- assertVisible: '^HF UI accept force$'
+# Cleanup: archive the fixture routine so it is not left as an active library entry.
+- tapOn:
+    text: '^Archive$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept force$'
+    retryTapIfNoChange: false
+- assertVisible:
+    text: '^Archived$'
+    childOf:
+      containsChild:
+        text: '^HF UI accept force$'
