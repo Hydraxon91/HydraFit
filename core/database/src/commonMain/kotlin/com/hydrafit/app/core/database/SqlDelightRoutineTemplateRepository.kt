@@ -122,6 +122,13 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                         workoutId = workoutId,
                         position = entryIndex.toLong()
                     )
+                    queries.setEntryCluster(
+                        cluster = entry.cluster?.let(
+                            com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
+                        ),
+                        workoutId = workoutId,
+                        position = entryIndex.toLong()
+                    )
                     keptEntryIds += entryId
                 }
                 queries.selectEntryIdsForWorkout(workoutId).executeAsList()
@@ -187,6 +194,10 @@ class SqlDelightRoutineTemplateRepository(private val database: HydraFitDatabase
                                 superset = entry.superset?.let(
                                     com.hydrafit.app.core.domain.routine.SupersetJson::decode
                                 ),
+                                cluster = entry.cluster?.let {
+                                    com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
+                                        .decode(it)
+                                },
                                 distanceMeters = entry.distanceMeters?.toInt(),
                                 forceNewtons = entry.forceNewtons
                             )

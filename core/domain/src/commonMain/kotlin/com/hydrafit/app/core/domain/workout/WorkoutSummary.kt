@@ -168,6 +168,8 @@ fun buildWorkoutSummary(
     val warmupSets = ordered.filter { it.isWarmup }
     val workingByEntry = workingSets
         .filter { it.occurrenceEntryId != null }
+        // A partial cluster stays visible in history but never satisfies a prescribed position.
+        .filterNot { it.cluster?.isComplete == false }
         .groupBy { requireNotNull(it.occurrenceEntryId) }
     val sourceExerciseByEntry = activation?.workouts.orEmpty()
         .flatMap { it.entries }

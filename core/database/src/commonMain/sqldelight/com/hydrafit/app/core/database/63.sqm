@@ -1,0 +1,20 @@
+-- 0.11.3 clusters: additive only. Every existing row keeps an ordinary measurement and no cluster
+-- identity, so recorded history and prescriptions are never reinterpreted.
+ALTER TABLE workoutSet ADD COLUMN clusterKind TEXT;
+ALTER TABLE workoutSet ADD COLUMN clusterPlannedSegments INTEGER;
+ALTER TABLE workoutSet ADD COLUMN clusterPerformedSegments INTEGER;
+
+ALTER TABLE routineEntry ADD COLUMN cluster TEXT;
+ALTER TABLE planHistoryEntry ADD COLUMN cluster TEXT;
+ALTER TABLE activationEntry ADD COLUMN cluster TEXT;
+ALTER TABLE occurrenceEntry ADD COLUMN cluster TEXT;
+
+CREATE TABLE workoutClusterSegment (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    setId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL NOT NULL,
+    rir INTEGER,
+    FOREIGN KEY (setId) REFERENCES workoutSet(id)
+);

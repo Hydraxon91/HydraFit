@@ -165,6 +165,9 @@ object PreviewPrescriptionImport {
                         setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode),
                         superset = entry.superset?.let(
                             com.hydrafit.app.core.domain.routine.SupersetJson::decode
+                        ),
+                        cluster = entry.cluster?.let(
+                            com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::decode
                         )
                     )
                 }

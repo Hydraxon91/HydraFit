@@ -45,6 +45,35 @@ class LogWorkoutSetUseCase(
     }
 
     /**
+     * Persists one performed cluster into the same session rules as an ordinary set: the parent set
+     * plus its segments are written atomically, so a cluster can never be half-recorded.
+     */
+    suspend fun logCluster(set: WorkoutSet, cluster: WorkoutCluster, utcOffsetMillis: Long) {
+        validate(set)
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps && opening.weightKg == set.weightKg) {
+            "A cluster parent must record its own opening segment"
+        }
+        sessionLock.withLock {
+            val session = resolveSession(set.performedAtMillis, utcOffsetMillis)
+            repository.addCluster(set.copy(sessionId = session.id), cluster)
+        }
+    }
+
+    private fun validate(set: WorkoutSet) {
+        WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
+        requireValidSetMeasurement(
+            set.reps,
+            set.durationSeconds,
+            set.distanceMeters,
+            set.forceNewtons
+        )
+        requireForceIsLoadFree(set.forceNewtons, set.weightKg)
+        requireValidDevice(set.forceNewtons, set.device)
+    }
+
+    /**
      * Persists a backdated set, choosing its session from the chosen time: the open session when the
      * time is on its local day and not before it began (and [forceNewSession] is false), otherwise a
      * new session anchored at the set's time that is written already closed. The open session is

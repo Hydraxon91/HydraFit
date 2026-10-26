@@ -57,6 +57,27 @@ internal object RoutineTemplateValidator {
         if (entry.loadKind == LoadKind.BODYWEIGHT && entry.weightKg != null) {
             throw RoutineTemplateException("Bodyweight work cannot record a numeric load")
         }
+        entry.cluster?.let { cluster ->
+            // A cluster is rep-based external-load work. A timed, distance or force measure, or any
+            // other load kind, describes a slot the cluster cannot prescribe.
+            if (entry.reps == null ||
+                entry.durationSeconds != null ||
+                entry.distanceMeters != null ||
+                entry.forceNewtons != null
+            ) {
+                throw RoutineTemplateException("A cluster prescription requires repetitions")
+            }
+            if (entry.loadKind != LoadKind.EXTERNAL) {
+                throw RoutineTemplateException("A cluster prescription requires an external load")
+            }
+            try {
+                cluster.requireValid()
+            } catch (error: IllegalArgumentException) {
+                throw RoutineTemplateException(
+                    error.message ?: "A cluster prescription is not valid"
+                )
+            }
+        }
         entry.setTargets?.let { targets ->
             // Ordered targets describe rep work: a slot measured by seconds, metres or newtons
             // cannot perform them, so it must not carry them.

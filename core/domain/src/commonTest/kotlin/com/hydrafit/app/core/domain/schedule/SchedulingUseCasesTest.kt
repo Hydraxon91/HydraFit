@@ -25,6 +25,8 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeekForEpochDay
 import com.hydrafit.app.core.domain.time.daysFromCivil
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
@@ -1075,6 +1077,16 @@ private class FakeWorkoutLogRepository : WorkoutLogRepository {
     override suspend fun add(set: WorkoutSet) {
         sets.value = sets.value + set.copy(id = nextId++)
     }
+
+    override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = add(
+        set.copy(
+            cluster = WorkoutClusterSummary(
+                kind = cluster.kind,
+                plannedSegments = cluster.plannedSegments,
+                performedSegments = cluster.performedSegments
+            )
+        )
+    )
 
     override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

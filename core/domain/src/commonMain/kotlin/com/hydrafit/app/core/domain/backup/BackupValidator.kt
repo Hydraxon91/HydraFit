@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.engine.LoadUnavailableReason
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressionOutcome
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -19,6 +20,9 @@ import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
@@ -254,6 +258,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         val occurrenceEntryIds = uniqueBy(file.occurrenceEntries) { it.id }
         val sessionIds = uniqueBy(file.workoutSessions) { it.id }
         uniqueBy(file.workoutSets) { it.id }
+        validateClusters(file)
 
         // Natural keys that must not repeat, because restore addresses rows by them.
         uniqueBy(file.equipment) { it.id }
@@ -821,6 +826,133 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         snapshot.weightKg?.let { value -> finite(value) }
         if (snapshot.forceNewtons != null && snapshot.weightKg != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+    }
+
+    /**
+     * A performed or prescribed cluster is a format-28 value. A pre-28 file that carries any cluster
+     * value is not what it claims, so the whole file is rejected rather than the cluster being
+     * silently dropped: an older reader would otherwise restore ordinary work with lost segments.
+     */
+    private fun validateClusters(file: BackupFile) {
+        val hasEntryCluster = file.routineEntries.any { it.cluster != null } ||
+            file.planEntries.any { it.cluster != null } ||
+            file.activationEntries.any { it.cluster != null } ||
+            file.occurrenceEntries.any { it.cluster != null }
+        val hasSetCluster = file.workoutSets.any {
+            it.clusterKind != null ||
+                it.clusterPlannedSegments != null ||
+                it.clusterPerformedSegments != null
+        }
+        if (file.formatVersion < CLUSTER_FORMAT_VERSION &&
+            (hasEntryCluster || hasSetCluster || file.workoutClusterSegments.isNotEmpty())
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+
+        // A prescribed cluster must decode (including its drop-set/rest-pause load shape), and the
+        // grandchild rule applies to a restored file exactly as it does to an authored routine: a
+        // cluster prescribes rep-based external-load work only.
+        file.routineEntries.forEach {
+            checkEntryCluster(
+                it.cluster,
+                it.reps,
+                it.durationSeconds,
+                it.distanceMeters,
+                it.forceNewtons,
+                it.loadKind
+            )
+        }
+        file.planEntries.forEach {
+            checkEntryCluster(
+                it.cluster,
+                it.reps,
+                it.durationSeconds,
+                it.distanceMeters,
+                it.forceNewtons,
+                it.loadKind
+            )
+        }
+        file.activationEntries.forEach {
+            checkEntryCluster(
+                it.cluster,
+                it.reps,
+                it.durationSeconds,
+                it.distanceMeters,
+                it.forceNewtons,
+                it.loadKind
+            )
+        }
+        file.occurrenceEntries.forEach {
+            checkEntryCluster(
+                it.cluster,
+                it.reps,
+                it.durationSeconds,
+                it.distanceMeters,
+                it.forceNewtons,
+                it.loadKind
+            )
+        }
+
+        // A parent set's three cluster fields are one identity: all present or all absent. The
+        // performed count is what the segment rows must match, so it is bounded by the prescription.
+        val performedBySet = mutableMapOf<Long, Int>()
+        file.workoutSets.forEach { set ->
+            val anyCluster = set.clusterKind != null ||
+                set.clusterPlannedSegments != null ||
+                set.clusterPerformedSegments != null
+            if (!anyCluster) return@forEach
+            val kind = set.clusterKind ?: fail(BackupFailure.INVALID_VALUE)
+            enum(kind, ClusterKind.entries)
+            val planned = set.clusterPlannedSegments ?: fail(BackupFailure.INVALID_VALUE)
+            val performed = set.clusterPerformedSegments ?: fail(BackupFailure.INVALID_VALUE)
+            if (planned !in ClusterPrescription.MIN_SEGMENTS..ClusterPrescription.MAX_SEGMENTS) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (performed !in 1..planned) fail(BackupFailure.INVALID_VALUE)
+            performedBySet[set.id] = performed
+        }
+
+        // A segment row belongs to exactly one parent position: a duplicate position, a parent that
+        // is not a cluster, and a value outside the performed contract are all corrupt files.
+        uniqueBy(file.workoutClusterSegments) { it.setId to it.position }
+        file.workoutClusterSegments.forEach { segment ->
+            if (segment.setId !in performedBySet) fail(BackupFailure.INVALID_REFERENCE)
+            if (segment.reps <= 0) fail(BackupFailure.INVALID_VALUE)
+            if (!segment.weightKg.isFinite() || segment.weightKg <= 0.0) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (segment.rir != null && segment.rir !in SetTarget.MIN_RIR..SetTarget.MAX_RIR) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        // The parent's own values are position 0, so a performed cluster records exactly 1..n-1.
+        val positionsBySet = file.workoutClusterSegments.groupBy { it.setId }
+        performedBySet.forEach { (setId, performed) ->
+            val positions = positionsBySet[setId].orEmpty().map { it.position }.sorted()
+            if (positions != (1 until performed).toList()) fail(BackupFailure.INVALID_VALUE)
+        }
+    }
+
+    private fun checkEntryCluster(
+        encoded: String?,
+        reps: Int?,
+        durationSeconds: Int?,
+        distanceMeters: Int?,
+        forceNewtons: Double?,
+        loadKind: String
+    ) {
+        if (encoded == null) return
+        if (runCatching { ClusterPrescriptionJson.decode(encoded) }.isFailure) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (reps == null ||
+            durationSeconds != null ||
+            distanceMeters != null ||
+            forceNewtons != null ||
+            loadKind != LoadKind.EXTERNAL.name
+        ) {
             fail(BackupFailure.INVALID_VALUE)
         }
     }

@@ -76,6 +76,12 @@ object PrescriptionPdfLayout {
                             entry.describe(document.includesWeights),
                             PrescriptionLineRole.BODY
                         )
+                    entry.cluster?.let { encoded ->
+                        lines += PrescriptionLine(
+                            entry.describeCluster(encoded, document.includesWeights),
+                            PrescriptionLineRole.BODY
+                        )
+                    }
                 }
             }
         }
@@ -106,6 +112,26 @@ private fun PrescriptionEntryRecord.describe(includesWeights: Boolean): String {
 
 private fun trimNumber(value: Double): String =
     if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
+
+/**
+ * The printed form of a slot's cluster: its actual segments in order, never a segment count shown as
+ * ordinary sets and never a load the document chose to omit.
+ */
+private fun PrescriptionEntryRecord.describeCluster(
+    encoded: String,
+    includesWeights: Boolean
+): String {
+    val cluster = com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson.decode(encoded)
+    val kind = cluster.kind.name.lowercase().replace('_', '-')
+    val reps = cluster.segments.joinToString("/") { it.reps.toString() }
+    val loads = if (includesWeights) {
+        " · " + cluster.segments.joinToString("/") { trimNumber(it.weightKg) } + " kg"
+    } else {
+        ""
+    }
+    val rest = cluster.restSeconds?.let { " · rest $it s" }.orEmpty()
+    return "Cluster $kind: ${cluster.segments.size} segments · $reps reps$loads$rest."
+}
 
 /**
  * Reads the chosen routines into a printable prescription and paginates it, without touching a file

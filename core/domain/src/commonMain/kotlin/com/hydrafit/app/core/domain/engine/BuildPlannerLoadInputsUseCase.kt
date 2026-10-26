@@ -69,6 +69,7 @@ class BuildPlannerLoadInputsUseCase(
         // exercise baseline or progression. Withholding the number is safer than mixing stations.
         val loadSets = sources.loggedWorkoutSets.filter {
             it.station == null &&
+                it.cluster == null &&
                 it.performedAtMillis <= nowMillis &&
                 contributesToLoadMath(it.exerciseId, it.loadKind)
         }

@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 27
+const val BACKUP_FORMAT_VERSION: Int = 28
 
 /**
  * Format 27 adds measured force in canonical newtons to performed sets and every prescription
@@ -15,6 +15,9 @@ const val BACKUP_FORMAT_VERSION: Int = 27
  * file must not carry any of them: a rating is never converted into force or lifted mass.
  */
 const val FORCE_FORMAT_VERSION: Int = 27
+
+/** The first format that may carry a performed or prescribed cluster. */
+const val CLUSTER_FORMAT_VERSION: Int = 28
 
 /** Format 26 adds whole-metre set/prescription distance and the metres/feet preference. */
 const val DISTANCE_FORMAT_VERSION: Int = 26
@@ -126,6 +129,8 @@ data class BackupFile(
     val equipment: List<BackupEquipmentRecord>,
     val selectedEquipment: List<String>,
     val workoutSets: List<BackupWorkoutSetRecord>,
+    /** Additional performed cluster segments, format 28 and later; position 0 is the parent set. */
+    val workoutClusterSegments: List<BackupClusterSegmentRecord> = emptyList(),
     val workoutSessions: List<BackupWorkoutSessionRecord>,
     val plans: List<BackupPlanRecord>,
     val planDays: List<BackupPlanDayRecord>,
@@ -408,7 +413,23 @@ data class BackupWorkoutSetRecord(
      * The measuring device's stated resistance rating in kilograms, format 27 and later. It is never
      * converted into force or lifted mass; comparisons require the same device identity.
      */
-    val deviceRatingKg: Double? = null
+    val deviceRatingKg: Double? = null,
+    /** Cluster kind, format 28 and later; null for an ordinary set. */
+    val clusterKind: String? = null,
+    /** Prescribed segment count, format 28 and later; present only with a cluster kind. */
+    val clusterPlannedSegments: Int? = null,
+    /** Performed segment count, format 28 and later; a partial cluster satisfies no position. */
+    val clusterPerformedSegments: Int? = null
+)
+
+@Serializable
+data class BackupClusterSegmentRecord(
+    /** The performed cluster parent this segment belongs to; always a cluster parent in the file. */
+    val setId: Long,
+    val position: Int,
+    val reps: Int,
+    val weightKg: Double,
+    val rir: Int? = null
 )
 
 @Serializable
@@ -459,6 +480,8 @@ data class BackupPlanEntryRecord(
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
     val superset: String? = null,
+    /** The encoded ordered cluster prescription, format 28 and later; null for ordinary work. */
+    val cluster: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
     val distanceMeters: Int? = null,
     /** Measured force in canonical newtons, format 27 and later. */
@@ -624,6 +647,8 @@ data class BackupRoutineEntryRecord(
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
     val superset: String? = null,
+    /** The encoded ordered cluster prescription, format 28 and later; null for ordinary work. */
+    val cluster: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
     val distanceMeters: Int? = null,
     /** Measured force in canonical newtons, format 27 and later. */
@@ -682,6 +707,8 @@ data class BackupActivationEntryRecord(
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
     val superset: String? = null,
+    /** The encoded ordered cluster prescription, format 28 and later; null for ordinary work. */
+    val cluster: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
     val distanceMeters: Int? = null,
     /** Measured force in canonical newtons, format 27 and later. */
@@ -729,6 +756,8 @@ data class BackupOccurrenceEntryRecord(
     /** The encoded ordered per-set targets, format 23 and later; null when the sets repeat. */
     val setTargets: String? = null,
     val superset: String? = null,
+    /** The encoded ordered cluster prescription, format 28 and later; null for ordinary work. */
+    val cluster: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
     val distanceMeters: Int? = null,
     /** Measured force in canonical newtons, format 27 and later. */

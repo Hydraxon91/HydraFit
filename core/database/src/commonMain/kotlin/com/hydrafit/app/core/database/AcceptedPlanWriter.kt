@@ -57,6 +57,13 @@ internal class AcceptedPlanWriter(private val database: HydraFitDatabase) {
                     dayId = dayId,
                     position = position.toLong()
                 )
+                queries.setPlanEntryCluster(
+                    cluster = exercise.cluster?.let(
+                        com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
+                    ),
+                    dayId = dayId,
+                    position = position.toLong()
+                )
                 val recorded = exercise.explanation ?: return@forEachIndexed
                 database.planTargetExplanationQueries.insertRecorded(
                     planId = planId,

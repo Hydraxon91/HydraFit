@@ -1,0 +1,47 @@
+CREATE TABLE workoutClusterSegment (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    setId INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weightKg REAL NOT NULL,
+    rir INTEGER,
+    FOREIGN KEY (setId) REFERENCES workoutSet(id)
+);
+
+-- Performed cluster segments. The parent set keeps its own recorded values as segment 0, so these
+-- rows are always positions 1..n and a reader that ignores clusters still sees one valid ordinary set.
+
+insertSegment:
+INSERT INTO workoutClusterSegment(setId, position, reps, weightKg, rir)
+VALUES (?, ?, ?, ?, ?);
+
+selectSegmentsForSet:
+SELECT * FROM workoutClusterSegment WHERE setId = ? ORDER BY position;
+
+selectSegmentsForSets:
+SELECT * FROM workoutClusterSegment
+WHERE setId IN ?
+ORDER BY setId, position;
+
+deleteSegmentsForSet:
+DELETE FROM workoutClusterSegment WHERE setId = ?;
+
+-- Cluster identity lives on the parent set so completion can decide without reading extra rows.
+-- The performed count is denormalised here and rewritten in the same transaction as any segment
+-- change, so a reader never has to join the segment table to know whether a cluster is complete.
+assignCluster:
+UPDATE workoutSet
+SET clusterKind = ?, clusterPlannedSegments = ?, clusterPerformedSegments = ?
+WHERE id = ?;
+
+assignClusterPerformedSegments:
+UPDATE workoutSet SET clusterPerformedSegments = ? WHERE id = ?;
+
+clearCluster:
+UPDATE workoutSet
+SET clusterKind = NULL, clusterPlannedSegments = NULL, clusterPerformedSegments = NULL
+WHERE id = ?;
+
+selectClusterMembers:
+SELECT id, clusterKind, clusterPlannedSegments, clusterPerformedSegments
+FROM workoutSet WHERE id = ?;

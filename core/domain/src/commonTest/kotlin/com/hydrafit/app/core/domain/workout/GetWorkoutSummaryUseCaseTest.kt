@@ -355,6 +355,8 @@ class GetWorkoutSummaryUseCaseTest {
 
         override suspend fun add(set: WorkoutSet) = notUsed()
 
+        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = notUsed()
+
         override suspend fun assignSession(setId: Long, sessionId: String) = notUsed()
 
         override suspend fun delete(id: Long) = notUsed()

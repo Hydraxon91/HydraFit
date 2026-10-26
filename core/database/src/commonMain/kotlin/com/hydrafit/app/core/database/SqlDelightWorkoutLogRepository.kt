@@ -5,6 +5,8 @@ import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
@@ -20,6 +22,14 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     private val overrideQueries = database.exerciseOverrideQueries
 
     override suspend fun add(set: DomainWorkoutSet) {
+        insertSet(set)
+    }
+
+    /**
+     * Writes one set row and returns its id. Callers that need more work in the same transaction wrap
+     * this in their own transaction, so a cluster never leaves a parent without its segments.
+     */
+    private fun insertSet(set: DomainWorkoutSet): Long {
         val encodedTarget = set.prescriptionSnapshot?.let { target ->
             require(target.exerciseId == set.exerciseId) { "Prescription exercise does not match" }
             require(target.loadKind == set.loadKind) { "Prescription load kind does not match" }
@@ -41,7 +51,7 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         // later catalog edits can't rewrite history.
         val seed = exerciseQueries.selectById(set.exerciseId).executeAsOneOrNull()
         val override = overrideQueries.selectById(set.exerciseId).executeAsOneOrNull()
-        setQueries.transaction {
+        return setQueries.transactionWithResult {
             setQueries.insertSetWithTimingProvenance(
                 exerciseId = set.exerciseId,
                 reps = set.reps?.toLong(),
@@ -88,6 +98,45 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
                     occurrenceId = set.occurrenceId,
                     occurrenceEntryId = set.occurrenceEntryId,
                     id = setId
+                )
+            }
+            set.cluster?.let { cluster ->
+                database.workoutClusterQueries.assignCluster(
+                    clusterKind = cluster.kind.name,
+                    clusterPlannedSegments = cluster.plannedSegments.toLong(),
+                    clusterPerformedSegments = cluster.performedSegments.toLong(),
+                    id = setId
+                )
+            }
+            setId
+        }
+    }
+
+    override suspend fun addCluster(set: DomainWorkoutSet, cluster: WorkoutCluster) {
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps) { "A cluster parent must record its opening reps" }
+        require(opening.weightKg == set.weightKg) {
+            "A cluster parent must record its opening external load"
+        }
+        // One transaction: a failure part-way leaves neither a cluster parent nor orphan segments.
+        setQueries.transaction {
+            val setId = insertSet(
+                set.copy(
+                    cluster = WorkoutClusterSummary(
+                        kind = cluster.kind,
+                        plannedSegments = cluster.plannedSegments,
+                        performedSegments = cluster.performedSegments
+                    )
+                )
+            )
+            cluster.segments.drop(1).forEach { segment ->
+                database.workoutClusterQueries.insertSegment(
+                    setId = setId,
+                    position = segment.position.toLong(),
+                    reps = segment.reps.toLong(),
+                    weightKg = segment.weightKg,
+                    rir = segment.rir?.toLong()
                 )
             }
         }
@@ -148,6 +197,9 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
             // A timed set is real recorded work, but it carries no rep count to replay against the
             // fatigue model, and its seconds are never read as repetitions.
             if (row.durationSeconds != null) return@mapNotNull null
+            // Cluster work is excluded from the modelled fatigue estimate by the approved 0.11.3
+            // contract; counting a parent as an ordinary set would silently overstate fatigue.
+            if (row.clusterKind != null) return@mapNotNull null
             val reps = row.reps ?: return@mapNotNull null
             val targets = decodeCached(row.involvements, decodeCache)
                 ?: targetsByExercise[row.exerciseId]

@@ -2,6 +2,7 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.workout.LoadKind
@@ -92,6 +93,8 @@ data class AcceptedExercise(
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
     val setTargets: SlotSetTargets? = null,
     val superset: Superset? = null,
+    /** The slot's ordered cluster prescription, or null for ordinary work. */
+    val cluster: ClusterPrescription? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Measured force in newtons for a force slot, or null for every other metric. */
@@ -153,7 +156,8 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     explanation = exercise.explanation,
                     progressionPolicy = exercise.progressionPolicy,
                     setTargets = exercise.setTargets,
-                    superset = exercise.superset
+                    superset = exercise.superset,
+                    cluster = exercise.cluster
                 )
             }
         )

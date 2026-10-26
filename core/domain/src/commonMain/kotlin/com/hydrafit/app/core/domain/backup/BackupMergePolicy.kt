@@ -45,7 +45,11 @@ object BackupMergePolicy {
                 distanceMeters = set.distanceMeters,
                 forceNewtons = set.forceNewtons,
                 deviceName = set.deviceName,
-                deviceRatingKg = set.deviceRatingKg
+                deviceRatingKg = set.deviceRatingKg,
+                sourceSetId = set.id,
+                clusterKind = set.clusterKind,
+                clusterPlannedSegments = set.clusterPlannedSegments,
+                clusterPerformedSegments = set.clusterPerformedSegments
             )
         }
 
@@ -78,9 +82,16 @@ object BackupMergePolicy {
                 (set.occurrenceId != null || set.occurrenceEntryId != null)
         }
 
+        // Cluster segments travel only with the parent set this merge inserts. A skipped session keeps
+        // its local cluster untouched, and re-merging the same file selects no set and no segment.
+        val insertedSourceSetIds = setsToInsert.mapNotNullTo(mutableSetOf()) { it.sourceSetId }
+        val clusterSegments = file.workoutClusterSegments
+            .filter { it.setId in insertedSourceSetIds }
+
         return BackupMergeSelection(
             sessionsToInsert = newSessions,
             setsToInsert = setsToInsert,
+            clusterSegmentsToInsert = clusterSegments,
             sessionNotesToInsert = file.sessionNotes.filter { it.sessionId in newSessionIds },
             bodyWeightToInsert = bodyWeight,
             personalRecordsToInsert = personalRecords,

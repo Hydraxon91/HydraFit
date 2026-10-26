@@ -73,6 +73,9 @@ private suspend fun loadCompletion(
     val recorded = workoutLogRepository.setsForOccurrence(occurrenceId)
     val performed = recorded
         .filterNot(WorkoutSet::isWarmup)
+        // A partial cluster is recorded work that does not satisfy its prescribed position; the user
+        // resumes it or concludes the workout partially.
+        .filterNot { it.cluster?.isComplete == false }
         .groupingBy { it.occurrenceEntryId }
         .eachCount()
         .filterKeys { it != null }

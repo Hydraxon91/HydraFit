@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.backup.BackupSessionNoteRecord
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.backup.BackupWorkoutSessionRecord
 import com.hydrafit.app.core.domain.backup.DISTANCE_FORMAT_VERSION
+import com.hydrafit.app.core.domain.backup.FORCE_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
@@ -1344,7 +1345,7 @@ class SqlDelightBackupRepositoryTest {
         assertNull(restored.weightKg)
 
         // A format that cannot express force rejects the file rather than dropping the reading.
-        val older = exported.copy(formatVersion = BACKUP_FORMAT_VERSION - 1)
+        val older = exported.copy(formatVersion = FORCE_FORMAT_VERSION - 1)
         assertEquals(
             BackupFailure.INVALID_VALUE,
             assertFailsWith<BackupException> { BackupValidator(catalog).validate(older) }.failure

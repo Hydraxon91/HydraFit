@@ -261,6 +261,10 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                 superset = row.superset?.let(
                                     com.hydrafit.app.core.domain.routine.SupersetJson::decode
                                 ),
+                                cluster = row.cluster?.let {
+                                    com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
+                                        .decode(it)
+                                },
                                 distanceMeters = row.distanceMeters?.toInt(),
                                 forceNewtons = row.forceNewtons
                             )

@@ -46,6 +46,7 @@ CREATE TABLE activationEntry (
     superset TEXT,
     distanceMeters INTEGER,
     forceNewtons REAL,
+    cluster TEXT,
     FOREIGN KEY (workoutId) REFERENCES activationWorkout(id)
 );
 
@@ -87,6 +88,7 @@ CREATE TABLE occurrenceEntry (
     superset TEXT,
     distanceMeters INTEGER,
     forceNewtons REAL,
+    cluster TEXT,
     FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
 );
 
@@ -174,6 +176,9 @@ SELECT * FROM activationEntry ORDER BY workoutId, position;
 setActivationSuperset:
 UPDATE activationEntry SET superset = ? WHERE workoutId = ? AND position = ?;
 
+setActivationCluster:
+UPDATE activationEntry SET cluster = ? WHERE workoutId = ? AND position = ?;
+
 remapActivationEquipment:
 UPDATE activationEntry SET requiredEquipment = ? WHERE id = ?;
 
@@ -224,6 +229,12 @@ UPDATE occurrenceEntry SET superset = ? WHERE occurrenceId = ? AND position = ?;
 
 setOccurrenceSupersetById:
 UPDATE occurrenceEntry SET superset = ? WHERE id = ?;
+
+setOccurrenceCluster:
+UPDATE occurrenceEntry SET cluster = ? WHERE occurrenceId = ? AND position = ?;
+
+setOccurrenceClusterById:
+UPDATE occurrenceEntry SET cluster = ? WHERE id = ?;
 
 remapOccurrenceEquipment:
 UPDATE occurrenceEntry SET requiredEquipment = ? WHERE id = ?;

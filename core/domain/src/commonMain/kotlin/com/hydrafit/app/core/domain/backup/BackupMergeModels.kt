@@ -67,7 +67,16 @@ data class BackupMergedSet(
     val forceNewtons: Double? = null,
     /** Descriptive device identity and stated rating, carried verbatim; never converted to force. */
     val deviceName: String? = null,
-    val deviceRatingKg: Double? = null
+    val deviceRatingKg: Double? = null,
+    /**
+     * The file's own set id, used only to attach this parent's inserted cluster segments to the new
+     * local row. It is not restored as an identity.
+     */
+    val sourceSetId: Long? = null,
+    /** Cluster identity, carried verbatim so a merge never recomputes the performed segments. */
+    val clusterKind: String? = null,
+    val clusterPlannedSegments: Int? = null,
+    val clusterPerformedSegments: Int? = null
 )
 
 /** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */
@@ -95,6 +104,11 @@ data class BackupMergeExcludedCount(val category: BackupMergeExcludedCategory, v
 data class BackupMergeSelection(
     val sessionsToInsert: List<BackupWorkoutSessionRecord>,
     val setsToInsert: List<BackupMergedSet>,
+    /**
+     * Segment rows belonging to the inserted cluster parents only. Their [BackupClusterSegmentRecord.setId]
+     * is the file's set id and is remapped to the fresh local id when the selection is applied.
+     */
+    val clusterSegmentsToInsert: List<BackupClusterSegmentRecord> = emptyList(),
     val sessionNotesToInsert: List<BackupSessionNoteRecord>,
     val bodyWeightToInsert: List<BackupBodyWeightRecord>,
     val personalRecordsToInsert: List<BackupPersonalRecordRecord>,
@@ -112,7 +126,8 @@ data class BackupMergeSelection(
 ) {
     /** Rows this selection inserts in total, across every collection. */
     val insertCount: Int
-        get() = sessionsToInsert.size + setsToInsert.size + sessionNotesToInsert.size +
+        get() = sessionsToInsert.size + setsToInsert.size + clusterSegmentsToInsert.size +
+            sessionNotesToInsert.size +
             bodyWeightToInsert.size + personalRecordsToInsert.size + preferencesToInsert.size +
             exclusionsToInsert.size + exerciseNotesToInsert.size + overridesToInsert.size +
             customExercisesToInsert.size

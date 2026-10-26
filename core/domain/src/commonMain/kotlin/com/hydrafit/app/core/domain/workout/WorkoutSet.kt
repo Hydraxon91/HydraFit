@@ -54,7 +54,12 @@ data class WorkoutSet(
     /** Whole metres for a distance set, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Measured force in canonical newtons for a force set, or null for every other metric. */
-    val forceNewtons: Double? = null
+    val forceNewtons: Double? = null,
+    /**
+     * The cluster identity this set was logged as, or null for ordinary work. A partial cluster is
+     * recorded work that does not satisfy its prescribed position.
+     */
+    val cluster: WorkoutClusterSummary? = null
 ) {
     /**
      * The set's measurement when its stored shape is valid, or null when the row is neither a

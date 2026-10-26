@@ -6,6 +6,13 @@ import kotlinx.coroutines.flow.Flow
 interface WorkoutLogRepository {
     suspend fun add(set: WorkoutSet)
 
+    /**
+     * Persists one performed cluster: the parent set plus its additional segments, in one transaction.
+     * The parent keeps the opening segment's own measurement and gains the cluster identity, so a
+     * partial failure never leaves a half-written cluster behind.
+     */
+    suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster)
+
     /** Attaches a set to a session; used when auto-start or the legacy backfill assigns an id. */
     suspend fun assignSession(setId: Long, sessionId: String)
 

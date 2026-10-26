@@ -32,7 +32,12 @@ data class WorkoutPrescriptionSnapshot(
     /** Format 4 and later: whole metres for a distance target, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Format 5 and later: measured force in newtons for a force target, or null for other metrics. */
-    val forceNewtons: Double? = null
+    val forceNewtons: Double? = null,
+    /**
+     * Format 6 and later: the ordered cluster prescription this set was performed against, or null
+     * for ordinary work. It occupies one set position, so [sets] never counts its segments.
+     */
+    val cluster: com.hydrafit.app.core.domain.routine.ClusterPrescription? = null
 ) {
     fun requireValid() {
         require(version in MIN_SNAPSHOT_VERSION..SNAPSHOT_VERSION) {
@@ -50,6 +55,9 @@ data class WorkoutPrescriptionSnapshot(
         require(version >= FORCE_SNAPSHOT_VERSION || forceNewtons == null) {
             "A target before format $FORCE_SNAPSHOT_VERSION cannot carry a force"
         }
+        require(version >= CLUSTER_SNAPSHOT_VERSION || cluster == null) {
+            "A target before format $CLUSTER_SNAPSHOT_VERSION cannot carry a cluster"
+        }
         require(exerciseId.isNotBlank() && sets > 0) {
             "Invalid prescription identity or set count"
         }
@@ -63,11 +71,12 @@ data class WorkoutPrescriptionSnapshot(
         requireForceIsLoadFree(forceNewtons, weightKg)
         WorkoutLoadPolicy.validateShape(loadKind, weightKg)
         progressionPolicy?.requireValid()
+        cluster?.requireValid()
     }
 
     companion object {
         /** The format this build writes. */
-        const val SNAPSHOT_VERSION: Int = 5
+        const val SNAPSHOT_VERSION: Int = 6
 
         /** The oldest format this build still reads. */
         const val MIN_SNAPSHOT_VERSION: Int = 1
@@ -83,6 +92,9 @@ data class WorkoutPrescriptionSnapshot(
 
         /** The first format that may carry a measured-force target. */
         const val FORCE_SNAPSHOT_VERSION: Int = 5
+
+        /** The first format that may carry an ordered cluster prescription. */
+        const val CLUSTER_SNAPSHOT_VERSION: Int = 6
     }
 }
 

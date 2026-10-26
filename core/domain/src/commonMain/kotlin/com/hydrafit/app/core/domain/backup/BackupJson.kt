@@ -78,6 +78,10 @@ object BackupJson {
             if (version != null && version < WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION) {
                 add("warmupPreparationOverrides")
             }
+            // Performed segment rows arrive with format 28; an older file simply has none.
+            if (version != null && version < CLUSTER_FORMAT_VERSION) {
+                add("workoutClusterSegments")
+            }
         }
         val missing = requiredKeys - obj.keys
         if (missing.isNotEmpty()) {
@@ -224,7 +228,8 @@ object BackupJson {
 
     private fun recordCount(file: BackupFile): Int =
         file.customExercises.size + file.exerciseOverrides.size + file.equipment.size +
-            file.selectedEquipment.size + file.workoutSets.size + file.workoutSessions.size +
+            file.selectedEquipment.size + file.workoutSets.size + file.workoutClusterSegments.size +
+            file.workoutSessions.size +
             file.plans.size + file.planDays.size + file.planEntries.size +
             file.volumeExplanations.size + file.volumeExplanationStates.size +
             file.planTargetExplanations.size + file.planTargetExplanationStates.size +

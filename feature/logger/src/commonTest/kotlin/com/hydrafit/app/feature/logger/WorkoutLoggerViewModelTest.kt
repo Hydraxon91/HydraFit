@@ -83,6 +83,8 @@ import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -10282,6 +10284,16 @@ class WorkoutLoggerViewModelTest {
             }
             sets.add(set.copy(id = nextId++))
         }
+
+        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = add(
+            set.copy(
+                cluster = WorkoutClusterSummary(
+                    kind = cluster.kind,
+                    plannedSegments = cluster.plannedSegments,
+                    performedSegments = cluster.performedSegments
+                )
+            )
+        )
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

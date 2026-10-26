@@ -32,6 +32,7 @@ CREATE TABLE planHistoryEntry (
     superset TEXT,
     distanceMeters INTEGER,
     forceNewtons REAL,
+    cluster TEXT,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -73,6 +74,9 @@ SELECT * FROM planHistoryEntry ORDER BY dayId, position;
 
 setEntrySuperset:
 UPDATE planHistoryEntry SET superset = ? WHERE dayId = ? AND position = ?;
+
+setPlanEntryCluster:
+UPDATE planHistoryEntry SET cluster = ? WHERE dayId = ? AND position = ?;
 
 selectEntriesForDay:
 SELECT * FROM planHistoryEntry WHERE dayId = ? ORDER BY position;
