@@ -503,8 +503,10 @@ swapped slot is self-describing like any other accepted entry.
 
 Recent-set corrections use `CorrectWorkoutSetUseCase` through `WorkoutLogMutations`.
 `SessionResegmenter.resegmentAfterSetCorrection` updates the performed measure (reps, whole
-seconds or whole metres), nullable weight and nullable RIR on the same row in one SQLDelight
-transaction. It invokes the existing time-resegmentation
+seconds, whole metres or newtons), the descriptive device, nullable weight and nullable RIR on the
+same row in one SQLDelight transaction. A correction that stops being a force set clears the device
+and the recorded prescription target together; `device = null` is an explicit clear. It invokes the
+existing time-resegmentation
 algorithm only when the performed time changes; unchanged time uses a bounded row lookup and
 leaves session bounds untouched. Exercise, warm-up, load kind, muscle/plan snapshots and occurrence
 links are never replaced. Recorded BODYWEIGHT stays non-numeric; EXTERNAL, ADDED and legacy loads
@@ -531,9 +533,10 @@ lost nor changes that migration's behavior. SQLDelight's resolver rejects `sqlit
 Performed sets use exclusive nullable repetitions or positive whole `durationSeconds`; seconds
 are never encoded as reps. Migration `52.sqm` preserves existing counted sets. Timed working sets
 remain in history, coverage and count-based completion but do not enter rep-derived fatigue,
-strength records or planner load calculations. CSV export includes duration and distance; providers
-import explicit seconds or a stated-unit distance and reject a row carrying more than one positive
-measure.
+strength records or planner load calculations. CSV export includes duration, distance, force and the
+descriptive device; providers import explicit seconds or a stated-unit distance and reject a row
+carrying more than one positive measure. No provider export carries force, so import does not read
+one.
 
 Migration `53.sqm` carries the same metric choice into user-authored routine slots and frozen
 activation/occurrence entries, preserving ids, snapshots and indexes. Authoring requires the user
@@ -586,7 +589,8 @@ Injected profile-insert failure tests require rollback of the entire replacement
   `25.sqm` routine templates, `26.sqm` activations/occurrences/schedule cursor, `36.sqm` rest
   preferences/countdown, `37.sqm` training-guidance preferences, `60.sqm` equipment stations plus
   nullable performed-set station columns, `61.sqm` whole-metre distance on performed sets and the four
-  prescription stores plus the metres/feet preference).
+  prescription stores plus the metres/feet preference, `62.sqm` measured force on performed sets and
+  the four prescription stores plus descriptive device name/rating on performed sets only).
 - **Consistency:** high; the current `.sq` matches the cumulative migrations exactly, including column
   order. A one-off 0.6.0 exception reordered columns — adding, removing and retyping nothing — in
   `exercise`, `exerciseOverride` (`involvements` declared before `loadCapability`, since `19.sqm` added
@@ -678,7 +682,8 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
   the AI sanitizer and substitution. A legacy number contributes to the baseline/progression only
   when the exercise is external **today** (a read-time compatibility exception — stored rows are never
   rewritten); typed external performances/prescriptions alone drive a streak. Added kilograms are not
-  total effective resistance and never seed a generated number. `null`/`0.0`/positive stay distinct.
+  total effective resistance and never seed an e1RM or an external-load number; a recorded added load
+  may only continue as its own prescription under EX-02-A (§1.26). `null`/`0.0`/positive stay distinct.
   A legacy draft must be explicitly resolved (external or bodyweight) before it is logged; the choice
   affects the new performed set, never the frozen prescription. For `LEGACY_UNSPECIFIED` drafts only,
   a frozen `UNSPECIFIED` capability consults the current catalog to offer external resolution when
@@ -696,7 +701,8 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
   relative-load factor for fatigue while retaining the stored number for display, so historical
   fatigue results are unchanged.
 - **Violations / tensions:** `UNSPECIFIED` customs and old frozen snapshots cannot be auto-classified;
-  assisted/negative load, added-load e1RM and resistance calibration are out of scope.
+  assisted/negative load, added-load e1RM and resistance calibration are out of scope. EX-02-A
+  continues a recorded added load without any of them, so added load still has no estimate (§1.26).
 
 ### 1.12a Physical station identity (EQ-02 / 0.11.0)
 
@@ -936,6 +942,8 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   The internal setup revision is a concurrency token, not backup data; restore starts it at zero.
   Format 26 adds whole-metre distance on performed sets and the four prescription stores plus the
   metres/feet preference; formats 1–25 reject a distance field and restore the metres default.
+  Format 27 adds measured force on the same five stores plus the descriptive device name/rating on
+  performed sets; formats 1–26 reject a force or device field rather than restoring a partial one.
 - **Consistency:** mirrors the §1.8 snapshot rule — frozen prescriptions,
   performed snapshots, load kinds and stored ids round-trip unchanged.
 - **Violations / tensions:** the existing repositories cannot implement restore
@@ -1318,8 +1326,9 @@ additive-migration rule and `backup.md` in the mechanics skill for the format de
 
 Sharing a prescription is a separate, narrower contract than a backup. `core/domain`'s
 `transfer/PrescriptionModels.kt` defines the versioned `hydrafit-routines` document: an ordered list
-of routines (name, optional focus, ordered slots with sets and one of reps, whole seconds or whole
-metres, plus load kind) plus only the custom exercise definitions those slots reference, each as
+of routines (name, optional focus, ordered slots with sets and one of reps, whole seconds, whole
+metres or measured newtons, plus load kind) plus only the custom exercise definitions those slots
+reference, each as
 resolved values. It has no representation for
 performed history, personal records, notes, credentials, equipment inventories, schedule state, cycle
 progress or engine explanations, and `PrescriptionJson` rejects an unknown field rather than ignoring
@@ -1327,10 +1336,10 @@ it, so a document cannot smuggle one in. `includesWeights` is the recorded user 
 omits prescribed weights unless it is true, and a document that claims to be weights-free but carries
 one is rejected. `PrescriptionValidator` checks the format/version, the shared prescription bounds,
 the shape bounds and the internal references without touching storage or a catalog. The current
-document version is 6: v2 added timed seconds, v3 the progression policy, v4 ordered per-set targets,
-v5 supersets and v6 whole-metre distance. A field introduced in a later version is rejected in an
-earlier document rather than dropped or reinterpreted, and a measured slot must have exactly one of
-reps, seconds and metres.
+document version is 7: v2 added timed seconds, v3 the progression policy, v4 ordered per-set targets,
+v5 supersets, v6 whole-metre distance and v7 measured force. A field introduced in a later version is
+rejected in an earlier document rather than dropped or reinterpreted, and a measured slot must have
+exactly one of reps, seconds, metres and newtons.
 
 `ExportPrescriptionsUseCase` reads only the chosen routines and the catalog rows they reference, so
 the privacy surface is what it reads rather than what it filters. Import is the mirror image and is
@@ -1406,6 +1415,64 @@ carry its own separate load. CSV import reads provider distance columns with the
 canonical identity prefix is `distance:<n>`. Backup format 26 and prescription interchange v6 carry
 distance and the preference, while older files reject a distance field rather than dropping or
 reinterpreting it; the PDF prints `"<n> m"`.
+
+### 1.25 Force as the fourth set measure (0.11.2)
+
+Reps, whole seconds, whole metres and canonical newtons are mutually exclusive measures for performed
+sets and for routine, accepted-plan, activation and occurrence slots. Additive `62.sqm` adds nullable
+`forceNewtons` to those five stores and, on performed sets only, the descriptive device columns
+`deviceName` and `deviceRatingKg`; existing rows keep their rep, duration or distance measure and are
+never backfilled. `PrescriptionBounds` bounds force to 0.1–5000 N **for prescriptions**. A performed set
+is only required to be positive and finite, matching every writer: the app logs a long imported ride
+or any positive dynamometer reading, so restore must accept what it wrote rather than making a
+backup unrestorable over a plausibility check.
+
+Force is **load-free** by construction: `requireForceIsLoadFree` rejects a force set that also carries
+`weightKg`, so a dynamometer reading is never added to or read as lifted mass. It is authorable for
+any exercise, because whether a grip/protocol measurement makes sense is the user's judgement rather
+than a catalog property.
+
+The device is optional, performed-set-only and descriptive: a name plus an optional positive rating in
+kilograms, frozen at logging. The rating is the manufacturer's stated resistance, never a measured
+force, a converted mass or an expected value, and no comparison may read across two device identities.
+Force contributes no reps, external volume, e1RM, strength record, fatigue or planner load input: the
+progress calculator counts it as recorded work on the day trend and returns before any rep-derived
+record, matching how timed and distance work are excluded.
+
+Becoming non-force clears the set's device and its recorded prescription target in the same
+transaction, and `device = null` in a correction is an explicit clear rather than "unchanged". On a
+prescription slot, a measure edit to force clears the numeric load, and any measure other than reps
+clears the slot's ordered per-set targets, which describe rep work (§1.26 covers their load side and
+§1.12 the capability rule they mirror).
+
+Portability: backup format 27 (snapshot format 5) and prescription interchange v7 carry force, while
+older files reject a force field rather than dropping or reinterpreting it. The PDF prints
+`"<n> N"`, and the analysis CSV appends `forceNewtons`, `deviceName` and `deviceRatingKg` after the
+existing columns so earlier positions stay stable. Third-party workout-CSV import is unchanged: no
+supported provider exports a force column, and inventing one would import a number the source never
+recorded. Exercise Progress shows each force set's newtons and its device line; it adds no force chart
+series and no day-total force metric, because summing peak forces is not a meaningful quantity.
+
+### 1.26 Added-load progression (EX-02-A, 0.11.2)
+
+A `BODYWEIGHT_ADDABLE` exercise may now be prescribed a numeric **added** load without an estimated
+1RM. `BuildPlannerLoadInputsUseCase` takes the latest recorded qualifying added set per exercise as
+that exercise's baseline, then applies the *same* success/miss streak rule as external load through
+`ProgressWeightsUseCase.resolve(..., loadKind = ADDED)` and the existing increment. A qualifying set
+is non-warmup, not station-attributed, not in the future, carries a rep count and a positive finite
+added load, and carries no duration, distance or force measurement; recency is performance time with
+the stored id breaking ties.
+
+The rule is deliberately narrow. Added load is the recorded number itself: it is never estimated from
+reps, never scaled by the deload intensity curve (a deload pauses increments instead), never seeded
+from external history, and never combined with body mass, which EX-02-A neither reads nor requests.
+`EXTERNAL` e1RM conversion, ordered per-set targets and load explanations keep their existing
+external-only semantics; ordered targets cannot describe added load. Both the deterministic engine
+and `WeeklyPlanSanitizer` emit the app's own number with `LoadKind.ADDED` and ignore a model's
+suggested number for these slots; an exercise with no qualifying recorded added set keeps its typed
+no-number bodyweight prescription. Substitution and occurrence replacement resolve a candidate's added
+load by the same rule. No schema change was needed, and added-load suggestions carry no persisted
+`LoadOriginExplanation`, because the entry-explanation columns have no load-kind field.
 
 ## 2. Decision log
 

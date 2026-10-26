@@ -41,6 +41,15 @@ the same transaction (`DistanceMigrationTest` covers the chain and the write). S
 always whole metres; `SqlDelightDistanceUnitRepository` reads and writes only the display
 preference and falls back to metres for an absent or unknown stored value.
 
+0.11.2 force/device: additive `62.sqm` adds nullable `forceNewtons` to `workoutSet`, `routineEntry`,
+`planHistoryEntry`, `activationEntry` and `occurrenceEntry`, plus nullable `deviceName` and
+`deviceRatingKg` on `workoutSet` only — a device describes one performed reading, never a
+prescription. Existing rows keep their rep, duration or distance measure; nothing is backfilled.
+`insertSet` again keeps its signature, so force and device are written by `assignForce` and
+`assignDevice` after `lastInsertedSetId()` inside the same transaction (`ForceMigrationTest` covers
+the chain and the write). Force is canonical newtons and load-free, so it is never stored beside a
+weight. `ExerciseProgress.sq` already projects the new columns for history replay.
+
 Query files: `Equipment.sq`, `EquipmentProfile.sq`, `EquipmentStation.sq`, `Exercise.sq`,
 `ExerciseExclusion.sq`, `ExerciseNote.sq`,
 `ExerciseOverride.sq`, `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`,

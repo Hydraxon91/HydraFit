@@ -7,6 +7,11 @@ Paths are relative to the repository root; package shorthand is defined in
 remain kilograms. Unilateral rows use the logged per-hand value rather than
 doubling the 1RM input.
 
+Measured force is the exception: newtons are canonical and are never converted by `WeightUnit` or by
+the metres/feet preference, so `formatWeight(forceNewtons)` only trims the number. A device's
+`ratingKg` is a descriptive manufacturer figure shown in kilograms; it is not converted to newtons and
+never becomes a load, an expected force or a comparison across devices.
+
 `TimeProvider.utcOffsetMillis()` defaults to zero, preserving SAM fakes such as
 `TimeProvider { fixedMillis }`. Domain `time/DayOfWeek.kt` provides local-day
 helpers. Platform adapters supply Android TimeZone offsets or the iOS

@@ -133,6 +133,33 @@ an unknown unit are row diagnostics, a row with more than one of reps/seconds/di
 `AMBIGUOUS_ROW_SHAPE`, and the canonical identity prefix is `distance:<n>`. See `backup.md` for the
 CSV, interchange and backup format detail.
 
+## Force and device logging (0.11.2)
+
+Force is the fourth exclusive measure: canonical newtons, load-free, authorable for any exercise.
+Routines and SplitBuilder add a Force choice with a 0.1–5000 N field (`EntryMetric.FORCE`,
+`MeasureMetric.FORCE`); the weight field is dropped for a force slot rather than kept beside it, so
+`PrescriptionBounds` rejects force with reps, seconds, metres or a weight. A force slot flows through
+routine activation, accepted plans and occurrence edits like any other measure.
+
+The Logger takes the newtons plus an optional device name and optional positive rating, and a
+correction can change or clear them. The device is performed-set-only, descriptive identity: the
+rating is the manufacturer's stated resistance, never converted to force or mass, and two readings
+from different devices are never treated as one series. A set that stops being force clears its
+device and its recorded prescription target in the same transaction, and an explicit `device = null`
+clears rather than leaving the old value. Editing a prescription slot to force clears its numeric
+load, and any measure other than repetitions drops its ordered per-set targets, because those
+describe rep work that the new measure cannot perform. History details and the post-workout summary render the
+newtons and a `Device: <name> (<rating> kg)` line; Progress shows the same per-set line at both
+history sites but adds no force chart series and no day-total force metric, because summing peak
+forces is not a meaningful quantity. `formatWeight` prints newtons and ratings with one decimal and
+no unit conversion.
+
+Force never enters rep-derived e1RM, external volume, strength records, modeled fatigue or planner
+load inputs; the progress calculator counts a force set as recorded work and returns before any
+rep-derived record. Interchange v7, backup format 27 and the PDF carry it, and the analysis CSV
+appends force and device columns. Third-party CSV import is unchanged because no supported provider
+exports force. See `backup.md` and `database.md` for format and storage detail.
+
 ## Anatomical fatigue map (0.9.2)
 
 `feature/fatigueheatmap` owns `AnatomicalArtwork.kt` and `FatigueMap.kt`. Bundled

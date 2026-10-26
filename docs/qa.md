@@ -4043,4 +4043,126 @@ after the release. Seven flows were added to `.maestro/`; their contracts and re
   kind-mismatched set/target pair and would now fail restore validation as a whole; no published
   version can produce that shape, and every current writer enforces the kind rule.
 
+## 0.11.2 — force/device as a fourth measurement, plus EX-02-A added-load progression (2026-10-26)
+
+- **Scope.** Measured force is an exclusive fourth set measurement in canonical newtons, authorable
+  for any exercise and load-free. It is authored/frozen in routines and accepted plans, snapped into
+  activations and occurrences, logged, corrected, displayed in Logger/history/summary and Progress,
+  exported (analysis CSV, prescription interchange v7, PDF) and backed up (format 27). An optional
+  per-set device name and rating is descriptive identity only. Separately, EX-02-A lets a
+  `BODYWEIGHT_ADDABLE` exercise be prescribed a numeric added load continued from its latest recorded
+  added set by the existing success/miss streak rule, with no e1RM, no body mass and no schema change.
+- **Schema and formats.** Additive `62.sqm` adds `forceNewtons` to `workoutSet`, `routineEntry`,
+  `planHistoryEntry`, `activationEntry` and `occurrenceEntry`, plus `deviceName`/`deviceRatingKg` on
+  `workoutSet` only; no backfill. Recorded snapshot format 5 and backup format 27 gate the new fields,
+  interchange v7 carries a slot's force, and the analysis CSV appends `forceNewtons`, `deviceName` and
+  `deviceRatingKg` after the existing columns so earlier positions stay stable.
+- **Verification.** `0112-full-matrix-2.log`: 644 tasks executed, 0 up-to-date — the full host suite
+  (including `:shared` graph verification), `:core:database:verifySqlDelightMigration` and
+  `ktlintCheck` for every module. `0112-assemble-ios-1.log`: `:androidApp:assembleDebug`,
+  `:shared:compileKotlinIosSimulatorArm64` and `:core:network:compileKotlinIosSimulatorArm64` executed
+  (63 executed, 334 up-to-date elsewhere). After the review corrections, `0112-full-matrix-3.log`
+  re-ran the same matrix (644 executed, 0 up-to-date), `0112-assemble-ios-2.log` re-ran the three
+  build targets, each executed, and `0112-full-matrix-4.log` is the final run (644 executed, 0
+  up-to-date) after the closure test additions. After the combined-review corrections,
+  `0112-full-matrix-7.log` re-ran the matrix (644 executed, 0 up-to-date),
+  `0112-assemble-ios-5.log` re-ran debug assembly and the shared iOS compile (each executed), and
+  `0112-assemble-ios-6.log` re-ran both iOS compiles freshly (135 executed, 0 up-to-date). Chunk evidence:
+  `0112-chunk4-parent-tests.log`,
+  `0112-chunk5-parent-tests.log`, `0112-chunk6-tests-4.log`, `0112-r112-tests-3.log` and the scoped
+  ktlint logs.
+- **Gap the release matrix caught.** The first matrix run failed to compile `:shared` because
+  `KoinModulesVerificationTest`'s `FakePlanHistoryRepository` still overrode the pre-force
+  `setMeasure` signature. No chunk-level run compiled that module, so only the release gate exposed
+  it. The fake now takes `forceNewtons`; the second run is the green one above.
+- **Tests added.** Domain: `ForceMeasurementTest` (exclusive/length/load-free/device shapes),
+  `CorrectWorkoutSetUseCaseTest` force corrections, `ExerciseProgressCalculatorTest`
+  `forceSetsCountAsWorkWithoutContributingToRepsLoadOrRecords`,
+  `ProgressWeightsUseCaseTest.addedLoadProgressesWithTheSameStreakRule` and
+  `addedAndExternalWorkNeverJudgeEachOther`, `BuildPlannerLoadInputsUseCaseTest` added-baseline and
+  added-streak cases, `SlotProgressionResolverTest` added-slot advance and cross-kind refusal,
+  `DeterministicWorkoutPlannerEngineTest`/`WeeklyPlanSanitizerTest` added-load emission (sanitizer
+  ignores the model's number), `PlannerLoadPolicyParityTest` deterministic/sanitizer parity,
+  `PrescriptionInterchangeTest` force round-trip plus format-6/with-reps rejection,
+  `PrescriptionPdfLayoutTest`, `WorkoutHistoryCsvWriterTest` and `PreviewPrescriptionImportTest`
+  write-path cases. Database: `ForceMigrationTest` (schema 63, column presence, no backfill),
+  `SqlDelightWorkoutLogRepositoryTest` force/distance target acceptance and cross-measure rejection,
+  `SqlDelightPlanHistoryRepositoryTest` measure-edit clearing, and a
+  `SqlDelightBackupRepositoryTest` force/device export-validate-restore round trip with a pre-27
+  rejection. Backup validation and merge: `BackupValidatorTest` force set/device acceptance with
+  load, foreign-device and older-format rejection, a force prescription slot that refuses a numeric
+  load, and `BackupMergePolicyTest` carrying force and its device. Features: routines/SplitBuilder
+  force authoring and validation, Logger manual/draft/correction force with device, Progress per-set
+  force line, and measure-edit tests proving a switch to force drops the load and ordered targets.
+- **Post-review corrections (R112).** The independent review rejected the first snapshot on
+  `R112-01`: `SqlDelightWorkoutLogRepository.add` compared the recorded target with
+  `(target.reps != null) == (set.durationSeconds == null)`, which is false for every distance and
+  force set, so any such set carrying a target failed to save. The guard now compares presence across
+  all four measures, and repository tests prove a matching force or distance target persists while a
+  foreign measure is still rejected. `R112-02`: switching an accepted or draft slot to force kept its
+  numeric load; the same write now clears it, because force is load-free. `R112-03` (decided by the
+  user): ordered per-set targets survive only a reps measure, so routines save, accepted-plan edit,
+  draft edit and occurrence edit all drop them for any other measure instead of letting guided
+  logging later perform the slot as reps. `R112-04`: backup prescription validation now rejects a
+  force slot carrying a numeric load, with the tests above closing the missing format-27 coverage.
+  `R112-05`: `LogWorkoutSetUseCase.logInto` now enforces the device rule like its sibling entry
+  points. `R112-06`: the progress-calculator comment now matches the day-trend behaviour. Two
+  existing regression-test files were added to the correction scope (recorded as an amendment, not
+  new behaviour).
+- **Decisions recorded during implementation.** Force is load-free, so a force set keeps the
+  exercise's own load identity instead of becoming external; a set that stops being force clears its
+  device and its recorded prescription target in the same transaction, and an explicit `device = null`
+  clears rather than preserving the old value. A prescription slot switched to force also loses its
+  numeric load, and any non-reps measure drops its ordered per-set targets. A device rating is never
+  converted to force or mass.
+  EX-02-A uses the latest qualifying recorded added set as the baseline and the existing increment;
+  a deload pauses increments instead of scaling added load, an exercise without a qualifying recorded
+  set keeps its typed no-number bodyweight prescription, ordered per-set targets stay external-only,
+  and added-load suggestions carry no persisted `LoadOriginExplanation` because the
+  entry-explanation columns have no load-kind field. Third-party workout-CSV import deliberately gains
+  no force column: no supported provider exports one, so adding a mapping would import a number the
+  source never recorded. Progress shows a per-set force line but no force chart series and no
+  day-total force metric.
+- **Limits.** No emulator acceptance for any force surface or for an added-load prescription; the
+  on-device `62.sqm` upgrade and a device backup restore/merge carrying force or a device remain
+  unverified. Interchange and backup tests exercise the real repository paths but not a second
+  install. Nothing in this section is publication approval.
+
+## 0.11.0–0.11.2 combined review — 2026-10-26
+
+The combined integration review of the folded series rejected the first candidate on one blocking
+portability contradiction and reported five localized findings. Corrections, with the user's
+2026-10-26 decision on the bound policy:
+
+- **R110-01 (decided):** performed sets are validated at restore with prescription-grade caps
+  (distance ≤ 100 000 m, force 0.1–5000 N) while every writer accepts any positive value, so a stored
+  150 km ride or an out-of-range reading made the whole backup unrestorable. Performed work now needs
+  only a positive finite value in `BackupValidator`; `PrescriptionBounds` keeps its caps for
+  prescriptions. A validator test covers the extremes and the real export→validate→restore path
+  round-trips a 150 000 m set.
+- **R110-02:** force and device-rating prefills used a one-decimal formatter and reparsed on submit,
+  so an untouched correction or quick-fill rewrote 247.35 N as 247.4 N. The three prefill sites now
+  emit text that parses back to the same double (`exactEntryText`), with quick-fill and no-op
+  correction regressions.
+- **R110-03:** the occurrence-replacement dialog rendered a distance or force slot as
+  "N sets × 0 reps". It now has distance and force target lines, formats distance in the selected
+  unit, and suppresses the misleading no-load reason for a load-free force slot.
+- **R110-04:** ordered per-set targets are rejected when *created* on a non-reps slot by the
+  interchange import and the routine validator, matching the R112-03 rule. Backup restore keeps
+  tolerating that shape, because released 0.10.x builds could write it and restore must accept a
+  backup its own supported version produced; the targets are inert at logging time (closure
+  R110C-01).
+- **R110-05/R110-06:** architecture §1.22 now enumerates all four measures, and the stale 0.11.1 and
+  0.11.2 status rows are corrected.
+- **R110C-02 (closure):** `exactEntryText` now expands exponential output to plain decimal digits, so
+  a very small or very large storable value cannot be truncated by the digits-and-dot entry filters;
+  a unit test round-trips representative values and forbids an exponent marker.
+
+Confirmed in the combined review: the four-measure contract, station/distance/force identity
+separation, progression isolation, portability gates, fatigue and planning exclusion, the earlier
+0.11.0/0.11.1 review fixes and the R112 corrections all hold together; release hygiene is clean.
+Declared limits stay as stated above, and the replacement dialog's rendering is compile-verified
+rather than unit-tested because it is Compose-only.
+
+
 

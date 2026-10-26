@@ -127,12 +127,13 @@ customs. Never infer it from equipment: Ab Roll and the calf-raise-on-a-dumbbell
 use apparatus without carrying its weight. Kind is `EXTERNAL`, `BODYWEIGHT`,
 `ADDED` or `LEGACY_UNSPECIFIED`; `null`/`0.0`/positive stay distinct.
 
-`WorkoutLoadPolicy` is the single pure rule. Automatic numeric generation
+`WorkoutLoadPolicy` is the single pure rule. Automatic estimated-1RM generation
 (`DeterministicWorkoutPlannerEngine`, `WeeklyPlanSanitizer`, `SubstituteExerciseUseCase`)
 is **external-only** and skips `UNSPECIFIED` too. `BuildPlannerLoadInputsUseCase`
-filters the baseline/PRs by `contributesToLoadMath` and feeds progression only
-typed `EXTERNAL` sets against typed `EXTERNAL` prescriptions, so a pre-EX-02 plan
-seeds the baseline (when the exercise is external today) but not a streak. Legacy
+filters the baseline/PRs by `contributesToLoadMath` and feeds estimated-load progression
+only typed `EXTERNAL` sets against typed `EXTERNAL` prescriptions, so a pre-EX-02 plan
+seeds the baseline (when the exercise is external today) but not a streak. It also builds
+a separate added-load baseline from typed `ADDED` sets (see Added-load progression). Legacy
 rows are never rewritten. `WorkoutLoadPolicy.reconcile` snaps routine/occurrence
 edits onto the current capability. `LogWorkoutSetUseCase` enforces the shape at
 persistence; the Logger resolves manual/plan/occurrence authority and requires an
@@ -156,6 +157,33 @@ user pick a compatible station and prefills from that station's own latest set. 
 personal records and plan prescriptions stay exercise-level in this slice, so they never
 claim station identity. Progress charts can filter All, unattributed or one station; the
 All view preserves prior behavior. See `docs/architecture.md` and the 0.11.0 batch plan.
+
+### Added-load progression (EX-02-A, 0.11.2)
+
+A `BODYWEIGHT_ADDABLE` exercise may be prescribed a numeric **added** load without an estimate.
+`BuildPlannerLoadInputsUseCase` takes each such exercise's latest qualifying recorded added set as
+its baseline and runs it through the same streak rule as external load:
+`ProgressWeightsUseCase.resolve(baseline, history, pauseIncrements, nowMillis, loadKind = ADDED)` and
+`ProgressionHistory.replay(..., loadKind)` judge only same-kind rep/load exposures, with the existing
+increment and miss handling. Progression history therefore needs the recorded prescription target of
+the same kind; external work never judges an added prescription and vice versa, and force, timed and
+distance targets are never eligible.
+
+A qualifying added set is non-warmup, not station-attributed, not in the future, carries a rep count
+and a positive finite added load, and carries no duration, distance or force measurement. Recency is
+`performedAtMillis` with the stored id breaking ties, so the baseline is deterministic. The baseline
+is the recorded number itself: nothing is estimated from reps, `EXTERNAL` e1RM math, body mass or a
+deload intensity scale. A deload pauses increments (`pauseIncrements`) rather than scaling the added
+number, because EX-02-A approved no deload factor for it.
+
+`PlannerLoadInputs.suggestedAddedLoadsKg` and `PlanRequest.suggestedAddedLoadsKg` carry the result.
+Both the deterministic engine and `WeeklyPlanSanitizer` prescribe it with `LoadKind.ADDED` and ignore
+a model's `suggestedWeightKg` for those slots; `resolveCandidatePrescribedLoad` (substitution and
+occurrence replacement) applies the same rule. An exercise with no qualifying recorded added set keeps
+its typed no-number `BODYWEIGHT` prescription, so missing evidence is never filled with an invented
+number. Ordered per-set targets and load explanations remain external-only: ordered targets cannot
+describe added load, and added-load slots carry no persisted `LoadOriginExplanation` because the
+entry-explanation columns have no load-kind field. No schema or migration was needed.
 
 ### Exact weight and rep defaults
 

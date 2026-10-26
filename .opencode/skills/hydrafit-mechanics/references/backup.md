@@ -3,14 +3,21 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 26), restored by whole replacement.
-The reader accepts versions 1–26; version 1 defaults the guided-workout preference to off.
-Format 26 adds whole-metre `distanceMeters` on performed sets and the four prescription stores
+Logical, versioned JSON (`format` + `formatVersion` 27), restored by whole replacement.
+The reader accepts versions 1–27; version 1 defaults the guided-workout preference to off.
+Format 27 adds measured `forceNewtons` on performed sets and the four prescription stores, plus the
+descriptive `deviceName`/`deviceRatingKg` on performed sets only, and snapshot format 5.
+A pre-27 file must not carry a force or device field; a measured set or slot must have exactly one
+of positive reps, seconds, metres and newtons, and force is load-free, so a stored snapshot must agree
+with its set's force and no force row may also carry a weight. A performed set is only required to be
+positive and finite, not limited to the prescription range: the app logs any recorded distance or
+force, so restore accepts its own exports. Prescription interchange v7 carries the
+same force. Format 26 adds whole-metre `distanceMeters` on performed sets and the four prescription stores
 (`routineEntries`, `planEntries`, `activationEntries`, `occurrenceEntries`), plus the settings
 `distanceUnit` preference (`METERS` by default). A pre-26 file must not carry a distance field and
 restores metres; a measured set or slot must have exactly one of positive reps, seconds and metres,
-and a stored snapshot must agree with its set's distance. Prescription interchange v6 carries the
-same distance.
+and a stored snapshot must agree with its set's distance. Prescription interchange v6 first carried the
+same distance; v7 adds force on top of it.
 Format 25 adds profile-scoped `equipmentStations` and a performed set's frozen
 `stationId`/`stationName`/`stationLoadBasis`. A pre-25 file must not carry either. A
 restored set's positive station id must reference a station row in the same file; an id of
@@ -161,13 +168,14 @@ Unknown exercise/equipment references and other invalid sections remain rejected
 ## Prescription interchange (0.9.2-S1)
 
 `transfer/PrescriptionModels.kt` + `PrescriptionJson` in `:core/domain` define the versioned
-`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 6`) used to share plans/routines between
-installs or people. Version 6 adds a slot's whole-metre distance; version 5 added superset membership
+`hydrafit-routines` document (`PRESCRIPTION_FORMAT_VERSION = 7`) used to share plans/routines between
+installs or people. Version 7 adds a slot's measured force in newtons; version 6 added whole-metre
+distance; version 5 added superset membership
 and its transition/pair rest; version 4 added encoded ordered per-set targets; version 3 added its
 approved progression policy; version 2 added timed slots and version 1 remains readable for counted
-slots carrying none. A policy, ordered list, superset or distance in a document that predates it is
+slots carrying none. A policy, ordered list, superset, distance or force in a document that predates it is
 rejected rather than read; an ordered list must match the slot's own set count, and a slot must have
-exactly one of reps, seconds and metres. It carries ordered routines and the
+exactly one of reps, seconds, metres and newtons. It carries ordered routines and the
 custom exercise definitions they reference —
 nothing else. The codec encodes defaults, rejects unknown fields, and enforces `PrescriptionLimits`
 (2 MiB, depth 24, 16 KiB per string, 20,000 records). `PrescriptionValidator` enforces the format and
@@ -197,9 +205,13 @@ Read-only review of the shipped S1–S2 behavior on a device remains pending.
 sets as CSV: canonical columns (`sessionId`, `sessionStartedAtUtc`, `localEpochDay`, `setId`,
 `performedAtUtc`, `exerciseId`, `exerciseName`, `reps`, `durationSeconds`, `distanceMeters`,
 `weightKg`, `loadKind`, `isWarmup`, `rir`,
-`timingProvenance`), kilograms and `YYYY-MM-DDTHH:mm:ssZ` UTC instants, one row per set ordered by
-`performedAtMillis` then `setId`. Exactly one of `reps`, `durationSeconds` and `distanceMeters` is
-present per row; the absent measures are empty fields. An absent load is an empty field and a recorded
+`timingProvenance`, `forceNewtons`, `deviceName`, `deviceRatingKg`), kilograms and
+`YYYY-MM-DDTHH:mm:ssZ` UTC instants, one row per set ordered by
+`performedAtMillis` then `setId`. Exactly one of `reps`, `durationSeconds`, `distanceMeters` and
+`forceNewtons` is present per row; the absent measures are empty fields. The force/device columns are
+appended so every earlier column keeps its position, and `deviceName` is written through the text path
+because it is user-authored. Import is not the inverse of this export and reads no force column: no
+supported provider exports one. An absent load is an empty field and a recorded
 `0` is `0.0`. Only
 the columns that can carry user-authored text (`sessionId`, both instants, `exerciseId`,
 `exerciseName`, `loadKind`, `timingProvenance`) are written through the text path: those containing
@@ -218,8 +230,8 @@ role, so it measures at the size that line is actually drawn (body 11 pt, headin
 measuring everything at body size would let a long routine name overrun the page. The wrapper is
 required (a default identity wrapper keeps the pure tests simple) and must never drop a line: a token
 wider than the page is hard-broken rather than clipped, so a long exercise name cannot push its sets,
-reps or weight off the page. A timed slot prints its seconds and a distance slot its stored metres
-(`"<n> m"`), never an absent rep count. A weights-free document prints the omission note and no load at all, and a recorded zero
+reps or weight off the page. A timed slot prints its seconds, a distance slot its stored metres
+(`"<n> m"`) and a force slot its newtons (`"<n> N"`), never an absent rep count. A weights-free document prints the omission note and no load at all, and a recorded zero
 prints as a number. `ExportPrescriptionPdfUseCase` has the same two entry points as
 `ExportPrescriptionsUseCase` (stored routine ids, or an in-memory routine list) so printing the
 displayed plan reads no stored routine. The Android adapter renders with
