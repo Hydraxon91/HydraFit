@@ -25,7 +25,10 @@ data class WorkoutHistoryCsvRow(
     val loadKind: String,
     val isWarmup: Boolean,
     val rir: Int?,
-    val timingProvenance: String
+    val timingProvenance: String,
+    val forceNewtons: Double? = null,
+    val deviceName: String? = null,
+    val deviceRatingKg: Double? = null
 )
 
 /**
@@ -56,7 +59,10 @@ object WorkoutHistoryCsvWriter {
         "loadKind",
         "isWarmup",
         "rir",
-        "timingProvenance"
+        "timingProvenance",
+        "forceNewtons",
+        "deviceName",
+        "deviceRatingKg"
     )
 
     fun write(rows: List<WorkoutHistoryCsvRow>): String = buildString {
@@ -81,7 +87,10 @@ object WorkoutHistoryCsvWriter {
                     textField(row.loadKind),
                     plainField(if (row.isWarmup) "true" else "false"),
                     plainField(row.rir?.toString()),
-                    textField(row.timingProvenance)
+                    textField(row.timingProvenance),
+                    plainField(row.forceNewtons?.toString()),
+                    textField(row.deviceName),
+                    plainField(row.deviceRatingKg?.toString())
                 ).joinToString(",")
             )
             append("\r\n")
@@ -156,7 +165,10 @@ class ExportWorkoutHistoryCsvUseCase(
                 loadKind = set.loadKind.name,
                 isWarmup = set.isWarmup,
                 rir = set.rir,
-                timingProvenance = set.timingProvenance.name
+                timingProvenance = set.timingProvenance.name,
+                forceNewtons = set.forceNewtons,
+                deviceName = set.device?.name,
+                deviceRatingKg = set.device?.ratingKg
             )
         }
         return WorkoutHistoryCsvWriter.write(rows)

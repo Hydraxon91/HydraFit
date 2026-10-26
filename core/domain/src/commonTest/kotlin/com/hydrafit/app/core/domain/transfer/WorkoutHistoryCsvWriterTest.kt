@@ -14,6 +14,9 @@ class WorkoutHistoryCsvWriterTest {
         reps: Int? = 5,
         durationSeconds: Int? = null,
         distanceMeters: Int? = null,
+        forceNewtons: Double? = null,
+        deviceName: String? = null,
+        deviceRatingKg: Double? = null,
         weightKg: Double? = 100.0,
         name: String = "Back Squat",
         sessionId: String? = "s1",
@@ -34,7 +37,10 @@ class WorkoutHistoryCsvWriterTest {
         isWarmup = isWarmup,
         rir = rir,
         timingProvenance = "LIVE",
-        distanceMeters = distanceMeters
+        distanceMeters = distanceMeters,
+        forceNewtons = forceNewtons,
+        deviceName = deviceName,
+        deviceRatingKg = deviceRatingKg
     )
 
     @Test
@@ -141,6 +147,23 @@ class WorkoutHistoryCsvWriterTest {
         assertEquals("", rows[1].split(",")[repsIndex])
         assertEquals("", rows[1].split(",")[durationIndex])
         assertEquals("5000", rows[1].split(",")[distanceIndex])
+    }
+
+    @Test
+    fun appendsForceAndDeviceColumnsAndLeavesThemBlankForOtherSets() {
+        assertEquals(
+            listOf("forceNewtons", "deviceName", "deviceRatingKg"),
+            WorkoutHistoryCsvWriter.COLUMNS.takeLast(3)
+        )
+        val text = WorkoutHistoryCsvWriter.write(
+            listOf(
+                row(forceNewtons = 150.0, deviceName = "Grip, calibrated", deviceRatingKg = 40.0),
+                row(setId = 2L)
+            )
+        )
+        assertTrue(text.contains("150.0,\"Grip, calibrated\",40.0"), text)
+        val rows = text.trimEnd().split("\r\n").drop(1)
+        assertTrue(rows[1].endsWith(",,,"), rows[1])
     }
 
     @Test

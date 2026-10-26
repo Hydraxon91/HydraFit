@@ -35,9 +35,16 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         } else {
             null
         }
-        // Timed and distance sets are real recorded work for the day trend (count plus seconds or
-        // metres) but contribute no rep-derived record. Their values are never read as reps.
-        if (set.durationSeconds != null || set.distanceMeters != null) return
+        // Timed, distance and force sets are real recorded work for the day trend (count plus
+        // seconds, metres or newtons) but contribute no rep-derived record. Their values are never
+        // read as reps. Force adds no day total: a sum of peak forces is not a meaningful quantity,
+        // so only the working-set count includes it.
+        if (set.durationSeconds != null ||
+            set.distanceMeters != null ||
+            set.forceNewtons != null
+        ) {
+            return
+        }
         candidates(set).forEach { candidate ->
             if (!earlier.containsKey(candidate.key)) {
                 earlier[candidate.key] = records[candidate.key]?.value
@@ -108,6 +115,8 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
                 distanceMeters += distance
                 return
             }
+            // A measured-force set is recorded work but carries no rep count, load or volume.
+            if (set.forceNewtons != null) return
             val repCount = set.reps ?: return
             reps += repCount.toLong()
             if (set.loadKind == LoadKind.EXTERNAL && set.weightKg != null) {

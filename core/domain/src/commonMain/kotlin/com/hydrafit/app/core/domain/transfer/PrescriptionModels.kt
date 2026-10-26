@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 const val PRESCRIPTION_FORMAT: String = "hydrafit-routines"
 
 /** The interchange version this build writes. */
-const val PRESCRIPTION_FORMAT_VERSION: Int = 6
+const val PRESCRIPTION_FORMAT_VERSION: Int = 7
 
 /** The first interchange format with explicit superset membership and rest. */
 const val PRESCRIPTION_SUPERSET_FORMAT_VERSION: Int = 5
@@ -22,13 +22,17 @@ const val PRESCRIPTION_SUPERSET_FORMAT_VERSION: Int = 5
 /** The first interchange format that may carry a slot's distance in whole metres. */
 const val PRESCRIPTION_DISTANCE_FORMAT_VERSION: Int = 6
 
+/** The first interchange format that may carry measured force in canonical newtons. */
+const val PRESCRIPTION_FORCE_FORMAT_VERSION: Int = 7
+
 /**
  * The versions a reader accepts. Version 1 carries a rep-only slot; version 2 may carry a timed slot
  * (positive whole seconds instead of a rep count); version 3 may additionally carry a slot's approved
  * progression policy; version 4 may additionally carry its ordered per-set targets; version 5 may
- * carry explicit superset membership and rest, and version 6 may carry a distance slot in whole
- * metres. A duration in a version-1 document, or a policy, ordered targets or distance before their
- * own version, is rejected rather than read, so an older file is never reinterpreted.
+ * carry explicit superset membership and rest, version 6 may carry a distance slot in whole metres,
+ * and version 7 may carry a load-free force slot in canonical newtons. A duration in a version-1
+ * document, or a policy, ordered targets, distance or force before their own version, is rejected
+ * rather than read, so an older file is never reinterpreted.
  */
 val PRESCRIPTION_SUPPORTED_VERSIONS: IntRange = 1..PRESCRIPTION_FORMAT_VERSION
 
@@ -102,6 +106,8 @@ data class PrescriptionEntryRecord(
     val durationSeconds: Int? = null,
     /** Whole metres for a distance slot (format 6 and later), or null for reps and timed work. */
     val distanceMeters: Int? = null,
+    /** Canonical-newton measurement of a force slot (format 7 and later); force is load-free. */
+    val forceNewtons: Double? = null,
     val weightKg: Double? = null,
     val loadKind: String = "EXTERNAL",
     val movementPattern: String? = null,
@@ -218,6 +224,12 @@ object PrescriptionValidator {
                         // A distance in a document that predates it is not what the writer claimed.
                         fail(PrescriptionFailure.INVALID_VALUE)
                     }
+                    if (document.formatVersion < PRESCRIPTION_FORCE_FORMAT_VERSION &&
+                        entry.forceNewtons != null
+                    ) {
+                        // Force in a document that predates it is not what the writer claimed.
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
                     if (document.formatVersion < PRESCRIPTION_POLICY_FORMAT_VERSION &&
                         entry.progressionPolicy != null
                     ) {
@@ -242,6 +254,8 @@ object PrescriptionValidator {
                         if (targets.sets != entry.sets) {
                             fail(PrescriptionFailure.INVALID_VALUE)
                         }
+                        // Ordered targets describe rep work, so another measure cannot carry them.
+                        if (entry.reps == null) fail(PrescriptionFailure.INVALID_VALUE)
                     }
                     if (runCatching {
                             PrescriptionBounds.validate(
@@ -249,7 +263,8 @@ object PrescriptionValidator {
                                 entry.reps,
                                 entry.durationSeconds,
                                 entry.weightKg,
-                                entry.distanceMeters
+                                entry.distanceMeters,
+                                entry.forceNewtons
                             )
                         }.isFailure
                     ) {

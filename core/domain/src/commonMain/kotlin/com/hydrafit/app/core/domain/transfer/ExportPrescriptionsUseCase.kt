@@ -95,6 +95,7 @@ private fun RoutineTemplate.toRecord(
                         reps = entry.reps,
                         durationSeconds = entry.durationSeconds,
                         distanceMeters = entry.distanceMeters,
+                        forceNewtons = entry.forceNewtons,
                         weightKg = entry.weightKg.takeIf { includeWeights },
                         loadKind = entry.loadKind.name,
                         movementPattern = exercise?.movementPattern?.name,

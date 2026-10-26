@@ -3,10 +3,12 @@ package com.hydrafit.app.core.domain.workout
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -326,6 +328,28 @@ class LogWorkoutSetUseCaseTest {
 
         assertEquals(closed.id, logs.all().single().sessionId)
         assertNull(sessions.open())
+    }
+
+    @Test
+    fun logIntoRejectsADeviceOnANonForceSetLikeTheOtherEntryPoints() = runTest {
+        val logs = FakeWorkoutLogRepository()
+        val sessions = FakeWorkoutSessionRepository()
+        val useCase = useCase(logs, sessions)
+        val closed = StartWorkoutSessionUseCase(sessions)(
+            startedAtMillis = 1_000L,
+            localEpochDay = 0L,
+            endedAtMillis = 2_000L
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            useCase.logInto(
+                set(performedAtMillis = 1_500L).copy(
+                    device = DeviceAttribution("Grip meter")
+                ),
+                closed.id
+            )
+        }
+        assertTrue(logs.all().isEmpty())
     }
 
     @Test

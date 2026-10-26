@@ -47,6 +47,7 @@ class AcceptWeeklyPlanUseCase(
                             reps = planned.reps,
                             durationSeconds = planned.durationSeconds,
                             distanceMeters = planned.distanceMeters,
+                            forceNewtons = planned.forceNewtons,
                             name = exercise?.name ?: planned.exerciseId,
                             movementPattern = exercise?.movementPattern ?: MovementPattern.CORE,
                             suggestedWeightKg = planned.suggestedWeightKg,

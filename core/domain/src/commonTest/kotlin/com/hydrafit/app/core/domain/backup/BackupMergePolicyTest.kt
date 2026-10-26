@@ -51,6 +51,32 @@ class BackupMergePolicyTest {
     }
 
     @Test
+    fun mergeCarriesAForceReadingAndItsDevice() {
+        val selection = BackupMergePolicy.select(
+            file(
+                sessions = listOf(session("s1")),
+                sets = listOf(
+                    set(sessionId = "s1", id = 1L).copy(
+                        reps = null,
+                        weightKg = null,
+                        loadKind = "BODYWEIGHT",
+                        forceNewtons = 250.0,
+                        deviceName = "Grip meter",
+                        deviceRatingKg = 40.0
+                    )
+                )
+            ),
+            noLocalKeys()
+        )
+
+        val merged = selection.setsToInsert.single()
+        assertEquals(250.0, merged.forceNewtons)
+        assertEquals("Grip meter", merged.deviceName)
+        assertEquals(40.0, merged.deviceRatingKg)
+        assertNull(merged.weightKg)
+    }
+
+    @Test
     fun skipsSessionsAlreadyPresentWithTheirSetsAndNotes() {
         val selection = BackupMergePolicy.select(
             file(

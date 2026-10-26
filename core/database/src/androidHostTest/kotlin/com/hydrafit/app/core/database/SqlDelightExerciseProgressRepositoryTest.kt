@@ -149,7 +149,7 @@ class SqlDelightExerciseProgressRepositoryTest {
             assertEquals(50.0, next().days.single().bestLoads.single().value)
             writer.add(set(time = 2, weight = 100.0))
             assertEquals(100.0, next().days.single().bestLoads.single().value)
-            database.workoutLogQueries.updateSetValues(10, null, null, 40.0, null, 2)
+            database.workoutLogQueries.updateSetValues(10, null, null, null, 40.0, null, 2)
             assertEquals(50.0, next().days.single().bestLoads.single().value)
             writer.updateSetPerformedAt(1, DAY)
             assertEquals(listOf(0L, 1L), next().days.map { it.localEpochDay })
@@ -253,7 +253,7 @@ class SqlDelightExerciseProgressRepositoryTest {
         assertNull(repository.observeSet("other", historySet.id).first())
         assertNull(repository.observeSet("squat", 9_999L).first())
 
-        database.workoutLogQueries.updateSetValues(5, null, null, 72.5, null, historySet.id)
+        database.workoutLogQueries.updateSetValues(5, null, null, null, 72.5, null, historySet.id)
         assertEquals(72.5, repository.observeSet("squat", historySet.id).first()?.weightKg)
 
         database.exerciseOverrideQueries.upsert("squat", "Renamed", null, null, null, null, null)

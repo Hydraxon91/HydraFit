@@ -151,7 +151,10 @@ class SqlDelightBackupRepository(
                         },
                         stationName = it.stationName,
                         stationLoadBasis = it.stationLoadBasis,
-                        distanceMeters = it.distanceMeters?.toInt()
+                        distanceMeters = it.distanceMeters?.toInt(),
+                        forceNewtons = it.forceNewtons,
+                        deviceName = it.deviceName,
+                        deviceRatingKg = it.deviceRatingKg
                     )
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
@@ -198,7 +201,8 @@ class SqlDelightBackupRepository(
                         progressionPolicy = it.progressionPolicy,
                         setTargets = it.setTargets,
                         superset = it.superset,
-                        distanceMeters = it.distanceMeters?.toInt()
+                        distanceMeters = it.distanceMeters?.toInt(),
+                        forceNewtons = it.forceNewtons
                     )
                 },
                 volumeExplanations = database.planVolumeExplanationQueries.selectAll()
@@ -370,7 +374,8 @@ class SqlDelightBackupRepository(
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
                             superset = it.superset,
-                            distanceMeters = it.distanceMeters?.toInt()
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            forceNewtons = it.forceNewtons
                         )
                     },
                 activations = database.trainingScheduleQueries.selectAllActivations()
@@ -424,7 +429,8 @@ class SqlDelightBackupRepository(
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
                             superset = it.superset,
-                            distanceMeters = it.distanceMeters?.toInt()
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            forceNewtons = it.forceNewtons
                         )
                     },
                 occurrences = database.trainingScheduleQueries.selectAllOccurrences()
@@ -466,7 +472,8 @@ class SqlDelightBackupRepository(
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
                             superset = it.superset,
-                            distanceMeters = it.distanceMeters?.toInt()
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            forceNewtons = it.forceNewtons
                         )
                     },
                 scheduleState = database.trainingScheduleQueries.selectScheduleState()
@@ -691,6 +698,18 @@ class SqlDelightBackupRepository(
                 it.distanceMeters?.let { meters ->
                     val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
                     database.workoutLogQueries.assignDistance(meters.toLong(), setId)
+                }
+                it.forceNewtons?.let { newtons ->
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignForce(newtons, setId)
+                }
+                if (it.deviceName != null) {
+                    val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                    database.workoutLogQueries.assignDevice(
+                        deviceName = it.deviceName,
+                        deviceRatingKg = it.deviceRatingKg,
+                        id = setId
+                    )
                 }
             }
             selection.bodyWeightToInsert.forEach {
@@ -942,7 +961,8 @@ class SqlDelightBackupRepository(
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
-                    distanceMeters = entry.distanceMeters?.toLong()
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
             file.planEntries.forEach { entry ->
@@ -1110,7 +1130,8 @@ class SqlDelightBackupRepository(
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
-                    distanceMeters = entry.distanceMeters?.toLong()
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
 
@@ -1168,7 +1189,8 @@ class SqlDelightBackupRepository(
                     loadKind = entry.loadKind,
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
-                    distanceMeters = entry.distanceMeters?.toLong()
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
             file.activationEntries.forEach { entry ->
@@ -1214,7 +1236,8 @@ class SqlDelightBackupRepository(
                     terminalRemainingSets = entry.terminalRemainingSets?.toLong(),
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
-                    distanceMeters = entry.distanceMeters?.toLong()
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
             }
             file.occurrenceEntries.forEach { entry ->
@@ -1268,6 +1291,16 @@ class SqlDelightBackupRepository(
                 }
                 set.distanceMeters?.let { meters ->
                     database.workoutLogQueries.assignDistance(meters.toLong(), set.id)
+                }
+                set.forceNewtons?.let { newtons ->
+                    database.workoutLogQueries.assignForce(newtons, set.id)
+                }
+                if (set.deviceName != null) {
+                    database.workoutLogQueries.assignDevice(
+                        deviceName = set.deviceName,
+                        deviceRatingKg = set.deviceRatingKg,
+                        id = set.id
+                    )
                 }
             }
 

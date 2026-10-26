@@ -62,7 +62,12 @@ data class BackupMergedSet(
      */
     val stationName: String? = null,
     val stationLoadBasis: String? = null,
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons, carried verbatim; null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** Descriptive device identity and stated rating, carried verbatim; never converted to force. */
+    val deviceName: String? = null,
+    val deviceRatingKg: Double? = null
 )
 
 /** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */

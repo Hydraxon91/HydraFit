@@ -126,6 +126,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
                 reps = entry.reps?.toInt(),
                 durationSeconds = entry.durationSeconds?.toInt(),
                 distanceMeters = entry.distanceMeters?.toInt(),
+                forceNewtons = entry.forceNewtons,
                 loadKind = decodeLoadKind(entry.loadKind),
                 weightKg = entry.weightKg,
                 isDeload = PeriodizationConfig().isDeload(week)

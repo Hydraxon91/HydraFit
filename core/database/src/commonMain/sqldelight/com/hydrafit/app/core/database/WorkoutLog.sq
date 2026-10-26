@@ -23,6 +23,9 @@ CREATE TABLE workoutSet (
     stationName TEXT,
     stationLoadBasis TEXT,
     distanceMeters INTEGER,
+    forceNewtons REAL,
+    deviceName TEXT,
+    deviceRatingKg REAL,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 
@@ -53,7 +56,7 @@ selectSetById:
 SELECT * FROM workoutSet WHERE id = ?;
 
 updateSetValues:
-UPDATE workoutSet SET reps = ?, durationSeconds = ?, distanceMeters = ?, weightKg = ?, rir = ?
+UPDATE workoutSet SET reps = ?, durationSeconds = ?, distanceMeters = ?, forceNewtons = ?, weightKg = ?, rir = ?
 WHERE id = ?;
 
 -- A correction that changes the measurement kind leaves no target: the recorded prescription
@@ -63,7 +66,7 @@ UPDATE workoutSet SET prescriptionSnapshot = NULL WHERE id = ?;
 
 updateSetValuesAndInvalidateTiming:
 UPDATE workoutSet
-SET reps = ?, durationSeconds = ?, distanceMeters = ?, weightKg = ?, rir = ?,
+SET reps = ?, durationSeconds = ?, distanceMeters = ?, forceNewtons = ?, weightKg = ?, rir = ?,
     timingProvenance = 'UNKNOWN', startedAtElapsedMillis = NULL,
     completedAtElapsedMillis = NULL
 WHERE id = ?;
@@ -76,6 +79,13 @@ WHERE id = ?;
 
 assignDistance:
 UPDATE workoutSet SET distanceMeters = ? WHERE id = ?;
+
+assignForce:
+UPDATE workoutSet SET forceNewtons = ? WHERE id = ?;
+
+-- A recorded device rating is descriptive identity, never a converted force value.
+assignDevice:
+UPDATE workoutSet SET deviceName = ?, deviceRatingKg = ? WHERE id = ?;
 
 selectLastSetBySession:
 SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;

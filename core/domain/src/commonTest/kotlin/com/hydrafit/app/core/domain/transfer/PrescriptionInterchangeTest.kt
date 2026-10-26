@@ -591,7 +591,7 @@ class PrescriptionInterchangeTest {
         val document =
             ExportPrescriptionsUseCase(distanceRepository, catalog)(listOf(7L), false, "t", 1L)
 
-        assertEquals(PRESCRIPTION_DISTANCE_FORMAT_VERSION, document.formatVersion)
+        assertEquals(PRESCRIPTION_FORMAT_VERSION, document.formatVersion)
         val slot = document.routines.single().allEntries().single()
         assertNull(slot.reps)
         assertNull(slot.durationSeconds)
@@ -609,6 +609,119 @@ class PrescriptionInterchangeTest {
                 )
             }.failure
         )
+    }
+
+    @Test
+    fun aNonRepsSlotCannotCarryOrderedTargets() {
+        val targets = SlotSetTargetsJson.encode(
+            SlotSetTargets.of(
+                List(2) { SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 30.0) }
+            )
+        )
+        val force = entry("back-squat").copy(
+            reps = null,
+            sets = 2,
+            weightKg = null,
+            forceNewtons = 150.0,
+            setTargets = targets
+        )
+        val document = PrescriptionDocument(
+            format = PRESCRIPTION_FORMAT,
+            formatVersion = PRESCRIPTION_FORMAT_VERSION,
+            appVersion = "t",
+            exportedAtMillis = 1L,
+            includesWeights = false,
+            routines = listOf(
+                PrescriptionRoutineRecord(
+                    "Force",
+                    workouts = listOf(
+                        PrescriptionWorkoutRecord("Day", entries = listOf(force))
+                    )
+                )
+            )
+        )
+
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(document)
+            }.failure
+        )
+    }
+
+    @Test
+    fun forceRoundTripsAtVersionSevenAndIsRejectedByOlderFormatsOrWithReps() {
+        val force = entry("back-squat").copy(
+            reps = null,
+            weightKg = null,
+            forceNewtons = 150.0
+        )
+        fun document(version: Int, slot: PrescriptionEntryRecord) = PrescriptionDocument(
+            format = PRESCRIPTION_FORMAT,
+            formatVersion = version,
+            appVersion = "t",
+            exportedAtMillis = 1L,
+            includesWeights = false,
+            routines = listOf(
+                PrescriptionRoutineRecord(
+                    "Force",
+                    workouts = listOf(PrescriptionWorkoutRecord("Day", entries = listOf(slot)))
+                )
+            )
+        )
+        val current = document(PRESCRIPTION_FORMAT_VERSION, force)
+        PrescriptionValidator.validate(current)
+        assertEquals(
+            force,
+            PrescriptionJson.decode(PrescriptionJson.encode(current))
+                .routines.single().allEntries().single()
+        )
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(document(6, force))
+            }.failure
+        )
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(document(7, force.copy(reps = 5)))
+            }.failure
+        )
+    }
+
+    @Test
+    fun exportWritesForceIntoAWeightsFreeVersionSevenDocument() = runBlocking {
+        val forceRoutine = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Force day",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "back-squat",
+                            sets = 2,
+                            reps = null,
+                            weightKg = null,
+                            loadKind = LoadKind.EXTERNAL,
+                            forceNewtons = 150.0
+                        )
+                    )
+                )
+            )
+        )
+        val exported = ExportPrescriptionsUseCase(
+            repositoryOf(forceRoutine),
+            catalog
+        )(listOf(7L), false, "t", 1L)
+        val record = exported.routines.single().allEntries().single()
+
+        assertEquals(PRESCRIPTION_FORMAT_VERSION, exported.formatVersion)
+        assertEquals(150.0, record.forceNewtons)
+        assertNull(record.weightKg)
+        PrescriptionValidator.validate(exported)
+        assertEquals(exported, PrescriptionJson.decode(PrescriptionJson.encode(exported)))
     }
 
     @Test

@@ -76,7 +76,8 @@ class SlotProgressionPolicyMigrationTest {
             loadKind = "EXTERNAL",
             progressionPolicy = encoded,
             setTargets = null,
-            distanceMeters = null
+            distanceMeters = null,
+            forceNewtons = null
         )
 
         val row = database.routineTemplateQueries.selectEntriesForWorkout(workoutId)

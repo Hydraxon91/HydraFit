@@ -103,7 +103,8 @@ class ActivateRoutineUseCase(
                         progressionPolicy = entry.progressionPolicy,
                         setTargets = entry.setTargets,
                         superset = entry.superset,
-                        distanceMeters = entry.distanceMeters
+                        distanceMeters = entry.distanceMeters,
+                        forceNewtons = entry.forceNewtons
                     )
                 }
             )

@@ -92,7 +92,9 @@ data class ActivationEntry(
     val setTargets: SlotSetTargets? = null,
     val superset: com.hydrafit.app.core.domain.routine.Superset? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null
 )
 
 data class WorkoutOccurrence(
@@ -151,7 +153,9 @@ data class OccurrenceEntry(
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null
 )
 
 /** The single-row scheduling cursor: which block is active and which workout is selected next. */

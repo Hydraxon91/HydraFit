@@ -106,7 +106,8 @@ class SqlDelightPrescriptionImportRepository(
                     progressionPolicy = entry.progressionPolicy
                         ?.let(SlotProgressionPolicyJson::encode),
                     setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
-                    distanceMeters = entry.distanceMeters?.toLong()
+                    distanceMeters = entry.distanceMeters?.toLong(),
+                    forceNewtons = entry.forceNewtons
                 )
                 templateQueries.setEntrySuperset(
                     entry.superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),

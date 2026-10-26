@@ -211,7 +211,10 @@ SELECT
     w.stationId AS stationId,
     w.stationName AS stationName,
     w.stationLoadBasis AS stationLoadBasis,
-    w.distanceMeters AS distanceMeters
+    w.distanceMeters AS distanceMeters,
+    w.forceNewtons AS forceNewtons,
+    w.deviceName AS deviceName,
+    w.deviceRatingKg AS deviceRatingKg
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId
@@ -242,7 +245,10 @@ SELECT
     w.stationId AS stationId,
     w.stationName AS stationName,
     w.stationLoadBasis AS stationLoadBasis,
-    w.distanceMeters AS distanceMeters
+    w.distanceMeters AS distanceMeters,
+    w.forceNewtons AS forceNewtons,
+    w.deviceName AS deviceName,
+    w.deviceRatingKg AS deviceRatingKg
 FROM workoutSet w
 LEFT JOIN exercise e ON e.id = w.exerciseId
 LEFT JOIN exerciseOverride eo ON eo.exerciseId = w.exerciseId

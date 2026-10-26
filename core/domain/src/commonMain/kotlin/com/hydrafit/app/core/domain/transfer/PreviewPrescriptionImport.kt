@@ -157,6 +157,7 @@ object PreviewPrescriptionImport {
                         reps = entry.reps,
                         durationSeconds = entry.durationSeconds,
                         distanceMeters = entry.distanceMeters,
+                        forceNewtons = entry.forceNewtons,
                         weightKg = weight,
                         loadKind = kind,
                         progressionPolicy = entry.progressionPolicy

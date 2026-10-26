@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.workout.LoadKind
+
 /** One exercise's progressed estimate together with the reasoning that produced it. */
 data class ProgressedWeight(
     val baselineKg: Double,
@@ -19,6 +21,9 @@ data class ProgressedWeight(
  *
  * Increments are paused while the latest accepted plan is a deload week, so intentionally light
  * deload targets do not earn a progression bump.
+ *
+ * The rule is load-kind generic: [resolve] reads comparable history of the kind it is given, so the
+ * same streak and increment apply to added load without an estimated-1RM conversion or body mass.
  */
 class ProgressWeightsUseCase(private val config: ProgressionConfig = ProgressionConfig()) {
 
@@ -49,7 +54,8 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         baseline: Map<String, Double>,
         history: ProgressionHistory,
         pauseIncrements: Boolean = false,
-        nowMillis: Long = 0L
+        nowMillis: Long = 0L,
+        loadKind: LoadKind = LoadKind.EXTERNAL
     ): Map<String, ProgressedWeight> {
         if (pauseIncrements) {
             return baseline.mapValues { (_, base) ->
@@ -58,7 +64,7 @@ class ProgressWeightsUseCase(private val config: ProgressionConfig = Progression
         }
 
         return baseline.mapValues { (exerciseId, base) ->
-            val replay = history.replay(exerciseId, nowMillis, config)
+            val replay = history.replay(exerciseId, nowMillis, config, loadKind)
             val delta = replay.increments * config.roundToKg
             ProgressedWeight(
                 baselineKg = base,

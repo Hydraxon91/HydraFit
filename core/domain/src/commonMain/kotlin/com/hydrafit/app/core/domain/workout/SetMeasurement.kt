@@ -1,9 +1,9 @@
 package com.hydrafit.app.core.domain.workout
 
 /**
- * How a set is measured: repetitions, elapsed whole seconds, or distance in whole metres; exactly
- * one. The cases are exclusive values rather than nullable sentinels, so a stored number is never
- * reinterpreted from one metric into another.
+ * How a set is measured: repetitions, elapsed whole seconds, distance in whole metres, or measured
+ * force in newtons; exactly one. The cases are exclusive values rather than nullable sentinels, so a
+ * stored number is never reinterpreted from one metric into another.
  */
 sealed interface SetMeasurement {
     /** A rep-counted set. [count] is always at least 1. */
@@ -24,6 +24,18 @@ sealed interface SetMeasurement {
     data class Distance(val meters: Int) : SetMeasurement {
         init {
             require(meters >= 1) { "Distance must be positive, was $meters" }
+        }
+    }
+
+    /**
+     * A measured-force set. [newtons] is the device's reading converted to canonical newtons, never
+     * a gripper's stated resistance rating, which is device identity rather than measured force.
+     */
+    data class Force(val newtons: Double) : SetMeasurement {
+        init {
+            require(newtons.isFinite() && newtons > 0.0) {
+                "Force must be finite and positive, was $newtons"
+            }
         }
     }
 }

@@ -31,6 +31,7 @@ CREATE TABLE planHistoryEntry (
     setTargets TEXT,
     superset TEXT,
     distanceMeters INTEGER,
+    forceNewtons REAL,
     FOREIGN KEY (dayId) REFERENCES planHistoryDay(id)
 );
 
@@ -45,8 +46,8 @@ insertDayWithId:
 INSERT INTO planHistoryDay(id, planId, dayIndex, focus) VALUES (?, ?, ?, ?);
 
 insertEntryWithId:
-INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets, distanceMeters)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(id, dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets, distanceMeters, forceNewtons)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertedPlanId:
 SELECT last_insert_rowid();
@@ -64,8 +65,8 @@ selectAllDays:
 SELECT * FROM planHistoryDay ORDER BY planId, dayIndex;
 
 insertEntry:
-INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets, distanceMeters)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO planHistoryEntry(dayId, position, exerciseId, sets, reps, durationSeconds, exerciseName, movementPattern, suggestedWeightKg, loadCapability, loadKind, progressionPolicy, setTargets, distanceMeters, forceNewtons)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 selectAllEntries:
 SELECT * FROM planHistoryEntry ORDER BY dayId, position;
@@ -91,11 +92,15 @@ SET exerciseId = :newExerciseId, exerciseName = :newExerciseName, suggestedWeigh
 WHERE position = :position
   AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 
--- Sets one slot's measure in place. The exercise, sets and load are untouched; a timed slot stores
--- NULL reps with its seconds, never both and never a zero sentinel.
+-- Sets one slot's measure in place. The exercise, sets and load kind are untouched; a timed slot
+-- stores NULL reps with its seconds, never both and never a zero sentinel. A force slot is load-free,
+-- so it clears the numeric load, and ordered per-set targets are rep-based, so any other measure
+-- clears them rather than leaving targets the slot no longer performs.
 updateEntryMeasureAtPosition:
 UPDATE planHistoryEntry
-SET reps = :reps, durationSeconds = :durationSeconds, distanceMeters = :distanceMeters
+SET reps = :reps, durationSeconds = :durationSeconds, distanceMeters = :distanceMeters, forceNewtons = :forceNewtons,
+    suggestedWeightKg = CASE WHEN :forceNewtons IS NOT NULL THEN NULL ELSE suggestedWeightKg END,
+    setTargets = CASE WHEN :reps IS NULL THEN NULL ELSE setTargets END
 WHERE position = :position
   AND dayId IN (SELECT id FROM planHistoryDay WHERE planId = :planId AND dayIndex = :dayIndex);
 

@@ -34,11 +34,19 @@ class PlannerLoadPolicyParityTest {
     private val engine = DeterministicWorkoutPlannerEngine(FakeCatalog)
     private val sanitizer = WeeklyPlanSanitizer(FakeCatalog)
     private val dumbbellCatalog = LocalCatalog(DUMBBELL_CATALOG)
+    private val addableCatalog = LocalCatalog(ADDABLE_CATALOG)
     private val builder = BuildPlannerLoadInputsUseCase(
         catalog = FakeCatalog,
         buildRecentWeights = BuildRecentWeightsUseCase(),
         progressWeights = ProgressWeightsUseCase()
     )
+    private val addedBuilder = BuildPlannerLoadInputsUseCase(
+        catalog = addableCatalog,
+        buildRecentWeights = BuildRecentWeightsUseCase(),
+        progressWeights = ProgressWeightsUseCase()
+    )
+    private val addedEngine = DeterministicWorkoutPlannerEngine(addableCatalog)
+    private val addedSanitizer = WeeklyPlanSanitizer(addableCatalog)
 
     @Test
     fun deterministicAndSanitizerAgreeWithoutProgression() = runTest {
@@ -48,6 +56,20 @@ class PlannerLoadPolicyParityTest {
         // BALANCED compound 6 reps -> 126.667 x 0.765 = 96.9 -> 97.5 kg.
         assertEquals(97.5, deterministicWeight(inputs))
         assertEquals(97.5, sanitizedWeight(inputs))
+    }
+
+    @Test
+    fun deterministicAndSanitizerPrescribeTheSameRecordedAddedLoad() = runTest {
+        val inputs = addedBuilder(
+            sources = sources(addedSets()),
+            pauseIncrements = false,
+            utcOffsetMillis = 0L,
+            nowMillis = NOW
+        )
+
+        // The recorded 10 kg added load earns one 2.5 kg increment; neither engine estimates it.
+        assertEquals(12.5, addedDeterministicWeight(inputs))
+        assertEquals(12.5, addedSanitizedWeight(inputs))
     }
 
     @Test
@@ -704,7 +726,8 @@ class PlannerLoadPolicyParityTest {
             position: Int,
             reps: Int?,
             durationSeconds: Int?,
-            distanceMeters: Int?
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit
@@ -738,6 +761,57 @@ class PlannerLoadPolicyParityTest {
             .days.flatMap { it.exercises }
             .firstOrNull { it.exerciseId == EXERCISE }
             ?.suggestedWeightKg
+    }
+
+    private fun addedDeterministicWeight(inputs: PlannerLoadInputs): Double? {
+        val request = PlanRequest(
+            daysPerWeek = 2,
+            availableEquipment = emptySet(),
+            muscleFatigue = emptyMap(),
+            nowMillis = NOW,
+            suggestedAddedLoadsKg = inputs.suggestedAddedLoadsKg
+        )
+        return addedEngine.plan(request, ADDABLE_CATALOG)
+            .days.flatMap { it.exercises }
+            .firstOrNull { it.exerciseId == ADDED_EXERCISE }
+            ?.suggestedWeightKg
+    }
+
+    private suspend fun addedSanitizedWeight(inputs: PlannerLoadInputs): Double? {
+        val request = PlanRequest(
+            daysPerWeek = 1,
+            availableEquipment = emptySet(),
+            muscleFatigue = emptyMap(),
+            nowMillis = NOW,
+            suggestedAddedLoadsKg = inputs.suggestedAddedLoadsKg
+        )
+        val modelPlan = WeeklyPlan(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                WorkoutDay(
+                    dayIndex = 0,
+                    focus = SplitFocus.FULL_BODY,
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = ADDED_EXERCISE,
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = ABOVE_ANY_BOUND
+                        ),
+                        PlannedExercise(
+                            exerciseId = "weighted-dip",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = ABOVE_ANY_BOUND
+                        )
+                    )
+                )
+            )
+        )
+        return addedSanitizer.sanitize(modelPlan, request)!!
+            .days.single().exercises
+            .first { it.exerciseId == ADDED_EXERCISE }
+            .suggestedWeightKg
     }
 
     private suspend fun sanitizedWeight(
@@ -802,6 +876,28 @@ class PlannerLoadPolicyParityTest {
         includeWorkoutData = true,
         isDeload = isDeload
     )
+
+    /** Three completed added-load sessions inside the window, each carrying its own recorded target. */
+    private fun addedSets(): List<WorkoutSet> = listOf(98L, 99L, 100L).flatMap { day ->
+        List(3) {
+            WorkoutSet(
+                exerciseId = ADDED_EXERCISE,
+                reps = 8,
+                weightKg = 10.0,
+                loadKind = LoadKind.ADDED,
+                performedAtMillis = day * DAY_MILLIS,
+                sessionId = "s$day",
+                prescriptionSnapshot = WorkoutPrescriptionSnapshot(
+                    exerciseId = ADDED_EXERCISE,
+                    sets = 3,
+                    reps = 8,
+                    loadKind = LoadKind.ADDED,
+                    weightKg = 10.0,
+                    isDeload = false
+                )
+            )
+        }
+    }
 
     /** Three completed external sessions inside the window, each carrying its own recorded target. */
     private fun completedSets(): List<WorkoutSet> =
@@ -893,6 +989,7 @@ class PlannerLoadPolicyParityTest {
 
     private companion object {
         const val EXERCISE = "lat-pulldown"
+        const val ADDED_EXERCISE = "weighted-pull-up"
         const val REPLACEMENT = "cable-pulldown"
         const val DUMBBELL_ROW = "dumbbell-row"
         const val DUMBBELL_CURL = "dumbbell-curl"
@@ -950,6 +1047,25 @@ class PlannerLoadPolicyParityTest {
 
         /** Higher than any converted bound here, so the sanitizer always clamps unless withheld. */
         const val ABOVE_ANY_BOUND = 500.0
+
+        val ADDABLE_CATALOG: List<Exercise> = listOf(
+            Exercise(
+                id = ADDED_EXERCISE,
+                name = "Weighted Pull-Up",
+                requiredEquipment = emptySet(),
+                primaryMuscles = setOf(MuscleGroup.LATS),
+                movementPattern = MovementPattern.VERTICAL_PULL,
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+            ),
+            Exercise(
+                id = "weighted-dip",
+                name = "Weighted Dip",
+                requiredEquipment = emptySet(),
+                primaryMuscles = setOf(MuscleGroup.CHEST_LOWER),
+                movementPattern = MovementPattern.VERTICAL_PUSH,
+                loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+            )
+        )
 
         val CATALOG = listOf(
             exercise(EXERCISE, MovementPattern.VERTICAL_PULL, MuscleGroup.LATS),

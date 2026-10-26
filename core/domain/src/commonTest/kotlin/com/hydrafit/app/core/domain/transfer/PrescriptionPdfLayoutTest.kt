@@ -151,6 +151,25 @@ class PrescriptionPdfLayoutTest {
     }
 
     @Test
+    fun printsForceInNewtonsWithoutARepCountOrLoad() {
+        val pages = PrescriptionPdfLayout.build(
+            document(
+                listOf(
+                    routine(
+                        entry(name = "Grip", sets = 2, weightKg = null).copy(
+                            reps = null,
+                            forceNewtons = 150.0
+                        )
+                    )
+                )
+            ),
+            linesPerPage = 100
+        )
+
+        assertEquals("  Grip: 2 × 150 N", texts(pages).last())
+    }
+
+    @Test
     fun namesTheRoutineCountAndPrintsTheWorkoutFocus() {
         val pages = PrescriptionPdfLayout.build(
             document(

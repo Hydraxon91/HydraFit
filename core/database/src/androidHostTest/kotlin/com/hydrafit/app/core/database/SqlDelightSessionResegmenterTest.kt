@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
@@ -101,6 +102,51 @@ class SqlDelightSessionResegmenterTest {
         )
         assertEquals(3, log.all().size)
         assertEquals(100L, sessions.all().first { it.id == "s1" }.endedAtMillis)
+    }
+
+    @Test
+    fun aForceCorrectionWritesTheCompleteDeviceStateAndClearsItWhenNoLongerForce() = runTest {
+        insertSession("s1", 100, 200, 0)
+        insertSet(1, "s1", 150)
+        database.workoutLogQueries.assignForce(250.0, 1L)
+        database.workoutLogQueries.assignDevice(
+            deviceName = "Grip A",
+            deviceRatingKg = 60.0,
+            id = 1L
+        )
+
+        resegmenter.resegmentAfterSetCorrection(
+            1L,
+            WorkoutSetCorrection(
+                reps = null,
+                weightKg = null,
+                rir = null,
+                performedAtMillis = 150L,
+                forceNewtons = 275.0,
+                device = DeviceAttribution("Grip B", ratingKg = 70.0)
+            ),
+            0L
+        )
+
+        val force = database.workoutLogQueries.selectSetById(1L).executeAsOne()
+        assertEquals(275.0, force.forceNewtons)
+        assertEquals("Grip B", force.deviceName)
+        assertEquals(70.0, force.deviceRatingKg)
+        assertNull(force.reps)
+
+        // A correction back to repetitions carries no device, so the force identity is cleared in the
+        // same transaction rather than left describing a set that is no longer a force reading.
+        resegmenter.resegmentAfterSetCorrection(
+            1L,
+            WorkoutSetCorrection(reps = 6, weightKg = null, rir = null, performedAtMillis = 150L),
+            0L
+        )
+
+        val reps = database.workoutLogQueries.selectSetById(1L).executeAsOne()
+        assertEquals(6L, reps.reps)
+        assertNull(reps.forceNewtons)
+        assertNull(reps.deviceName)
+        assertNull(reps.deviceRatingKg)
     }
 
     @Test

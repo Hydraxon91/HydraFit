@@ -24,6 +24,12 @@ data class PlanRequest(
      * working load at prescribed reps. Missing evidence is represented by [withheldWeightExerciseIds].
      */
     val recentWeightCaps: Map<String, Double> = emptyMap(),
+    /**
+     * Recorded added load advanced by the success/miss streak rule, in kilograms added to bodyweight.
+     * It is a recorded value, not an estimate: engines prescribe it with
+     * [com.hydrafit.app.core.domain.workout.LoadKind.ADDED] and never derive it from reps or body mass.
+     */
+    val suggestedAddedLoadsKg: Map<String, Double> = emptyMap(),
     val withheldWeightExerciseIds: Set<String> = emptySet(),
     /**
      * Progressed manual PR floors from records below [BuildPlannerLoadInputsUseCase]'s rep-range

@@ -7,7 +7,14 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 26
+const val BACKUP_FORMAT_VERSION: Int = 27
+
+/**
+ * Format 27 adds measured force in canonical newtons to performed sets and every prescription
+ * store, plus a performed set's descriptive device identity and stated rating. A format-26 or older
+ * file must not carry any of them: a rating is never converted into force or lifted mass.
+ */
+const val FORCE_FORMAT_VERSION: Int = 27
 
 /** Format 26 adds whole-metre set/prescription distance and the metres/feet preference. */
 const val DISTANCE_FORMAT_VERSION: Int = 26
@@ -102,6 +109,9 @@ const val EXERCISE_NOTES_FORMAT_VERSION: Int = 9
  * with none, so every preparation action uses its built-in default. Version 25 adds profile-scoped
  * equipment stations and a performed set's frozen station attribution; formats 1-24 restore with no
  * stations and unattributed sets, and merge keeps the frozen label while dropping the local id.
+ * Version 26 adds whole-metre distance and the metres/feet preference. Version 27 adds measured force
+ * and a performed set's descriptive device identity; formats 1-26 restore with no force and no device,
+ * and a force or device value in an older file is rejected rather than reinterpreted.
  */
 @Serializable
 data class BackupFile(
@@ -389,7 +399,16 @@ data class BackupWorkoutSetRecord(
     /** Frozen station load basis, format 25 and later. */
     val stationLoadBasis: String? = null,
     /** Whole metres for a distance set, format 26 and later. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons, format 27 and later; null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** The measuring device's frozen name, format 27 and later; descriptive identity only. */
+    val deviceName: String? = null,
+    /**
+     * The measuring device's stated resistance rating in kilograms, format 27 and later. It is never
+     * converted into force or lifted mass; comparisons require the same device identity.
+     */
+    val deviceRatingKg: Double? = null
 )
 
 @Serializable
@@ -441,7 +460,9 @@ data class BackupPlanEntryRecord(
     val setTargets: String? = null,
     val superset: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons, format 27 and later. */
+    val forceNewtons: Double? = null
 )
 
 @Serializable
@@ -604,7 +625,9 @@ data class BackupRoutineEntryRecord(
     val setTargets: String? = null,
     val superset: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons, format 27 and later. */
+    val forceNewtons: Double? = null
 )
 
 @Serializable
@@ -660,7 +683,9 @@ data class BackupActivationEntryRecord(
     val setTargets: String? = null,
     val superset: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons, format 27 and later. */
+    val forceNewtons: Double? = null
 )
 
 @Serializable
@@ -705,7 +730,9 @@ data class BackupOccurrenceEntryRecord(
     val setTargets: String? = null,
     val superset: String? = null,
     /** Whole metres for a distance slot, format 26 and later. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in canonical newtons, format 27 and later. */
+    val forceNewtons: Double? = null
 )
 
 @Serializable

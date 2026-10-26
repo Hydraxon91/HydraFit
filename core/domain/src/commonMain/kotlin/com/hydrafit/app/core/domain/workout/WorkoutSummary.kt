@@ -60,6 +60,8 @@ data class WorkoutSummaryExercise(
     val prescribedDurationSeconds: Int? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val prescribedDistanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val prescribedForceNewtons: Double? = null,
     /** The frozen target load; null means the prescription carried no numeric load. */
     val prescribedWeightKg: Double?,
     /** What the frozen target load means. */
@@ -105,6 +107,10 @@ data class WorkoutSummarySet(
     val durationSeconds: Int? = null,
     /** Whole metres for a distance set, or null for reps and timed work. */
     val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force set, or null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** The frozen measuring device identity and rating, or null when none was recorded. */
+    val device: DeviceAttribution? = null,
     /** The recorded session this set belongs to; null for legacy or unsegmented rows. */
     val sessionId: String?
 )
@@ -185,6 +191,8 @@ fun buildWorkoutSummary(
         isWarmup = set.isWarmup,
         durationSeconds = set.durationSeconds,
         distanceMeters = set.distanceMeters,
+        forceNewtons = set.forceNewtons,
+        device = set.device,
         sessionId = set.sessionId
     )
 
@@ -207,6 +215,7 @@ fun buildWorkoutSummary(
                 prescribedReps = entry.reps,
                 prescribedDurationSeconds = entry.durationSeconds,
                 prescribedDistanceMeters = entry.distanceMeters,
+                prescribedForceNewtons = entry.forceNewtons,
                 prescribedWeightKg = entry.weightKg,
                 prescribedLoadKind = entry.loadKind,
                 performedSets = performed,

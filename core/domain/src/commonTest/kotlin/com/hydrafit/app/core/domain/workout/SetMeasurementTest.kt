@@ -62,7 +62,8 @@ class SetMeasurementTest {
         val measurements = listOf(
             SetMeasurement.Repetitions(8),
             SetMeasurement.Duration(45),
-            SetMeasurement.Distance(400)
+            SetMeasurement.Distance(400),
+            SetMeasurement.Force(250.0)
         )
 
         val described = measurements.map { measurement ->
@@ -70,9 +71,13 @@ class SetMeasurementTest {
                 is SetMeasurement.Repetitions -> "reps:${measurement.count}"
                 is SetMeasurement.Duration -> "seconds:${measurement.seconds}"
                 is SetMeasurement.Distance -> "metres:${measurement.meters}"
+                is SetMeasurement.Force -> "newtons:${measurement.newtons}"
             }
         }
 
-        assertEquals(listOf("reps:8", "seconds:45", "metres:400"), described)
+        assertEquals(
+            listOf("reps:8", "seconds:45", "metres:400", "newtons:250.0"),
+            described
+        )
     }
 }

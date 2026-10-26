@@ -97,7 +97,8 @@ private fun PrescriptionEntryRecord.describe(includesWeights: Boolean): String {
         else -> ""
     }
     // A timed slot prints its seconds and a distance slot its metres, never an absent rep count.
-    val metric = distanceMeters?.let { "$it m" }
+    val metric = forceNewtons?.let { "${trimNumber(it)} N" }
+        ?: distanceMeters?.let { "$it m" }
         ?: durationSeconds?.let { "$it s" }
         ?: reps?.toString().orEmpty()
     return "  $exerciseName: $sets × $metric$load$kind"

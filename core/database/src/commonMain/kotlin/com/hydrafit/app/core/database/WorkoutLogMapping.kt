@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
+import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSession as DomainWorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
@@ -27,8 +28,20 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     completedAtElapsedMillis = completedAtElapsedMillis,
     durationSeconds = durationSeconds?.toInt(),
     prescriptionSnapshot = prescriptionSnapshot?.let(WorkoutPrescriptionSnapshotJson::decode),
-    distanceMeters = distanceMeters?.toInt()
+    distanceMeters = distanceMeters?.toInt(),
+    forceNewtons = forceNewtons,
+    device = deviceAttributionOf(deviceName, deviceRatingKg)
 )
+
+/**
+ * Strict persisted device decoding. Both fields are absent for a set with no measuring device; a
+ * rating without a name is corrupt data and must not become an anonymous device identity.
+ */
+internal fun deviceAttributionOf(name: String?, ratingKg: Double?): DeviceAttribution? {
+    if (name == null && ratingKg == null) return null
+    require(name != null) { "Incomplete stored device attribution" }
+    return DeviceAttribution(name = name, ratingKg = ratingKg)
+}
 
 /**
  * Strict persisted station decoding. All three fields are absent for unattributed rows; a partial

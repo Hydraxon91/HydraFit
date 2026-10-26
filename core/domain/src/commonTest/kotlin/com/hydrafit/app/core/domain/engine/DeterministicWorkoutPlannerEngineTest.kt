@@ -927,6 +927,53 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun prescribesRecordedAddedLoadForABodyweightAddableExercise() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 2,
+                suggestedAddedLoadsKg = mapOf("weighted-pull-up" to 10.0)
+            ),
+            listOf(
+                exercise(
+                    "weighted-pull-up",
+                    MovementPattern.VERTICAL_PULL,
+                    MuscleGroup.LATS,
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+                )
+            )
+        )
+
+        val entry = plan.days.flatMap { it.exercises }
+            .first { it.exerciseId == "weighted-pull-up" }
+        assertEquals(10.0, entry.suggestedWeightKg)
+        assertEquals(LoadKind.ADDED, entry.loadKind)
+        assertEquals(ExerciseLoadCapability.BODYWEIGHT_ADDABLE, entry.loadCapability)
+    }
+
+    @Test
+    fun aBodyweightAddableExerciseWithoutRecordedAddedLoadStaysBodyweight() {
+        val plan = engine.plan(
+            request(
+                daysPerWeek = 2,
+                suggestedWeightsKg = mapOf("weighted-pull-up" to 100.0)
+            ),
+            listOf(
+                exercise(
+                    "weighted-pull-up",
+                    MovementPattern.VERTICAL_PULL,
+                    MuscleGroup.LATS,
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ADDABLE
+                )
+            )
+        )
+
+        val entry = plan.days.flatMap { it.exercises }
+            .first { it.exerciseId == "weighted-pull-up" }
+        assertNull(entry.suggestedWeightKg)
+        assertEquals(LoadKind.BODYWEIGHT, entry.loadKind)
+    }
+
+    @Test
     fun keepsTheGeneratedLoadForAnExternalExercise() {
         val plan = engine.plan(
             request(
@@ -1813,6 +1860,7 @@ class DeterministicWorkoutPlannerEngineTest {
         accessorySetsPerExercise: Int = goal.accessorySets,
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
         suggestedWeightsKg: Map<String, Double> = emptyMap(),
+        suggestedAddedLoadsKg: Map<String, Double> = emptyMap(),
         equipmentMaxWeights: Map<EquipmentTag, Double> = emptyMap(),
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
         excludedExerciseIds: Set<String> = emptySet(),
@@ -1831,6 +1879,7 @@ class DeterministicWorkoutPlannerEngineTest {
         accessorySetsPerExercise = accessorySetsPerExercise,
         recentExerciseIdsByPattern = recentExerciseIdsByPattern,
         suggestedWeightsKg = suggestedWeightsKg,
+        suggestedAddedLoadsKg = suggestedAddedLoadsKg,
         equipmentMaxWeights = equipmentMaxWeights,
         exercisePreferences = exercisePreferences,
         excludedExerciseIds = excludedExerciseIds,

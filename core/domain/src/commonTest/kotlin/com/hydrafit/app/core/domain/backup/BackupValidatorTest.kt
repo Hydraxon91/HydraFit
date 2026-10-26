@@ -147,6 +147,115 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun acceptsAForceSetWithADeviceAndRejectsItsLoadOrAnOlderFormat() {
+        val forceSet = set(
+            reps = null,
+            weightKg = null,
+            loadKind = "BODYWEIGHT",
+            forceNewtons = 250.0,
+            deviceName = "Grip meter",
+            deviceRatingKg = 40.0,
+            prescriptionSnapshot = snapshot(
+                reps = null,
+                weightKg = null,
+                loadKind = "BODYWEIGHT",
+                forceNewtons = 250.0
+            )
+        )
+        validator.validate(
+            profiledFile(BACKUP_FORMAT_VERSION).copy(workoutSets = listOf(forceSet))
+        )
+
+        // Force is load-free, so the same set carrying a weight is a corrupt file.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(forceSet.copy(weightKg = 20.0))
+            )
+        }
+        // A device describes a force reading only.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(reps = 5, deviceName = "Grip meter", deviceRatingKg = 40.0)
+                )
+            )
+        }
+        // A format that predates force has no field for it.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION - 1).copy(workoutSets = listOf(forceSet))
+        }
+    }
+
+    @Test
+    fun aForcePrescriptionSlotRejectsANumericLoadAndAnOlderFormat() {
+        val base = planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = null)
+        val forceFile = base.copy(
+            planEntries = base.planEntries.map {
+                it.copy(forceNewtons = 250.0, suggestedWeightKg = null, loadKind = "BODYWEIGHT")
+            }
+        )
+        validator.validate(forceFile)
+
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            forceFile.copy(
+                planEntries = forceFile.planEntries.map { it.copy(suggestedWeightKg = 20.0) }
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            forceFile.copy(formatVersion = BACKUP_FORMAT_VERSION - 1)
+        }
+    }
+
+    @Test
+    fun performedSetsAcceptAnyPositiveDistanceOrForceBecauseWritersDo() {
+        // The app logs an imported 150 km ride and any positive dynamometer reading, so restore must
+        // accept them; the backup is not where physical plausibility is judged.
+        validator.validate(
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(id = 1, reps = null, distanceMeters = 150_000, weightKg = 30.0),
+                    set(
+                        id = 2,
+                        reps = null,
+                        weightKg = null,
+                        loadKind = "BODYWEIGHT",
+                        forceNewtons = 50_000.0
+                    )
+                )
+            )
+        )
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(set(id = 1, reps = null, distanceMeters = 0))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(BACKUP_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(id = 1, reps = null, weightKg = null, forceNewtons = 0.0)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun aPreviouslyWrittenNonRepsSlotWithOrderedTargetsStillRestores() {
+        // Released 0.10.x could persist this shape, so restore tolerates it rather than refusing a
+        // backup its own supported version wrote. The targets are inert at logging time.
+        val base = planEntryFile(BACKUP_FORMAT_VERSION, reps = null, durationSeconds = 45)
+        val threeTargets = SlotSetTargetsJson.encode(
+            SlotSetTargets.of(
+                List(3) { SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 60.0) }
+            )
+        )
+        val withTargets = base.copy(
+            planEntries = base.planEntries.map { it.copy(setTargets = threeTargets) }
+        )
+
+        validator.validate(withTargets)
+    }
+
+    @Test
     fun acceptsAPrescriptionSnapshotWhosePerformedWorkDiffersFromItsTarget() {
         // The recorded target is the prescription; a missed rep, a shortened timed set, a partly
         // completed carry or any later correction legitimately changes the performed value without
@@ -1593,6 +1702,9 @@ class BackupValidatorTest {
         reps: Int? = 5,
         durationSeconds: Int? = null,
         distanceMeters: Int? = null,
+        forceNewtons: Double? = null,
+        deviceName: String? = null,
+        deviceRatingKg: Double? = null,
         prescriptionSnapshot: String? = null
     ) = BackupWorkoutSetRecord(
         id = id,
@@ -1615,6 +1727,9 @@ class BackupValidatorTest {
         completedAtElapsedMillis = completedAtElapsedMillis,
         durationSeconds = durationSeconds,
         distanceMeters = distanceMeters,
+        forceNewtons = forceNewtons,
+        deviceName = deviceName,
+        deviceRatingKg = deviceRatingKg,
         prescriptionSnapshot = prescriptionSnapshot
     )
 
@@ -1635,7 +1750,8 @@ class BackupValidatorTest {
         targetRir: Int? = null,
         reps: Int? = 5,
         durationSeconds: Int? = null,
-        distanceMeters: Int? = null
+        distanceMeters: Int? = null,
+        forceNewtons: Double? = null
     ) = WorkoutPrescriptionSnapshotJson.encode(
         WorkoutPrescriptionSnapshot(
             exerciseId = exerciseId,
@@ -1643,6 +1759,7 @@ class BackupValidatorTest {
             reps = reps,
             durationSeconds = durationSeconds,
             distanceMeters = distanceMeters,
+            forceNewtons = forceNewtons,
             loadKind = LoadKind.valueOf(loadKind),
             weightKg = weightKg,
             isDeload = false,

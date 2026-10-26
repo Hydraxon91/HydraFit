@@ -289,9 +289,9 @@ private const val TICK_EPSILON = 1e-6
  * The candidate exercise's own prescribed load for one rep count, with the provenance the
  * deterministic engine records for a generated target.
  *
- * [weightKg] is null when the candidate has no usable baseline for this rep count, when its
- * capability does not allow an automatic load, or when its evidence is withheld. It is never taken
- * from the slot being replaced.
+ * [weightKg] is null when the candidate has no usable evidence for this rep count or when its
+ * external evidence is withheld. A bodyweight-addable candidate may carry its recorded added load
+ * instead. The value is never taken from the slot being replaced.
  */
 data class CandidatePrescribedLoad(
     val weightKg: Double?,
@@ -365,6 +365,16 @@ fun resolveCandidatePrescribedLoad(
             InventoryLoadResolution.NoReachableLoad -> null
         }
     }
+    // Added load is the app's recorded number, so a replacement keeps the same value generation
+    // would prescribe; it is never scaled by the external-load intensity or deload curve.
+    val addedWeightKg =
+        if (!allowed && capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE && reps != null) {
+            request.suggestedAddedLoadsKg[candidateId]
+                ?.takeIf { it.isFinite() && it > 0.0 }
+                ?.let(weightConfig::roundToIncrement)
+        } else {
+            null
+        }
     val origin = request.loadExplanations[candidateId]
     val conversion = if (uncappedWorking != null && reps != null) {
         LoadConversionExplanation(
@@ -381,16 +391,19 @@ fun resolveCandidatePrescribedLoad(
         null
     }
     val unavailableReason = when {
+        addedWeightKg != null -> null
+        capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE ->
+            LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
         !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
         reps != null && baseline == null -> LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
         else -> null
     }
     return CandidatePrescribedLoad(
-        weightKg = weightKg,
-        loadKind = if (weightKg != null) {
-            LoadKind.EXTERNAL
-        } else {
-            WorkoutLoadPolicy.defaultKind(capability)
+        weightKg = weightKg ?: addedWeightKg,
+        loadKind = when {
+            weightKg != null -> LoadKind.EXTERNAL
+            addedWeightKg != null -> LoadKind.ADDED
+            else -> WorkoutLoadPolicy.defaultKind(capability)
         },
         explanation = ExerciseTargetExplanation(
             baseline = origin?.baseline,

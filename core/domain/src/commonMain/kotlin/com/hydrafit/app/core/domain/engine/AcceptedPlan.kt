@@ -93,12 +93,19 @@ data class AcceptedExercise(
     val setTargets: SlotSetTargets? = null,
     val superset: Superset? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null
 ) {
     init {
-        val metrics = listOf(reps != null, durationSeconds != null, distanceMeters != null)
+        val metrics = listOf(
+            reps != null,
+            durationSeconds != null,
+            distanceMeters != null,
+            forceNewtons != null
+        )
         require(metrics.count { it } == 1) {
-            "An accepted exercise is reps-based, timed, or distance-based, exactly one"
+            "An accepted exercise is reps-based, timed, distance-based or force-based, exactly one"
         }
     }
 }
@@ -139,6 +146,7 @@ fun AcceptedPlan.toWeeklyPlan(): WeeklyPlan = WeeklyPlan(
                     reps = exercise.reps,
                     durationSeconds = exercise.durationSeconds,
                     distanceMeters = exercise.distanceMeters,
+                    forceNewtons = exercise.forceNewtons,
                     suggestedWeightKg = exercise.suggestedWeightKg,
                     loadKind = exercise.loadKind,
                     loadCapability = exercise.loadCapability,

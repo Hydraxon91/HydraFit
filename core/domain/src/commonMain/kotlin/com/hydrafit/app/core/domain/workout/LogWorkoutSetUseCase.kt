@@ -30,7 +30,14 @@ class LogWorkoutSetUseCase(
     /** Resolves the set's session, stamps it, and persists the set. */
     suspend operator fun invoke(set: WorkoutSet, utcOffsetMillis: Long) {
         WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
-        requireValidSetMeasurement(set.reps, set.durationSeconds, set.distanceMeters)
+        requireValidSetMeasurement(
+            set.reps,
+            set.durationSeconds,
+            set.distanceMeters,
+            set.forceNewtons
+        )
+        requireForceIsLoadFree(set.forceNewtons, set.weightKg)
+        requireValidDevice(set.forceNewtons, set.device)
         sessionLock.withLock {
             val session = resolveSession(set.performedAtMillis, utcOffsetMillis)
             repository.add(set.copy(sessionId = session.id))
@@ -50,7 +57,14 @@ class LogWorkoutSetUseCase(
         forceNewSession: Boolean
     ): WorkoutSession {
         WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
-        requireValidSetMeasurement(set.reps, set.durationSeconds, set.distanceMeters)
+        requireValidSetMeasurement(
+            set.reps,
+            set.durationSeconds,
+            set.distanceMeters,
+            set.forceNewtons
+        )
+        requireForceIsLoadFree(set.forceNewtons, set.weightKg)
+        requireValidDevice(set.forceNewtons, set.device)
         return sessionLock.withLock {
             val target = backdatedAttachTarget(
                 set.performedAtMillis,
@@ -70,7 +84,14 @@ class LogWorkoutSetUseCase(
     /** Persists [set] into an explicit session, bypassing auto-resolution. */
     suspend fun logInto(set: WorkoutSet, sessionId: String) {
         WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
-        requireValidSetMeasurement(set.reps, set.durationSeconds, set.distanceMeters)
+        requireValidSetMeasurement(
+            set.reps,
+            set.durationSeconds,
+            set.distanceMeters,
+            set.forceNewtons
+        )
+        requireForceIsLoadFree(set.forceNewtons, set.weightKg)
+        requireValidDevice(set.forceNewtons, set.device)
         sessionLock.withLock {
             repository.add(set.copy(sessionId = sessionId))
         }

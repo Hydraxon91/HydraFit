@@ -67,6 +67,7 @@ class SqlDelightWorkoutLogRepositoryTest {
             reps = 6L,
             durationSeconds = null,
             distanceMeters = null,
+            forceNewtons = null,
             weightKg = 90.0,
             rir = null,
             id = id
@@ -123,6 +124,87 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun acceptsAForceOrDistanceTargetWhoseMeasurementAgreesWithItsSet() = runTest {
+        val forceTarget = WorkoutPrescriptionSnapshot(
+            exerciseId = "grip-squeeze",
+            sets = 2,
+            forceNewtons = 250.0,
+            loadKind = LoadKind.BODYWEIGHT,
+            weightKg = null,
+            isDeload = false
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = forceTarget.exerciseId,
+                weightKg = null,
+                loadKind = LoadKind.BODYWEIGHT,
+                performedAtMillis = 1,
+                forceNewtons = 240.0,
+                prescriptionSnapshot = forceTarget
+            )
+        )
+        val distanceTarget = WorkoutPrescriptionSnapshot(
+            exerciseId = "farmer-carry",
+            sets = 2,
+            distanceMeters = 40,
+            loadKind = LoadKind.EXTERNAL,
+            weightKg = 20.0,
+            isDeload = false
+        )
+        repository.add(
+            DomainWorkoutSet(
+                exerciseId = distanceTarget.exerciseId,
+                weightKg = 20.0,
+                loadKind = LoadKind.EXTERNAL,
+                performedAtMillis = 2,
+                distanceMeters = 38,
+                prescriptionSnapshot = distanceTarget
+            )
+        )
+
+        val stored = repository.all().sortedBy { it.performedAtMillis }
+        assertEquals(250.0, stored.first().prescriptionSnapshot?.forceNewtons)
+        assertEquals(40, stored.last().prescriptionSnapshot?.distanceMeters)
+    }
+
+    @Test
+    fun aTargetOfAnotherMeasureIsStillRejectedForForceAndDistanceSets() = runTest {
+        val repsTarget = WorkoutPrescriptionSnapshot(
+            exerciseId = "grip-squeeze",
+            sets = 2,
+            reps = 8,
+            loadKind = LoadKind.BODYWEIGHT,
+            weightKg = null,
+            isDeload = false
+        )
+        assertFailsWith<IllegalArgumentException> {
+            repository.add(
+                DomainWorkoutSet(
+                    exerciseId = repsTarget.exerciseId,
+                    weightKg = null,
+                    loadKind = LoadKind.BODYWEIGHT,
+                    performedAtMillis = 1,
+                    forceNewtons = 240.0,
+                    prescriptionSnapshot = repsTarget
+                )
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            repository.add(
+                DomainWorkoutSet(
+                    exerciseId = repsTarget.exerciseId,
+                    weightKg = null,
+                    loadKind = LoadKind.BODYWEIGHT,
+                    performedAtMillis = 2,
+                    distanceMeters = 40,
+                    prescriptionSnapshot = repsTarget
+                )
+            )
+        }
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
     fun targetPersistsAtomicallyAndSurvivesActualCorrection() = runTest {
         val target = WorkoutPrescriptionSnapshot(
             exerciseId = "barbell-bench-press",
@@ -143,7 +225,7 @@ class SqlDelightWorkoutLogRepositoryTest {
         )
         val saved = repository.all().single()
         assertEquals(target, saved.prescriptionSnapshot)
-        database.workoutLogQueries.updateSetValues(6, null, null, 70.0, null, saved.id)
+        database.workoutLogQueries.updateSetValues(6, null, null, null, 70.0, null, saved.id)
         assertEquals(target, repository.all().single().prescriptionSnapshot)
         assertEquals(6, repository.all().single().reps)
         // The target is written by the same insert as the set, so a rejected insert leaves no row

@@ -107,7 +107,11 @@ data class WorkoutHistorySet(
     /** The frozen physical station attribution, or null for legacy and unattributed work. */
     val station: StationAttribution? = null,
     /** Whole metres for a distance set, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force set, or null for every other metric. */
+    val forceNewtons: Double? = null,
+    /** The frozen measuring device identity and rating, or null when none was recorded. */
+    val device: DeviceAttribution? = null
 )
 
 internal const val WORKOUT_HISTORY_DEFAULT_PAGE_SIZE = 30

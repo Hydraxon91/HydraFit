@@ -42,7 +42,10 @@ object BackupMergePolicy {
                 prescriptionSnapshot = set.prescriptionSnapshot,
                 stationName = set.stationName,
                 stationLoadBasis = set.stationLoadBasis,
-                distanceMeters = set.distanceMeters
+                distanceMeters = set.distanceMeters,
+                forceNewtons = set.forceNewtons,
+                deviceName = set.deviceName,
+                deviceRatingKg = set.deviceRatingKg
             )
         }
 

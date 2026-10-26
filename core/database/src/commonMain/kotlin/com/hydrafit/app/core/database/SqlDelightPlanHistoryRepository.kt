@@ -175,7 +175,8 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
         position: Int,
         reps: Int?,
         durationSeconds: Int?,
-        distanceMeters: Int?
+        distanceMeters: Int?,
+        forceNewtons: Double?
     ) {
         queries.transaction {
             // A missing day/position updates no row and is a no-op, leaving the plan untouched.
@@ -183,6 +184,7 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                 reps = reps?.toLong(),
                 durationSeconds = durationSeconds?.toLong(),
                 distanceMeters = distanceMeters?.toLong(),
+                forceNewtons = forceNewtons,
                 position = position.toLong(),
                 planId = planId,
                 dayIndex = dayIndex.toLong()
@@ -259,7 +261,8 @@ class SqlDelightPlanHistoryRepository(private val database: HydraFitDatabase) :
                                 superset = row.superset?.let(
                                     com.hydrafit.app.core.domain.routine.SupersetJson::decode
                                 ),
-                                distanceMeters = row.distanceMeters?.toInt()
+                                distanceMeters = row.distanceMeters?.toInt(),
+                                forceNewtons = row.forceNewtons
                             )
                         }
                 )

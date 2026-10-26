@@ -30,7 +30,9 @@ data class WorkoutPrescriptionSnapshot(
     /** Format 3 and later: the prescribed reps in reserve for this set, or null when none. */
     val targetRir: Int? = null,
     /** Format 4 and later: whole metres for a distance target, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Format 5 and later: measured force in newtons for a force target, or null for other metrics. */
+    val forceNewtons: Double? = null
 ) {
     fun requireValid() {
         require(version in MIN_SNAPSHOT_VERSION..SNAPSHOT_VERSION) {
@@ -45,6 +47,9 @@ data class WorkoutPrescriptionSnapshot(
         require(version >= DISTANCE_SNAPSHOT_VERSION || distanceMeters == null) {
             "A target before format $DISTANCE_SNAPSHOT_VERSION cannot carry a distance"
         }
+        require(version >= FORCE_SNAPSHOT_VERSION || forceNewtons == null) {
+            "A target before format $FORCE_SNAPSHOT_VERSION cannot carry a force"
+        }
         require(exerciseId.isNotBlank() && sets > 0) {
             "Invalid prescription identity or set count"
         }
@@ -54,14 +59,15 @@ data class WorkoutPrescriptionSnapshot(
         require(targetRir == null || targetRir in SetTarget.MIN_RIR..SetTarget.MAX_RIR) {
             "A prescribed RIR must be between ${SetTarget.MIN_RIR} and ${SetTarget.MAX_RIR}"
         }
-        requireValidSetMeasurement(reps, durationSeconds, distanceMeters)
+        requireValidSetMeasurement(reps, durationSeconds, distanceMeters, forceNewtons)
+        requireForceIsLoadFree(forceNewtons, weightKg)
         WorkoutLoadPolicy.validateShape(loadKind, weightKg)
         progressionPolicy?.requireValid()
     }
 
     companion object {
         /** The format this build writes. */
-        const val SNAPSHOT_VERSION: Int = 4
+        const val SNAPSHOT_VERSION: Int = 5
 
         /** The oldest format this build still reads. */
         const val MIN_SNAPSHOT_VERSION: Int = 1
@@ -74,6 +80,9 @@ data class WorkoutPrescriptionSnapshot(
 
         /** The first format that may carry a distance target. */
         const val DISTANCE_SNAPSHOT_VERSION: Int = 4
+
+        /** The first format that may carry a measured-force target. */
+        const val FORCE_SNAPSHOT_VERSION: Int = 5
     }
 }
 

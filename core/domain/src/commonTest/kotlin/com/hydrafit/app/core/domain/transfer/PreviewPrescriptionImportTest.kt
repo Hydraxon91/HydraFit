@@ -271,6 +271,32 @@ class PreviewPrescriptionImportTest {
     }
 
     @Test
+    fun forceSlotPreviewsAsAnEditableEntryWithoutWeight() {
+        val forceEntry = entry("back-squat", weight = null).copy(
+            reps = null,
+            forceNewtons = 150.0
+        )
+        val result = preview(
+            document(
+                listOf(
+                    PrescriptionRoutineRecord(
+                        "Measured",
+                        workouts = listOf(
+                            PrescriptionWorkoutRecord("Day 1", entries = listOf(forceEntry))
+                        )
+                    )
+                ),
+                includesWeights = false
+            )
+        )
+
+        assertTrue(result.canImport, result.problems.toString())
+        val editable = result.routines.single().workouts.single().entries.single()
+        assertEquals(150.0, editable.forceNewtons)
+        assertEquals(null, editable.weightKg)
+    }
+
+    @Test
     fun anEquivalentCustomDefinitionIsReusedWithoutADecision() {
         val identical = PrescriptionExerciseRecord(
             id = "user-pushup",

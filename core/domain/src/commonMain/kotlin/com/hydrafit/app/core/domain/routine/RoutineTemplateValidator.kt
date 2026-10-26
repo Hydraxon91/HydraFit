@@ -49,7 +49,8 @@ internal object RoutineTemplateValidator {
             entry.reps,
             entry.durationSeconds,
             entry.weightKg,
-            entry.distanceMeters
+            entry.distanceMeters,
+            entry.forceNewtons
         )
         // Capability compatibility is checked at activation (which has the catalog); here only the
         // shape that holds regardless of capability is enforced.
@@ -57,6 +58,13 @@ internal object RoutineTemplateValidator {
             throw RoutineTemplateException("Bodyweight work cannot record a numeric load")
         }
         entry.setTargets?.let { targets ->
+            // Ordered targets describe rep work: a slot measured by seconds, metres or newtons
+            // cannot perform them, so it must not carry them.
+            if (entry.reps == null) {
+                throw RoutineTemplateException(
+                    "An ordered prescription requires repetitions"
+                )
+            }
             try {
                 targets.requireValid()
             } catch (error: IllegalArgumentException) {

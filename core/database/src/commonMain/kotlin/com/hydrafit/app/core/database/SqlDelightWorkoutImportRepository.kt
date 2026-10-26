@@ -174,6 +174,12 @@ class SqlDelightWorkoutImportRepository(private val database: HydraFitDatabase) 
                             id = setQueries.lastInsertedSetId().executeAsOne()
                         )
                     }
+                    set.forceNewtons?.let { newtons ->
+                        setQueries.assignForce(
+                            forceNewtons = newtons,
+                            id = setQueries.lastInsertedSetId().executeAsOne()
+                        )
+                    }
                 }
                 if (preview.buckets.any { it.candidateKey == session.candidateKey }) {
                     newLinks.getOrPut(session.candidateKey) { mutableListOf() }.add(sessionId)

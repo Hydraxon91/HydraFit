@@ -10,5 +10,13 @@ data class WorkoutSetCorrection(
     /** Elapsed whole seconds for timed work, or null when the set is counted by [reps]. */
     val durationSeconds: Int? = null,
     /** Whole metres for distance work, or null for reps and timed work. */
-    val distanceMeters: Int? = null
+    val distanceMeters: Int? = null,
+    /** Measured force in newtons for force work, or null for every other metric. */
+    val forceNewtons: Double? = null,
+    /**
+     * The desired measuring-device identity for a force set, or null for none. A correction carries
+     * the complete desired state, so null clears a device the same way a null [weightKg] clears a
+     * load; the rating stays descriptive and is never converted into force.
+     */
+    val device: DeviceAttribution? = null
 )

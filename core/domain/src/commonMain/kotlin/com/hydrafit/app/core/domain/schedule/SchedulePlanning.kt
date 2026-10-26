@@ -37,6 +37,8 @@ data class OccurrenceEntryDraft(
     val durationSeconds: Int? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null,
     val weightKg: Double? = null,
     val loadKind: LoadKind = LoadKind.EXTERNAL
 )

@@ -64,14 +64,16 @@ class PlanBuilderActions(
         position: Int,
         reps: Int?,
         durationSeconds: Int?,
-        distanceMeters: Int? = null
+        distanceMeters: Int? = null,
+        forceNewtons: Double? = null
     ): AcceptedExercise? = setAcceptedExerciseMeasure.invoke(
         plan,
         dayIndex,
         position,
         reps,
         durationSeconds,
-        distanceMeters
+        distanceMeters,
+        forceNewtons
     )
 
     /** Today as a local civil day, for the "start today" default. */

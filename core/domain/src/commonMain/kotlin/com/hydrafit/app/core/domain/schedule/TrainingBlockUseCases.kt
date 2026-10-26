@@ -267,7 +267,8 @@ class EditUnstartedOccurrenceUseCase(
                         draft.reps,
                         draft.durationSeconds,
                         draft.weightKg,
-                        draft.distanceMeters
+                        draft.distanceMeters,
+                        draft.forceNewtons
                     )
                 } catch (error: RoutineTemplateException) {
                     throw ScheduleException(error.message ?: "Invalid prescription")
@@ -281,11 +282,13 @@ class EditUnstartedOccurrenceUseCase(
                 )
                 // An edit re-prescribes the slot; the approved rule and the ordered targets travel with
                 // the same exercise rather than being silently discarded by a sets/reps change. Ordered
-                // targets are kept only when the slot still prescribes the same number of sets, because
-                // the list and the count are one value. Pairing is restored below, and only when both
-                // members are unchanged and still adjacent.
+                // targets are kept only when the slot still prescribes the same number of sets AND is
+                // still measured by reps, because the list is rep work and the count is one value.
+                // Pairing is restored below, and only when both members are unchanged and still
+                // adjacent.
                 val existing = occurrence.entries.firstOrNull { it.exerciseId == draft.exerciseId }
-                val preservedTargets = existing?.setTargets?.takeIf { it.sets == draft.sets }
+                val preservedTargets = existing?.setTargets
+                    ?.takeIf { it.sets == draft.sets && draft.reps != null }
                 OccurrenceEntry(
                     sourceActivationEntryId = null,
                     position = index,
@@ -299,6 +302,7 @@ class EditUnstartedOccurrenceUseCase(
                     reps = draft.reps,
                     durationSeconds = draft.durationSeconds,
                     distanceMeters = draft.distanceMeters,
+                    forceNewtons = draft.forceNewtons,
                     weightKg = weightKg,
                     loadCapability = exercise.loadCapability,
                     loadKind = kind,

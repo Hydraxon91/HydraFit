@@ -21,6 +21,8 @@ data class GuidedExerciseProgress(
     val durationSeconds: Int? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
+    /** Measured force in newtons for a force slot, or null for every other metric. */
+    val forceNewtons: Double? = null,
     val weightKg: Double?,
     val loadKind: LoadKind,
     val loadCapability: ExerciseLoadCapability,
@@ -90,6 +92,7 @@ fun buildGuidedWorkoutProgress(
                 reps = entry.reps,
                 durationSeconds = entry.durationSeconds,
                 distanceMeters = entry.distanceMeters,
+                forceNewtons = entry.forceNewtons,
                 weightKg = entry.weightKg,
                 loadKind = entry.loadKind,
                 loadCapability = entry.loadCapability,

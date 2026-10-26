@@ -365,10 +365,21 @@ class BackupValidator(private val catalog: BackupCatalog) {
             if (file.formatVersion < DISTANCE_FORMAT_VERSION && it.distanceMeters != null) {
                 fail(BackupFailure.INVALID_VALUE)
             }
+            if (file.formatVersion < FORCE_FORMAT_VERSION &&
+                (
+                    it.forceNewtons != null ||
+                        it.deviceName != null ||
+                        it.deviceRatingKg != null
+                    )
+            ) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
             val hasReps = it.reps != null && it.reps > 0
             val hasDuration = it.durationSeconds != null && it.durationSeconds > 0
             val hasDistance = it.distanceMeters != null && it.distanceMeters > 0
-            if (listOf(hasReps, hasDuration, hasDistance).count { it } != 1) {
+            val hasForce =
+                it.forceNewtons != null && it.forceNewtons.isFinite() && it.forceNewtons > 0
+            if (listOf(hasReps, hasDuration, hasDistance, hasForce).count { it } != 1) {
                 fail(BackupFailure.INVALID_VALUE)
             }
             if (it.reps != null && it.reps <= 0) fail(BackupFailure.INVALID_VALUE)
@@ -376,9 +387,29 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 if (seconds <= 0) fail(BackupFailure.INVALID_VALUE)
             }
             it.distanceMeters?.let { meters ->
-                if (meters <= 0 || meters > PrescriptionBounds.MAX_DISTANCE_METERS) {
+                // Performed work is unbounded by design: the app logs any positive value (a long
+                // imported ride included), so restore must accept what the writers accepted rather
+                // than making a backup this build wrote unrestorable. Prescription caps stay on
+                // prescriptions; physical plausibility is not the backup's judgement.
+                if (meters <= 0) fail(BackupFailure.INVALID_VALUE)
+            }
+            it.forceNewtons?.let { newtons ->
+                if (!newtons.isFinite() || newtons <= 0.0) {
                     fail(BackupFailure.INVALID_VALUE)
                 }
+                // A force set is load-free; a rating is identity, never converted into a force.
+                if (it.weightKg != null) fail(BackupFailure.INVALID_VALUE)
+            }
+            if ((it.deviceName != null || it.deviceRatingKg != null) && it.forceNewtons == null) {
+                // A device identity only describes a force set.
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            if (it.deviceRatingKg != null && it.deviceName == null) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+            it.deviceName?.let { name -> if (name.isBlank()) fail(BackupFailure.INVALID_VALUE) }
+            it.deviceRatingKg?.let { rating ->
+                if (!rating.isFinite() || rating <= 0.0) fail(BackupFailure.INVALID_VALUE)
             }
             if ((it.startedAtElapsedMillis == null) != (it.completedAtElapsedMillis == null)) {
                 fail(BackupFailure.INVALID_VALUE)
@@ -420,7 +451,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 entry.reps,
                 entry.durationSeconds,
                 entry.distanceMeters,
-                PLAN_ENTRY_DURATION_FORMAT_VERSION
+                entry.forceNewtons,
+                PLAN_ENTRY_DURATION_FORMAT_VERSION,
+                entry.suggestedWeightKg
             )
             entry.suggestedWeightKg?.let { value -> finite(value) }
         }
@@ -522,7 +555,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 entry.reps,
                 entry.durationSeconds,
-                entry.distanceMeters
+                entry.distanceMeters,
+                entry.forceNewtons,
+                weightKg = entry.weightKg
             )
             entry.weightKg?.let { value -> finite(value) }
         }
@@ -545,7 +580,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 entry.reps,
                 entry.durationSeconds,
-                entry.distanceMeters
+                entry.distanceMeters,
+                entry.forceNewtons,
+                weightKg = entry.weightKg
             )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
@@ -571,7 +608,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 file.formatVersion,
                 entry.reps,
                 entry.durationSeconds,
-                entry.distanceMeters
+                entry.distanceMeters,
+                entry.forceNewtons,
+                weightKg = entry.weightKg
             )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
@@ -608,7 +647,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
                 it.reps,
                 it.durationSeconds,
                 null,
-                WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
+                durationFormatVersion = WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
             )
         }
 
@@ -670,18 +709,22 @@ class BackupValidator(private val catalog: BackupCatalog) {
     }
 
     /**
-     * A prescription slot is measured by positive reps or positive whole seconds, never both and
-     * never neither. A duration in a format that predates the field is rejected instead of being
-     * reinterpreted as a rep count. [durationFormatVersion] is the first format that carries the
-     * duration for this record family, since a timed accepted-plan slot arrived one format later
-     * than a timed routine/frozen slot.
+     * A prescription slot is measured by positive reps, positive whole seconds, positive whole
+     * metres or positive measured newtons, exactly one and never more. A duration in a format that
+     * predates the field is rejected instead of being reinterpreted as a rep count.
+     * [durationFormatVersion] is the first format that carries the duration for this record family,
+     * since a timed accepted-plan slot arrived one format later than a timed routine/frozen slot.
+     * [weightKg] is the slot's recorded numeric load; a force slot is load-free, so carrying one is
+     * rejected here exactly as it is for a performed force set.
      */
     private fun prescriptionMetric(
         version: Int,
         reps: Int?,
         durationSeconds: Int?,
         distanceMeters: Int?,
-        durationFormatVersion: Int = PRESCRIPTION_DURATION_FORMAT_VERSION
+        forceNewtons: Double? = null,
+        durationFormatVersion: Int = PRESCRIPTION_DURATION_FORMAT_VERSION,
+        weightKg: Double? = null
     ) {
         if (version < durationFormatVersion && durationSeconds != null) {
             fail(BackupFailure.INVALID_VALUE)
@@ -689,16 +732,30 @@ class BackupValidator(private val catalog: BackupCatalog) {
         if (version < DISTANCE_FORMAT_VERSION && distanceMeters != null) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (version < FORCE_FORMAT_VERSION && forceNewtons != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         val hasReps = reps != null && reps > 0
         val hasDuration = durationSeconds != null && durationSeconds > 0
         val hasDistance = distanceMeters != null && distanceMeters > 0
-        if (listOf(hasReps, hasDuration, hasDistance).count { it } != 1) {
+        val hasForce = forceNewtons != null && forceNewtons.isFinite() && forceNewtons > 0
+        if (listOf(hasReps, hasDuration, hasDistance, hasForce).count { it } != 1) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        // A force slot is load-free: its device rating is identity, never a lifted mass.
+        if (hasForce && weightKg != null) fail(BackupFailure.INVALID_VALUE)
         if (reps != null && reps <= 0) fail(BackupFailure.INVALID_VALUE)
         durationSeconds?.let { if (it <= 0) fail(BackupFailure.INVALID_VALUE) }
         distanceMeters?.let {
             if (it <= 0 || it > PrescriptionBounds.MAX_DISTANCE_METERS) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
+        }
+        forceNewtons?.let {
+            if (!it.isFinite() ||
+                it < PrescriptionBounds.MIN_FORCE_NEWTONS ||
+                it > PrescriptionBounds.MAX_FORCE_NEWTONS
+            ) {
                 fail(BackupFailure.INVALID_VALUE)
             }
         }
@@ -707,6 +764,10 @@ class BackupValidator(private val catalog: BackupCatalog) {
     /**
      * A recorded target must decode, must belong to the same exercise and load meaning as the set it
      * is attached to, and must not contradict the set's own measurement.
+     *
+     * A non-reps slot carrying ordered targets is tolerated here on purpose: released 0.10.x builds
+     * could persist that shape, and restore must accept a backup its own supported version wrote.
+     * The targets are inert at logging time, and the strict rule lives where a new shape is created.
      */
     private fun checkOrderedTargets(sets: Int, encoded: String?) {
         if (encoded == null) return
@@ -742,6 +803,9 @@ class BackupValidator(private val catalog: BackupCatalog) {
         if (formatVersion < DISTANCE_FORMAT_VERSION && snapshot.distanceMeters != null) {
             fail(BackupFailure.INVALID_VALUE)
         }
+        if (formatVersion < FORCE_FORMAT_VERSION && snapshot.forceNewtons != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
         if (snapshot.exerciseId != set.exerciseId) fail(BackupFailure.INVALID_REFERENCE)
         if (snapshot.loadKind.name != set.loadKind) fail(BackupFailure.INVALID_VALUE)
         // The recorded target is the prescription and the set is the performed work, so their values
@@ -750,11 +814,15 @@ class BackupValidator(private val catalog: BackupCatalog) {
         // would make the exposure unjudgeable rather than merely different.
         if ((snapshot.reps != null) != (set.reps != null) ||
             (snapshot.durationSeconds != null) != (set.durationSeconds != null) ||
-            (snapshot.distanceMeters != null) != (set.distanceMeters != null)
+            (snapshot.distanceMeters != null) != (set.distanceMeters != null) ||
+            (snapshot.forceNewtons != null) != (set.forceNewtons != null)
         ) {
             fail(BackupFailure.INVALID_VALUE)
         }
         snapshot.weightKg?.let { value -> finite(value) }
+        if (snapshot.forceNewtons != null && snapshot.weightKg != null) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
     }
 
     private fun validateStations(file: BackupFile) {

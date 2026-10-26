@@ -1001,7 +1001,8 @@ class ObserveWorkoutPlanInputsUseCaseTest {
             position: Int,
             reps: Int?,
             durationSeconds: Int?,
-            distanceMeters: Int?
+            distanceMeters: Int?,
+            forceNewtons: Double?
         ) = Unit
 
         override suspend fun delete(planId: Long) = Unit
