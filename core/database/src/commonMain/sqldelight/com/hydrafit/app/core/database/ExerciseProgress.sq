@@ -67,6 +67,17 @@ WHERE workoutSet.exerciseId = :exerciseId
 observeExerciseSets:
 SELECT count(*) FROM workoutSet WHERE exerciseId = :exerciseId;
 
+-- Complete station filter source for one exercise, independent of the loaded history page.
+selectStationOptions:
+SELECT DISTINCT stationId, stationName, stationLoadBasis
+FROM workoutSet
+WHERE exerciseId = :exerciseId
+  AND stationId IS NOT NULL
+  AND stationId > 0
+  AND stationName IS NOT NULL
+  AND stationLoadBasis IS NOT NULL
+ORDER BY stationName;
+
 selectExerciseReplayFirstPage:
 SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds,
        stationId, stationName, stationLoadBasis

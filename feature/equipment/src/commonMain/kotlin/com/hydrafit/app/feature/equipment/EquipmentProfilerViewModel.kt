@@ -413,6 +413,9 @@ class EquipmentProfilerViewModel(
         val minimum = editor.minInput.takeIf(String::isNotBlank)?.toDouble()
         val maximum = editor.maxInput.takeIf(String::isNotBlank)?.toDouble()
         val increment = editor.incrementInput.takeIf(String::isNotBlank)?.toDouble()
+        _state.update {
+            it.copy(stationEditor = it.stationEditor.copy(saving = true, error = null))
+        }
         viewModelScope.launch {
             try {
                 profileRepository.saveStation(
@@ -421,7 +424,7 @@ class EquipmentProfilerViewModel(
                         id = editor.stationId,
                         profileId = profileId,
                         equipmentId = equipmentId,
-                        name = editor.name,
+                        name = editor.name.trim(),
                         loadBasis = editor.loadBasis,
                         minWeightKg = minimum,
                         maxWeightKg = maximum,

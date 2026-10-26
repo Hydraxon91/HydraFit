@@ -55,6 +55,11 @@ class ProgressViewModelTest {
             return historyFlow(request)
         }
 
+        override fun observeStationOptions(
+            exerciseId: String
+        ): Flow<List<com.hydrafit.app.core.domain.equipment.StationAttribution>> =
+            flowOf(emptyList())
+
         override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> {
             progressRequests += request
             return progressFlow(request)

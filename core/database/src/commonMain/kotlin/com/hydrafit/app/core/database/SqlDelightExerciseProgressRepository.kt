@@ -3,7 +3,6 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.equipment.StationAttribution
-import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -68,6 +67,16 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
 
     override fun observeOccurrenceExerciseIds(occurrenceId: Long): Flow<List<String>> =
         queries.observeOccurrenceExerciseIds(occurrenceId).asFlow().mapToList(Dispatchers.Default)
+
+    override fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>> =
+        queries.selectStationOptions(exerciseId)
+            .asFlow()
+            .mapToList(Dispatchers.Default)
+            .map { rows ->
+                rows.mapNotNull { row ->
+                    stationAttributionOf(row.stationId, row.stationName, row.stationLoadBasis)
+                }.distinctBy { it.id }
+            }
 
     override fun observeSet(exerciseId: String, setId: Long): Flow<WorkoutHistorySet?> =
         queries.selectExerciseSetById(exerciseId, setId, ::historySet)
@@ -157,7 +166,7 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
-        station = stationOf(stationId, stationName, stationLoadBasis),
+        station = stationAttributionOf(stationId, stationName, stationLoadBasis),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
@@ -185,22 +194,12 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
-        station = stationOf(stationId, stationName, stationLoadBasis),
+        station = stationAttributionOf(stationId, stationName, stationLoadBasis),
         performedAtMillis = performedAt,
         isWarmup = isWarmup != 0L,
         occurrenceId = occurrenceId,
         durationSeconds = durationSeconds?.toInt()
     )
-
-    private fun stationOf(
-        stationId: Long?,
-        stationName: String?,
-        stationLoadBasis: String?
-    ): StationAttribution? {
-        if (stationId == null || stationName == null) return null
-        val basis = StationLoadBasis.fromStored(stationLoadBasis) ?: return null
-        return StationAttribution(stationId, stationName, basis)
-    }
 
     private companion object {
         const val REPLAY_PAGE_SIZE = 256L

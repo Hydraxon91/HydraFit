@@ -120,6 +120,49 @@ class EquipmentProfileBackupTest {
     }
 
     @Test
+    fun deletingAProfileDetachesItsRecordedStationIdsSoTheBackupRemainsRestorable() = runTest {
+        val original = profiles.current()
+        val stationId = profiles.saveStation(
+            original.context,
+            EquipmentStation(
+                profileId = original.active.id,
+                equipmentId = EquipmentTag.CABLE_MACHINE,
+                name = "Cable row A"
+            )
+        )
+        database.workoutSessionQueries.insertSession("session-1", 90L, 200L, 1L)
+        SqlDelightWorkoutLogRepository(database).add(
+            WorkoutSet(
+                exerciseId = "seated-cable-row",
+                reps = 10,
+                weightKg = 70.0,
+                performedAtMillis = 100L,
+                sessionId = "session-1",
+                station = StationAttribution(stationId, "Cable row A", StationLoadBasis.TOTAL)
+            )
+        )
+        val replacement = profiles.create("Travel")
+        profiles.activate(repositoryContext(), replacement)
+        profiles.delete(repositoryContext(), original.active.id, replacement)
+
+        val validated = BackupValidator(SqlDelightBackupCatalog())
+            .prepareForRestore(backups.export("test", 1L))
+
+        assertEquals(
+            0L,
+            validated.workoutSets.single { it.exerciseId == "seated-cable-row" }.stationId
+        )
+        backups.restore(validated)
+        assertEquals(
+            StationAttribution(0L, "Cable row A", StationLoadBasis.TOTAL),
+            SqlDelightWorkoutLogRepository(database).all()
+                .single { it.exerciseId == "seated-cable-row" }.station
+        )
+    }
+
+    private suspend fun repositoryContext() = profiles.current().context
+
+    @Test
     fun aPreStationFormatCannotCarryStationSectionsOrSetAttribution() = runTest {
         val file = backups.export("test", 1L)
         val validator = BackupValidator(SqlDelightBackupCatalog())

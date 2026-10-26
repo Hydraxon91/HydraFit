@@ -66,11 +66,6 @@ UPDATE workoutSet
 SET stationId = ?, stationName = ?, stationLoadBasis = ?
 WHERE id = ?;
 
-clearStation:
-UPDATE workoutSet
-SET stationId = NULL, stationName = NULL, stationLoadBasis = NULL
-WHERE id = ?;
-
 selectLastSetBySession:
 SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;
 

@@ -1109,6 +1109,9 @@ class KoinModulesVerificationTest {
         override fun observeProgress(request: ExerciseProgressRequest) =
             flowOf(ExerciseProgress(emptyList(), emptyList(), emptyList()))
 
+        override fun observeStationOptions(exerciseId: String) =
+            flowOf(emptyList<com.hydrafit.app.core.domain.equipment.StationAttribution>())
+
         override fun observeOccurrenceExerciseIds(occurrenceId: Long) = flowOf(emptyList<String>())
 
         override fun observeSet(exerciseId: String, setId: Long) = flowOf<WorkoutHistorySet?>(null)

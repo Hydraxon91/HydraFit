@@ -70,6 +70,12 @@ class SqlDelightBackupRepository(
     override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
         database.transactionWithResult {
             val profiles = database.readEquipmentProfileState()
+            // A deleted profile removes its station rows but not the performed sets that referenced
+            // them. Export those frozen labels as merge-only id zero so every exported positive id
+            // still references a station in the same file and the file remains restorable.
+            val exportedStationIds = profiles.profiles
+                .flatMap { it.stations }
+                .mapTo(mutableSetOf()) { it.id }
             BackupFile(
                 format = BACKUP_FORMAT,
                 formatVersion = BACKUP_FORMAT_VERSION,
@@ -140,7 +146,9 @@ class SqlDelightBackupRepository(
                         completedAtElapsedMillis = it.completedAtElapsedMillis,
                         durationSeconds = it.durationSeconds?.toInt(),
                         prescriptionSnapshot = it.prescriptionSnapshot,
-                        stationId = it.stationId,
+                        stationId = it.stationId?.let { id ->
+                            if (id in exportedStationIds) id else 0L
+                        },
                         stationName = it.stationName,
                         stationLoadBasis = it.stationLoadBasis
                     )

@@ -4,12 +4,15 @@ import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
 import com.hydrafit.app.core.domain.workout.ExerciseProgressCalculator
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
+import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -73,6 +76,36 @@ class SqlDelightExerciseProgressRepositoryTest {
         assertTrue(result.occurrenceEvents.isEmpty())
         val loadRecord = result.records.first { it.key.type == ProgressRecordType.LOAD_AT_REPS }
         assertEquals(60, loadRecord.setIds.size)
+    }
+
+    @Test
+    fun stationFilterSeparatesAttributedFromUnattributedAndAllSets() = runBlocking {
+        val stationA = StationAttribution(1L, "Rack A", StationLoadBasis.TOTAL)
+        val stationB = StationAttribution(2L, "Rack B", StationLoadBasis.TOTAL)
+        writer.add(set(time = 1, weight = 90.0, station = stationA))
+        writer.add(set(time = 2, weight = 100.0, station = stationB))
+        writer.add(set(time = 3, weight = 110.0))
+
+        val all = repository.observeProgress(progressRequest()).first()
+        val onlyA = repository.observeProgress(
+            progressRequest().copy(stationFilter = StationFilter.Station(1L))
+        ).first()
+        val unattributed = repository.observeProgress(
+            progressRequest().copy(stationFilter = StationFilter.Unattributed)
+        ).first()
+
+        assertEquals(3, all.days.single().workingSets)
+        assertEquals(1, onlyA.days.single().workingSets)
+        assertEquals(1, unattributed.days.single().workingSets)
+        assertEquals(
+            stationA,
+            repository.observeHistory(ExerciseHistoryRequest("squat")).first()
+                .sets.first { it.performedAtMillis == 1L }.station
+        )
+        assertEquals(
+            listOf(stationA, stationB),
+            repository.observeStationOptions("squat").first()
+        )
     }
 
     @Test
@@ -361,11 +394,12 @@ class SqlDelightExerciseProgressRepositoryTest {
 
     private fun progressRequest() = ExerciseProgressRequest("squat", 0, 2, 2 * DAY)
 
-    private fun set(time: Long, weight: Double) = WorkoutSet(
+    private fun set(time: Long, weight: Double, station: StationAttribution? = null) = WorkoutSet(
         exerciseId = "squat",
         reps = 10,
         weightKg = weight,
-        performedAtMillis = time
+        performedAtMillis = time,
+        station = station
     )
 
     private companion object {

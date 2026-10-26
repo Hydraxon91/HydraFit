@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -274,6 +275,9 @@ private class FakeExerciseProgressRepository : ExerciseProgressRepository {
 
     override fun observeOccurrenceExerciseIds(occurrenceId: Long): Flow<List<String>> =
         ids.onCompletion { idsCancelled = true }
+
+    override fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>> =
+        flowOf(emptyList())
 
     override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> = flow {
         if (failProgress) throw IllegalStateException("read failed")

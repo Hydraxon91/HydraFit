@@ -80,6 +80,11 @@ class ProgressModuleVerificationTest {
         override fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress> =
             flowOf(ExerciseProgress(emptyList(), emptyList(), emptyList()))
 
+        override fun observeStationOptions(
+            exerciseId: String
+        ): Flow<List<com.hydrafit.app.core.domain.equipment.StationAttribution>> =
+            flowOf(emptyList())
+
         override fun observeSet(exerciseId: String, setId: Long): Flow<WorkoutHistorySet?> =
             flowOf(null)
 

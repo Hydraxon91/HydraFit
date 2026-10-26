@@ -26,10 +26,14 @@ import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.equipment.Equipment
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
@@ -87,6 +91,10 @@ import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileContext
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
+import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
@@ -5007,6 +5015,78 @@ class WorkoutLoggerViewModelTest {
         )
     )
 
+    @Test
+    fun manualStationSelectionIsWrittenWithFrozenAttribution() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val station = EquipmentStation(
+            id = 7L,
+            profileId = 1L,
+            equipmentId = EquipmentTag.BARBELL,
+            name = "Rack A",
+            loadBasis = StationLoadBasis.TOTAL
+        )
+        val profileState = EquipmentProfileState(
+            EquipmentProfileContext(1L, 0L),
+            listOf(
+                EquipmentProfile(
+                    id = 1L,
+                    name = "Home",
+                    selected = setOf(EquipmentTag.BARBELL),
+                    maxWeightsKg = emptyMap(),
+                    loadingInventory = LoadingInventory(),
+                    stations = listOf(station)
+                )
+            )
+        )
+        val equipment = WorkoutLoggerEquipment(
+            object : EquipmentProfileRepository {
+                override fun observe() = flowOf(profileState)
+                override suspend fun current() = profileState
+                override suspend fun create(name: String, copyFrom: Long?): Long = error("unused")
+                override suspend fun rename(context: EquipmentProfileContext, name: String) =
+                    error("unused")
+                override suspend fun activate(context: EquipmentProfileContext, profileId: Long) =
+                    error("unused")
+                override suspend fun delete(
+                    context: EquipmentProfileContext,
+                    profileId: Long,
+                    replacementId: Long?
+                ) = error("unused")
+                override suspend fun saveEquipment(
+                    context: EquipmentProfileContext,
+                    selected: Set<EquipmentTag>,
+                    maxWeightsKg: Map<EquipmentTag, Double>
+                ) = error("unused")
+                override suspend fun saveLoadingInventory(
+                    context: EquipmentProfileContext,
+                    inventory: LoadingInventory
+                ) = error("unused")
+                override suspend fun saveStation(
+                    context: EquipmentProfileContext,
+                    station: EquipmentStation
+                ): Long = error("unused")
+                override suspend fun retireStation(
+                    context: EquipmentProfileContext,
+                    stationId: Long
+                ) = error("unused")
+            }
+        )
+        val viewModel = viewModel(repository = repository, equipment = equipment)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        advanceUntilIdle()
+        viewModel.onStationSelected(7L)
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100")
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(
+            StationAttribution(7L, "Rack A", StationLoadBasis.TOTAL),
+            repository.all().single().station
+        )
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
@@ -5016,7 +5096,8 @@ class WorkoutLoggerViewModelTest {
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
-        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository()
+        sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
+        equipment: WorkoutLoggerEquipment = testEquipment()
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         getWorkoutLog = GetWorkoutLogUseCase(repository),
@@ -5039,7 +5120,7 @@ class WorkoutLoggerViewModelTest {
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-        equipment = testEquipment()
+        equipment = equipment
     )
 
     private fun sessionViewModel(

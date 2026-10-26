@@ -3,8 +3,6 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
-import com.hydrafit.app.core.domain.equipment.StationAttribution
-import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.workout.WORKOUT_HISTORY_SESSION_KIND_RANK
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryEntry
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
@@ -126,7 +124,7 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
-        station = stationOf(stationId, stationName, stationLoadBasis),
+        station = stationAttributionOf(stationId, stationName, stationLoadBasis),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
@@ -142,7 +140,7 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         reps = reps?.toInt(),
         weightKg = weightKg,
         loadKind = decodeLoadKind(loadKind),
-        station = stationOf(stationId, stationName, stationLoadBasis),
+        station = stationAttributionOf(stationId, stationName, stationLoadBasis),
         isWarmup = isWarmup != 0L,
         rir = rir?.toInt(),
         performedAtMillis = performedAt,
@@ -150,14 +148,4 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         durationSeconds = durationSeconds?.toInt(),
         occurrenceId = occurrenceId
     )
-
-    private fun stationOf(
-        stationId: Long?,
-        stationName: String?,
-        stationLoadBasis: String?
-    ): StationAttribution? {
-        if (stationId == null || stationName == null) return null
-        val basis = StationLoadBasis.fromStored(stationLoadBasis) ?: return null
-        return StationAttribution(stationId, stationName, basis)
-    }
 }

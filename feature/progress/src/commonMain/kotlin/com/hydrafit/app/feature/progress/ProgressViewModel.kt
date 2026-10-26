@@ -65,6 +65,9 @@ class ProgressViewModel(
      */
     private var historyPagingGeneration = 0L
 
+    private var stationOptionsJob: Job? = null
+    private var stationOptionsGeneration = 0L
+
     private var supportingGeneration = 0L
     private var supportingJob: Job? = null
 
@@ -133,6 +136,7 @@ class ProgressViewModel(
         }
         startCharts()
         startHistory()
+        startStationOptions(exerciseId)
     }
 
     /** Range limits the charts only; records and history stay all-time. */
@@ -256,13 +260,9 @@ class ProgressViewModel(
                     historyLoadMoreJob?.cancel()
                     historyLoadMoreJob = null
                     historyNextCursor = page.nextCursor
-                    _state.update { current ->
-                        val options = (current.stationOptions + page.sets.mapNotNull { it.station })
-                            .distinctBy { it.id to it.name }
-                            .sortedBy { it.name.lowercase() }
-                        current.copy(
+                    _state.update {
+                        it.copy(
                             historySets = page.sets,
-                            stationOptions = options,
                             historyHasMore = page.hasMore,
                             historyLoading = false,
                             historyFailed = false,
@@ -390,6 +390,33 @@ class ProgressViewModel(
         }
     }
 
+    private fun startStationOptions(exerciseId: String) {
+        val generation = ++stationOptionsGeneration
+        stationOptionsJob?.cancel()
+        stationOptionsJob = viewModelScope.launch {
+            try {
+                progressRepository.observeStationOptions(exerciseId).collect { options ->
+                    if (generation != stationOptionsGeneration) return@collect
+                    _state.update { current ->
+                        current.copy(
+                            stationOptions = options,
+                            stationFilter = current.stationFilter.takeIf { filter ->
+                                filter !is StationFilter.Station ||
+                                    options.any { it.id == filter.id }
+                            } ?: StationFilter.All
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (generation == stationOptionsGeneration) {
+                    _state.update { it.copy(stationOptions = emptyList()) }
+                }
+            }
+        }
+    }
+
     private fun cancelAllReads() {
         chartGeneration++
         chartQuery.value = null
@@ -397,6 +424,9 @@ class ProgressViewModel(
         historyLoadMoreJob?.cancel()
         historyLoadMoreJob = null
         historyNextCursor = null
+        stationOptionsJob?.cancel()
+        stationOptionsJob = null
+        stationOptionsGeneration++
         supportingJob?.cancel()
         supportingJob = null
         supportingGeneration++

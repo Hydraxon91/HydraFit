@@ -170,7 +170,8 @@ data class StationEditorState(
     val hasGridInput: Boolean get() = gridInputs.any { it.isNotBlank() }
 
     val canSave: Boolean
-        get() = name.isNotBlank() &&
+        get() = !saving &&
+            name.isNotBlank() &&
             (
                 !hasGridInput ||
                     (

@@ -127,6 +127,9 @@ import hydrafit.feature.equipment.generated.resources.equipment_station_name
 import hydrafit.feature.equipment.generated.resources.equipment_station_no_grid
 import hydrafit.feature.equipment.generated.resources.equipment_station_none
 import hydrafit.feature.equipment.generated.resources.equipment_station_retire
+import hydrafit.feature.equipment.generated.resources.equipment_station_retire_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_station_retire_message
+import hydrafit.feature.equipment.generated.resources.equipment_station_retire_title
 import hydrafit.feature.equipment.generated.resources.equipment_stations_section
 import hydrafit.feature.equipment.generated.resources.equipment_technique_considerations
 import hydrafit.feature.equipment.generated.resources.equipment_tier_high
@@ -817,6 +820,7 @@ private fun StationEditorDialog(
 ) {
     var basisExpanded by remember { mutableStateOf(false) }
     var equipmentExpanded by remember { mutableStateOf(false) }
+    var confirmRetire by remember { mutableStateOf(false) }
     val equipmentName = equipment.firstOrNull { it.id == state.equipmentId }?.name
         ?: state.equipmentId?.displayName.orEmpty()
     AlertDialog(
@@ -829,7 +833,7 @@ private fun StationEditorDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!state.isNew) {
-                    TextButton(onClick = { onRetire(state.stationId) }) {
+                    TextButton(onClick = { confirmRetire = true }) {
                         Text(stringResource(Res.string.equipment_station_retire))
                     }
                 }
@@ -928,7 +932,7 @@ private fun StationEditorDialog(
                 )
                 if (state.error != null) {
                     Text(
-                        text = stringResource(Res.string.equipment_save_error),
+                        text = state.error ?: stringResource(Res.string.equipment_save_error),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -936,6 +940,28 @@ private fun StationEditorDialog(
             }
         }
     )
+    if (confirmRetire) {
+        AlertDialog(
+            onDismissRequest = { confirmRetire = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmRetire = false
+                        onRetire(state.stationId)
+                    }
+                ) {
+                    Text(stringResource(Res.string.equipment_station_retire_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRetire = false }) {
+                    Text(stringResource(Res.string.equipment_cancel))
+                }
+            },
+            title = { Text(stringResource(Res.string.equipment_station_retire_title)) },
+            text = { Text(stringResource(Res.string.equipment_station_retire_message)) }
+        )
+    }
 }
 
 @Composable

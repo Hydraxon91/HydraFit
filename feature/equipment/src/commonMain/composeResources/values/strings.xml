@@ -217,6 +217,9 @@
     <string name="equipment_station_max">Maximum kg</string>
     <string name="equipment_station_increment">Increment kg</string>
     <string name="equipment_station_retire">Retire station</string>
+    <string name="equipment_station_retire_title">Retire this station?</string>
+    <string name="equipment_station_retire_message">Recorded sets keep this station name, but the station will no longer be offered in the Logger.</string>
+    <string name="equipment_station_retire_confirm">Retire</string>
     <string name="equipment_station_grid_summary">%1$s–%2$s kg, step %3$s kg</string>
     <string name="equipment_station_no_grid">No saved step range</string>
     <string name="equipment_station_none">No stations yet. Add one to keep each stack’s load history separate.</string>

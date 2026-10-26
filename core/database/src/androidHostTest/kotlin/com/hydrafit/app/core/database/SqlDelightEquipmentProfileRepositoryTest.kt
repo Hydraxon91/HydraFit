@@ -1,10 +1,12 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingBar
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.OwnedPlate
+import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.userdata.equipment.StaleEquipmentProfileException
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -58,6 +60,46 @@ class SqlDelightEquipmentProfileRepositoryTest {
         repository.delete(after.context, copy, state.active.id)
         assertEquals(state.active.id, repository.current().active.id)
         assertTrue(database.equipmentQueries.selectById("BARBELL").executeAsOne().isBuiltIn != 0L)
+    }
+
+    @Test
+    fun stationCopyGetsANewIdentityAndRejectsDuplicateActiveNames() = runTest {
+        val context = repository.current().context
+        val originalId = repository.saveStation(
+            context,
+            EquipmentStation(
+                profileId = context.profileId,
+                equipmentId = EquipmentTag.CABLE_MACHINE,
+                name = "Cable row A",
+                loadBasis = StationLoadBasis.TOTAL,
+                minWeightKg = 5.0,
+                maxWeightKg = 120.0,
+                incrementKg = 2.5
+            )
+        )
+        val copiedProfileId = repository.create("Travel", context.profileId)
+        val copiedStation = repository.current().profiles
+            .single { it.id == copiedProfileId }.stations.single()
+        assertTrue(copiedStation.id != originalId)
+        assertEquals("Cable row A", copiedStation.name)
+        assertEquals(originalId, repository.current().active.stations.single().id)
+        assertFailsWith<IllegalArgumentException> {
+            repository.saveStation(
+                repository.current().context,
+                EquipmentStation(
+                    profileId = repository.current().context.profileId,
+                    equipmentId = EquipmentTag.CABLE_MACHINE,
+                    name = "cable row a",
+                    loadBasis = StationLoadBasis.TOTAL
+                )
+            )
+        }
+        repository.delete(
+            repository.current().context,
+            copiedProfileId,
+            repository.current().active.id
+        )
+        assertEquals(originalId, repository.current().active.stations.single().id)
     }
 
     @Test

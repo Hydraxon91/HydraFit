@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.equipment.StationAttribution
 import kotlinx.coroutines.flow.Flow
 
 /** Which station attribution a progress projection includes. */
@@ -113,6 +114,12 @@ interface ExerciseProgressRepository {
 
     /** Complete chart range and all-time records through [ExerciseProgressRequest.nowMillis]. */
     fun observeProgress(request: ExerciseProgressRequest): Flow<ExerciseProgress>
+
+    /**
+     * Every positive station identity recorded for this exercise, independent of the history page
+     * currently loaded. Merge-only id zero labels are excluded because they are not selectable.
+     */
+    fun observeStationOptions(exerciseId: String): Flow<List<StationAttribution>>
 
     /**
      * The distinct exercise ids recorded against [occurrenceId], in a stable order. Emits whenever
