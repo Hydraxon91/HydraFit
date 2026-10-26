@@ -25,7 +25,15 @@ and recorded references remain intact. The machine variant is an additive seed w
 No table/column changes or migration are involved; both calf IDs are protected from startup
 custom-name dedupe. See the catalog recipe for content, provenance and regression checks.
 
-Query files: `Equipment.sq`, `Exercise.sq`, `ExerciseExclusion.sq`, `ExerciseNote.sq`,
+0.11.0 station identity: additive `60.sqm` creates `equipmentStation` and adds nullable
+`workoutSet.stationId/stationName/stationLoadBasis`. Existing sets stay unattributed; there is
+no backfill. `EquipmentStation.sq` owns profile-scoped CRUD and the optional min/max/increment
+grid. A set's station fields are written by `assignStation` after the ordinary insert so
+existing insert signatures and legacy rows remain unchanged. Positive station ids are local
+profile identities; zero is reserved for a frozen label imported by add-only merge.
+
+Query files: `Equipment.sq`, `EquipmentProfile.sq`, `EquipmentStation.sq`, `Exercise.sq`,
+`ExerciseExclusion.sq`, `ExerciseNote.sq`,
 `ExerciseOverride.sq`, `ExercisePreference.sq`, `PersonalRecord.sq`, `PlanHistory.sq`,
 `PlannerEngine.sq`,
 `PlanVolumeExplanation.sq`, `PlanVolumeExplanationState.sq`, `PlanTargetExplanation.sq`,

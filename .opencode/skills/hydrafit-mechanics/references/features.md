@@ -1,5 +1,16 @@
 # Feature and test implementation recipes
 
+## Equipment stations and Logger attribution (0.11.0)
+
+Equipment settings owns profile-scoped station records under existing equipment tags. A station has
+a trimmed unique name, a load basis (`TOTAL`/`PER_HAND`/`PER_SIDE`) and either no grid or a complete
+min/max/increment grid. Copying a profile copies stations with new identities; retiring a station
+keeps its row and recorded attribution. The Logger offers only active stations compatible with the
+selected exercise's required equipment, prefills from that station's latest set, and writes the
+frozen station attribution with the manual set. Draft/guided logging remains unattributed in this
+slice. History details show the frozen station name; Exercise Progress can filter All, unattributed
+or one station. UI copy lives in each feature's `strings.xml`.
+
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog

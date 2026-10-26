@@ -3,8 +3,16 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 24), restored by whole replacement.
-The reader accepts versions 1–24; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 25), restored by whole replacement.
+The reader accepts versions 1–25; version 1 defaults the guided-workout preference to off.
+Format 25 adds profile-scoped `equipmentStations` and a performed set's frozen
+`stationId`/`stationName`/`stationLoadBasis`. A pre-25 file must not carry either. A
+restored set's positive station id must reference a station row in the same file; an id of
+zero is a frozen label imported by add-only merge, whose equipment-profile collection is
+excluded, so it deliberately has no local station row. Names are unique per active
+profile/equipment, and grid fields are all present or all absent. Formats 1–24 restore
+with no stations and no station-attributed sets; merge keeps the frozen label/basis but
+drops the local station id.
 Format 24 adds a prescription slot's explicit two-entry superset membership and user-configured
 transition/pair rest (`superset` on the same four entry kinds). A pre-24 file must not carry one;
 a present value must decode, and each workout's group must be exactly two adjacent distinct slots

@@ -143,6 +143,18 @@ external/legacy weights, so historical replay figures do not move. Migration
 `27.sqm` adds the columns and marks all existing load rows legacy/unspecified;
 the seed backfills built-in capability.
 
+### Station load identity (0.11.0)
+
+A performed set may carry a frozen `StationAttribution` (local station id, name and load
+basis). Station identity is profile-scoped and independent of the mutable station row.
+`BuildPlannerLoadInputsUseCase` excludes every station-attributed set from the generic
+suggested baseline, progression history and AI recent-weight context; with no generic
+evidence it withholds a number rather than mixing two physical stacks. The Logger lets the
+user pick a compatible station and prefills from that station's own latest set. Manual
+personal records and plan prescriptions stay exercise-level in this slice, so they never
+claim station identity. Progress charts can filter All, unattributed or one station; the
+All view preserves prior behavior. See `docs/architecture.md` and the 0.11.0 batch plan.
+
 ### Exact weight and rep defaults
 
 0.8.0 descriptive progress uses `workout/ExerciseProgressCalculator.kt`, not planner-baseline

@@ -14,6 +14,24 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.11.0 station identity — 2026-10-26 (partial)
+
+- Source: `release/0.11.0`; debug APK installed on `emulator-5554`; no release/minified APK used.
+- Host evidence: `:core:domain:testAndroidHostTest`, `:core:database:testAndroidHostTest`,
+  `:feature:equipment:testAndroidHostTest`, `:feature:logger:testAndroidHostTest`,
+  `:feature:progress:testAndroidHostTest`, `verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug`, both iOS simulator compiles, Koin verification. Full matrix log:
+  `0110-full-matrix.log` (150 executed / 637 up-to-date).
+- Emulator smoke: Equipment → Stations section and “No stations yet” rendered; Add station opened
+  the station dialog; selected Cable machine, named “Cable row A”, saved; the row appeared without a
+  grid. Log → searched/selected Lat Pulldown → “Choose station” appeared → selecting “Cable row A”
+  rendered “Station: Cable row A”. No set was logged.
+- Cleanup: the synthetic station was retired through the same dialog; Stations returned to
+  “No stations yet”. A retired row remains stored, which is the intended soft-retirement behavior.
+- **Limits:** this was a parent-owned bounded smoke, not a formally delegated `ui-runner` journey;
+  no guided/draft station selection exists yet; the 60.sqm on-device upgrade and station-filter chart
+  interaction were not exercised; no database/set write was performed.
+
 ## 0.8.2 C1 coverage read contract — 2026-10-15
 
 - Main-agent implementation from `65f92f84`: domain coverage projection/calculator,

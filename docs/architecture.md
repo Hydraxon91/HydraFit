@@ -582,7 +582,8 @@ Injected profile-insert failure tests require rollback of the entire replacement
   `23.sqm`, `24.sqm`, `27.sqm` EX-02 load columns, `33.sqm` guided preference,
   `34.sqm`/`35.sqm` timing provenance and elapsed instants), new tables (`21.sqm` `personalRecord`,
   `25.sqm` routine templates, `26.sqm` activations/occurrences/schedule cursor, `36.sqm` rest
-  preferences/countdown, `37.sqm` training-guidance preferences).
+  preferences/countdown, `37.sqm` training-guidance preferences, `60.sqm` equipment stations plus
+  nullable performed-set station columns).
 - **Consistency:** high; the current `.sq` matches the cumulative migrations exactly, including column
   order. A one-off 0.6.0 exception reordered columns — adding, removing and retyping nothing — in
   `exercise`, `exerciseOverride` (`involvements` declared before `loadCapability`, since `19.sqm` added
@@ -693,6 +694,27 @@ Every prescription, snapshot and performed set carries a **load kind** (`EXTERNA
   fatigue results are unchanged.
 - **Violations / tensions:** `UNSPECIFIED` customs and old frozen snapshots cannot be auto-classified;
   assisted/negative load, added-load e1RM and resistance calibration are out of scope.
+
+### 1.12a Physical station identity (EQ-02 / 0.11.0)
+
+A performed set may carry a frozen `StationAttribution` (`id`, name, `StationLoadBasis`) recording the
+physical machine/stack it used. Stations are profile-scoped rows under the existing equipment tag, not
+new equipment tags: one `CABLE_MACHINE` tag covers many exercises and ceilings, while a station name
+identifies one physical stack. A zero station id is reserved for a frozen label imported by add-only
+merge, whose equipment profiles are excluded; it never matches a station filter.
+
+- **Rules:** the station fields are all absent or all present; the station row owns an optional
+  complete min/max/increment grid. Copying a profile gives its stations new identities; retiring keeps
+  the row for display. A positive station id is not a foreign key on `workoutSet`, so deleting a
+  profile cannot rewrite recorded history. Station-attributed sets are excluded from the generic
+  planner baseline, progression history and AI recent-weight context; the Logger uses that station's
+  own history for prefill. Manual PRs and plan/routine prescriptions remain exercise-level in this
+  slice. Progress charts filter All, unattributed or one station; All preserves existing behavior.
+- **Persistence:** additive `60.sqm` creates `equipmentStation` and adds nullable station columns to
+  `workoutSet`; existing rows stay unattributed. Backup format 25 carries station rows and frozen
+  attribution; older files restore with neither, and merge keeps the label/basis without a local id.
+- **Limits:** guided/draft logging does not choose a station yet; station identity does not imply a
+  machine/cable/barbell conversion factor, and no station row is auto-created from a ceiling.
 
 ---
 
