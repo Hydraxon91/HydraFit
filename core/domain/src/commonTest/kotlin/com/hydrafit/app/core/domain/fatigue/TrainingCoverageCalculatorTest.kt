@@ -7,6 +7,19 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TrainingCoverageCalculatorTest {
+    @Test
+    fun clustersHaveSeparateCountsAndLastTrainedButNoOrdinaryCredits() {
+        val timestamp = 864000000L
+        val coverage = TrainingCoverageCalculator.calculate(
+            listOf(CoverageSet(timestamp, false, mapOf(MuscleGroup.BICEPS to 1.0), true)),
+            timestamp,
+            0L
+        ).entries.first { it.muscle == MuscleGroup.BICEPS }
+        assertEquals(1, coverage.clusters)
+        assertEquals(0, coverage.workingSets)
+        assertEquals(0.0, coverage.estimatedInvolvementCredits)
+        assertEquals(timestamp, coverage.lastTrainedAtMillis)
+    }
     private val day = 86_400_000L
     private val profile = mapOf(MuscleGroup.BICEPS to 1.0, MuscleGroup.FOREARMS to 0.3)
 

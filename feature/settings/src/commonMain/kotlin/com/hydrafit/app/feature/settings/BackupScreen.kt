@@ -23,6 +23,8 @@ import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.backup.BackupMergeExcludedCategory
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_backup_cancel
+import hydrafit.feature.settings.generated.resources.settings_backup_cardio_csv_description
+import hydrafit.feature.settings.generated.resources.settings_backup_cardio_csv_exported
 import hydrafit.feature.settings.generated.resources.settings_backup_confirm
 import hydrafit.feature.settings.generated.resources.settings_backup_description
 import hydrafit.feature.settings.generated.resources.settings_backup_error_catalog_mismatch
@@ -90,10 +92,15 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
                 busy = state.inProgress,
                 onExportTo = viewModel::export,
                 onExportCsvTo = viewModel::exportCsv,
+                onExportCardioCsvTo = viewModel::exportCardioCsv,
                 onImportFrom = viewModel::`import`
             )
             Text(
                 text = stringResource(Res.string.settings_backup_history_csv_description),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = stringResource(Res.string.settings_backup_cardio_csv_description),
                 style = MaterialTheme.typography.bodySmall
             )
         } else {
@@ -107,6 +114,8 @@ fun BackupRoute(modifier: Modifier = Modifier, viewModel: BackupViewModel = koin
                 BackupStatus.Exported -> stringResource(Res.string.settings_backup_exported)
                 BackupStatus.HistoryCsvExported ->
                     stringResource(Res.string.settings_backup_history_csv_exported)
+                BackupStatus.CardioCsvExported ->
+                    stringResource(Res.string.settings_backup_cardio_csv_exported)
 
                 BackupStatus.RestoreStaged -> stringResource(Res.string.settings_backup_restored)
                 BackupStatus.MergeStaged -> stringResource(Res.string.settings_backup_merge_staged)

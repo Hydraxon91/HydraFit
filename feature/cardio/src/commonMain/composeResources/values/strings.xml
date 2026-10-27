@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="cardio_nav_label">Cardio</string>
+    <string name="cardio_title">Cardio</string>
+    <string name="cardio_back">Back</string>
+    <string name="cardio_entry_open">Cardio</string>
+    <string name="cardio_log_activity">Log activity</string>
+    <string name="cardio_loading">Loading cardio activities…</string>
+    <string name="cardio_load_failed">Could not load cardio activities.</string>
+    <string name="cardio_retry">Retry</string>
+    <string name="cardio_empty">No cardio activities yet. Log your first activity to start the history.</string>
+
+    <string name="cardio_range_28">28 days</string>
+    <string name="cardio_range_84">84 days</string>
+    <string name="cardio_range_365">365 days</string>
+    <string name="cardio_totals_title">Totals by activity type</string>
+    <string name="cardio_totals_empty">No cardio activities were recorded in this range.</string>
+    <string name="cardio_type_row">%1$s · %2$d activities</string>
+    <string name="cardio_type_duration">Duration: %1$s</string>
+    <string name="cardio_type_distance">Distance: %1$s</string>
+    <string name="cardio_type_speed">Average speed: %1$s m/s</string>
+    <string name="cardio_chart_title">Recorded duration per day</string>
+    <string name="cardio_chart_caption">Each bar is one recorded day; days with no recorded activity are left blank, never carried forward.</string>
+    <string name="cardio_day_row">%1$s: %2$d activities, %3$s</string>
+
+    <string name="cardio_history_title">Recorded history</string>
+    <string name="cardio_history_note">Every recorded cardio activity, newest first.</string>
+    <string name="cardio_activity_line">%1$s · %2$s</string>
+    <string name="cardio_activity_note">Note: %1$s</string>
+    <string name="cardio_edit">Edit</string>
+
+    <string name="cardio_add_title">Log cardio activity</string>
+    <string name="cardio_edit_title">Edit cardio activity</string>
+    <string name="cardio_type_label">Activity type</string>
+    <string name="cardio_start_label">Start time (YYYY-MM-DD HH:mm)</string>
+    <string name="cardio_duration_label">Duration</string>
+    <string name="cardio_minutes_label">Minutes</string>
+    <string name="cardio_seconds_label">Seconds</string>
+    <string name="cardio_distance_label">Distance (%1$s)</string>
+    <string name="cardio_note_label">Note (optional)</string>
+    <string name="cardio_save">Save</string>
+    <string name="cardio_cancel">Cancel</string>
+    <string name="cardio_delete">Delete activity</string>
+    <string name="cardio_delete_confirm_title">Delete this activity?</string>
+    <string name="cardio_delete_confirm_message">%1$s on %2$s will be removed.</string>
+    <string name="cardio_delete_confirm_message_unknown">This recorded activity will be removed.</string>
+    <string name="cardio_delete_confirm">Delete</string>
+
+    <string name="cardio_error_invalid_start">Enter the start time as YYYY-MM-DD HH:mm.</string>
+    <string name="cardio_error_invalid_duration">Enter a duration between 1 second and 24 hours.</string>
+    <string name="cardio_error_invalid_distance">Enter a positive distance, or leave it blank.</string>
+    <string name="cardio_error_invalid_note">The note must be 2000 characters or fewer.</string>
+    <string name="cardio_error_invalid_activity">Those values could not be saved. Check them and try again.</string>
+    <string name="cardio_error_save_failed">Could not save the activity. Try again.</string>
+
+    <string name="cardio_type_walking">Walking</string>
+    <string name="cardio_type_running">Running</string>
+    <string name="cardio_type_cycling">Cycling</string>
+    <string name="cardio_type_rowing">Rowing</string>
+    <string name="cardio_type_other">Other</string>
+
+    <string name="cardio_duration_hours">%1$d h %2$d min</string>
+    <string name="cardio_duration_minutes">%1$d min %2$d s</string>
+</resources>

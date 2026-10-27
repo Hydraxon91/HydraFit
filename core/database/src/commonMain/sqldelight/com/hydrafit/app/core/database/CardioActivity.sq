@@ -1,0 +1,33 @@
+CREATE TABLE cardioActivity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    identity TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,
+    startedAt INTEGER NOT NULL,
+    durationSeconds INTEGER NOT NULL,
+    distanceMeters INTEGER,
+    note TEXT
+);
+
+selectAll:
+SELECT * FROM cardioActivity ORDER BY startedAt DESC, id DESC;
+
+selectById:
+SELECT * FROM cardioActivity WHERE id = ?;
+
+selectByIdentity:
+SELECT * FROM cardioActivity WHERE identity = ?;
+
+insertActivity:
+INSERT INTO cardioActivity(identity, type, startedAt, durationSeconds, distanceMeters, note)
+VALUES (?, ?, ?, ?, ?, ?);
+
+lastInsertedId:
+SELECT last_insert_rowid();
+
+updateActivity:
+UPDATE cardioActivity
+SET type = ?, startedAt = ?, durationSeconds = ?, distanceMeters = ?, note = ?
+WHERE id = ?;
+
+deleteActivity:
+DELETE FROM cardioActivity WHERE id = ?;

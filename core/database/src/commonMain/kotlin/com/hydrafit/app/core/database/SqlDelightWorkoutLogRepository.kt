@@ -143,6 +143,31 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         }
     }
 
+    override suspend fun clusterSegments(setId: Long): List<PerformedClusterSegment> {
+        val parent = setQueries.selectSetById(setId).executeAsOneOrNull() ?: return emptyList()
+        if (parent.clusterKind == null) return emptyList()
+        val opening = PerformedClusterSegment(
+            position = 0,
+            reps = requireNotNull(parent.reps) {
+                "A cluster parent must record repetitions"
+            }.toInt(),
+            weightKg = requireNotNull(parent.weightKg) {
+                "A cluster parent must record an external load"
+            },
+            rir = parent.rir?.toInt()
+        )
+        return listOf(opening) + database.workoutClusterQueries.selectSegmentsForSet(setId)
+            .executeAsList()
+            .map { row ->
+                PerformedClusterSegment(
+                    position = row.position.toInt(),
+                    reps = row.reps.toInt(),
+                    weightKg = row.weightKg,
+                    rir = row.rir?.toInt()
+                )
+            }
+    }
+
     override suspend fun appendClusterSegments(
         setId: Long,
         segments: List<PerformedClusterSegment>
@@ -183,7 +208,10 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     }
 
     override suspend fun delete(id: Long) {
-        setQueries.deleteSet(id)
+        database.transaction {
+            database.workoutClusterQueries.deleteSegmentsForSet(id)
+            setQueries.deleteSet(id)
+        }
     }
 
     override suspend fun updateSetPerformedAt(setId: Long, performedAtMillis: Long) {

@@ -49,6 +49,7 @@ sealed interface BackupStatus {
      * the user is not told a restorable backup was created.
      */
     data object HistoryCsvExported : BackupStatus
+    data object CardioCsvExported : BackupStatus
 
     /** A validated backup is staged and will replace the data on the next process start. */
     data object RestoreStaged : BackupStatus
@@ -72,6 +73,7 @@ data class BackupUiState(
 /** Stable identities for the data-transfer controls; technical metadata, never spoken labels. */
 internal object BackupTestTags {
     const val EXPORT_CSV = "settings_backup_export_history_csv"
+    const val EXPORT_CARDIO_CSV = "settings_backup_export_cardio_csv"
     const val MERGE_ACTION = "settings_backup_merge_action"
     const val MERGE_SUMMARY = "settings_backup_merge_summary"
 }

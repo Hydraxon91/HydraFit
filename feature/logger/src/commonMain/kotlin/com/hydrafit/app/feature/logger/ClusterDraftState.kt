@@ -9,6 +9,21 @@ import com.hydrafit.app.core.domain.workout.WorkoutCluster
 /** One later cluster segment as the draft editor holds it: the entered text, not a parsed number. */
 data class ClusterSegmentInput(val reps: String = "", val weightInput: String = "")
 
+/** One next segment; confirmed earlier segments are persisted, never pending form state. */
+data class ClusterLogState(
+    val draft: DraftSet,
+    val position: Int,
+    val weightUnit: WeightUnit,
+    val reps: String,
+    val weightInput: String,
+    val rir: String = "",
+    val failed: Boolean = false
+) {
+    val canSave: Boolean get() = reps.toIntOrNull()?.let { it > 0 } == true &&
+        weightInput.toDoubleOrNull()?.let { it.isFinite() && it > 0 } == true &&
+        (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true)
+}
+
 /**
  * Why a cluster draft cannot be logged exactly as entered.
  *

@@ -30,7 +30,9 @@ data class WorkoutSummary(
     /** Recorded warm-up sets, oldest first; they never satisfy a prescription. */
     val warmupSets: List<WorkoutSummarySet>,
     /** The explicit sessions the workout spans, oldest first. */
-    val sessions: List<WorkoutSummarySession>
+    val sessions: List<WorkoutSummarySession>,
+    /** Recorded partial cluster work, visible without credit toward completed set positions. */
+    val incompleteClusters: List<WorkoutSummarySet> = emptyList()
 ) {
     val prescribedSets: Int get() = exercises.sumOf { it.prescribedSets }
 
@@ -112,7 +114,9 @@ data class WorkoutSummarySet(
     /** The frozen measuring device identity and rating, or null when none was recorded. */
     val device: DeviceAttribution? = null,
     /** The recorded session this set belongs to; null for legacy or unsegmented rows. */
-    val sessionId: String?
+    val sessionId: String?,
+    /** The cluster identity this set was logged as, or null for ordinary work. */
+    val cluster: WorkoutClusterSummary? = null
 )
 
 /** One explicit session a workout spans, with its recorded bounds and stored note. */
@@ -195,7 +199,8 @@ fun buildWorkoutSummary(
         distanceMeters = set.distanceMeters,
         forceNewtons = set.forceNewtons,
         device = set.device,
-        sessionId = set.sessionId
+        sessionId = set.sessionId,
+        cluster = set.cluster
     )
 
     return WorkoutSummary(
@@ -227,7 +232,10 @@ fun buildWorkoutSummary(
             )
         },
         extraSets = workingSets
+            .filterNot { it.cluster?.isComplete == false }
             .filter { it.isAdditionalTo(slotIds) }
+            .map { toSummarySet(it) },
+        incompleteClusters = workingSets.filter { it.cluster?.isComplete == false }
             .map { toSummarySet(it) },
         warmupSets = warmupSets.map { toSummarySet(it) },
         sessions = sessions

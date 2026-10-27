@@ -32,6 +32,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.navigation.FeatureDestination
 import hydrafit.feature.fatigueheatmap.generated.resources.Res
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_clusters
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_credits
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_heading
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_last_trained
@@ -234,6 +235,10 @@ private fun CoverageDetails(entry: MuscleFatigueEntry, state: FatigueHeatmapUiSt
         else -> stringResource(Res.string.fatigue_coverage_never_trained)
     }
     Text(text = setsText, style = MaterialTheme.typography.bodySmall)
+    Text(
+        text = stringResource(Res.string.fatigue_coverage_clusters, entry.clusters),
+        style = MaterialTheme.typography.bodySmall
+    )
     Text(
         text = stringResource(Res.string.fatigue_coverage_credits, wholeCredits, tenthCredits),
         style = MaterialTheme.typography.bodySmall

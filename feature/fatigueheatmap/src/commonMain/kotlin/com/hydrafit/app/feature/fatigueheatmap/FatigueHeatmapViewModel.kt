@@ -107,6 +107,7 @@ class FatigueHeatmapViewModel(
                 muscle = muscle,
                 score = scores[muscle] ?: 0.0,
                 workingSets = coverageEntry?.workingSets ?: 0,
+                clusters = coverageEntry?.clusters ?: 0,
                 estimatedInvolvementCredits = coverageEntry?.estimatedInvolvementCredits ?: 0.0,
                 lastTrainedAtMillis = coverageEntry?.lastTrainedAtMillis
             )

@@ -92,6 +92,31 @@ class SqlDelightWorkoutLogRepositoryTest {
     }
 
     @Test
+    fun deletingAClusterRemovesItsSegmentsWithForeignKeysEnabled() = runTest {
+        driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+        val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0)
+        repository.addCluster(
+            parent,
+            WorkoutCluster.of(
+                parent,
+                ClusterKind.DROP_SET,
+                3,
+                listOf(PerformedClusterSegment(1, 8, 90.0), PerformedClusterSegment(2, 8, 80.0))
+            )
+        )
+        val id = repository.all().single().id
+        assertEquals(
+            2,
+            database.workoutClusterQueries.selectSegmentsForSet(id).executeAsList().size
+        )
+        repository.delete(id)
+        assertTrue(repository.all().isEmpty())
+        assertTrue(
+            database.workoutClusterQueries.selectSegmentsForSet(id).executeAsList().isEmpty()
+        )
+    }
+
+    @Test
     fun aPartialClusterIsStoredButDoesNotSatisfyItsPosition() = runTest {
         val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0)
         val cluster = WorkoutCluster.of(
@@ -110,6 +135,32 @@ class SqlDelightWorkoutLogRepositoryTest {
             1,
             database.workoutClusterQueries.selectSegmentsForSet(stored.id).executeAsList().size
         )
+    }
+
+    @Test
+    fun resumingAStoredClusterReloadsItsSegmentsAndCompletesTheSameParent() = runTest {
+        val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0)
+        repository.addCluster(
+            parent,
+            WorkoutCluster.of(parent, ClusterKind.DROP_SET, 3, emptyList())
+        )
+        val id = repository.all().single().id
+        repository.appendClusterSegments(id, listOf(PerformedClusterSegment(1, 6, 90.0)))
+
+        val reopened = SqlDelightWorkoutLogRepository(database)
+        assertEquals(2, reopened.all().single().cluster?.performedSegments)
+        assertEquals(false, reopened.all().single().cluster?.isComplete)
+        assertEquals(listOf(100.0, 90.0), reopened.clusterSegments(id).map { it.weightKg })
+        reopened.appendClusterSegments(id, listOf(PerformedClusterSegment(2, 4, 80.0)))
+
+        assertEquals(id, repository.all().single().id)
+        assertEquals(true, repository.all().single().cluster?.isComplete)
+        assertEquals(listOf(0, 1, 2), repository.clusterSegments(id).map { it.position })
+        assertEquals(listOf(100.0, 90.0, 80.0), repository.clusterSegments(id).map { it.weightKg })
+        assertFailsWith<IllegalArgumentException> {
+            repository.appendClusterSegments(id, listOf(PerformedClusterSegment(2, 4, 80.0)))
+        }
+        assertEquals(3, repository.clusterSegments(id).size)
     }
 
     @Test

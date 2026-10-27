@@ -12,7 +12,7 @@ val settingsModule: Module = module {
     viewModel { WorkoutReminderSettingsViewModel(get(), get()) }
     viewModel { AcknowledgmentsViewModel(get()) }
     viewModel {
-        BackupViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get())
+        BackupViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
     }
     viewModel {
         AutomaticBackupSettingsViewModel(

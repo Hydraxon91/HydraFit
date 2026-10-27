@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.backup.BackupActivationEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationWorkoutRecord
 import com.hydrafit.app.core.domain.backup.BackupBodyWeightRecord
+import com.hydrafit.app.core.domain.backup.BackupCardioActivityRecord
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
 import com.hydrafit.app.core.domain.backup.BackupClusterSegmentRecord
@@ -636,7 +637,21 @@ class SqlDelightBackupRepository(
                             reps = it.reps?.toInt(),
                             durationSeconds = it.durationSeconds?.toInt()
                         )
+                    },
+                cardioActivities = database.cardioActivityQueries.selectAll()
+                    .executeAsList()
+                    .map {
+                        BackupCardioActivityRecord(
+                            identity = it.identity,
+                            type = it.type,
+                            startedAtMillis = it.startedAt,
+                            durationSeconds = it.durationSeconds.toInt(),
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            note = it.note
+                        )
                     }
+                    // Oldest first with ties broken by identity, so repeated exports stay stable.
+                    .sortedWith(compareBy({ it.startedAtMillis }, { it.identity }))
             )
         }
 
@@ -662,7 +677,9 @@ class SqlDelightBackupRepository(
             exercisePreferenceIds = database.exercisePreferenceQueries.selectAll().executeAsList()
                 .mapTo(mutableSetOf()) { it.exerciseId },
             exerciseExclusionIds = database.exerciseExclusionQueries.selectAll().executeAsList()
-                .mapTo(mutableSetOf()) { it.exerciseId }
+                .mapTo(mutableSetOf()) { it.exerciseId },
+            cardioIdentities = database.cardioActivityQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.identity }
         )
     }
 
@@ -804,6 +821,18 @@ class SqlDelightBackupRepository(
                     isUnilateral = it.isUnilateral?.let { v -> if (v) 1L else 0L },
                     loadCapability = it.loadCapability,
                     involvements = it.involvements
+                )
+            }
+            // Cardio arrives only with identities the live install does not hold; insertion keeps the
+            // file's identity and values and assigns a fresh local row id.
+            selection.cardioActivitiesToInsert.forEach {
+                database.cardioActivityQueries.insertActivity(
+                    identity = it.identity,
+                    type = it.type,
+                    startedAt = it.startedAtMillis,
+                    durationSeconds = it.durationSeconds.toLong(),
+                    distanceMeters = it.distanceMeters?.toLong(),
+                    note = it.note
                 )
             }
         }
@@ -1401,6 +1430,21 @@ class SqlDelightBackupRepository(
                     reps = segment.reps.toLong(),
                     weightKg = segment.weightKg,
                     rir = segment.rir?.toLong()
+                )
+            }
+            // Cardio is whole-replaced as its own collection: every stored activity is removed, then
+            // the file's activities come back verbatim with their identities. Row ids are local and
+            // deliberately fresh, and no resistance table, session or occurrence is touched.
+            database.cardioActivityQueries.selectAll().executeAsList()
+                .forEach { database.cardioActivityQueries.deleteActivity(it.id) }
+            file.cardioActivities.forEach { activity ->
+                database.cardioActivityQueries.insertActivity(
+                    identity = activity.identity,
+                    type = activity.type,
+                    startedAt = activity.startedAtMillis,
+                    durationSeconds = activity.durationSeconds.toLong(),
+                    distanceMeters = activity.distanceMeters?.toLong(),
+                    note = activity.note
                 )
             }
 

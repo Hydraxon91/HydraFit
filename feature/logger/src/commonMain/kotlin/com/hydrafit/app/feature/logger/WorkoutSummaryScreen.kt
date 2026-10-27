@@ -46,6 +46,7 @@ import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_durat
 import hydrafit.feature.logger.generated.resources.logger_summary_edit_set_force_description
 import hydrafit.feature.logger.generated.resources.logger_summary_extra_sets
 import hydrafit.feature.logger.generated.resources.logger_summary_failed
+import hydrafit.feature.logger.generated.resources.logger_summary_incomplete_clusters
 import hydrafit.feature.logger.generated.resources.logger_summary_loading
 import hydrafit.feature.logger.generated.resources.logger_summary_not_performed
 import hydrafit.feature.logger.generated.resources.logger_summary_note_none
@@ -196,6 +197,13 @@ private fun WorkoutSummaryContent(
         )
     )
 
+    SummarySetGroup(
+        Res.string.logger_summary_incomplete_clusters,
+        summary.incompleteClusters,
+        weightUnit,
+        distanceUnit,
+        onEditSet
+    )
     summary.exercises.forEach { exercise ->
         SummaryExerciseSection(exercise, weightUnit, distanceUnit, onEditSet)
     }

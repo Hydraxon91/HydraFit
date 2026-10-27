@@ -29,7 +29,14 @@ data class BackupMergeKeys(
     val exerciseOverrideIds: Set<String>,
     val exerciseNoteIds: Set<String>,
     val exercisePreferenceIds: Set<String>,
-    val exerciseExclusionIds: Set<String>
+    val exerciseExclusionIds: Set<String>,
+    /**
+     * Every local cardio activity identity. Cardio is keyed by this stable device-generated identity
+     * rather than a local row id, so re-merging the same file recognises what is already present.
+     * The live set is always supplied by the database layer; a caller that omits it would attempt a
+     * duplicate insert and fail the merge transaction rather than lose a local row.
+     */
+    val cardioIdentities: Set<String> = emptySet()
 )
 
 /**
@@ -122,7 +129,12 @@ data class BackupMergeSelection(
     val skippedOpenSessions: Int,
     val skippedUnattachedSets: Int,
     val setsWithDroppedOccurrenceLinks: Int,
-    val excluded: List<BackupMergeExcludedCount>
+    val excluded: List<BackupMergeExcludedCount>,
+    /**
+     * Cardio activities whose identity is not present locally, carried verbatim. A record kept by the
+     * live install stays untouched and is counted in [keptLocalRows], never overwritten.
+     */
+    val cardioActivitiesToInsert: List<BackupCardioActivityRecord> = emptyList()
 ) {
     /** Rows this selection inserts in total, across every collection. */
     val insertCount: Int
@@ -130,7 +142,7 @@ data class BackupMergeSelection(
             sessionNotesToInsert.size +
             bodyWeightToInsert.size + personalRecordsToInsert.size + preferencesToInsert.size +
             exclusionsToInsert.size + exerciseNotesToInsert.size + overridesToInsert.size +
-            customExercisesToInsert.size
+            customExercisesToInsert.size + cardioActivitiesToInsert.size
 
     /** Whether the merge would add nothing because every supported record already exists locally. */
     val isEmpty: Boolean get() = insertCount == 0

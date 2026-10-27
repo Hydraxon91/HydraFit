@@ -34,6 +34,35 @@ disclosure (built-in planner only, recorded-history decay only, no future workou
 clock time and current offset, unknown dates keep prior behavior, and these dates do not move an
 existing block). UI strings live in the feature's `strings.xml`.
 
+## Recorded cluster corrections (0.11.3)
+
+Workout summaries show partial cluster parents in a separate Incomplete clusters section, including
+unattributed partial work. They do not count toward completed set totals or satisfy a prescribed
+position. Muscle coverage shows separate cluster counts, gives them no ordinary working-set or
+involvement credits, and retains last-trained timestamps from their recorded muscle snapshots.
+Cardio analysis CSV prefixes formula-like notes with an apostrophe for spreadsheet safety; this
+changes only exported text, never stored notes.
+Cluster parents are excluded from recent-weight history sent to planner models as well as load
+math. Deleting a cluster transactionally removes its later segments before its parent, including
+with foreign-key enforcement enabled. Cardio editors cannot cancel or dismiss an in-flight write;
+success closes the editor and failure remains visible for correction or retry.
+
+The Logger's Log or resume cluster action opens the next unsaved segment for a scheduled cluster
+slot, in either guided or draft mode. Save completed segment persists one position immediately:
+the opening position creates the partial parent and subsequent positions append to that same
+parent. Pause writes nothing further. Reopening, including after ViewModel recreation, reads the
+saved parent/count; incomplete parents do not remove the remaining draft or satisfy its position.
+The shared submission guard blocks duplicate taps. Bulk confirmation refuses to log a new parent
+while that slot has an incomplete cluster; resume it through the segment action instead.
+
+The shared `LoggedSetEditDialog` loads recorded cluster segments before opening. The opening
+segment uses the parent reps/load/RIR fields; subsequent segments have their own numbered fields.
+Cluster corrections remain rep-based and preserve the recorded segment count, cluster identity,
+planned count and completion state. `WorkoutSetCorrection.clusterSegments` carries the full list,
+including position zero; `SqlDelightSessionResegmenter` validates and writes the parent and later
+segments in the same transaction. This is correction of performed work, not prescription editing
+or resumption. Recent-set rows still show the opening measurement plus kind and segment count.
+
 ## Superset authoring and guidance (0.10.3)
 
 The Routines editor pairs a slot with the **next** slot in the same workout through a dialog holding

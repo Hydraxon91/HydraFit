@@ -3,8 +3,9 @@ package com.hydrafit.app.core.domain.backup
 /**
  * Selects the add-only records a merge inserts into the live install. The policy is deliberately
  * conservative: a session already present keeps its local sets and note whole, every other supported
- * collection is insert-if-absent by its stored identity, and nothing existing is modified or
- * deleted. Re-merging the same file therefore adds nothing.
+ * collection is insert-if-absent by its stored identity (cardio activities by their stable
+ * device-generated identity, which is all a local row and an imported file share), and nothing
+ * existing is modified or deleted. Re-merging the same file therefore adds nothing.
  *
  * Full-graph id remapping (plans, routines, activations, occurrences, equipment profiles, singleton
  * settings) is out of v1 scope and disclosed through [BackupMergeSelection.excluded]. An in-progress
@@ -67,13 +68,18 @@ object BackupMergePolicy {
             .filterNot { it.exerciseId in local.exerciseOverrideIds }
         val customExercises = file.customExercises
             .filterNot { it.id in local.customExerciseIds }
+        // Cardio is add-only by its stable identity: a local activity with the same identity wins and
+        // is counted among the kept-local rows, so the same file merged twice adds nothing.
+        val cardioActivities = file.cardioActivities
+            .filterNot { it.identity in local.cardioIdentities }
 
         val keptLocalRows = (file.personalRecords.size - personalRecords.size) +
             (file.preferences.size - preferences.size) +
             (file.exclusions.size - exclusions.size) +
             (file.exerciseNotes.size - exerciseNotes.size) +
             (file.exerciseOverrides.size - overrides.size) +
-            (file.customExercises.size - customExercises.size)
+            (file.customExercises.size - customExercises.size) +
+            (file.cardioActivities.size - cardioActivities.size)
 
         val droppedOccurrenceLinks = file.workoutSets.count { set ->
             val sessionId = set.sessionId
@@ -105,7 +111,8 @@ object BackupMergePolicy {
             skippedOpenSessions = sessionsNotLocal.size - newSessions.size,
             skippedUnattachedSets = file.workoutSets.count { it.sessionId == null },
             setsWithDroppedOccurrenceLinks = droppedOccurrenceLinks,
-            excluded = excludedCounts(file)
+            excluded = excludedCounts(file),
+            cardioActivitiesToInsert = cardioActivities
         )
     }
 

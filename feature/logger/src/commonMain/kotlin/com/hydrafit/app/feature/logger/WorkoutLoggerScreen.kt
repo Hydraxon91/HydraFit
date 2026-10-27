@@ -85,6 +85,7 @@ import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.navigation.FeatureDestination
+import com.hydrafit.app.core.navigation.LocalCardioNavigator
 import com.hydrafit.app.core.navigation.LocalProgressNavigator
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.focus_full_body
@@ -98,11 +99,18 @@ import hydrafit.feature.logger.generated.resources.logger_active_workout
 import hydrafit.feature.logger.generated.resources.logger_add_weight
 import hydrafit.feature.logger.generated.resources.logger_backdated_at
 import hydrafit.feature.logger.generated.resources.logger_cancel
+import hydrafit.feature.logger.generated.resources.logger_cardio_open
 import hydrafit.feature.logger.generated.resources.logger_cluster_draft_error_invalid_cluster
 import hydrafit.feature.logger.generated.resources.logger_cluster_draft_error_missing_segment
 import hydrafit.feature.logger.generated.resources.logger_cluster_draft_error_non_positive_segment
 import hydrafit.feature.logger.generated.resources.logger_cluster_kind_drop_set
 import hydrafit.feature.logger.generated.resources.logger_cluster_kind_rest_pause
+import hydrafit.feature.logger.generated.resources.logger_cluster_log_failed
+import hydrafit.feature.logger.generated.resources.logger_cluster_log_note
+import hydrafit.feature.logger.generated.resources.logger_cluster_log_open
+import hydrafit.feature.logger.generated.resources.logger_cluster_log_pause
+import hydrafit.feature.logger.generated.resources.logger_cluster_log_position
+import hydrafit.feature.logger.generated.resources.logger_cluster_log_save
 import hydrafit.feature.logger.generated.resources.logger_cluster_segment_count
 import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
@@ -339,10 +347,12 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
         composable(loggerHomeRoute) {
             val viewModel = sharedLoggerViewModel(navController) ?: return@composable
             val openProgress = LocalProgressNavigator.current
+            val openCardio = LocalCardioNavigator.current
             WorkoutLoggerRoute(
                 viewModel = viewModel,
                 onOpenHistory = { navController.navigate(historyGraphRoute) },
                 onOpenProgress = openProgress,
+                onOpenCardio = openCardio,
                 onOpenSummary = { navController.navigate(summaryRoute) }
             )
         }
@@ -402,6 +412,9 @@ fun NavGraphBuilder.loggerGraph(navController: NavController) {
                     onMetricChanged = viewModel::onLoggedSetMetricChanged,
                     onWeightChanged = viewModel::onLoggedSetWeightChanged,
                     onRirChanged = viewModel::onLoggedSetRirChanged,
+                    onClusterRepsChanged = viewModel::onLoggedSetClusterRepsChanged,
+                    onClusterWeightChanged = viewModel::onLoggedSetClusterWeightChanged,
+                    onClusterRirChanged = viewModel::onLoggedSetClusterRirChanged,
                     onTimeChanged = viewModel::onLoggedSetTimeChanged,
                     onCancel = viewModel::cancelLoggedSetEdit,
                     onSave = viewModel::saveLoggedSetEdit
@@ -420,9 +433,79 @@ fun WorkoutLoggerRoute(
     loadingCalculatorViewModel: LoggerLoadingCalculatorViewModel = koinViewModel(),
     onOpenHistory: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
+    onOpenCardio: () -> Unit = {},
     onOpenSummary: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    state.clusterLog?.let { edit ->
+        AlertDialog(
+            onDismissRequest = viewModel::closeClusterLog,
+            title = { Text(stringResource(Res.string.logger_cluster_log_open, edit.draft.name)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(
+                            Res.string.logger_cluster_log_position,
+                            edit.position + 1,
+                            requireNotNull(edit.draft.cluster).segments.size,
+                            edit.position
+                        )
+                    )
+                    Text(stringResource(Res.string.logger_cluster_log_note))
+                    OutlinedTextField(
+                        value = edit.reps,
+                        onValueChange = viewModel::onClusterLogRepsChanged,
+                        label = {
+                            Text(
+                                stringResource(
+                                    Res.string.logger_draft_cluster_segment_reps,
+                                    edit.position + 1
+                                )
+                            )
+                        },
+                        enabled = !state.draftWriteInProgress
+                    )
+                    OutlinedTextField(
+                        value = edit.weightInput,
+                        onValueChange = viewModel::onClusterLogWeightChanged,
+                        label = {
+                            Text(
+                                stringResource(
+                                    Res.string.logger_draft_cluster_segment_weight,
+                                    edit.position + 1,
+                                    edit.weightUnit.label
+                                )
+                            )
+                        },
+                        enabled = !state.draftWriteInProgress
+                    )
+                    RirInput(
+                        edit.rir,
+                        viewModel::onClusterLogRirChanged,
+                        enabled = !state.draftWriteInProgress
+                    )
+                    if (edit.failed) Text(stringResource(Res.string.logger_cluster_log_failed))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::saveClusterSegment,
+                    enabled =
+                    edit.canSave && !edit.failed && !state.draftWriteInProgress
+                ) {
+                    Text(stringResource(Res.string.logger_cluster_log_save))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = viewModel::closeClusterLog,
+                    enabled = !state.draftWriteInProgress
+                ) {
+                    Text(stringResource(Res.string.logger_cluster_log_pause))
+                }
+            }
+        )
+    }
     val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
     val loadingCalculator by loadingCalculatorViewModel.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
@@ -452,6 +535,7 @@ fun WorkoutLoggerRoute(
     LaunchedEffect(summaryOpen) { if (summaryOpen) onOpenSummary() }
     WorkoutLoggerScreen(
         state = state,
+        onOpenClusterLog = viewModel::openClusterLog,
         onExerciseSelected = viewModel::onExerciseSelected,
         onManualInstructions = viewModel::openManualInstructions,
         onDraftInstructions = viewModel::openDraftInstructions,
@@ -482,6 +566,9 @@ fun WorkoutLoggerRoute(
         onLoggedSetMetricChanged = viewModel::onLoggedSetMetricChanged,
         onLoggedSetWeightChanged = viewModel::onLoggedSetWeightChanged,
         onLoggedSetRirChanged = viewModel::onLoggedSetRirChanged,
+        onLoggedSetClusterRepsChanged = viewModel::onLoggedSetClusterRepsChanged,
+        onLoggedSetClusterWeightChanged = viewModel::onLoggedSetClusterWeightChanged,
+        onLoggedSetClusterRirChanged = viewModel::onLoggedSetClusterRirChanged,
         onLoggedSetTimeChanged = viewModel::onLoggedSetTimeChanged,
         onCancelLoggedSetEdit = viewModel::cancelLoggedSetEdit,
         onSaveLoggedSetEdit = viewModel::saveLoggedSetEdit,
@@ -565,6 +652,7 @@ fun WorkoutLoggerRoute(
         onSessionNoteRetry = viewModel::retrySessionNoteLoad,
         onOpenHistory = onOpenHistory,
         onOpenProgress = onOpenProgress,
+        onOpenCardio = onOpenCardio,
         nowMillis = viewModel::currentTimeMillis,
         loadingCalculator = loadingCalculator,
         onManualLoadingCalculator = {
@@ -665,6 +753,9 @@ fun WorkoutLoggerScreen(
     onLoggedSetMetricChanged: (SetMetric) -> Unit,
     onLoggedSetWeightChanged: (String) -> Unit,
     onLoggedSetRirChanged: (String) -> Unit,
+    onLoggedSetClusterRepsChanged: (Int, String) -> Unit,
+    onLoggedSetClusterWeightChanged: (Int, String) -> Unit,
+    onLoggedSetClusterRirChanged: (Int, String) -> Unit,
     onLoggedSetTimeChanged: (Long) -> Boolean,
     onCancelLoggedSetEdit: () -> Unit,
     onSaveLoggedSetEdit: () -> Unit,
@@ -746,11 +837,13 @@ fun WorkoutLoggerScreen(
     onSessionNoteRetry: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenProgress: () -> Unit,
+    onOpenCardio: () -> Unit = {},
     nowMillis: () -> Long,
     loadingCalculator: LoggerLoadingCalculatorState = LoggerLoadingCalculatorState(),
     onManualLoadingCalculator: () -> Unit = {},
     onDraftLoadingCalculator: (DraftSet) -> Unit = {},
     onGuidedLoadingCalculator: (GuidedExerciseProgress) -> Unit = {},
+    onOpenClusterLog: (DraftSet) -> Unit = {},
     onLoadingCalculatorKindChanged: (LoggerLoadingCalculatorKind) -> Unit = {},
     onLoadingCalculatorEquipmentSelected: (String) -> Unit = {},
     onLoadingCalculatorTargetChanged: (String) -> Unit = {},
@@ -797,6 +890,18 @@ fun WorkoutLoggerScreen(
         item {
             TextButton(onClick = onOpenProgress) {
                 Text(stringResource(Res.string.logger_progress_open))
+            }
+        }
+        item {
+            TextButton(onClick = onOpenCardio) {
+                Text(stringResource(Res.string.logger_cardio_open))
+            }
+        }
+        items(state.draftSets.filter { it.cluster != null && it.occurrenceId != null }) { draft ->
+            TextButton(onClick = {
+                onOpenClusterLog(draft)
+            }, enabled = !state.draftWriteInProgress) {
+                Text(stringResource(Res.string.logger_cluster_log_open, draft.name))
             }
         }
         item {
@@ -1828,6 +1933,9 @@ fun WorkoutLoggerScreen(
             onMetricChanged = onLoggedSetMetricChanged,
             onWeightChanged = onLoggedSetWeightChanged,
             onRirChanged = onLoggedSetRirChanged,
+            onClusterRepsChanged = onLoggedSetClusterRepsChanged,
+            onClusterWeightChanged = onLoggedSetClusterWeightChanged,
+            onClusterRirChanged = onLoggedSetClusterRirChanged,
             onTimeChanged = onLoggedSetTimeChanged,
             onCancel = onCancelLoggedSetEdit,
             onSave = onSaveLoggedSetEdit

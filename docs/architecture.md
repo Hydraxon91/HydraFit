@@ -1453,6 +1453,33 @@ supported provider exports a force column, and inventing one would import a numb
 recorded. Exercise Progress shows each force set's newtons and its device line; it adds no force chart
 series and no day-total force metric, because summing peak forces is not a meaningful quantity.
 
+### Cluster and cardio records (0.11.3–0.11.4)
+
+Manually authored drop-set/rest-pause prescriptions describe ordered rep-based external-load
+segments. One performed cluster parent occupies one prescribed set position; additional segments
+are dependent rows, never additional ordinary sets. Partial clusters retain recorded work without
+satisfying a position and appear separately in summaries. Corrections preserve cluster identity and
+recorded segment count, and update parent/segments atomically; deletion removes dependent segments
+before the parent in one transaction. Cluster work is excluded from ordinary strength records,
+e1RM, progression, modelled fatigue and planner recent-weight inputs. Coverage counts it separately
+without ordinary credits while retaining recorded last-trained information.
+
+The Logger exposes segment-by-segment logging/resumption for scheduled cluster slots. Each Save
+completed segment makes exactly that segment durable; Pause leaves the recorded prefix incomplete.
+Reopening reads the saved parent, so resumption appends rather than duplicates its positions. The
+shared draft submission guard serializes segment writes with other draft/guided submissions; an
+incomplete cluster prevents bulk confirmation from creating another parent for that slot.
+
+Manual cardio is a separate offline record with stable identity, start time, duration, optional
+distance and note. It has no resistance-session or fatigue contribution. Speed uses matching
+distance-and-duration totals, not durations from activities lacking distance. Settings exports a
+separate cardio CSV; formula-like note cells are prefixed for spreadsheet safety without changing
+stored text. Cardio cancellation is disabled while persistence is in flight.
+
+Migrations `63.sqm` and `64.sqm` add cluster and cardio storage respectively. Backup formats 28 and
+29 carry these records; snapshot format 6 and prescription interchange v8 carry clusters. Restore
+preserves partial state; cardio merge keeps local data on identity conflicts.
+
 ### 1.26 Added-load progression (EX-02-A, 0.11.2)
 
 A `BODYWEIGHT_ADDABLE` exercise may now be prescribed a numeric **added** load without an estimated

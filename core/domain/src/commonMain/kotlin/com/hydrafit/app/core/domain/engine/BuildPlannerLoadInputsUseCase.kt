@@ -143,7 +143,7 @@ class BuildPlannerLoadInputsUseCase(
         val recentWeights = if (sources.workoutDataSharingEnabled) {
             buildRecentWeights(
                 sources.loggedWorkoutSets.filter {
-                    it.station == null && it.performedAtMillis <= nowMillis
+                    it.station == null && it.cluster == null && it.performedAtMillis <= nowMillis
                 },
                 utcOffsetMillis
             )

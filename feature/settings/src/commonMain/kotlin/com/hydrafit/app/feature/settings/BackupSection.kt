@@ -15,6 +15,7 @@ expect fun BackupSection(
     busy: Boolean,
     onExportTo: (handle: String, encrypted: Boolean, password: String?) -> Unit,
     onExportCsvTo: (String) -> Unit,
+    onExportCardioCsvTo: (String) -> Unit,
     onImportFrom: (String) -> Unit,
     modifier: Modifier = Modifier
 )

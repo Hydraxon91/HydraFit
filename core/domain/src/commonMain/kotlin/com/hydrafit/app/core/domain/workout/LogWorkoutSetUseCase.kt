@@ -61,6 +61,14 @@ class LogWorkoutSetUseCase(
         }
     }
 
+    /** The recorded segments of a performed cluster, including its parent's opening segment. */
+    suspend fun clusterSegments(setId: Long): List<PerformedClusterSegment> =
+        repository.clusterSegments(setId)
+
+    /** Recorded parents for an occurrence; used to resume its saved, incomplete cluster position. */
+    suspend fun clusterParents(occurrenceId: Long): List<WorkoutSet> =
+        repository.setsForOccurrence(occurrenceId).filter { it.cluster != null }
+
     /**
      * Adds the segments performed after an interrupted cluster. The parent keeps its identity and
      * opening segment, and the position becomes satisfied only once every prescribed segment exists.

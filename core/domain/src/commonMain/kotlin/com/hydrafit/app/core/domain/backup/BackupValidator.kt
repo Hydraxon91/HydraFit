@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.backup
 
+import com.hydrafit.app.core.domain.cardio.CardioActivity
+import com.hydrafit.app.core.domain.cardio.CardioActivityType
 import com.hydrafit.app.core.domain.engine.FatigueSetEffect
 import com.hydrafit.app.core.domain.engine.FrozenPlanExplanation
 import com.hydrafit.app.core.domain.engine.LoadBaselineSource
@@ -259,6 +261,7 @@ class BackupValidator(private val catalog: BackupCatalog) {
         val sessionIds = uniqueBy(file.workoutSessions) { it.id }
         uniqueBy(file.workoutSets) { it.id }
         validateClusters(file)
+        validateCardioActivities(file)
 
         // Natural keys that must not repeat, because restore addresses rows by them.
         uniqueBy(file.equipment) { it.id }
@@ -932,6 +935,39 @@ class BackupValidator(private val catalog: BackupCatalog) {
         performedBySet.forEach { (setId, performed) ->
             val positions = positionsBySet[setId].orEmpty().map { it.position }.sorted()
             if (positions != (1 until performed).toList()) fail(BackupFailure.INVALID_VALUE)
+        }
+    }
+
+    /**
+     * A manual cardio activity is a format-29 value. A pre-29 file that carries any is not what it
+     * claims, so the whole file is rejected rather than the section being silently dropped: an older
+     * reader would otherwise restore an install with recorded activity missing.
+     *
+     * Each record is rebuilt as the domain value so the bounds live in one place, which rejects a
+     * blank or over-long identity, a non-positive start time, an out-of-range duration, distance or
+     * note. The type must be a known activity kind, and no identity may repeat inside the file
+     * because restore addresses a cardio row by it.
+     */
+    private fun validateCardioActivities(file: BackupFile) {
+        if (file.formatVersion < CARDIO_FORMAT_VERSION) {
+            if (file.cardioActivities.isNotEmpty()) fail(BackupFailure.INVALID_VALUE)
+            return
+        }
+        uniqueBy(file.cardioActivities) { it.identity }
+        file.cardioActivities.forEach { record ->
+            enum(record.type, CardioActivityType.entries)
+            try {
+                CardioActivity(
+                    identity = record.identity,
+                    type = CardioActivityType.valueOf(record.type),
+                    startedAtMillis = record.startedAtMillis,
+                    durationSeconds = record.durationSeconds,
+                    distanceMeters = record.distanceMeters,
+                    note = record.note
+                ).requireValid()
+            } catch (_: IllegalArgumentException) {
+                fail(BackupFailure.INVALID_VALUE)
+            }
         }
     }
 

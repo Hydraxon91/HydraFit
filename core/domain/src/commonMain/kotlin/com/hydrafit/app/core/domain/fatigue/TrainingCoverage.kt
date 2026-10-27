@@ -6,7 +6,8 @@ import kotlinx.coroutines.flow.Flow
 data class CoverageSet(
     val performedAtMillis: Long,
     val isWarmup: Boolean,
-    val involvements: Map<MuscleGroup, Double>?
+    val involvements: Map<MuscleGroup, Double>?,
+    val isCluster: Boolean = false
 )
 
 interface TrainingCoverageRepository {
@@ -17,7 +18,8 @@ data class MuscleTrainingCoverage(
     val muscle: MuscleGroup,
     val workingSets: Int,
     val estimatedInvolvementCredits: Double,
-    val lastTrainedAtMillis: Long?
+    val lastTrainedAtMillis: Long?,
+    val clusters: Int = 0
 )
 
 /** Counts and estimated credits are descriptive, not direct sets or physiological equivalents. */

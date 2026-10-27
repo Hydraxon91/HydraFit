@@ -59,6 +59,7 @@ kotlin {
             implementation(project(":feature:onboarding"))
             implementation(project(":feature:routines"))
             implementation(project(":feature:progress"))
+            implementation(project(":feature:cardio"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)

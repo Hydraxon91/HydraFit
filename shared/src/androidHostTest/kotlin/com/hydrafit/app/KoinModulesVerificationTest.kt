@@ -30,6 +30,8 @@ import com.hydrafit.app.core.domain.backup.UnsupportedAutomaticBackupScheduler
 import com.hydrafit.app.core.domain.backup.UnsupportedBackupCrypto
 import com.hydrafit.app.core.domain.backup.UnsupportedBackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
+import com.hydrafit.app.core.domain.cardio.CardioActivity
+import com.hydrafit.app.core.domain.cardio.CardioRepository
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
@@ -632,6 +634,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<CardioRepository> { FakeCardioRepository }
                 },
                 domainModule,
                 settingsModule,
@@ -1278,6 +1281,21 @@ class KoinModulesVerificationTest {
 
     private object FakeExerciseCatalog : ExerciseCatalog {
         override suspend fun all(): List<Exercise> = emptyList()
+    }
+
+    private object FakeCardioRepository : CardioRepository {
+        override fun activitiesFlow(): Flow<List<CardioActivity>> = emptyFlow()
+
+        override suspend fun all(): List<CardioActivity> = emptyList()
+
+        override suspend fun add(activity: CardioActivity): Long = error("Not used by graph test")
+
+        override suspend fun update(activity: CardioActivity) = error("Not used by graph test")
+
+        override suspend fun delete(id: Long) = error("Not used by graph test")
+
+        override suspend fun byIdentity(identity: String): CardioActivity? =
+            error("Not used by graph test")
     }
 
     private object FakeWorkoutLogRepository : WorkoutLogRepository {

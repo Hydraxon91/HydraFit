@@ -18,5 +18,7 @@ data class WorkoutSetCorrection(
      * the complete desired state, so null clears a device the same way a null [weightKg] clears a
      * load; the rating stays descriptive and is never converted into force.
      */
-    val device: DeviceAttribution? = null
+    val device: DeviceAttribution? = null,
+    /** Complete performed segment values, including the parent at position zero, for cluster edits. */
+    val clusterSegments: List<PerformedClusterSegment>? = null
 )

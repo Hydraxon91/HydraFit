@@ -19,6 +19,13 @@ interface WorkoutLogRepository {
      */
     suspend fun appendClusterSegments(setId: Long, segments: List<PerformedClusterSegment>)
 
+    /**
+     * Every recorded segment of a performed cluster, including the parent's own opening segment.
+     * Returns an empty list for an ordinary set, so a caller distinguishes a cluster by the set's
+     * own summary rather than by this read.
+     */
+    suspend fun clusterSegments(setId: Long): List<PerformedClusterSegment> = emptyList()
+
     /** Attaches a set to a session; used when auto-start or the legacy backfill assigns an id. */
     suspend fun assignSession(setId: Long, sessionId: String)
 

@@ -5415,6 +5415,39 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun confirmedSegmentsSurvivePauseAndResumeWithoutDuplicatingTheParent() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+        viewModel.openClusterLog(viewModel.state.value.draftSets.single())
+        runCurrent()
+        viewModel.saveClusterSegment()
+        viewModel.saveClusterSegment() // The same in-flight action is ignored.
+        runCurrent()
+        val parent = repository.all().single()
+        assertEquals(1, parent.cluster?.performedSegments)
+        assertEquals(false, parent.cluster?.isComplete)
+        assertEquals(1, repository.clusterSegments(parent.id).size)
+        viewModel.closeClusterLog()
+        val recreated = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+        recreated.openClusterLog(recreated.state.value.draftSets.single())
+        runCurrent()
+        assertEquals(1, assertNotNull(recreated.state.value.clusterLog).position)
+        recreated.saveClusterSegment()
+        runCurrent()
+        assertEquals(2, repository.clusterSegments(parent.id).size)
+        recreated.saveClusterSegment()
+        runCurrent()
+        assertNull(recreated.state.value.clusterLog)
+        assertEquals(1, repository.all().size)
+        assertEquals(true, repository.all().single().cluster?.isComplete)
+        assertEquals(listOf(0, 1, 2), repository.clusterSegments(parent.id).map { it.position })
+    }
+
+    @Test
     fun loggingACompleteClusterWritesTheParentAndEverySegmentAsOneSet() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -5438,6 +5471,39 @@ class WorkoutLoggerViewModelTest {
         )
         assertEquals(listOf(0, 1, 2), cluster.segments.map { it.position })
     }
+
+    @Test
+    fun editingARecordedClusterShowsAndCorrectsItsSegmentsWithoutChangingTheSetCount() =
+        runTimerTest {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), clusterOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+            runCurrent()
+
+            viewModel.confirmGuidedSet(40L)
+            runCurrent()
+
+            val row = viewModel.state.value.recentSets.single()
+            assertEquals(3, assertNotNull(row.cluster).performedSegments)
+
+            viewModel.editLoggedSet(row)
+            runCurrent()
+
+            val edit = assertNotNull(viewModel.state.value.loggedSetEdit)
+            assertEquals(listOf("6", "4"), edit.clusterSegments.map { it.reps })
+            assertEquals(listOf("80", "60"), edit.clusterSegments.map { it.weightInput })
+
+            viewModel.onLoggedSetClusterWeightChanged(1, "75")
+            viewModel.saveLoggedSetEdit()
+            runCurrent()
+
+            val corrected = repository.clusterSegments(row.id)
+            assertEquals(3, corrected.size)
+            assertEquals(listOf(100.0, 75.0, 60.0), corrected.map { it.weightKg })
+            assertEquals(listOf(0, 1, 2), corrected.map { it.position })
+            assertEquals(1, repository.all().size)
+        }
 
     @Test
     fun anOrdinaryRepDraftIsStillLoggedAsOneOrdinarySet() = runTimerTest {
@@ -10437,6 +10503,9 @@ class WorkoutLoggerViewModelTest {
         /** Every performed cluster written through [addCluster], in write order. */
         val clusters = mutableListOf<WorkoutCluster>()
 
+        /** Recorded segments by parent set id, mirroring the persisted segment rows. */
+        val clusterSegmentsById = mutableMapOf<Long, List<PerformedClusterSegment>>()
+
         suspend fun correct(id: Long, correction: WorkoutSetCorrection) {
             corrections++
             correctionGate?.await()
@@ -10453,7 +10522,11 @@ class WorkoutLoggerViewModelTest {
                 rir = correction.rir,
                 performedAtMillis = correction.performedAtMillis
             )
+            correction.clusterSegments?.let { clusterSegmentsById[id] = it }
         }
+
+        override suspend fun clusterSegments(setId: Long): List<PerformedClusterSegment> =
+            clusterSegmentsById[setId].orEmpty()
 
         override suspend fun add(set: WorkoutSet) {
             addAttempts++
@@ -10471,6 +10544,7 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) {
             clusters += cluster
+            val assignedId = nextId
             add(
                 set.copy(
                     cluster = WorkoutClusterSummary(
@@ -10480,12 +10554,27 @@ class WorkoutLoggerViewModelTest {
                     )
                 )
             )
+            clusterSegmentsById[assignedId] = cluster.segments
         }
 
         override suspend fun appendClusterSegments(
             setId: Long,
             segments: List<PerformedClusterSegment>
-        ) = Unit
+        ) {
+            val existing = clusterSegmentsById.getValue(setId)
+            require(segments.first().position == existing.size)
+            val rowIndex = sets.indexOfFirst { it.id == setId }
+            val summary = requireNotNull(sets[rowIndex].cluster)
+            require(existing.size + segments.size <= summary.plannedSegments)
+            clusterSegmentsById[setId] = existing + segments
+            sets[rowIndex] =
+                sets[rowIndex].copy(
+                    cluster = summary.copy(
+                        performedSegments =
+                        existing.size + segments.size
+                    )
+                )
+        }
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.backup.BACKUP_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.BackupBodyWeightRecord
+import com.hydrafit.app.core.domain.backup.BackupCardioActivityRecord
 import com.hydrafit.app.core.domain.backup.BackupException
 import com.hydrafit.app.core.domain.backup.BackupExclusionRecord
 import com.hydrafit.app.core.domain.backup.BackupExerciseNoteRecord
@@ -24,6 +25,8 @@ import com.hydrafit.app.core.domain.backup.FORCE_FORMAT_VERSION
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.backup.WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION
+import com.hydrafit.app.core.domain.cardio.CardioActivity
+import com.hydrafit.app.core.domain.cardio.CardioActivityType
 import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
@@ -1427,6 +1430,106 @@ class SqlDelightBackupRepositoryTest {
             .executeAsList().single()
         assertNull(storedOccurrence.reps)
         assertEquals(90L, storedOccurrence.durationSeconds)
+    }
+
+    @Test
+    fun cardioActivitiesRoundTripThroughBackupWithoutTouchingResistanceData() = runTest {
+        seedRepresentativeData()
+        val cardio = SqlDelightCardioRepository(database)
+        cardio.add(
+            CardioActivity(
+                identity = "c-new",
+                type = CardioActivityType.RUNNING,
+                startedAtMillis = 20L,
+                durationSeconds = 1800,
+                distanceMeters = 5000,
+                note = "tempo"
+            )
+        )
+        cardio.add(
+            CardioActivity(
+                identity = "c-old",
+                type = CardioActivityType.WALKING,
+                startedAtMillis = 10L,
+                durationSeconds = 600
+            )
+        )
+        val setsBefore = database.workoutLogQueries.selectAllSets().executeAsList()
+        val sessionsBefore = database.workoutSessionQueries.selectAllSessions().executeAsList()
+
+        val catalog = SqlDelightBackupCatalog()
+        val exported = repository.export("t", 1L)
+        assertEquals(BACKUP_FORMAT_VERSION, exported.formatVersion)
+        BackupValidator(catalog).validate(exported)
+        // Oldest first, so repeated exports stay stable whatever order the rows were inserted in.
+        assertEquals(listOf("c-old", "c-new"), exported.cardioActivities.map { it.identity })
+
+        // An activity the file does not carry is removed by replace restore, and identities survive.
+        cardio.add(
+            CardioActivity(
+                identity = "c-dropped",
+                type = CardioActivityType.OTHER,
+                startedAtMillis = 30L,
+                durationSeconds = 120
+            )
+        )
+        repository.restore(exported)
+
+        assertEquals(
+            listOf("c-old", "c-new"),
+            cardio.all().sortedBy { it.startedAtMillis }.map { it.identity }
+        )
+        val run = assertNotNull(cardio.byIdentity("c-new"))
+        assertEquals(CardioActivityType.RUNNING, run.type)
+        assertEquals(20L, run.startedAtMillis)
+        assertEquals(1800, run.durationSeconds)
+        assertEquals(5000, run.distanceMeters)
+        assertEquals("tempo", run.note)
+        val walk = assertNotNull(cardio.byIdentity("c-old"))
+        assertEquals(CardioActivityType.WALKING, walk.type)
+        assertNull(walk.distanceMeters)
+        assertNull(walk.note)
+
+        // Resistance data is exactly as it was: a cardio activity is never merged into a session.
+        assertEquals(setsBefore, database.workoutLogQueries.selectAllSets().executeAsList())
+        assertEquals(
+            sessionsBefore,
+            database.workoutSessionQueries.selectAllSessions().executeAsList()
+        )
+
+        // The merge write path adds only identities the install does not hold; a conflicting local
+        // record wins, and re-merging the same file adds nothing.
+        val fromAPhone = exported.copy(
+            cardioActivities = listOf(
+                exported.cardioActivities.first().copy(note = "local wins"),
+                BackupCardioActivityRecord(
+                    identity = "c-phone",
+                    type = "ROWING",
+                    startedAtMillis = 40L,
+                    durationSeconds = 900
+                )
+            )
+        )
+        val merge = BackupMergePolicy.select(fromAPhone, repository.mergeKeys())
+        assertEquals(listOf("c-phone"), merge.cardioActivitiesToInsert.map { it.identity })
+        repository.merge(merge)
+
+        assertEquals(
+            listOf("c-old", "c-new", "c-phone"),
+            cardio.all().sortedBy { it.startedAtMillis }.map { it.identity }
+        )
+        assertNull(cardio.byIdentity("c-old")?.note)
+        val rowed = assertNotNull(cardio.byIdentity("c-phone"))
+        assertEquals(CardioActivityType.ROWING, rowed.type)
+        assertEquals(900, rowed.durationSeconds)
+
+        val remerge = BackupMergePolicy.select(fromAPhone, repository.mergeKeys())
+        assertTrue(remerge.cardioActivitiesToInsert.isEmpty())
+        repository.merge(remerge)
+        assertEquals(
+            listOf("c-old", "c-new", "c-phone"),
+            cardio.all().sortedBy { it.startedAtMillis }.map { it.identity }
+        )
     }
 
     private fun mergedSelection(): BackupMergeSelection = BackupMergeSelection(

@@ -35,6 +35,10 @@ import hydrafit.feature.logger.generated.resources.logger_device_name_label
 import hydrafit.feature.logger.generated.resources.logger_device_rating_label
 import hydrafit.feature.logger.generated.resources.logger_distance_input_label
 import hydrafit.feature.logger.generated.resources.logger_distance_label
+import hydrafit.feature.logger.generated.resources.logger_draft_cluster_segment_reps
+import hydrafit.feature.logger.generated.resources.logger_draft_cluster_segment_rir
+import hydrafit.feature.logger.generated.resources.logger_draft_cluster_segment_weight
+import hydrafit.feature.logger.generated.resources.logger_draft_cluster_segments_title
 import hydrafit.feature.logger.generated.resources.logger_edit_set_failed
 import hydrafit.feature.logger.generated.resources.logger_edit_set_invalid
 import hydrafit.feature.logger.generated.resources.logger_edit_set_invalid_force
@@ -70,6 +74,9 @@ internal fun LoggedSetEditDialog(
     onMetricChanged: (SetMetric) -> Unit,
     onWeightChanged: (String) -> Unit,
     onRirChanged: (String) -> Unit,
+    onClusterRepsChanged: (Int, String) -> Unit,
+    onClusterWeightChanged: (Int, String) -> Unit,
+    onClusterRirChanged: (Int, String) -> Unit,
     onTimeChanged: (Long) -> Boolean,
     onCancel: () -> Unit,
     onSave: () -> Unit
@@ -97,19 +104,19 @@ internal fun LoggedSetEditDialog(
                     FilterChip(
                         selected = edit.metric == SetMetric.DURATION,
                         onClick = { onMetricChanged(SetMetric.DURATION) },
-                        enabled = !saving,
+                        enabled = !saving && !edit.hasCluster,
                         label = { Text(stringResource(Res.string.logger_seconds_label)) }
                     )
                     FilterChip(
                         selected = edit.metric == SetMetric.DISTANCE,
                         onClick = { onMetricChanged(SetMetric.DISTANCE) },
-                        enabled = !saving,
+                        enabled = !saving && !edit.hasCluster,
                         label = { Text(stringResource(Res.string.logger_distance_label)) }
                     )
                     FilterChip(
                         selected = edit.metric == SetMetric.FORCE,
                         onClick = { onMetricChanged(SetMetric.FORCE) },
-                        enabled = !saving,
+                        enabled = !saving && !edit.hasCluster,
                         label = { Text(stringResource(Res.string.logger_force_label)) }
                     )
                 }
@@ -204,6 +211,57 @@ internal fun LoggedSetEditDialog(
                     onValueChange = onRirChanged,
                     enabled = !saving
                 )
+                if (edit.hasCluster) {
+                    Text(stringResource(Res.string.logger_draft_cluster_segments_title))
+                    edit.clusterSegments.forEach { segment ->
+                        OutlinedTextField(
+                            value = segment.reps,
+                            onValueChange = { onClusterRepsChanged(segment.position, it) },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        Res.string.logger_draft_cluster_segment_reps,
+                                        segment.position + 1
+                                    )
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            enabled = !saving
+                        )
+                        OutlinedTextField(
+                            value = segment.weightInput,
+                            onValueChange = { onClusterWeightChanged(segment.position, it) },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        Res.string.logger_draft_cluster_segment_weight,
+                                        segment.position + 1,
+                                        edit.weightUnit.label
+                                    )
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            enabled = !saving
+                        )
+                        OutlinedTextField(
+                            value = segment.rir,
+                            onValueChange = { onClusterRirChanged(segment.position, it) },
+                            label = {
+                                Text(
+                                    stringResource(
+                                        Res.string.logger_draft_cluster_segment_rir,
+                                        segment.position + 1
+                                    )
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            enabled = !saving
+                        )
+                    }
+                }
                 Text(
                     stringResource(
                         Res.string.logger_recorded_at,

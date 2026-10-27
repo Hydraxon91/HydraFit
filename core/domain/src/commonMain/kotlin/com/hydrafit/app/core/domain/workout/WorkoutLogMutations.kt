@@ -48,6 +48,10 @@ class WorkoutLogMutations(
     suspend fun correctTime(setId: Long, performedAtMillis: Long) =
         correctWorkoutSetTime(setId, performedAtMillis)
 
+    /** The recorded segments of a performed cluster, including its parent's opening segment. */
+    suspend fun clusterSegments(setId: Long): List<PerformedClusterSegment> =
+        logWorkoutSet.clusterSegments(setId)
+
     /** Corrects the performed values of the same recorded set. */
     suspend fun correctSet(setId: Long, correction: WorkoutSetCorrection) =
         correctWorkoutSet(setId, correction)

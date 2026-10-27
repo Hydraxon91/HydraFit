@@ -1,0 +1,10 @@
+-- 0.11.4 manual cardio: a separate activity record, never a resistance set.
+CREATE TABLE cardioActivity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    identity TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,
+    startedAt INTEGER NOT NULL,
+    durationSeconds INTEGER NOT NULL,
+    distanceMeters INTEGER,
+    note TEXT
+);

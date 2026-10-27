@@ -18,6 +18,12 @@ the current catalog never supplies a replacement. Explicitly empty snapshots are
 known zero contributions. Any unclassified history prevents an unqualified
 never-trained claim. Coverage does not alter the formula below.
 
+Drop-set/rest-pause clusters (0.11.3) have separate recorded-cluster counts, not ordinary
+working-set or involvement credits. Their recorded snapshots still establish last-trained time.
+Cluster work is excluded from modelled fatigue and planner credits; no segment multiplier or
+ordinary-set equivalence is inferred. Manual cardio (0.11.4) is separate from resistance records
+and contributes neither muscle-fatigue input nor resistance coverage.
+
 Each muscle has one bounded fatigue-load index `F = F_compound + F_isolation`, initially zero,
 with `0 ≤ F < 1`. There is no hidden raw-volume accumulator or final linear normalization.
 Compound and isolation work share one session discount and one headroom; only their decay

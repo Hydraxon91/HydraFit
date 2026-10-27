@@ -12,6 +12,7 @@ object TrainingCoverageCalculator {
         val today = localEpochDay(nowMillis, utcOffsetMillis)
         val start = today - 6L
         val counts = mutableMapOf<MuscleGroup, Int>()
+        val clusters = mutableMapOf<MuscleGroup, Int>()
         val credits = mutableMapOf<MuscleGroup, Double>()
         val lastTrained = mutableMapOf<MuscleGroup, Long>()
         var unclassifiedInWindow = 0
@@ -32,6 +33,10 @@ object TrainingCoverageCalculator {
                     lastTrained[muscle] = set.performedAtMillis
                 }
                 if (inWindow) {
+                    if (set.isCluster) {
+                        clusters[muscle] = (clusters[muscle] ?: 0) + 1
+                        continue
+                    }
                     counts[muscle] = (counts[muscle] ?: 0) + 1
                     credits[muscle] = (credits[muscle] ?: 0.0) + weight
                 }
@@ -43,7 +48,8 @@ object TrainingCoverageCalculator {
                     muscle = muscle,
                     workingSets = counts[muscle] ?: 0,
                     estimatedInvolvementCredits = credits[muscle] ?: 0.0,
-                    lastTrainedAtMillis = lastTrained[muscle]
+                    lastTrainedAtMillis = lastTrained[muscle],
+                    clusters = clusters[muscle] ?: 0
                 )
             },
             fromEpochDay = start,

@@ -33,6 +33,9 @@ import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
 import com.hydrafit.app.core.domain.backup.StagedBackupDocumentJson
 import com.hydrafit.app.core.domain.backup.StoredBackupKey
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
+import com.hydrafit.app.core.domain.cardio.CardioActivity
+import com.hydrafit.app.core.domain.cardio.CardioActivityType
+import com.hydrafit.app.core.domain.cardio.CardioRepository
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
@@ -65,6 +68,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -408,6 +412,7 @@ class BackupViewModelTest {
         repository: BackupRepository,
         staging: BackupStagingRepository = FakeBackupStagingRepository(),
         logs: WorkoutLogRepository = FakeWorkoutLogRepository(),
+        cardioRepository: CardioRepository = FakeCardioRepository(),
         encryption: BackupEncryption = testEncryption(FakeBackupEncryptionCrypto())
     ): BackupViewModel {
         val preview = PreviewBackupUseCase(BackupValidator(testBackupCatalog()), dispatcher)
@@ -426,6 +431,7 @@ class BackupViewModelTest {
                 FakeWorkoutSessionRepository(),
                 FakeExerciseCatalog()
             ),
+            cardioRepository = cardioRepository,
             encryption = encryption
         )
     }
@@ -477,6 +483,76 @@ class BackupViewModelTest {
 
         assertEquals(BackupStatus.Failed(BackupFailure.IO), viewModel.state.value.status)
         assertTrue(store.written.isEmpty())
+    }
+
+    @Test
+    fun cardioExportWritesCardioCsvToTheChosenDocumentWithDistinctSuccess() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val activity = CardioActivity(
+            identity = "run-1",
+            type = CardioActivityType.RUNNING,
+            startedAtMillis = 1_000L,
+            durationSeconds = 600,
+            distanceMeters = 2_000,
+            note = "easy"
+        )
+        val viewModel = viewModel(
+            store = store,
+            repository = FakeBackupRepository(),
+            cardioRepository = FakeCardioRepository(activities = listOf(activity))
+        )
+
+        viewModel.exportCardioCsv("content://cardio")
+        advanceUntilIdle()
+
+        assertEquals(listOf("content://cardio"), store.writtenHandles)
+        assertEquals(
+            "activityType,startedAtMillis,durationSeconds,distanceMeters,note\n" +
+                "RUNNING,1000,600,2000,easy\n",
+            store.written.single()
+        )
+        assertEquals(BackupStatus.CardioCsvExported, viewModel.state.value.status)
+        assertNotEquals(BackupStatus.HistoryCsvExported, viewModel.state.value.status)
+    }
+
+    @Test
+    fun cardioReadFailureLeavesTheChosenDocumentUntouched() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val viewModel = viewModel(
+            store = store,
+            repository = FakeBackupRepository(),
+            cardioRepository = FakeCardioRepository(failure = IllegalStateException("unreadable"))
+        )
+
+        viewModel.exportCardioCsv("content://cardio")
+        advanceUntilIdle()
+
+        assertEquals(BackupStatus.Failed(BackupFailure.IO), viewModel.state.value.status)
+        assertTrue(store.written.isEmpty())
+        assertTrue(store.writtenHandles.isEmpty())
+    }
+
+    @Test
+    fun cardioExportIgnoresAConcurrentExportWhileTheReadIsInFlight() = runTest(dispatcher) {
+        val store = FakeBackupFileStore()
+        val gate = CompletableDeferred<Unit>()
+        val cardioRepository = FakeCardioRepository(readGate = gate)
+        val viewModel = viewModel(
+            store = store,
+            repository = FakeBackupRepository(),
+            cardioRepository = cardioRepository
+        )
+
+        viewModel.exportCardioCsv("content://first")
+        runCurrent()
+        viewModel.exportCardioCsv("content://second")
+        assertTrue(viewModel.state.value.inProgress)
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, cardioRepository.readCount)
+        assertEquals(listOf("content://first"), store.writtenHandles)
+        assertEquals(BackupStatus.CardioCsvExported, viewModel.state.value.status)
     }
 
     @Test
@@ -639,6 +715,33 @@ private class FakeBackupFileStore(
         written += text
         writtenHandles += handle
     }
+}
+
+private class FakeCardioRepository(
+    private val activities: List<CardioActivity> = emptyList(),
+    private val failure: Throwable? = null,
+    private val readGate: CompletableDeferred<Unit>? = null
+) : CardioRepository {
+    var readCount = 0
+        private set
+
+    override fun activitiesFlow(): Flow<List<CardioActivity>> = emptyFlow()
+
+    override suspend fun all(): List<CardioActivity> {
+        readCount++
+        readGate?.await()
+        failure?.let { throw it }
+        return activities
+    }
+
+    override suspend fun add(activity: CardioActivity): Long = error("Not used by backup tests")
+
+    override suspend fun update(activity: CardioActivity) = error("Not used by backup tests")
+
+    override suspend fun delete(id: Long) = error("Not used by backup tests")
+
+    override suspend fun byIdentity(identity: String): CardioActivity? =
+        error("Not used by backup tests")
 }
 
 private fun emptyBackupFile(): BackupFile = BackupFile(

@@ -17,6 +17,7 @@ import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
@@ -150,6 +151,31 @@ internal fun exactEntryText(value: Double): String {
     return if (negative) "-$expanded" else expanded
 }
 
+/** One recorded later cluster segment as editable text, entered in the editor's frozen unit. */
+data class LoggedClusterSegmentEdit(
+    val position: Int,
+    val reps: String,
+    val weightInput: String,
+    val rir: String = ""
+) {
+    val isValid: Boolean
+        get() = (reps.toIntOrNull() ?: 0) > 0 &&
+            weightInput.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true &&
+            (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true)
+
+    /** The performed segment this text describes, in canonical kilograms. */
+    fun toPerformed(weightUnit: WeightUnit): PerformedClusterSegment? {
+        val parsedReps = reps.toIntOrNull() ?: return null
+        val parsedWeight = weightInput.toDoubleOrNull() ?: return null
+        return PerformedClusterSegment(
+            position = position,
+            reps = parsedReps,
+            weightKg = weightUnit.displayToKilograms(parsedWeight),
+            rir = rir.toIntOrNull()
+        )
+    }
+}
+
 /** A correction of an existing row; unit is frozen for the lifetime of this editor. */
 data class LoggedSetEdit(
     val row: LoggedSetRow,
@@ -169,15 +195,27 @@ data class LoggedSetEdit(
     val weightInput: String,
     val originalWeightInput: String,
     val rir: String,
-    val performedAtMillis: Long
+    val performedAtMillis: Long,
+    /**
+     * The recorded later cluster segments (positions 1..n) when this row is a cluster. The parent's
+     * own opening segment stays in the ordinary fields above, so editing a cluster never invents an
+     * extra set position.
+     */
+    val clusterSegments: List<LoggedClusterSegmentEdit> = emptyList()
 ) {
+    /** True when this correction also rewrites a performed cluster's later segments. */
+    val hasCluster: Boolean get() = row.cluster != null
+
     val canSave: Boolean get() = enteredMetricIsPositive &&
         deviceIsValid &&
         (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true) &&
         (
             weightInput.isBlank() ||
                 weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0 } == true
-            )
+            ) &&
+        // A cluster parent always records the opening segment's external load.
+        (!hasCluster || weightInput.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true) &&
+        clusterSegments.all { it.isValid }
 
     /**
      * True when the device fields are storable. A force correction may carry no device at all, but a
@@ -223,6 +261,26 @@ data class LoggedSetEdit(
         } else {
             null
         }
+
+    /**
+     * The complete desired segment list for a cluster correction, with the parent's own opening
+     * segment at position zero, or null when [weightKg] cannot express one. Only a rep-based cluster
+     * edit produces segments: a cluster is rep-based external-load work, and this editor keeps it so.
+     */
+    fun correctionCluster(weightKg: Double?): List<PerformedClusterSegment>? {
+        if (!hasCluster || metric != SetMetric.REPETITIONS) return null
+        val openingReps = correctionReps ?: return null
+        val openingWeight = weightKg ?: return null
+        val later = clusterSegments.map { it.toPerformed(weightUnit) ?: return null }
+        return listOf(
+            PerformedClusterSegment(
+                position = 0,
+                reps = openingReps,
+                weightKg = openingWeight,
+                rir = rir.toIntOrNull()
+            )
+        ) + later
+    }
 }
 
 /**
@@ -486,6 +544,7 @@ data class WorkoutLoggerUiState(
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
     val loggedSetEdit: LoggedSetEdit? = null,
+    val clusterLog: ClusterLogState? = null,
     val savingLoggedSet: Boolean = false,
     val loggedSetEditFailed: Boolean = false,
     /**
