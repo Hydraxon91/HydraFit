@@ -189,7 +189,9 @@ nothing else. The codec encodes defaults, rejects unknown fields, and enforces `
 version, the shared `PrescriptionBounds` per slot, valid movement/load/kind/focus enums, valid
 `MUSCLE:weight` involvement keys for custom definitions, unique custom ids, and two internal
 reference rules: every declared custom definition must be referenced by some slot, and a weights-free
-document (`includesWeights = false`) may not carry a slot weight. Referenced identities are resolved
+document (`includesWeights = false`) may not carry a slot weight, an ordered target's `weightKg`,
+a recipe's `startLoadKg`/`endLoadKg` or cluster segment loads. Explicit zero is a load, not absence.
+Load-free ordered targets and recipe inputs remain valid on import. Referenced identities are resolved
 by the importer (`transfer/PreviewPrescriptionImport`), not by this validator, because only the receiver
 knows its own catalog. The preview reports reuse, creation, name collision, id collision and equipment
 gap, and never substitutes silently: a document definition whose id matches a local row is compared
@@ -201,7 +203,9 @@ accepted in one import.
 `ExportPrescriptionsUseCase(routines: RoutineTemplateRepository, catalog: ExerciseCatalog)` reads only
 the chosen routine ids and the catalog rows they reference, so history, records, notes, credentials,
 equipment inventories, schedule state and explanations are never read and cannot leak. Weights are
-omitted unless the caller passes `includeWeights = true` from an explicit user choice; a slot whose
+omitted unless the caller passes `includeWeights = true` from an explicit user choice. Weights-free
+export omits entire `setTargets` (including recipe inputs) and clusters, retaining scalar sets and
+measurement rather than introducing a redacted encoding; weighted export preserves them. A slot whose
 exercise is no longer in the catalog keeps its stored id as the only available name.
 
 Read-only review of the shipped S1–S2 behavior on a device remains pending.

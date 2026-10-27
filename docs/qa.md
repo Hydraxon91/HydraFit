@@ -14,6 +14,21 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## Integration repairs — INT-05 (2026-10-27; formal review pending)
+
+- Based on `7166f1f2`, chunk 1 prevents weights-free prescription JSON from retaining ordered
+  target/recipe loads or clusters. Weighted export remains unchanged; validation rejects nested
+  prescribed loads, including explicit zero where representable.
+- `PrescriptionInterchangeTest` exercises export → JSON → validation → import-preview mapping,
+  retained scalar sets/reps and unchanged source routines. Two new regressions failed before the fix
+  (23 tests, 2 failures); the corrected full domain run passed 1,233 tests across 126 suites.
+- Fresh `:core:domain:ktlintCheck --rerun-tasks` and `:core:domain:testAndroidHostTest --rerun-tasks`
+  passed. Debug assembly passed with 31 tasks executed and 322 inherited; tooling validation reported
+  zero findings. Bounded logs and copied test results: external OpenCode temp directory,
+  `integration-int05/`.
+- No device, database import-write or release-integration acceptance was performed. Formal review
+  remains pending. Later chunk-2 test drafts were not part of this verification run.
+
 ## 0.11.3–0.11.4 candidate — 2026-10-27 (acceptance incomplete)
 
 - User manually confirmed cluster prescription save/reopen, logging and the segment-aware recorded

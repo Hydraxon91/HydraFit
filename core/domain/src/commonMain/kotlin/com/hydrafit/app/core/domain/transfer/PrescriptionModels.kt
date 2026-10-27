@@ -260,6 +260,15 @@ object PrescriptionValidator {
                     entry.setTargets?.let { encoded ->
                         val targets = runCatching { SlotSetTargetsJson.decode(encoded) }.getOrNull()
                             ?: fail(PrescriptionFailure.INVALID_VALUE)
+                        if (!document.includesWeights &&
+                            (
+                                targets.targets.any { it.weightKg != null } ||
+                                    targets.recipe?.startLoadKg != null ||
+                                    targets.recipe?.endLoadKg != null
+                                )
+                        ) {
+                            fail(PrescriptionFailure.INVALID_VALUE)
+                        }
                         // One target per prescribed set: a mismatch would address the wrong slot.
                         if (targets.sets != entry.sets) {
                             fail(PrescriptionFailure.INVALID_VALUE)
@@ -274,6 +283,8 @@ object PrescriptionValidator {
                         fail(PrescriptionFailure.INVALID_VALUE)
                     }
                     entry.cluster?.let { encoded ->
+                        // Every representable cluster segment carries a prescribed load.
+                        if (!document.includesWeights) fail(PrescriptionFailure.INVALID_VALUE)
                         if (runCatching { ClusterPrescriptionJson.decode(encoded) }.isFailure) {
                             fail(PrescriptionFailure.INVALID_VALUE)
                         }

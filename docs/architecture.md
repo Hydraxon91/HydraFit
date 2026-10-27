@@ -1333,8 +1333,12 @@ resolved values. It has no representation for
 performed history, personal records, notes, credentials, equipment inventories, schedule state, cycle
 progress or engine explanations, and `PrescriptionJson` rejects an unknown field rather than ignoring
 it, so a document cannot smuggle one in. `includesWeights` is the recorded user choice: the exporter
-omits prescribed weights unless it is true, and a document that claims to be weights-free but carries
-one is rejected. `PrescriptionValidator` checks the format/version, the shared prescription bounds,
+omits prescribed weights unless it is true. A weights-free export omits entire ordered per-set targets
+(including recipe inputs) and clusters, retaining the scalar set count and measurement. Validation
+rejects a weights-free document carrying a top-level weight, an ordered target weight, a recipe's
+start/end load or a cluster segment load; explicit zero counts as a load. Load-free ordered targets
+and recipe inputs remain valid on import. `PrescriptionValidator` checks the format/version, the shared
+prescription bounds,
 the shape bounds and the internal references without touching storage or a catalog. The current
 document version is 7: v2 added timed seconds, v3 the progression policy, v4 ordered per-set targets,
 v5 supersets, v6 whole-metre distance and v7 measured force. A field introduced in a later version is
