@@ -1,5 +1,7 @@
 package com.hydrafit.app
 
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.database.DatabaseDriverFactory
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.domain.backup.AutomaticBackupScheduler
@@ -225,8 +227,11 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -237,6 +242,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
@@ -944,6 +951,8 @@ class KoinModulesVerificationTest {
     fun theOnboardingViewModelsResolveAtRuntime() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
+        val store = ViewModelStore()
+        var entryJob: Job? = null
         val koin = koinApplication {
             modules(
                 module {
@@ -967,16 +976,25 @@ class KoinModulesVerificationTest {
             )
         }.koin
         try {
-            assertNotNull(koin.get<OnboardingViewModel>())
-            assertNotNull(koin.get<OnboardingEntryViewModel>())
+            store.put("onboarding", assertNotNull(koin.get<OnboardingViewModel>()))
+            val entry = assertNotNull(koin.get<OnboardingEntryViewModel>())
+            store.put("entry", entry)
+            entryJob = assertNotNull(entry.viewModelScope.coroutineContext[Job])
             advanceUntilIdle()
         } finally {
-            koin.close()
-            // Closing the resolved scopes cancels their Main-dispatched work; drain it before the
-            // reset, or the reset races a live Main dispatch and the next test inherits the leak.
-            advanceUntilIdle()
-            Dispatchers.resetMain()
+            try {
+                // Koin does not own these directly resolved ViewModels. Cancel their scopes and
+                // await the real Default-dispatcher read before removing the test Main dispatcher.
+                store.clear()
+                withContext(NonCancellable + Dispatchers.Default) {
+                    withTimeout(5_000) { entryJob?.join() }
+                }
+            } finally {
+                koin.close()
+                Dispatchers.resetMain()
+            }
         }
+        assertTrue(assertNotNull(entryJob).isCompleted)
     }
 
     @Test

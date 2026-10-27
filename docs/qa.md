@@ -41,6 +41,15 @@ exact on-screen text.
   save/pause/reopen persistence, controlled backup replace/merge and pinned-upgrade evidence.
   These remain unverified, not passed. This accepts the candidate's stated completion limits;
   it does not authorize publication or imply a reviewer waived them.
+- Publication paused after PR #42 merged: main CI `40471914588` failed onboarding runtime Koin
+  verification with a Main/Looper error. User approved a test-harness-only repair. The shared test
+  now owns resolved onboarding ViewModels, clears their store and waits for the entry job before
+  resetting Main, reusing the feature's existing teardown pattern. Targeted shared tests and lint
+  passed in `onboarding-ci-targeted.log` (311 fresh tasks); production app behavior is unchanged.
+- Luna approved the localized teardown fix. Final `onboarding-ci-full-matrix.log` passed
+  980 fresh tasks, including the full host suite, migration verification, lint, debug assembly,
+  release-specific lint and both required iOS compiles. Publication resumes through a corrective
+  PR with fresh CI; the earlier device-verification limits remain accepted and unverified.
   No release/minified APK was installed, and app data was not cleared.
 
 ## 0.11.0 station identity — 2026-10-26 (partial)
