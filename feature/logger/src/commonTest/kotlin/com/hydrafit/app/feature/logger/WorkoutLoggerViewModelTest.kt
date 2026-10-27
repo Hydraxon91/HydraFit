@@ -62,6 +62,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
@@ -104,6 +105,7 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -378,6 +380,191 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun manualWeightUnitChangesKeepCanonicalLoadAcrossRepeatedToggles() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val units = MutableStateFlow(WeightUnit.KG)
+        val viewModel = viewModel(repository = repository, weightUnitFlow = units)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("12.345678901234567")
+        units.value = WeightUnit.KG
+        runCurrent()
+        assertEquals("12.345678901234567", viewModel.state.value.weightInput)
+
+        repeat(4) {
+            units.value = WeightUnit.LB
+            runCurrent()
+            assertEquals(
+                exactEntryText(WeightUnit.LB.kilogramsToDisplay(12.345678901234567)),
+                viewModel.state.value.weightInput
+            )
+            units.value = WeightUnit.KG
+            runCurrent()
+            assertEquals("12.345678901234567", viewModel.state.value.weightInput)
+        }
+        assertTrue(viewModel.state.value.canLog)
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(12.345678901234567, repository.all().single().weightKg)
+    }
+
+    @Test
+    fun delayedManualPrefillUsesTheCurrentUnitAndRetainsItsCanonicalWeight() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 3,
+                    weightKg = 60.0,
+                    performedAtMillis = MONDAY - DAY
+                )
+            )
+        )
+        val units = MutableStateFlow(WeightUnit.KG)
+        val viewModel =
+            viewModel(repository = repository, timeMillis = MONDAY, weightUnitFlow = units)
+        advanceUntilIdle()
+        val gate = CompletableDeferred<Unit>()
+        repository.allGate = gate
+
+        viewModel.onExerciseSelected("back-squat")
+        runCurrent()
+        units.value = WeightUnit.LB
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(WeightUnit.LB, viewModel.state.value.weightUnit)
+        assertEquals(60.0, viewModel.state.value.manualWeightKg)
+        assertEquals(
+            exactEntryText(WeightUnit.LB.kilogramsToDisplay(60.0)),
+            viewModel.state.value.weightInput
+        )
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.onRepsChanged("3")
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(60.0, repository.all().maxBy { it.id }.weightKg)
+        units.value = WeightUnit.KG
+        runCurrent()
+        assertEquals("60", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun manualDistanceUnitChangesKeepWholeMetresAndInvalidTextUnresolved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val units = MutableStateFlow(DistanceUnit.METERS)
+        val viewModel = viewModel(repository = repository, distanceUnitFlow = units)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onMetricChanged(SetMetric.DISTANCE)
+        viewModel.onDistanceChanged("123")
+
+        repeat(4) {
+            units.value = DistanceUnit.FEET
+            runCurrent()
+            assertEquals(
+                exactEntryText(DistanceUnit.FEET.metresToDisplay(123)),
+                viewModel.state.value.distanceMeters
+            )
+            units.value = DistanceUnit.METERS
+            runCurrent()
+            assertEquals("123", viewModel.state.value.distanceMeters)
+        }
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(123, repository.all().single().distanceMeters)
+
+        viewModel.onDistanceChanged("1e")
+        assertEquals("1e", viewModel.state.value.distanceMeters)
+        units.value = DistanceUnit.FEET
+        runCurrent()
+        assertEquals("1e", viewModel.state.value.distanceMeters)
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
+    fun switchingAwayFromDistanceClearsItsCanonicalValueUntilPositiveReentry() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val viewModel = viewModel(repository = repository)
+            advanceUntilIdle()
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onMetricChanged(SetMetric.DISTANCE)
+            viewModel.onDistanceChanged("123")
+            assertTrue(viewModel.state.value.canLog)
+
+            viewModel.onMetricChanged(SetMetric.REPETITIONS)
+            viewModel.onRepsChanged("5")
+            viewModel.onMetricChanged(SetMetric.DISTANCE)
+
+            assertNull(viewModel.state.value.manualDistanceMetres)
+            assertFalse(viewModel.state.value.canLog)
+            viewModel.log()
+            advanceUntilIdle()
+            assertTrue(repository.all().isEmpty())
+
+            viewModel.onDistanceChanged("124")
+            assertTrue(viewModel.state.value.canLog)
+            viewModel.log()
+            advanceUntilIdle()
+            assertEquals(124, repository.all().single().distanceMeters)
+        }
+
+    @Test
+    fun blankAndZeroManualWeightRemainDistinctAndInvalidWeightCannotLog() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("")
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertNull(repository.all().single().weightKg)
+
+        viewModel.onWeightChanged("0")
+        assertEquals(0.0, viewModel.state.value.manualWeightKg)
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(0.0, repository.all().last().weightKg)
+
+        viewModel.onWeightChanged("1e")
+        assertEquals("1e", viewModel.state.value.weightInput)
+        val units = MutableStateFlow(WeightUnit.KG)
+        val togglingViewModel =
+            viewModel(repository = FakeWorkoutLogRepository(), weightUnitFlow = units)
+        advanceUntilIdle()
+        togglingViewModel.onExerciseSelected("back-squat")
+        togglingViewModel.onRepsChanged("5")
+        togglingViewModel.onWeightChanged("1e")
+        units.value = WeightUnit.LB
+        runCurrent()
+        assertEquals("1e", togglingViewModel.state.value.weightInput)
+        assertFalse(togglingViewModel.state.value.canLog)
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(2, repository.all().size)
+        viewModel.onWeightChanged("-1")
+        assertEquals("-1", viewModel.state.value.weightInput)
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(2, repository.all().size)
+    }
+
+    @Test
     fun quickFillsEveryFieldFromARecentSet() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
             initial = listOf(
@@ -404,6 +591,42 @@ class WorkoutLoggerViewModelTest {
         assertTrue(state.isWarmup)
         assertEquals("3", state.rir)
     }
+
+    @Test
+    fun recentWeightPrefillPreservesCanonicalPrecisionAcrossUnitTogglesAndLogging() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository(
+                initial = listOf(
+                    WorkoutSet(
+                        id = 1L,
+                        exerciseId = "back-squat",
+                        reps = 4,
+                        weightKg = 60.123,
+                        performedAtMillis = 1L
+                    )
+                )
+            )
+            val units = MutableStateFlow(WeightUnit.KG)
+            val viewModel = viewModel(repository = repository, weightUnitFlow = units)
+            advanceUntilIdle()
+            viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+            assertEquals(exactEntryText(60.123), viewModel.state.value.weightInput)
+            repeat(3) {
+                units.value = WeightUnit.LB
+                runCurrent()
+                assertEquals(
+                    exactEntryText(WeightUnit.LB.kilogramsToDisplay(60.123)),
+                    viewModel.state.value.weightInput
+                )
+                units.value = WeightUnit.KG
+                runCurrent()
+                assertEquals(exactEntryText(60.123), viewModel.state.value.weightInput)
+            }
+            viewModel.onRepsChanged("4")
+            viewModel.log()
+            advanceUntilIdle()
+            assertEquals(60.123, repository.all().maxBy { it.id }.weightKg)
+        }
 
     @Test
     fun quickFillingAForceSetKeepsItsExactNewtonsAndDeviceRating() = runTest(dispatcher) {
@@ -498,7 +721,10 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
 
-        assertEquals("220.5", viewModel.state.value.weightInput)
+        assertEquals(
+            exactEntryText(WeightUnit.LB.kilogramsToDisplay(100.0)),
+            viewModel.state.value.weightInput
+        )
     }
 
     @Test
@@ -875,6 +1101,54 @@ class WorkoutLoggerViewModelTest {
         assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
         assertEquals(8, viewModel.state.value.draftSets.single().reps)
         assertEquals(100.0, viewModel.state.value.draftSets.single().weightKg)
+    }
+
+    @Test
+    fun forceDraftEditKeepsExactForceAndDeviceRatingThroughResetApplyReopenAndLog() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val forceOccurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id != 30L) return@map occurrence
+            occurrence.copy(
+                entries = occurrence.entries.map { entry ->
+                    entry.copy(
+                        sets = 2,
+                        reps = null,
+                        durationSeconds = null,
+                        weightKg = null,
+                        forceNewtons = 247.35
+                    )
+                }
+            )
+        }
+        schedule.set(blockActivation(), forceOccurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        assertEquals("247.35", viewModel.state.value.draftEdit?.forceNewtons)
+        viewModel.onDraftForceChanged("300")
+        viewModel.onDraftDeviceNameChanged("Grip meter")
+        viewModel.onDraftDeviceRatingChanged("70.75")
+        viewModel.resetDraftEdit()
+        assertEquals("247.35", viewModel.state.value.draftEdit?.forceNewtons)
+        assertEquals("", viewModel.state.value.draftEdit?.deviceRatingKg)
+
+        viewModel.onDraftDeviceNameChanged("Grip meter")
+        viewModel.onDraftDeviceRatingChanged("60.25")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.editGuidedSet(40L)
+        assertEquals("247.35", viewModel.state.value.draftEdit?.forceNewtons)
+        assertEquals("60.25", viewModel.state.value.draftEdit?.deviceRatingKg)
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        val logged = repository.all().single()
+        assertEquals(247.35, logged.forceNewtons)
+        assertEquals(DeviceAttribution("Grip meter", 60.25), logged.device)
     }
 
     @Test
@@ -3852,7 +4126,9 @@ class WorkoutLoggerViewModelTest {
 
     @Test
     fun prefillsTheWeightFromTheAcceptedPlanSuggestionInTheDisplayUnit() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(
+            repository = repository,
             timeMillis = MONDAY,
             acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0),
             weightUnit = WeightUnit.LB
@@ -3861,8 +4137,15 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.onExerciseSelected("back-squat")
 
-        // 100 kg -> 220.46 lb, shown to one decimal
-        assertEquals("220.5", viewModel.state.value.weightInput)
+        // Editable text preserves the exact converted value rather than a rounded display value.
+        assertEquals(
+            exactEntryText(WeightUnit.LB.kilogramsToDisplay(100.0)),
+            viewModel.state.value.weightInput
+        )
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(100.0, repository.all().single().weightKg)
     }
 
     @Test
@@ -5609,6 +5892,8 @@ class WorkoutLoggerViewModelTest {
         history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG,
+        weightUnitFlow: MutableStateFlow<WeightUnit>? = null,
+        distanceUnitFlow: MutableStateFlow<DistanceUnit>? = null,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
         sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
         equipment: WorkoutLoggerEquipment = testEquipment()
@@ -5627,10 +5912,11 @@ class WorkoutLoggerViewModelTest {
         exerciseCatalog = catalog,
         runtime = WorkoutLoggerRuntime(TimeProvider { timeMillis }),
         settings = WorkoutLoggerSettings(
-            FakeWeightUnitRepository(weightUnit),
+            FakeWeightUnitRepository(weightUnitFlow ?: MutableStateFlow(weightUnit)),
             FakeGuidedWorkoutPreferenceRepository(false),
             FakeRestPreferenceRepository(),
-            FakeTrainingGuidancePreferences()
+            FakeTrainingGuidancePreferences(),
+            distanceUnitRepository = distanceUnitFlow?.let(::FakeDistanceUnitRepository)
         ),
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
@@ -10649,6 +10935,15 @@ class WorkoutLoggerViewModelTest {
         override fun unitFlow(): Flow<WeightUnit> = units
 
         override suspend fun setUnit(unit: WeightUnit) = Unit
+    }
+
+    private class FakeDistanceUnitRepository(private val units: MutableStateFlow<DistanceUnit>) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = units.value
+
+        override fun unitFlow(): Flow<DistanceUnit> = units
+
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
     }
 
     private class FakeGuidedWorkoutPreferenceRepository(private var enabled: Boolean) :

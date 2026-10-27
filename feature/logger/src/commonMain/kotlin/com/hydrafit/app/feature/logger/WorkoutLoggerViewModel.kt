@@ -297,12 +297,40 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             settings.weightUnitFlow().collectLatest { unit ->
-                _state.update { it.copy(weightUnit = unit) }
+                _state.update { current ->
+                    val value = current.weightInput.toDoubleOrNull()
+                    current.copy(
+                        weightUnit = unit,
+                        weightInput = if (unit == current.weightUnit ||
+                            value == null ||
+                            !value.isFinite() ||
+                            current.manualWeightKg == null
+                        ) {
+                            current.weightInput
+                        } else {
+                            exactEntryText(unit.kilogramsToDisplay(current.manualWeightKg))
+                        }
+                    )
+                }
             }
         }
         viewModelScope.launch {
             settings.distanceUnitFlow().collectLatest { unit ->
-                _state.update { it.copy(distanceUnit = unit) }
+                _state.update { current ->
+                    val value = current.distanceMeters.toDoubleOrNull()
+                    current.copy(
+                        distanceUnit = unit,
+                        distanceMeters = if (unit == current.distanceUnit ||
+                            value == null ||
+                            !value.isFinite() ||
+                            current.manualDistanceMetres == null
+                        ) {
+                            current.distanceMeters
+                        } else {
+                            exactEntryText(unit.metresToDisplay(current.manualDistanceMetres))
+                        }
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -427,6 +455,7 @@ class WorkoutLoggerViewModel(
                 selectedStationId = null,
                 exerciseInstructions = null,
                 weightInput = planWeight,
+                manualWeightKg = suggestedWeightKgByExercise[exerciseId],
                 reps = planReps?.toString() ?: it.reps,
                 // A prescription target is a rep count, so a plan suggestion returns the form to reps.
                 metric = if (planReps != null) SetMetric.REPETITIONS else it.metric,
@@ -441,7 +470,7 @@ class WorkoutLoggerViewModel(
         // The accepted plan's suggestion wins; only fall back to the last logged set when the plan
         // has no suggestion for this exercise.
         if (planWeight.isBlank()) {
-            viewModelScope.launch { prefillFromLastSet(exerciseId, unit) }
+            viewModelScope.launch { prefillFromLastSet(exerciseId) }
         }
         // Load the exercise setup note when an exercise is selected.
         onNoteExerciseSelected(exerciseId)
@@ -457,7 +486,7 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(selectedStationId = stationId) }
         // Station evidence is a separate comparison population; refresh the form from that station's
         // own latest set instead of leaving the exercise-level planner number in place.
-        viewModelScope.launch { prefillFromLastSet(exerciseId, current.weightUnit) }
+        viewModelScope.launch { prefillFromLastSet(exerciseId) }
     }
 
     fun openManualInstructions() {
@@ -495,7 +524,7 @@ class WorkoutLoggerViewModel(
     }
 
     /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
-    private suspend fun prefillFromLastSet(exerciseId: String, unit: WeightUnit) {
+    private suspend fun prefillFromLastSet(exerciseId: String) {
         val stationId = _state.value.selectedStationId
         val last = getWorkoutLog()
             .filter {
@@ -514,7 +543,10 @@ class WorkoutLoggerViewModel(
             if (current.selectedExerciseId != exerciseId) return@update current
             val option = current.exercises.firstOrNull { it.id == exerciseId }
             current.copy(
-                weightInput = weightInputFor(last.weightKg, unit),
+                weightInput = last.weightKg?.let {
+                    exactEntryText(current.weightUnit.kilogramsToDisplay(it))
+                }.orEmpty(),
+                manualWeightKg = last.weightKg,
                 metric = when {
                     last.forceNewtons != null -> SetMetric.FORCE
                     last.distanceMeters != null -> SetMetric.DISTANCE
@@ -527,6 +559,7 @@ class WorkoutLoggerViewModel(
                     ?.let { current.distanceUnit.displayWhole(it) }
                     ?.toString()
                     .orEmpty(),
+                manualDistanceMetres = last.distanceMeters,
                 forceNewtons = last.forceNewtons?.let(::exactEntryText).orEmpty(),
                 deviceName = last.device?.name.orEmpty(),
                 deviceRatingKg = last.device?.ratingKg?.let(::exactEntryText).orEmpty(),
@@ -551,7 +584,10 @@ class WorkoutLoggerViewModel(
             it.copy(
                 selectedExerciseId = row.exerciseId,
                 exerciseInstructions = null,
-                weightInput = weightInputFor(row.weightKg, unit),
+                weightInput = row.weightKg?.let {
+                    exactEntryText(unit.kilogramsToDisplay(it))
+                }.orEmpty(),
+                manualWeightKg = row.weightKg,
                 metric = when {
                     row.forceNewtons != null -> SetMetric.FORCE
                     row.distanceMeters != null -> SetMetric.DISTANCE
@@ -564,6 +600,7 @@ class WorkoutLoggerViewModel(
                     ?.let { meters -> it.distanceUnit.displayWhole(meters) }
                     ?.toString()
                     .orEmpty(),
+                manualDistanceMetres = row.distanceMeters,
                 forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
                 deviceName = row.device?.name.orEmpty(),
                 deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
@@ -956,7 +993,13 @@ class WorkoutLoggerViewModel(
     fun onDistanceChanged(value: String) {
         manualInputGeneration++
         _state.update {
-            it.copy(distanceMeters = value.filter { char -> char.isDigit() || char == '.' })
+            val text = value
+            val parsed = text.toDoubleOrNull()
+            it.copy(
+                distanceMeters = text,
+                manualDistanceMetres = parsed?.takeIf { number -> number.isFinite() }
+                    ?.let(it.distanceUnit::displayToMetres)
+            )
         }
     }
 
@@ -993,6 +1036,7 @@ class WorkoutLoggerViewModel(
                     metric = metric,
                     durationSeconds = "",
                     distanceMeters = "",
+                    manualDistanceMetres = null,
                     forceNewtons = "",
                     deviceName = "",
                     deviceRatingKg = ""
@@ -1001,6 +1045,7 @@ class WorkoutLoggerViewModel(
                     metric = metric,
                     reps = "",
                     distanceMeters = "",
+                    manualDistanceMetres = null,
                     forceNewtons = "",
                     deviceName = "",
                     deviceRatingKg = ""
@@ -1017,7 +1062,8 @@ class WorkoutLoggerViewModel(
                     metric = metric,
                     reps = "",
                     durationSeconds = "",
-                    distanceMeters = ""
+                    distanceMeters = "",
+                    manualDistanceMetres = null
                 )
             }
         }
@@ -1026,7 +1072,13 @@ class WorkoutLoggerViewModel(
     fun onWeightChanged(value: String) {
         manualInputGeneration++
         _state.update {
-            it.copy(weightInput = value.filter { char -> char.isDigit() || char == '.' })
+            val text = value
+            val parsed = text.toDoubleOrNull()
+            it.copy(
+                weightInput = text,
+                manualWeightKg = parsed?.takeIf { number -> number.isFinite() && number >= 0.0 }
+                    ?.let(it.weightUnit::displayToKilograms)
+            )
         }
     }
 
@@ -1079,7 +1131,7 @@ class WorkoutLoggerViewModel(
             null
         }
         val distanceMeters = if (current.metric == SetMetric.DISTANCE) {
-            current.distanceMeters.toDoubleOrNull()?.let(current.distanceUnit::displayToMetres)
+            if (current.distanceMeters.isBlank()) null else current.manualDistanceMetres
         } else {
             null
         }
@@ -1103,10 +1155,21 @@ class WorkoutLoggerViewModel(
         // A hidden weight field (bodyweight exercise not revealed, or any force reading) never logs
         // a weight, even if a value was retained from a previous exercise.
         val typedWeight = if (current.showWeightField) {
-            current.weightInput.toDoubleOrNull()
-                ?.let { current.weightUnit.displayToKilograms(it) }
+            if (current.weightInput.isBlank()) null else current.manualWeightKg
         } else {
             null
+        }
+        if (current.showWeightField &&
+            current.weightInput.isNotBlank() &&
+            typedWeight == null
+        ) {
+            return
+        }
+        if (current.metric == SetMetric.DISTANCE &&
+            current.distanceMeters.isNotBlank() &&
+            current.manualDistanceMetres == null
+        ) {
+            return
         }
         val capability = exercises.firstOrNull { it.id == exerciseId }?.loadCapability
             ?: ExerciseLoadCapability.EXTERNAL
@@ -1438,6 +1501,13 @@ class WorkoutLoggerViewModel(
                         ?: current.weightInput
                 } else {
                     current.weightInput
+                },
+                manualWeightKg = if (rebuildDrafts) {
+                    current.selectedExerciseId
+                        ?.let(suggestedWeightKgByExercise::get)
+                        ?: current.manualWeightKg
+                } else {
+                    current.manualWeightKg
                 }
             )
         }
@@ -1693,9 +1763,9 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
-                    forceNewtons = base.forceNewtons?.let(::formatWeight).orEmpty(),
+                    forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
                     deviceName = base.device?.name.orEmpty(),
-                    deviceRatingKg = base.device?.ratingKg?.let(::formatWeight).orEmpty(),
+                    deviceRatingKg = base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                     distanceUnit = current.distanceUnit,
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     weightUnit = current.weightUnit,
@@ -1820,9 +1890,9 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
-                    forceNewtons = base.forceNewtons?.let(::formatWeight).orEmpty(),
+                    forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
                     deviceName = base.device?.name.orEmpty(),
-                    deviceRatingKg = base.device?.ratingKg?.let(::formatWeight).orEmpty(),
+                    deviceRatingKg = base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                     distanceUnit = current.distanceUnit,
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     weightUnit = current.weightUnit,
@@ -2630,7 +2700,7 @@ class WorkoutLoggerViewModel(
     /** Prefills the weight field with the accepted plan's suggestion, in the display unit. */
     private fun suggestedInputFor(exerciseId: String, unit: WeightUnit): String =
         suggestedWeightKgByExercise[exerciseId]
-            ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
+            ?.let { exactEntryText(unit.kilogramsToDisplay(it)) }
             .orEmpty()
 
     private fun suggestedRepsFor(exerciseId: String): String? = acceptedToday?.exercises

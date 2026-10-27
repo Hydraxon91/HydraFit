@@ -1420,6 +1420,11 @@ canonical identity prefix is `distance:<n>`. Backup format 26 and prescription i
 distance and the preference, while older files reject a distance field rather than dropping or
 reinterpreting it; the PDF prints `"<n> m"`.
 
+The manual Logger keeps canonical whole metres beside its distance text. Switching to another measure
+clears both, so switching back cannot submit the prior distance until a new positive value is entered.
+Editable weight prefills from recent sets and accepted-plan suggestions use exact converted text rather
+than rounded display text, preserving the same canonical kilogram value through an untouched submission.
+
 ### 1.25 Force as the fourth set measure (0.11.2)
 
 Reps, whole seconds, whole metres and canonical newtons are mutually exclusive measures for performed

@@ -540,6 +540,10 @@ data class WorkoutLoggerUiState(
     val deviceRatingKg: String = "",
     val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val weightInput: String = "",
+    /** Canonical value represented by the manual weight text, retained across display-unit changes. */
+    val manualWeightKg: Double? = null,
+    /** Canonical whole-metre value represented by the manual distance text. */
+    val manualDistanceMetres: Int? = null,
     val rir: String = "",
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
@@ -831,7 +835,25 @@ data class WorkoutLoggerUiState(
         }
 
     val canLog: Boolean
-        get() = selectedExerciseId != null && enteredMetricIsPositive && deviceIsValid
+        get() = selectedExerciseId != null &&
+            enteredMetricIsPositive &&
+            deviceIsValid &&
+            manualWeightIsValid &&
+            manualDistanceIsValid
+
+    private val manualWeightIsValid: Boolean
+        get() = !showWeightField ||
+            weightInput.isBlank() ||
+            weightInput.toDoubleOrNull()?.let { value ->
+                value.isFinite() && value >= 0.0 && manualWeightKg != null
+            } == true
+
+    private val manualDistanceIsValid: Boolean
+        get() = metric != SetMetric.DISTANCE ||
+            distanceMeters.isBlank() ||
+            distanceMeters.toDoubleOrNull()?.let { value ->
+                value.isFinite() && manualDistanceMetres != null
+            } == true
 
     /**
      * True when the manual form's device fields may be submitted: only a force reading may carry a
@@ -845,7 +867,7 @@ data class WorkoutLoggerUiState(
         get() = when (metric) {
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
-            SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
+            SetMetric.DISTANCE -> (manualDistanceMetres ?: 0) > 0
             SetMetric.FORCE -> forceNewtons.toDoubleOrNull()
                 ?.let { it.isFinite() && it > 0.0 } == true
         }

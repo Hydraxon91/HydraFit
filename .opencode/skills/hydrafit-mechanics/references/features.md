@@ -341,6 +341,19 @@ because either the recent-sets read or the occurrence read can fail, and a refre
 after the context was replaced is not shown either. The set's occurrence/entry attribution and block
 day are captured at submission. These manual-log outcomes are in memory only.
 
+The manual Logger form retains canonical kilograms and whole metres alongside editable display text.
+Changing the weight or distance preference rewrites valid nonblank text from that canonical value,
+without accumulating conversion rounding across repeated toggles. Blank weight remains absent (and
+distinct from numeric zero); blank distance remains unsubmitted. Incomplete or invalid nonblank text
+stays visible and blocks both the Log action and direct submission. This applies only to manual
+inputs; force/device values are not converted, and draft and correction editors keep their own
+captured-unit behavior. Force and device-rating values in a draft editor use `exactEntryText` on open
+and Reset, preserving full stored precision through Apply, reopen and logging rather than rounding to
+one decimal place. Manual recent-set and plan weight prefills likewise use exact editable text after
+unit conversion, so the displayed and submitted canonical kilograms remain the same. Switching the
+manual measure away from distance clears both its text and canonical metres; returning to distance
+requires a new positive entry before either the Log action or direct submission is accepted.
+
 Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
 and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;
 the UI shows "Recorded session" at each boundary, including a returning identity without regrouping.
