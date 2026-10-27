@@ -35,7 +35,10 @@ Onboarding's `OnboardingModuleVerificationTest` verifies its external ports and 
 ViewModels/save actions at runtime, including an entry-ViewModel init read that must not write.
 The module owns the two setup use-case factories; databaseModule binds `SetupWriteRepository`,
 `SetupRepository` and `PreferredWeekdaysRepository`. The shared graph test now aggregates
-`onboardingModule` in both its static and runtime checks.
+`onboardingModule` in both its static and runtime checks. The runtime onboarding test owns directly
+resolved ViewModels in a `ViewModelStore`; it clears them and awaits the entry scope's completion
+before resetting test Main. Closing Koin alone does not cancel a directly resolved ViewModel, and
+draining the test scheduler alone does not await its real `Dispatchers.Default` read.
 `theDomainUseCaseGraphResolvesAtRuntime` actually resolves domain use cases with
 fake ports, covering missing collaborators that static verification can miss.
 Network verification supplies external types including `HttpClientEngine`.
