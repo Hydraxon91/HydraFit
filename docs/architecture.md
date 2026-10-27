@@ -1479,11 +1479,21 @@ Reopening reads the saved parent, so resumption appends rather than duplicates i
 shared draft submission guard serializes segment writes with other draft/guided submissions; an
 incomplete cluster prevents bulk confirmation from creating another parent for that slot.
 
+Editing an unstarted occurrence preserves progression policy and ordered targets only when an
+existing exercise id is unique in that occurrence. Duplicate ids are rejected without replacing any
+entries or metadata because the edit API has no stable entry identity; it does not guess which slot's
+policy, targets or cluster to retain. Unique compatible cluster prescriptions continue to survive
+unchanged edits.
+
 Manual cardio is a separate offline record with stable identity, start time, duration, optional
 distance and note. It has no resistance-session or fatigue contribution. Speed uses matching
 distance-and-duration totals, not durations from activities lacking distance. Settings exports a
 separate cardio CSV; formula-like note cells are prefixed for spreadsheet safety without changing
 stored text. Cardio cancellation is disabled while persistence is in flight.
+On resume, the Cardio screen refreshes its current UTC offset and local-day window, while an open
+editor retains the offset captured when its local timestamp text was created. Resume does not rewrite
+that text or write a record; submission parses it with the captured offset, and a subsequently opened
+editor uses the latest offset.
 
 Migrations `63.sqm` and `64.sqm` add cluster and cardio storage respectively. Backup formats 28 and
 29 carry these records; snapshot format 6 and prescription interchange v8 carry clusters. Restore

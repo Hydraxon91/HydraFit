@@ -14,7 +14,7 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
-## Integration repairs — INT-05 (2026-10-27; formal review pending)
+## Integration repairs — INT-05 (2026-10-27; source reviewed)
 
 - Based on `7166f1f2`, chunk 1 prevents weights-free prescription JSON from retaining ordered
   target/recipe loads or clusters. Weighted export remains unchanged; validation rejects nested
@@ -26,10 +26,11 @@ exact on-screen text.
   passed. Debug assembly passed with 31 tasks executed and 322 inherited; tooling validation reported
   zero findings. Bounded logs and copied test results: external OpenCode temp directory,
   `integration-int05/`.
-- No device, database import-write or release-integration acceptance was performed. Formal review
-  remains pending. Later chunk-2 test drafts were not part of this verification run.
+- Independent Luna High review found no defect in this chunk's source contract. No device,
+  database import-write or release-integration acceptance was performed. Later chunk-2 test drafts
+  were not part of this verification run.
 
-## Integration repairs — INT-02 / INT-04 (2026-10-27; formal review pending)
+## Integration repairs — INT-02 / INT-04 (2026-10-27; source reviewed)
 
 - Based on `64ae3ea`, chunk 2 excludes complete/partial clusters from ordinary and ordered
   progression before grouping, and preserves cluster summaries through Progress history/replay.
@@ -40,9 +41,46 @@ exact on-screen text.
   Migration verification, debug assembly, shared/network iOS compilation and root ktlint passed
   with fresh task execution. Logs: external OpenCode temp directory, `integration-clusters/luna-*.log`.
 - Regression evidence is source-based: no failing-before behavioral run was performed. Sol authored
-  the initial two test drafts; Luna completed them and implemented the production fix. No device
-  acceptance or independent review was performed. Exposing cluster identity in the history model
-  does not prove how every UI consumer presents it.
+  the initial two test drafts; Luna completed them and implemented the production fix. Independent
+  Luna High review found no defect in this chunk's source contract. No device acceptance was
+  performed. Exposing cluster identity in the history model does not prove every UI presentation.
+
+## Integration repairs — Logger measurements (2026-10-27; UI round-trip unresolved)
+
+- INT-03 retains canonical manual kilograms/whole metres through unit changes; invalid nonblank
+  input remains unresolved and cannot log. GW-03 uses exact force/device-rating text in draft open
+  and Reset. Its new regression failed before the fix (`247.35` became `247.4`) and passed afterward.
+- Review fixes IR-R01 and IR-R03 clear canonical distance with its text and show exact canonical
+  weight prefills. Luna High targeted closure closed both at `30d59b54` plus the reviewed working
+  tree (full tracked delta SHA-256 `1c8666f2d0f288348372906191808c9c8e669de049ea393f364d1f81d086357b`).
+- Final combined verification: full host tests (442 tasks executed), scoped ktlint (67), root
+  ktlint (320), migration verification (1), debug assembly (353) and shared/network iOS compiles
+  (146) passed. Logs: external OpenCode temp directory, `integration-review-fixes/`.
+- The reviewed debug APK was installed with `adb install -r` on `emulator-5554`, preserving data.
+  Logger baseline assertions for Back Squat, 6 reps and 85 kg passed. Two prepared unit journeys
+  stopped at the checked-parent assertion for Kilograms despite the captured hierarchy showing its
+  parent checked. Neither attempt reached a preference or record write; no automatic retry remains.
+  Artifacts: `integration-ui-units-results/` and `integration-ui-units-retry-results/` under the
+  external OpenCode temp directory. The pounds/kilograms round-trip remains unresolved.
+- No new device verification of distance metric clearing, force draft precision, actual logging,
+  larger fonts, dark mode, locale or accessibility traversal is claimed. These limits do not erase
+  the passing host regressions. The user requested unresolved UI steps be retained for later work.
+
+## Integration repairs — occurrence/Cardio context (2026-10-27; limited device smoke)
+
+- INT-01 preserves compatible unique cluster prescriptions and rejects ambiguous duplicate-exercise
+  edits before writing. IR-R02's domain and SQLDelight regression proves rejection retains stored
+  occurrence metadata. INT-06 refreshes current offset/day while an open timestamp editor keeps its
+  captured offset through save/retry. Luna High targeted closure closed IR-R02 and inspected Cardio's
+  completed changes against the same reviewed working tree; the combined verification above passed.
+- Prepared Cardio smoke passed once on `emulator-5554`: asserted the new editor's timestamp and metre
+  label, canceled the parent-opened unsaved editor, asserted empty history and returned to Logger
+  with no active session. Both screenshots were viewed. Artifacts: external OpenCode temp directory,
+  `integration-ui-cardio-accept-results/2026-10-27_171302/`.
+- No activity, workout set or session was written. Device timezone changes, Cardio save/persistence,
+  occurrence-edit UI reachability and the cross-cutting font/theme/locale/accessibility matrix remain
+  unverified. The five-chunk scope is not complete: GW-01/GW-02 still require Chunk 4's approved
+  persistence design and implementation.
 
 ## 0.11.3–0.11.4 candidate — 2026-10-27 (acceptance incomplete)
 
@@ -4258,55 +4296,3 @@ rather than unit-tested because it is Compose-only.
   paths are documented above as user-verified, not flow-asserted.
 - **Still unverified.** A device backup restore or merge carrying force/device, the added-load
   planner suggestion on device, and the station/distance surfaces (not re-accepted in this round).
-
-## Integration repairs — INT-05 (2026-10-27; source reviewed)
-
-- Based on `7166f1f2`, chunk 1 prevents weights-free prescription JSON from retaining ordered
-  target/recipe loads or clusters. Weighted export remains unchanged; validation rejects nested
-  prescribed loads, including explicit zero where representable.
-- `PrescriptionInterchangeTest` exercises export → JSON → validation → import-preview mapping,
-  retained scalar sets/reps and unchanged source routines. Two new regressions failed before the fix
-  (23 tests, 2 failures); the corrected full domain run passed 1,233 tests across 126 suites.
-- Fresh `:core:domain:ktlintCheck --rerun-tasks` and `:core:domain:testAndroidHostTest --rerun-tasks`
-  passed. Debug assembly passed with 31 tasks executed and 322 inherited; tooling validation reported
-  zero findings. Bounded logs and copied test results: external OpenCode temp directory,
-  `integration-int05/`.
-- Independent Luna High review found no defect in this chunk's source contract. No device,
-  database import-write or release-integration acceptance was performed. Later chunk-2 test drafts
-  were not part of this verification run.
-
-## Integration repairs — INT-02 / INT-04 (2026-10-27; source reviewed)
-
-- Based on `64ae3ea`, chunk 2 excludes complete/partial clusters from ordinary and ordered
-  progression before grouping, and preserves cluster summaries through Progress history/replay.
-  Stored rows and encodings are unchanged. Tests cover real repository producers, mixed populations,
-  520 cluster parents across paging boundaries, set lookup, correction and deletion.
-- Fresh full host tests passed (442 tasks executed); targeted suites reported 22 progression tests,
-  13 Progress repository tests and 7 planner-source repository tests, without failures/errors.
-  Migration verification, debug assembly, shared/network iOS compilation and root ktlint passed
-  with fresh task execution. Logs: external OpenCode temp directory, `integration-clusters/luna-*.log`.
-- Regression evidence is source-based: no failing-before behavioral run was performed. Sol authored
-  the initial two test drafts; Luna completed them and implemented the production fix. Independent
-  Luna High review found no defect in this chunk's source contract. No device acceptance was
-  performed. Exposing cluster identity in the history model does not prove every UI presentation.
-
-## Integration repairs — Logger measurements (2026-10-27; UI round-trip unresolved)
-
-- INT-03 retains canonical manual kilograms/whole metres through unit changes; invalid nonblank
-  input remains unresolved and cannot log. GW-03 uses exact force/device-rating text in draft open
-  and Reset. Its new regression failed before the fix (`247.35` became `247.4`) and passed afterward.
-- Review fixes IR-R01 and IR-R03 clear canonical distance with its text and show exact canonical
-  weight prefills. Luna High targeted closure closed both at `30d59b54` plus the reviewed working
-  tree (full tracked delta SHA-256 `1c8666f2d0f288348372906191808c9c8e669de049ea393f364d1f81d086357b`).
-- Final combined verification: full host tests (442 tasks executed), scoped ktlint (67), root
-  ktlint (320), migration verification (1), debug assembly (353) and shared/network iOS compiles
-  (146) passed. Logs: external OpenCode temp directory, `integration-review-fixes/`.
-- The reviewed debug APK was installed with `adb install -r` on `emulator-5554`, preserving data.
-  Logger baseline assertions for Back Squat, 6 reps and 85 kg passed. Two prepared unit journeys
-  stopped at the checked-parent assertion for Kilograms despite the captured hierarchy showing its
-  parent checked. Neither attempt reached a preference or record write; no automatic retry remains.
-  Artifacts: `integration-ui-units-results/` and `integration-ui-units-retry-results/` under the
-  external OpenCode temp directory. The pounds/kilograms round-trip remains unresolved.
-- No new device verification of distance metric clearing, force draft precision, actual logging,
-  larger fonts, dark mode, locale or accessibility traversal is claimed. These limits do not erase
-  the passing host regressions. The user requested unresolved UI steps be retained for later work.

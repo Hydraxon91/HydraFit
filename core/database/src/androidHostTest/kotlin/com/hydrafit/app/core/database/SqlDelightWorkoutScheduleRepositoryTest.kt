@@ -13,6 +13,9 @@ import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
@@ -21,7 +24,9 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout
+import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryDraft
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
@@ -897,6 +902,40 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         assertEquals(5, reloaded.entries[0].sets)
         assertEquals("overhead-press", reloaded.entries[1].exerciseId)
         assertTrue(reloaded.entries[1].id != 0L)
+    }
+
+    @Test
+    fun ambiguousDuplicateOccurrenceEditLeavesSqlDelightRowsAndMetadataUnchanged() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null), false)
+        val occurrence = repository.occurrences(id).first()
+        val targets = listOf(
+            SlotSetTargets.of(List(3) { SetTarget(reps = 8, weightKg = 30.0) }),
+            SlotSetTargets.of(List(3) { SetTarget(reps = 6, weightKg = 35.0) })
+        )
+        val policy = SlotProgressionPolicy(minReps = 6, maxReps = 10, incrementKg = 2.5)
+        val original = occurrence.entries.single()
+        val duplicates = listOf(
+            original.copy(position = 0, setTargets = targets[0], progressionPolicy = policy),
+            original.copy(position = 1, setTargets = targets[1])
+        )
+        repository.replaceOccurrenceEntries(occurrence.id, duplicates)
+        val before = requireNotNull(repository.getOccurrence(occurrence.id))
+        val edit = EditUnstartedOccurrenceUseCase(
+            repository,
+            SqlDelightWorkoutLogRepository(database),
+            SqlDelightExerciseCatalog(database)
+        )
+
+        assertFailsWith<ScheduleException> {
+            edit(
+                occurrence.id,
+                listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8, weightKg = 30.0))
+            )
+        }
+
+        assertEquals(before, repository.getOccurrence(occurrence.id))
+        assertEquals(before.entries, repository.getOccurrence(occurrence.id)?.entries)
     }
 
     @Test

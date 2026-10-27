@@ -14,6 +14,12 @@ performed timed/distance sets do not enter rep-derived fatigue or load inputs; a
 its own load separate from the distance. Informational soreness/exhaustion storage is deferred; do
 not infer that the existing fatigue-based skip/reduce behavior consumes user reports.
 
+Editing an unstarted occurrence matches existing prescription metadata by exercise id only when that
+id occurs once. If an occurrence contains duplicate exercise entries, the editor rejects the request
+without writing rather than guessing which `progressionPolicy`, ordered `setTargets`, or cluster
+belongs to the edited slot. A future stable-entry-identity editing contract is deferred; no heuristic
+mapping is applied. A unique compatible clustered entry continues to preserve its recorded cluster.
+
 ## Curated planner superset pairing (0.10.3)
 
 `PlanRequest.plannerSupersetPreference` is null by default; a non-null
