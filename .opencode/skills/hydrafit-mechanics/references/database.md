@@ -86,6 +86,12 @@ summary's live occurrence read seeks one occurrence instead of scanning the set 
 `ExerciseProgressIndexMigrationTest` and `WorkoutSetOccurrenceIndexMigrationTest` cover preservation
 and indexed query plans for fresh/migrated schemas. The request fixes
 `nowMillis` and the UTC offset; future passage/offset changes require a new request from the caller.
+History and replay projections also carry the parent set's nullable cluster kind and planned/performed
+segment counts. They decode through the same strict `clusterSummaryOf` helper as workout-log mapping,
+preserving complete and partial cluster identity without reading or rewriting stored segment rows.
+`ProgressionHistory` and descriptive Progress records use that identity to exclude cluster parents
+from ordinary exposure and record populations; cluster work is not treated as an `UNKNOWN` ordinary
+exposure. This remains query-only and requires no schema or stored-format change.
 Query-only equipment identity repair (0.7.6 C6) adds custom-id movement and per-row equipment-reference
 updates in `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq` and `TrainingSchedule.sq`.
 `SeedEquipmentCatalog` remaps legacy custom equipment on reserved ids transactionally before canonical

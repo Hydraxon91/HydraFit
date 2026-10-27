@@ -349,6 +349,13 @@ Corrections rewrite performance only — a target is never rewritten.
 non-warmup recorded work by **explicit session**, orders sessions by earliest
 performed time, and classifies each exposure against its own target:
 
+Sets with a stored cluster identity (complete or partial) are excluded from both
+ordinary and ordered progression before session grouping. They do not create an
+`UNKNOWN` exposure or break an ordinary streak. A mixed session is judged from its
+ordinary sets only; a session containing only clusters contributes no progression
+evidence. The recorded cluster identity remains available in exercise history and
+replay so filtering never erases or reclassifies the stored work.
+
 - `SUCCESS` — the session is closed at or before `nowMillis`, every set in it names
   the same comparable target, the target is a non-deload typed external rep target
   with a positive load, and at least `sets` recorded sets reached both the target

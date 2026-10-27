@@ -26,7 +26,10 @@ data class ProgressionHistory(
     ): List<ProgressionExposure> {
         val sessionsById = sessions.associateBy { it.id }
         val work = sets.filter {
-            it.exerciseId == exerciseId && !it.isWarmup && it.performedAtMillis <= nowMillis
+            it.exerciseId == exerciseId &&
+                !it.isWarmup &&
+                it.cluster == null &&
+                it.performedAtMillis <= nowMillis
         }
         return work.withIndex().groupBy { (index, set) ->
             set.sessionId?.let { true to it } ?: (false to index.toString())
@@ -100,7 +103,10 @@ data class ProgressionHistory(
     ): List<OrderedExposure> {
         val sessionsById = sessions.associateBy { it.id }
         val work = sets.filter {
-            it.exerciseId == exerciseId && !it.isWarmup && it.performedAtMillis <= nowMillis
+            it.exerciseId == exerciseId &&
+                !it.isWarmup &&
+                it.cluster == null &&
+                it.performedAtMillis <= nowMillis
         }
         return work.withIndex().groupBy { (index, set) ->
             set.sessionId?.let { true to it } ?: (false to index.toString())

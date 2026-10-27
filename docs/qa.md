@@ -29,6 +29,21 @@ exact on-screen text.
 - No device, database import-write or release-integration acceptance was performed. Formal review
   remains pending. Later chunk-2 test drafts were not part of this verification run.
 
+## Integration repairs — INT-02 / INT-04 (2026-10-27; formal review pending)
+
+- Based on `64ae3ea`, chunk 2 excludes complete/partial clusters from ordinary and ordered
+  progression before grouping, and preserves cluster summaries through Progress history/replay.
+  Stored rows and encodings are unchanged. Tests cover real repository producers, mixed populations,
+  520 cluster parents across paging boundaries, set lookup, correction and deletion.
+- Fresh full host tests passed (442 tasks executed); targeted suites reported 22 progression tests,
+  13 Progress repository tests and 7 planner-source repository tests, without failures/errors.
+  Migration verification, debug assembly, shared/network iOS compilation and root ktlint passed
+  with fresh task execution. Logs: external OpenCode temp directory, `integration-clusters/luna-*.log`.
+- Regression evidence is source-based: no failing-before behavioral run was performed. Sol authored
+  the initial two test drafts; Luna completed them and implemented the production fix. No device
+  acceptance or independent review was performed. Exposing cluster identity in the history model
+  does not prove how every UI consumer presents it.
+
 ## 0.11.3–0.11.4 candidate — 2026-10-27 (acceptance incomplete)
 
 - User manually confirmed cluster prescription save/reopen, logging and the segment-aware recorded

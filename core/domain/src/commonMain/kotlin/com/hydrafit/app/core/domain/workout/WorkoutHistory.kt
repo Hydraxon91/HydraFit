@@ -111,7 +111,9 @@ data class WorkoutHistorySet(
     /** Measured force in newtons for a force set, or null for every other metric. */
     val forceNewtons: Double? = null,
     /** The frozen measuring device identity and rating, or null when none was recorded. */
-    val device: DeviceAttribution? = null
+    val device: DeviceAttribution? = null,
+    /** Frozen cluster identity; null denotes ordinary work. */
+    val cluster: WorkoutClusterSummary? = null
 )
 
 internal const val WORKOUT_HISTORY_DEFAULT_PAGE_SIZE = 30

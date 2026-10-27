@@ -97,7 +97,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
         // history is a separate comparison population and must not seed this exercise-level rule.
         val sets = database.workoutLogQueries.selectAllSets().executeAsList()
             .map { it.toDomain() }
-            .filter { it.station == null }
+            .filter { it.station == null && it.cluster == null }
         val sessions = database.workoutSessionQueries.selectAllSessions().executeAsList()
             .map { it.toDomain() }
         val entries = database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList()
