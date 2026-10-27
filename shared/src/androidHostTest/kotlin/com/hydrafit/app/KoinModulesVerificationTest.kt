@@ -30,6 +30,8 @@ import com.hydrafit.app.core.domain.backup.UnsupportedAutomaticBackupScheduler
 import com.hydrafit.app.core.domain.backup.UnsupportedBackupCrypto
 import com.hydrafit.app.core.domain.backup.UnsupportedBackupEncryptionKeyStore
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
+import com.hydrafit.app.core.domain.cardio.CardioActivity
+import com.hydrafit.app.core.domain.cardio.CardioRepository
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
@@ -133,6 +135,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOccurrenceRecordsUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.domain.workout.RestCountdownRepository
@@ -143,6 +146,7 @@ import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryEntry
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryPage
@@ -630,6 +634,7 @@ class KoinModulesVerificationTest {
                     single<WorkoutLogRepository> { FakeWorkoutLogRepository }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<ExerciseCatalog> { FakeExerciseCatalog }
+                    single<CardioRepository> { FakeCardioRepository }
                 },
                 domainModule,
                 settingsModule,
@@ -1278,8 +1283,30 @@ class KoinModulesVerificationTest {
         override suspend fun all(): List<Exercise> = emptyList()
     }
 
+    private object FakeCardioRepository : CardioRepository {
+        override fun activitiesFlow(): Flow<List<CardioActivity>> = emptyFlow()
+
+        override suspend fun all(): List<CardioActivity> = emptyList()
+
+        override suspend fun add(activity: CardioActivity): Long = error("Not used by graph test")
+
+        override suspend fun update(activity: CardioActivity) = error("Not used by graph test")
+
+        override suspend fun delete(id: Long) = error("Not used by graph test")
+
+        override suspend fun byIdentity(identity: String): CardioActivity? =
+            error("Not used by graph test")
+    }
+
     private object FakeWorkoutLogRepository : WorkoutLogRepository {
         override suspend fun add(set: WorkoutSet) = Unit
+
+        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
+
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
 
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

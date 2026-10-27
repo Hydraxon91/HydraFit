@@ -6,6 +6,10 @@ import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -182,7 +186,7 @@ class BackupValidatorTest {
         }
         // A format that predates force has no field for it.
         assertFailure(BackupFailure.INVALID_VALUE) {
-            profiledFile(BACKUP_FORMAT_VERSION - 1).copy(workoutSets = listOf(forceSet))
+            profiledFile(FORCE_FORMAT_VERSION - 1).copy(workoutSets = listOf(forceSet))
         }
     }
 
@@ -202,7 +206,7 @@ class BackupValidatorTest {
             )
         }
         assertFailure(BackupFailure.INVALID_VALUE) {
-            forceFile.copy(formatVersion = BACKUP_FORMAT_VERSION - 1)
+            forceFile.copy(formatVersion = FORCE_FORMAT_VERSION - 1)
         }
     }
 
@@ -1471,6 +1475,157 @@ class BackupValidatorTest {
                 )
             )
         )
+
+    @Test
+    fun acceptsACompleteAndAPartialClusterInAFormat28File() {
+        validator.validate(
+            profiledFile(CLUSTER_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set(id = 1L).copy(
+                        clusterKind = "DROP_SET",
+                        clusterPlannedSegments = 3,
+                        clusterPerformedSegments = 3
+                    ),
+                    set(id = 2L).copy(
+                        clusterKind = "REST_PAUSE",
+                        clusterPlannedSegments = 4,
+                        clusterPerformedSegments = 2
+                    )
+                ),
+                workoutClusterSegments = listOf(
+                    BackupClusterSegmentRecord(1L, 1, 10, 90.0, 1),
+                    BackupClusterSegmentRecord(1L, 2, 8, 80.0, 0),
+                    BackupClusterSegmentRecord(2L, 1, 6, 60.0, null)
+                )
+            )
+        )
+    }
+
+    @Test
+    fun rejectsClusterDataInAPre28File() {
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(CLUSTER_FORMAT_VERSION - 1).copy(
+                workoutSets = listOf(
+                    set().copy(
+                        clusterKind = "DROP_SET",
+                        clusterPlannedSegments = 2,
+                        clusterPerformedSegments = 2
+                    )
+                ),
+                workoutClusterSegments = listOf(BackupClusterSegmentRecord(1L, 1, 8, 80.0))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(CLUSTER_FORMAT_VERSION - 1).copy(
+                workoutSets = listOf(set().copy(clusterPlannedSegments = 2))
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            profiledFile(CLUSTER_FORMAT_VERSION - 1).copy(
+                workoutClusterSegments = listOf(BackupClusterSegmentRecord(1L, 1, 8, 80.0))
+            )
+        }
+        val entryFile = planEntryFile(CLUSTER_FORMAT_VERSION - 1, reps = 5, durationSeconds = null)
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            entryFile.copy(
+                planEntries = entryFile.planEntries.map { it.copy(cluster = encodedCluster()) }
+            )
+        }
+    }
+
+    @Test
+    fun rejectsASegmentWhoseParentIsNotACluster() {
+        assertFailure(BackupFailure.INVALID_REFERENCE) {
+            profiledFile(CLUSTER_FORMAT_VERSION).copy(
+                workoutClusterSegments = listOf(BackupClusterSegmentRecord(1L, 1, 8, 80.0))
+            )
+        }
+    }
+
+    @Test
+    fun rejectsNonContiguousClusterSegments() {
+        val clustered = {
+            profiledFile(CLUSTER_FORMAT_VERSION).copy(
+                workoutSets = listOf(
+                    set().copy(
+                        clusterKind = "DROP_SET",
+                        clusterPlannedSegments = 3,
+                        clusterPerformedSegments = 3
+                    )
+                )
+            )
+        }
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            clustered().copy(
+                workoutClusterSegments = listOf(
+                    BackupClusterSegmentRecord(1L, 1, 8, 80.0),
+                    BackupClusterSegmentRecord(1L, 3, 6, 60.0)
+                )
+            )
+        }
+        assertFailure(BackupFailure.DUPLICATE_ID) {
+            clustered().copy(
+                workoutClusterSegments = listOf(
+                    BackupClusterSegmentRecord(1L, 1, 8, 80.0),
+                    BackupClusterSegmentRecord(1L, 1, 6, 60.0)
+                )
+            )
+        }
+        // A partial cluster records exactly the segments it performed, not the ones it skipped.
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            clustered().copy(
+                workoutSets = listOf(
+                    set().copy(
+                        clusterKind = "DROP_SET",
+                        clusterPlannedSegments = 3,
+                        clusterPerformedSegments = 1
+                    )
+                ),
+                workoutClusterSegments = listOf(BackupClusterSegmentRecord(1L, 1, 8, 80.0))
+            )
+        }
+    }
+
+    @Test
+    fun acceptsAPrescribedClusterOnAFormat28ExternalRepSlot() {
+        val base = planEntryFile(CLUSTER_FORMAT_VERSION, reps = 5, durationSeconds = null)
+        validator.validate(
+            base.copy(planEntries = base.planEntries.map { it.copy(cluster = encodedCluster()) })
+        )
+    }
+
+    @Test
+    fun rejectsAnInvalidOrNonRepClusterPrescription() {
+        val base = planEntryFile(CLUSTER_FORMAT_VERSION, reps = 5, durationSeconds = null)
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            base.copy(planEntries = base.planEntries.map { it.copy(cluster = "{}") })
+        }
+        val timed = planEntryFile(CLUSTER_FORMAT_VERSION, reps = null, durationSeconds = 60)
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            timed.copy(planEntries = timed.planEntries.map { it.copy(cluster = encodedCluster()) })
+        }
+        val bodyweight = base.copy(
+            planEntries = base.planEntries.map {
+                it.copy(loadKind = LoadKind.BODYWEIGHT.name, suggestedWeightKg = null)
+            }
+        )
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            bodyweight.copy(
+                planEntries = bodyweight.planEntries.map { it.copy(cluster = encodedCluster()) }
+            )
+        }
+    }
+
+    private fun encodedCluster() = ClusterPrescriptionJson.encode(
+        ClusterPrescription(
+            kind = ClusterKind.DROP_SET,
+            segments = listOf(
+                ClusterSegmentTarget(reps = 5, weightKg = 100.0),
+                ClusterSegmentTarget(reps = 5, weightKg = 80.0, rir = 1)
+            ),
+            restSeconds = 20
+        )
+    )
 
     private fun assertFailure(expected: BackupFailure, mutate: () -> BackupFile) {
         val failure = assertFailsWith<BackupException> { validator.validate(mutate()) }

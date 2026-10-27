@@ -35,6 +35,7 @@ class BuildRecentWeightsUseCase(private val config: RecentWeightsConfig = Recent
     ): List<WeightHistoryEntry> = sets
         .filter {
             !it.isWarmup &&
+                it.cluster == null &&
                 it.reps != null &&
                 (it.weightKg == null || it.weightKg > 0.0)
         }

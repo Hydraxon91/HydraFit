@@ -19,7 +19,8 @@ class SqlDelightTrainingCoverageRepository(private val database: HydraFitDatabas
                     CoverageSet(
                         performedAtMillis = row.performedAt,
                         isWarmup = row.isWarmup != 0L,
-                        involvements = row.involvements?.let(::decodeInvolvements)
+                        involvements = row.involvements?.let(::decodeInvolvements),
+                        isCluster = row.clusterKind != null
                     )
                 }
             }.flowOn(Dispatchers.Default)

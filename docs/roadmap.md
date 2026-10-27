@@ -433,8 +433,8 @@ that delivered duration slice.
 | 0.11.0 | EQ-02 equipment load identity and EQ-02-A station split/grid setup; remaining duration-adjacent content is explicitly deferred to a separately sourced content chunk | Station records under existing equipment tags, not a 40-row tag remap; performed-set identity, backup format 25 and additive migration; full consumer and portability chain |
 | 0.11.1 | Approved distance-based sets and carries (former `0.11.2`) | OF-10C; metric contract and all consumers/formats in the same release; exact schema gate at its boundary |
 | 0.11.2 | Approved force/device-rated grip metrics (former `0.11.3`); EX-02-A added-load progression | OF-10C; measured force and device ratings remain separate; added-load progression is success/descriptive only, with no new e1RM formula unless separately validated |
-| 0.11.3 | Supported drop-set clusters; supported rest-pause clusters (former `0.11.4`–`0.11.5`) | OF-10D; research and cluster contract first |
-| 0.11.4 | Supported cardio slice (former `0.11.6`) | OF-10D; measurement/ownership research and approved end-to-end scope first |
+| 0.11.3 | Supported drop-set clusters; supported rest-pause clusters (former `0.11.4`–`0.11.5`) | OF-10D; implemented and source review closed 2026-10-27; publication pending. [QA evidence and accepted device-verification limits](qa.md); [review](review-0.11.3-snapshot.md). |
+| 0.11.4 | Supported cardio slice (former `0.11.6`) | OF-10D; implemented and source review closed 2026-10-27, folded into 0.11.3. [QA evidence and accepted device-verification limits](qa.md); [review](review-0.11.4-snapshot.md). |
 
 Distance/force and advanced-set/cardio targets are conditional on their contracts
 and evidence. Unsupported outcomes need explicit disposition, not rep-based

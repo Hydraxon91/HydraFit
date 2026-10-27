@@ -19,6 +19,32 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
                 "That set no longer exists"
             }.toDomain()
             WorkoutLoadPolicy.validateShape(set.loadKind, correction.weightKg)
+            correction.clusterSegments?.let { segments ->
+                val summary = requireNotNull(set.cluster) { "That set is not a cluster" }
+                require(segments.size == summary.performedSegments) {
+                    "A correction must preserve the recorded segment count"
+                }
+                segments.forEachIndexed { index, segment ->
+                    require(segment.position == index) { "Cluster segments must remain ordered" }
+                    segment.requireValid()
+                }
+                require(
+                    segments.first().reps == correction.reps &&
+                        segments.first().weightKg == correction.weightKg &&
+                        segments.first().rir == correction.rir
+                ) { "The parent must match the opening segment" }
+                val clusterQueries = database.workoutClusterQueries
+                clusterQueries.deleteSegmentsForSet(setId)
+                segments.drop(1).forEach { segment ->
+                    clusterQueries.insertSegment(
+                        setId = setId,
+                        position = segment.position.toLong(),
+                        reps = segment.reps.toLong(),
+                        weightKg = segment.weightKg,
+                        rir = segment.rir?.toLong()
+                    )
+                }
+            }
             val measureKindChanged =
                 (set.reps != null) != (correction.reps != null) ||
                     (set.durationSeconds != null) != (correction.durationSeconds != null) ||

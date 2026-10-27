@@ -125,6 +125,87 @@ class BackupMergePolicyTest {
     }
 
     @Test
+    fun mergeInsertsAClusterParentWithItsSegments() {
+        val parent = set(sessionId = "s1", id = 7L).copy(
+            clusterKind = "DROP_SET",
+            clusterPlannedSegments = 3,
+            clusterPerformedSegments = 3
+        )
+        val selection = BackupMergePolicy.select(
+            file(
+                sessions = listOf(session("s1")),
+                sets = listOf(parent),
+                clusterSegments = listOf(
+                    BackupClusterSegmentRecord(7L, 1, 10, 90.0, 1),
+                    BackupClusterSegmentRecord(7L, 2, 8, 80.0, null)
+                )
+            ),
+            noLocalKeys()
+        )
+
+        val merged = selection.setsToInsert.single()
+        assertEquals("DROP_SET", merged.clusterKind)
+        assertEquals(3, merged.clusterPlannedSegments)
+        assertEquals(3, merged.clusterPerformedSegments)
+        assertEquals(7L, merged.sourceSetId)
+        assertEquals(listOf(7L, 7L), selection.clusterSegmentsToInsert.map { it.setId })
+        assertEquals(listOf(1, 2), selection.clusterSegmentsToInsert.map { it.position })
+        assertEquals(4, selection.insertCount)
+    }
+
+    @Test
+    fun mergeNeverAttachesSegmentsToASkippedSessionsParent() {
+        val selection = BackupMergePolicy.select(
+            file(
+                sessions = listOf(session("s1")),
+                sets = listOf(
+                    set(sessionId = "s1", id = 7L).copy(
+                        clusterKind = "DROP_SET",
+                        clusterPlannedSegments = 2,
+                        clusterPerformedSegments = 2
+                    )
+                ),
+                clusterSegments = listOf(BackupClusterSegmentRecord(7L, 1, 10, 90.0))
+            ),
+            noLocalKeys().copy(sessionIds = setOf("s1"))
+        )
+
+        assertTrue(selection.isEmpty)
+        assertEquals(0, selection.setsToInsert.size)
+        assertEquals(0, selection.clusterSegmentsToInsert.size)
+    }
+
+    @Test
+    fun remergeOfAClusterFileAddsNoSegment() {
+        val clusterFile = file(
+            sessions = listOf(session("s1")),
+            sets = listOf(
+                set(sessionId = "s1", id = 7L).copy(
+                    clusterKind = "REST_PAUSE",
+                    clusterPlannedSegments = 3,
+                    clusterPerformedSegments = 3
+                )
+            ),
+            clusterSegments = listOf(
+                BackupClusterSegmentRecord(7L, 1, 10, 90.0, 1),
+                BackupClusterSegmentRecord(7L, 2, 9, 90.0, null)
+            )
+        )
+
+        val first = BackupMergePolicy.select(clusterFile, noLocalKeys())
+        assertEquals(2, first.clusterSegmentsToInsert.size)
+
+        val localAfterFirst = noLocalKeys().copy(
+            sessionIds = first.sessionsToInsert.map { it.id }.toSet()
+        )
+        val second = BackupMergePolicy.select(clusterFile, localAfterFirst)
+
+        assertTrue(second.isEmpty)
+        assertEquals(0, second.setsToInsert.size)
+        assertEquals(0, second.clusterSegmentsToInsert.size)
+    }
+
+    @Test
     fun fileCustomCollidingWithALocalSeededIdKeepsTheLocalRow() {
         val selection = BackupMergePolicy.select(
             file(customExercises = listOf(customExercise("back-squat"))),
@@ -288,6 +369,7 @@ private fun noLocalKeys() = BackupMergeKeys(
 private fun file(
     sessions: List<BackupWorkoutSessionRecord> = emptyList(),
     sets: List<BackupWorkoutSetRecord> = emptyList(),
+    clusterSegments: List<BackupClusterSegmentRecord> = emptyList(),
     sessionNotes: List<BackupSessionNoteRecord> = emptyList(),
     bodyWeight: List<BackupBodyWeightRecord> = emptyList(),
     personalRecords: List<BackupPersonalRecordRecord> = emptyList(),
@@ -308,6 +390,7 @@ private fun file(
     activeEquipmentProfileId = null,
     workoutSessions = sessions,
     workoutSets = sets,
+    workoutClusterSegments = clusterSegments,
     sessionNotes = sessionNotes,
     bodyWeightMeasurements = bodyWeight,
     personalRecords = personalRecords,

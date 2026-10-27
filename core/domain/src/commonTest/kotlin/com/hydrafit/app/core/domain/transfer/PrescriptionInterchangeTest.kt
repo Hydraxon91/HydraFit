@@ -11,6 +11,10 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
@@ -412,6 +416,71 @@ class PrescriptionInterchangeTest {
             }
         )
         assertFailsWith<PrescriptionException> { PrescriptionValidator.validate(broken) }
+    }
+
+    @Test
+    fun clusterRoundTripsAtVersionEightAndAPreVersionEightDocumentRejectsIt(): Unit = runBlocking {
+        val cluster = ClusterPrescription(
+            kind = ClusterKind.DROP_SET,
+            segments = listOf(
+                ClusterSegmentTarget(reps = 3, weightKg = 100.0),
+                ClusterSegmentTarget(reps = 3, weightKg = 80.0)
+            )
+        )
+        val clusterRoutine = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    position = 0,
+                    name = "Day",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = "back-squat",
+                            sets = 1,
+                            reps = 3,
+                            weightKg = 100.0,
+                            loadKind = LoadKind.EXTERNAL,
+                            cluster = cluster
+                        )
+                    )
+                )
+            )
+        )
+        val document = ExportPrescriptionsUseCase(repositoryOf(clusterRoutine), catalog)(
+            listOf(7L),
+            true,
+            "t",
+            1L
+        )
+
+        assertEquals(8, PRESCRIPTION_FORMAT_VERSION)
+        assertEquals(PRESCRIPTION_CLUSTER_FORMAT_VERSION, document.formatVersion)
+        val record = document.routines.single().allEntries().single()
+        assertEquals(cluster, ClusterPrescriptionJson.decode(requireNotNull(record.cluster)))
+        PrescriptionValidator.validate(document)
+        assertEquals(document, PrescriptionJson.decode(PrescriptionJson.encode(document)))
+
+        // The import preview decodes the cluster onto the routine entry it builds.
+        val preview = PreviewPrescriptionImport.build(
+            document,
+            PrescriptionImportChoices(),
+            catalog.all(),
+            setOf(EquipmentTag.BARBELL)
+        )
+        assertEquals(
+            cluster,
+            preview.routines.single().workouts.single().entries.single().cluster
+        )
+
+        // A document that predates clusters refuses the value instead of dropping it.
+        assertEquals(
+            PrescriptionFailure.INVALID_VALUE,
+            assertFailsWith<PrescriptionException> {
+                PrescriptionValidator.validate(
+                    document.copy(formatVersion = PRESCRIPTION_CLUSTER_FORMAT_VERSION - 1)
+                )
+            }.failure
+        )
     }
 
     /** A read-only repository over one template, for the export paths under test. */

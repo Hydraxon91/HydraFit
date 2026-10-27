@@ -26,6 +26,9 @@ CREATE TABLE workoutSet (
     forceNewtons REAL,
     deviceName TEXT,
     deviceRatingKg REAL,
+    clusterKind TEXT,
+    clusterPlannedSegments INTEGER,
+    clusterPerformedSegments INTEGER,
     FOREIGN KEY (exerciseId) REFERENCES exercise(id)
 );
 

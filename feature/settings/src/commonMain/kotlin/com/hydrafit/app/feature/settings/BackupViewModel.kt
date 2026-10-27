@@ -10,6 +10,8 @@ import com.hydrafit.app.core.domain.backup.ExportBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewBackupUseCase
 import com.hydrafit.app.core.domain.backup.PreviewMergeUseCase
 import com.hydrafit.app.core.domain.backup.RestoreBackupUseCase
+import com.hydrafit.app.core.domain.cardio.CardioCsvWriter
+import com.hydrafit.app.core.domain.cardio.CardioRepository
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
@@ -39,6 +41,7 @@ class BackupViewModel(
     private val appVersionProvider: AppVersionProvider,
     private val timeProvider: TimeProvider,
     private val exportWorkoutHistoryCsv: ExportWorkoutHistoryCsvUseCase,
+    private val cardioRepository: CardioRepository,
     private val encryption: BackupEncryption
 ) : ViewModel() {
 
@@ -100,6 +103,27 @@ class BackupViewModel(
                 fileStore.write(handle, text)
                 _state.update {
                     it.copy(inProgress = false, status = BackupStatus.HistoryCsvExported)
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                _state.update {
+                    it.copy(inProgress = false, status = BackupStatus.Failed(throwable.toFailure()))
+                }
+            }
+        }
+    }
+
+    /** Exports cardio separately from resistance-set history; this file is not a backup. */
+    fun exportCardioCsv(handle: String) {
+        if (_state.value.inProgress) return
+        _state.update { it.copy(inProgress = true, status = null) }
+        viewModelScope.launch {
+            try {
+                val text = CardioCsvWriter.write(cardioRepository.all())
+                fileStore.write(handle, text)
+                _state.update {
+                    it.copy(inProgress = false, status = BackupStatus.CardioCsvExported)
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation

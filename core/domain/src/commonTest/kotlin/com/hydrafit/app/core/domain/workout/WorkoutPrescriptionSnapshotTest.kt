@@ -4,6 +4,9 @@ import com.hydrafit.app.core.domain.engine.ProgressionConfig
 import com.hydrafit.app.core.domain.engine.ProgressionExposureOutcome
 import com.hydrafit.app.core.domain.engine.ProgressionHistory
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -18,6 +21,15 @@ class WorkoutPrescriptionSnapshotTest {
         isDeload = false
     )
 
+    private val clusterTarget = ClusterPrescription(
+        kind = ClusterKind.DROP_SET,
+        segments = listOf(
+            ClusterSegmentTarget(8, 80.0),
+            ClusterSegmentTarget(8, 60.0)
+        ),
+        restSeconds = 0
+    )
+
     @Test
     fun strictRoundTripPreservesAbsentZeroAndPositiveTargets() {
         for (weight in listOf(null, 0.0, 80.0)) {
@@ -25,7 +37,19 @@ class WorkoutPrescriptionSnapshotTest {
             val encoded = WorkoutPrescriptionSnapshotJson.encode(snapshot)
             assertEquals(snapshot, WorkoutPrescriptionSnapshotJson.decode(encoded))
         }
-        assertFailsWith<IllegalArgumentException> { target.copy(version = 6).requireValid() }
+        assertFailsWith<IllegalArgumentException> { target.copy(version = 7).requireValid() }
+        // A cluster prescription belongs to format 6; earlier formats reject one.
+        assertFailsWith<IllegalArgumentException> {
+            target.copy(version = 5, cluster = clusterTarget).requireValid()
+        }
+        assertEquals(
+            clusterTarget,
+            WorkoutPrescriptionSnapshotJson.decode(
+                WorkoutPrescriptionSnapshotJson.encode(
+                    target.copy(version = 6, cluster = clusterTarget)
+                )
+            ).cluster
+        )
         // An ordered slot index and a prescribed RIR belong to format 3; earlier formats reject them.
         assertFailsWith<IllegalArgumentException> {
             target.copy(version = 2, setIndex = 0).requireValid()

@@ -114,6 +114,13 @@ class SqlDelightPrescriptionImportRepository(
                     workoutId,
                     entryIndex.toLong()
                 )
+                templateQueries.setEntryCluster(
+                    entry.cluster?.let(
+                        com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
+                    ),
+                    workoutId,
+                    entryIndex.toLong()
+                )
             }
         }
     }

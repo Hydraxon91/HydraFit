@@ -10,6 +10,21 @@ class BuildRecentWeightsUseCaseTest {
     private val useCase = BuildRecentWeightsUseCase()
 
     @Test
+    fun clusterParentsNeverEnterModelWeightHistory() {
+        val ordinary = set("bench-press", day = 0, weightKg = 80.0)
+        val cluster = ordinary.copy(
+            weightKg = 100.0,
+            cluster = com.hydrafit.app.core.domain.workout.WorkoutClusterSummary(
+                com.hydrafit.app.core.domain.routine.ClusterKind.DROP_SET,
+                3,
+                3
+            )
+        )
+        assertTrue(useCase(listOf(cluster)).isEmpty())
+        assertEquals(listOf(80.0), useCase(listOf(cluster, ordinary)).map { it.weightKg })
+    }
+
+    @Test
     fun keepsTheHeaviestSetFromEachOfTheTwoMostRecentDays() {
         val sets = listOf(
             set("bench-press", day = 0, weightKg = 110.0),

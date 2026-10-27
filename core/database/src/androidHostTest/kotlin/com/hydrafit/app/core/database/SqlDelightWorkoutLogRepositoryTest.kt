@@ -9,12 +9,16 @@ import com.hydrafit.app.core.domain.fatigue.CalculateMuscleFatigueUseCase
 import com.hydrafit.app.core.domain.fatigue.FatigueCalculator
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleInvolvement
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
@@ -55,6 +59,108 @@ class SqlDelightWorkoutLogRepositoryTest {
     @AfterTest
     fun tearDown() {
         driver.close()
+    }
+
+    @Test
+    fun aPerformedClusterWritesItsParentIdentityAndSegmentsAtomically() = runTest {
+        val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0, rir = 1)
+        val cluster = WorkoutCluster.of(
+            parent = parent,
+            kind = ClusterKind.DROP_SET,
+            plannedSegments = 3,
+            additionalSegments = listOf(
+                PerformedClusterSegment(1, 8, 80.0),
+                PerformedClusterSegment(2, 8, 60.0)
+            )
+        )
+
+        repository.addCluster(
+            parent.copy(sessionId = "session-1"),
+            cluster
+        )
+
+        val stored = repository.all().single()
+        assertEquals(
+            WorkoutClusterSummary(ClusterKind.DROP_SET, plannedSegments = 3, performedSegments = 3),
+            stored.cluster
+        )
+        val segments = database.workoutClusterQueries
+            .selectSegmentsForSet(stored.id)
+            .executeAsList()
+        assertEquals(listOf(1L, 2L), segments.map { it.position })
+        assertEquals(listOf(80.0, 60.0), segments.map { it.weightKg })
+    }
+
+    @Test
+    fun deletingAClusterRemovesItsSegmentsWithForeignKeysEnabled() = runTest {
+        driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+        val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0)
+        repository.addCluster(
+            parent,
+            WorkoutCluster.of(
+                parent,
+                ClusterKind.DROP_SET,
+                3,
+                listOf(PerformedClusterSegment(1, 8, 90.0), PerformedClusterSegment(2, 8, 80.0))
+            )
+        )
+        val id = repository.all().single().id
+        assertEquals(
+            2,
+            database.workoutClusterQueries.selectSegmentsForSet(id).executeAsList().size
+        )
+        repository.delete(id)
+        assertTrue(repository.all().isEmpty())
+        assertTrue(
+            database.workoutClusterQueries.selectSegmentsForSet(id).executeAsList().isEmpty()
+        )
+    }
+
+    @Test
+    fun aPartialClusterIsStoredButDoesNotSatisfyItsPosition() = runTest {
+        val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0)
+        val cluster = WorkoutCluster.of(
+            parent = parent,
+            kind = ClusterKind.DROP_SET,
+            plannedSegments = 3,
+            additionalSegments = listOf(PerformedClusterSegment(1, 8, 80.0))
+        )
+
+        repository.addCluster(parent.copy(sessionId = "session-1"), cluster)
+
+        val stored = repository.all().single()
+        assertEquals(2, stored.cluster?.performedSegments)
+        assertEquals(false, stored.cluster?.isComplete)
+        assertEquals(
+            1,
+            database.workoutClusterQueries.selectSegmentsForSet(stored.id).executeAsList().size
+        )
+    }
+
+    @Test
+    fun resumingAStoredClusterReloadsItsSegmentsAndCompletesTheSameParent() = runTest {
+        val parent = set("barbell-bench-press", 100L).copy(reps = 8, weightKg = 100.0)
+        repository.addCluster(
+            parent,
+            WorkoutCluster.of(parent, ClusterKind.DROP_SET, 3, emptyList())
+        )
+        val id = repository.all().single().id
+        repository.appendClusterSegments(id, listOf(PerformedClusterSegment(1, 6, 90.0)))
+
+        val reopened = SqlDelightWorkoutLogRepository(database)
+        assertEquals(2, reopened.all().single().cluster?.performedSegments)
+        assertEquals(false, reopened.all().single().cluster?.isComplete)
+        assertEquals(listOf(100.0, 90.0), reopened.clusterSegments(id).map { it.weightKg })
+        reopened.appendClusterSegments(id, listOf(PerformedClusterSegment(2, 4, 80.0)))
+
+        assertEquals(id, repository.all().single().id)
+        assertEquals(true, repository.all().single().cluster?.isComplete)
+        assertEquals(listOf(0, 1, 2), repository.clusterSegments(id).map { it.position })
+        assertEquals(listOf(100.0, 90.0, 80.0), repository.clusterSegments(id).map { it.weightKg })
+        assertFailsWith<IllegalArgumentException> {
+            repository.appendClusterSegments(id, listOf(PerformedClusterSegment(2, 4, 80.0)))
+        }
+        assertEquals(3, repository.clusterSegments(id).size)
     }
 
     @Test

@@ -41,7 +41,8 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
         // so only the working-set count includes it.
         if (set.durationSeconds != null ||
             set.distanceMeters != null ||
-            set.forceNewtons != null
+            set.forceNewtons != null ||
+            set.cluster != null
         ) {
             return
         }
@@ -117,6 +118,16 @@ class ExerciseProgressCalculator(private val request: ExerciseProgressRequest) {
             }
             // A measured-force set is recorded work but carries no rep count, load or volume.
             if (set.forceNewtons != null) return
+            // A cluster contributes its own opening work descriptively; its segments are not counted
+            // as additional ordinary sets and it never produces an ordinary record.
+            if (set.cluster != null) {
+                val openingReps = set.reps ?: return
+                reps += openingReps.toLong()
+                if (set.loadKind == LoadKind.EXTERNAL && set.weightKg != null) {
+                    volume = (volume ?: 0.0) + set.weightKg * openingReps
+                }
+                return
+            }
             val repCount = set.reps ?: return
             reps += repCount.toLong()
             if (set.loadKind == LoadKind.EXTERNAL && set.weightKg != null) {

@@ -4,6 +4,8 @@ import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
@@ -44,7 +46,9 @@ data class EditorEntry(
     /** The slot's ordered per-set targets, or null when its sets share one repeated prescription. */
     val setTargets: SlotSetTargets? = null,
     /** The pair this slot belongs to with its next slot, or null when the slot is unpaired. */
-    val superset: Superset? = null
+    val superset: Superset? = null,
+    /** The slot's ordered cluster prescription, or null for ordinary work. */
+    val cluster: ClusterPrescription? = null
 ) {
     /** The prescribed rep count, or null when the slot is timed. */
     val repsValue: Int?
@@ -53,6 +57,10 @@ data class EditorEntry(
     /** The prescribed whole seconds, or null when the slot is counted or measured by force. */
     val durationValue: Int?
         get() = if (metric == EntryMetric.DURATION) durationSeconds.toIntOrNull() else null
+
+    /** True when the slot can carry a cluster: rep-based work with an external load. */
+    val canCarryCluster: Boolean
+        get() = metric == EntryMetric.REPETITIONS && loadKind == LoadKind.EXTERNAL
 }
 
 data class EditorWorkout(
@@ -128,6 +136,41 @@ data class SupersetEditorState(
     val error: SupersetError? = null
 )
 
+/** One editable cluster segment; numbers stay as text until apply so partial input is allowed. */
+data class ClusterSegmentEditorState(
+    val reps: String = "",
+    val loadKg: String = "",
+    val rir: String = ""
+)
+
+/** Which cluster input is invalid; the dialog shows the matching localized message. */
+enum class ClusterError {
+    TOO_FEW_SEGMENTS,
+    TOO_MANY_SEGMENTS,
+    DROP_LOAD_NOT_DECREASING,
+    REST_PAUSE_LOAD_NOT_REPEATED,
+    REST_PAUSE_NO_REST,
+    REPS_RANGE,
+    LOAD,
+    RIR_RANGE,
+    REST_RANGE
+}
+
+/**
+ * The cluster dialog draft for one slot. A new cluster opens with the minimum two empty segment
+ * rows and no invented numbers; a stored cluster seeds every field from its value. Adding and
+ * removing segments stays within the domain's segment bounds.
+ */
+data class ClusterEditorState(
+    val workoutIndex: Int,
+    val entryIndex: Int,
+    val kind: ClusterKind = ClusterKind.DROP_SET,
+    val segments: List<ClusterSegmentEditorState> =
+        List(ClusterPrescription.MIN_SEGMENTS) { ClusterSegmentEditorState() },
+    val restSeconds: String = "",
+    val error: ClusterError? = null
+)
+
 /** Which workout/entry the exercise picker is filling; [replaceEntryIndex] null means "add". */
 data class ExercisePickerState(
     val workoutIndex: Int,
@@ -180,6 +223,7 @@ data class RoutinesUiState(
     val progressionPolicyEditor: ProgressionPolicyEditorState? = null,
     val setTargetsEditor: SetTargetsEditorState? = null,
     val supersetEditor: SupersetEditorState? = null,
+    val clusterEditor: ClusterEditorState? = null,
     /** Active EX-01 exclusions, so routine entries can be marked in place. */
     val excludedExerciseIds: Set<String> = emptySet(),
     val activation: ActivationUiState? = null,

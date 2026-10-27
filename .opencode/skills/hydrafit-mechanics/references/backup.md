@@ -3,8 +3,15 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 27), restored by whole replacement.
-The reader accepts versions 1–27; version 1 defaults the guided-workout preference to off.
+Logical, versioned JSON (`format` + `formatVersion` 29), restored by whole replacement.
+The reader accepts versions 1–29; version 1 defaults the guided-workout preference to off.
+Format 28 adds ordered cluster prescriptions and performed parent/segment records, with snapshot
+format 6 and prescription interchange v8. A parent retains the opening segment; additional segments
+retain their positions and values. Partial work is not completed by restore. Format 29 adds separate
+manual cardio activities with stable identities, required start/duration and optional distance/note.
+Merge keeps local cardio on an identity conflict and deduplicates repeated imports. Cardio CSV is a
+separate analysis export, not a restore format; formula-like note cells receive an apostrophe prefix
+without changing stored notes. Older formats must not carry fields introduced after their version.
 Format 27 adds measured `forceNewtons` on performed sets and the four prescription stores, plus the
 descriptive `deviceName`/`deviceRatingKg` on performed sets only, and snapshot format 5.
 A pre-27 file must not carry a force or device field; a measured set or slot must have exactly one

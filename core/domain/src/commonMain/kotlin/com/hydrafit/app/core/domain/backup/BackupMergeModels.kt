@@ -29,7 +29,14 @@ data class BackupMergeKeys(
     val exerciseOverrideIds: Set<String>,
     val exerciseNoteIds: Set<String>,
     val exercisePreferenceIds: Set<String>,
-    val exerciseExclusionIds: Set<String>
+    val exerciseExclusionIds: Set<String>,
+    /**
+     * Every local cardio activity identity. Cardio is keyed by this stable device-generated identity
+     * rather than a local row id, so re-merging the same file recognises what is already present.
+     * The live set is always supplied by the database layer; a caller that omits it would attempt a
+     * duplicate insert and fail the merge transaction rather than lose a local row.
+     */
+    val cardioIdentities: Set<String> = emptySet()
 )
 
 /**
@@ -67,7 +74,16 @@ data class BackupMergedSet(
     val forceNewtons: Double? = null,
     /** Descriptive device identity and stated rating, carried verbatim; never converted to force. */
     val deviceName: String? = null,
-    val deviceRatingKg: Double? = null
+    val deviceRatingKg: Double? = null,
+    /**
+     * The file's own set id, used only to attach this parent's inserted cluster segments to the new
+     * local row. It is not restored as an identity.
+     */
+    val sourceSetId: Long? = null,
+    /** Cluster identity, carried verbatim so a merge never recomputes the performed segments. */
+    val clusterKind: String? = null,
+    val clusterPlannedSegments: Int? = null,
+    val clusterPerformedSegments: Int? = null
 )
 
 /** Collections a v1 merge deliberately leaves with the live install; counts are disclosed in the preview. */
@@ -95,6 +111,11 @@ data class BackupMergeExcludedCount(val category: BackupMergeExcludedCategory, v
 data class BackupMergeSelection(
     val sessionsToInsert: List<BackupWorkoutSessionRecord>,
     val setsToInsert: List<BackupMergedSet>,
+    /**
+     * Segment rows belonging to the inserted cluster parents only. Their [BackupClusterSegmentRecord.setId]
+     * is the file's set id and is remapped to the fresh local id when the selection is applied.
+     */
+    val clusterSegmentsToInsert: List<BackupClusterSegmentRecord> = emptyList(),
     val sessionNotesToInsert: List<BackupSessionNoteRecord>,
     val bodyWeightToInsert: List<BackupBodyWeightRecord>,
     val personalRecordsToInsert: List<BackupPersonalRecordRecord>,
@@ -108,14 +129,20 @@ data class BackupMergeSelection(
     val skippedOpenSessions: Int,
     val skippedUnattachedSets: Int,
     val setsWithDroppedOccurrenceLinks: Int,
-    val excluded: List<BackupMergeExcludedCount>
+    val excluded: List<BackupMergeExcludedCount>,
+    /**
+     * Cardio activities whose identity is not present locally, carried verbatim. A record kept by the
+     * live install stays untouched and is counted in [keptLocalRows], never overwritten.
+     */
+    val cardioActivitiesToInsert: List<BackupCardioActivityRecord> = emptyList()
 ) {
     /** Rows this selection inserts in total, across every collection. */
     val insertCount: Int
-        get() = sessionsToInsert.size + setsToInsert.size + sessionNotesToInsert.size +
+        get() = sessionsToInsert.size + setsToInsert.size + clusterSegmentsToInsert.size +
+            sessionNotesToInsert.size +
             bodyWeightToInsert.size + personalRecordsToInsert.size + preferencesToInsert.size +
             exclusionsToInsert.size + exerciseNotesToInsert.size + overridesToInsert.size +
-            customExercisesToInsert.size
+            customExercisesToInsert.size + cardioActivitiesToInsert.size
 
     /** Whether the merge would add nothing because every supported record already exists locally. */
     val isEmpty: Boolean get() = insertCount == 0

@@ -2,10 +2,14 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import kotlin.test.AfterTest
@@ -404,6 +408,102 @@ class SqlDelightSessionResegmenterTest {
         }
         assertEquals(before, log.all())
         assertEquals(bounds, sessions.all())
+    }
+
+    @Test
+    fun aClusterCorrectionRewritesItsParentAndSegmentsTogether() = runTest {
+        val parent = WorkoutSet(
+            exerciseId = "bench",
+            reps = 8,
+            weightKg = 100.0,
+            performedAtMillis = 100L,
+            isWarmup = false,
+            sessionId = "s1"
+        )
+        log.addCluster(
+            parent,
+            WorkoutCluster.of(
+                parent = parent,
+                kind = ClusterKind.DROP_SET,
+                plannedSegments = 3,
+                additionalSegments = listOf(
+                    PerformedClusterSegment(1, 8, 80.0),
+                    PerformedClusterSegment(2, 8, 60.0)
+                )
+            )
+        )
+        val id = log.all().single().id
+
+        resegmenter.resegmentAfterSetCorrection(
+            id,
+            WorkoutSetCorrection(
+                reps = 8,
+                weightKg = 95.0,
+                rir = null,
+                performedAtMillis = 100L,
+                clusterSegments = listOf(
+                    PerformedClusterSegment(0, 8, 95.0),
+                    PerformedClusterSegment(1, 6, 75.0),
+                    PerformedClusterSegment(2, 4, 55.0)
+                )
+            ),
+            0L
+        )
+
+        val corrected = log.all().single()
+        assertEquals(95.0, corrected.weightKg)
+        val segments = log.clusterSegments(id)
+        assertEquals(3, segments.size)
+        assertEquals(listOf(95.0, 75.0, 55.0), segments.map { it.weightKg })
+        assertEquals(listOf(8, 6, 4), segments.map { it.reps })
+        assertEquals(3, corrected.cluster?.performedSegments)
+    }
+
+    @Test
+    fun aClusterCorrectionNeverAddsOrDropsARecordedSegment() = runTest {
+        val parent = WorkoutSet(
+            exerciseId = "bench",
+            reps = 8,
+            weightKg = 100.0,
+            performedAtMillis = 100L,
+            isWarmup = false,
+            sessionId = "s1"
+        )
+        log.addCluster(
+            parent,
+            WorkoutCluster.of(
+                parent = parent,
+                kind = ClusterKind.DROP_SET,
+                plannedSegments = 3,
+                additionalSegments = listOf(
+                    PerformedClusterSegment(1, 8, 80.0),
+                    PerformedClusterSegment(2, 8, 60.0)
+                )
+            )
+        )
+        val id = log.all().single().id
+        val beforeSets = log.all()
+        val beforeSegments = log.clusterSegments(id)
+
+        assertFailsWith<IllegalArgumentException> {
+            resegmenter.resegmentAfterSetCorrection(
+                id,
+                WorkoutSetCorrection(
+                    reps = 8,
+                    weightKg = 95.0,
+                    rir = null,
+                    performedAtMillis = 100L,
+                    clusterSegments = listOf(
+                        PerformedClusterSegment(0, 8, 95.0),
+                        PerformedClusterSegment(1, 6, 75.0)
+                    )
+                ),
+                0L
+            )
+        }
+
+        assertEquals(beforeSets, log.all())
+        assertEquals(beforeSegments, log.clusterSegments(id))
     }
 
     @Test

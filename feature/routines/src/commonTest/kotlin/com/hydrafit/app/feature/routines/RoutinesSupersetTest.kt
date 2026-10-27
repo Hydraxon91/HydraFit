@@ -37,6 +37,8 @@ import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
@@ -547,6 +549,13 @@ private class TestWorkoutScheduleRepository : WorkoutScheduleRepository {
 
 private class TestWorkoutLogRepository : WorkoutLogRepository {
     override suspend fun add(set: WorkoutSet) = Unit
+
+    override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
+
+    override suspend fun appendClusterSegments(
+        setId: Long,
+        segments: List<PerformedClusterSegment>
+    ) = Unit
 
     override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

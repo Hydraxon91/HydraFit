@@ -6,8 +6,10 @@ import com.hydrafit.app.core.domain.backup.BackupActivationEntryRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationRecord
 import com.hydrafit.app.core.domain.backup.BackupActivationWorkoutRecord
 import com.hydrafit.app.core.domain.backup.BackupBodyWeightRecord
+import com.hydrafit.app.core.domain.backup.BackupCardioActivityRecord
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupCatalogManifest
+import com.hydrafit.app.core.domain.backup.BackupClusterSegmentRecord
 import com.hydrafit.app.core.domain.backup.BackupEntryTargetExplanationRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentCeilingRecord
 import com.hydrafit.app.core.domain.backup.BackupEquipmentProfileRecord
@@ -76,6 +78,7 @@ class SqlDelightBackupRepository(
             val exportedStationIds = profiles.profiles
                 .flatMap { it.stations }
                 .mapTo(mutableSetOf()) { it.id }
+            val exportedSets = database.workoutLogQueries.selectAllSets().executeAsList()
             BackupFile(
                 format = BACKUP_FORMAT,
                 formatVersion = BACKUP_FORMAT_VERSION,
@@ -124,7 +127,7 @@ class SqlDelightBackupRepository(
                     )
                 },
                 selectedEquipment = profiles.active.selected.map { it.id }.sorted(),
-                workoutSets = database.workoutLogQueries.selectAllSets().executeAsList().map {
+                workoutSets = exportedSets.map {
                     BackupWorkoutSetRecord(
                         id = it.id,
                         exerciseId = it.exerciseId,
@@ -154,8 +157,27 @@ class SqlDelightBackupRepository(
                         distanceMeters = it.distanceMeters?.toInt(),
                         forceNewtons = it.forceNewtons,
                         deviceName = it.deviceName,
-                        deviceRatingKg = it.deviceRatingKg
+                        deviceRatingKg = it.deviceRatingKg,
+                        clusterKind = it.clusterKind,
+                        clusterPlannedSegments = it.clusterPlannedSegments?.toInt(),
+                        clusterPerformedSegments = it.clusterPerformedSegments?.toInt()
                     )
+                },
+                workoutClusterSegments = if (exportedSets.isEmpty()) {
+                    emptyList()
+                } else {
+                    database.workoutClusterQueries
+                        .selectSegmentsForSets(exportedSets.map { set -> set.id })
+                        .executeAsList()
+                        .map {
+                            BackupClusterSegmentRecord(
+                                setId = it.setId,
+                                position = it.position.toInt(),
+                                reps = it.reps.toInt(),
+                                weightKg = it.weightKg,
+                                rir = it.rir?.toInt()
+                            )
+                        }
                 },
                 workoutSessions = database.workoutSessionQueries.selectAllSessions()
                     .executeAsList().map {
@@ -201,6 +223,7 @@ class SqlDelightBackupRepository(
                         progressionPolicy = it.progressionPolicy,
                         setTargets = it.setTargets,
                         superset = it.superset,
+                        cluster = it.cluster,
                         distanceMeters = it.distanceMeters?.toInt(),
                         forceNewtons = it.forceNewtons
                     )
@@ -374,6 +397,7 @@ class SqlDelightBackupRepository(
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
                             superset = it.superset,
+                            cluster = it.cluster,
                             distanceMeters = it.distanceMeters?.toInt(),
                             forceNewtons = it.forceNewtons
                         )
@@ -429,6 +453,7 @@ class SqlDelightBackupRepository(
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
                             superset = it.superset,
+                            cluster = it.cluster,
                             distanceMeters = it.distanceMeters?.toInt(),
                             forceNewtons = it.forceNewtons
                         )
@@ -472,6 +497,7 @@ class SqlDelightBackupRepository(
                             progressionPolicy = it.progressionPolicy,
                             setTargets = it.setTargets,
                             superset = it.superset,
+                            cluster = it.cluster,
                             distanceMeters = it.distanceMeters?.toInt(),
                             forceNewtons = it.forceNewtons
                         )
@@ -611,7 +637,21 @@ class SqlDelightBackupRepository(
                             reps = it.reps?.toInt(),
                             durationSeconds = it.durationSeconds?.toInt()
                         )
+                    },
+                cardioActivities = database.cardioActivityQueries.selectAll()
+                    .executeAsList()
+                    .map {
+                        BackupCardioActivityRecord(
+                            identity = it.identity,
+                            type = it.type,
+                            startedAtMillis = it.startedAt,
+                            durationSeconds = it.durationSeconds.toInt(),
+                            distanceMeters = it.distanceMeters?.toInt(),
+                            note = it.note
+                        )
                     }
+                    // Oldest first with ties broken by identity, so repeated exports stay stable.
+                    .sortedWith(compareBy({ it.startedAtMillis }, { it.identity }))
             )
         }
 
@@ -637,7 +677,9 @@ class SqlDelightBackupRepository(
             exercisePreferenceIds = database.exercisePreferenceQueries.selectAll().executeAsList()
                 .mapTo(mutableSetOf()) { it.exerciseId },
             exerciseExclusionIds = database.exerciseExclusionQueries.selectAll().executeAsList()
-                .mapTo(mutableSetOf()) { it.exerciseId }
+                .mapTo(mutableSetOf()) { it.exerciseId },
+            cardioIdentities = database.cardioActivityQueries.selectAll().executeAsList()
+                .mapTo(mutableSetOf()) { it.identity }
         )
     }
 
@@ -666,6 +708,7 @@ class SqlDelightBackupRepository(
             selection.sessionNotesToInsert.forEach {
                 database.sessionNoteQueries.upsert(sessionId = it.sessionId, note = it.note)
             }
+            val mergedSetIds = mutableMapOf<Long, Long>()
             selection.setsToInsert.forEach {
                 database.workoutLogQueries.insertSetWithTimingProvenance(
                     exerciseId = it.exerciseId,
@@ -686,6 +729,8 @@ class SqlDelightBackupRepository(
                     durationSeconds = it.durationSeconds?.toLong(),
                     prescriptionSnapshot = it.prescriptionSnapshot
                 )
+                val insertedSetId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
+                it.sourceSetId?.let { sourceId -> mergedSetIds[sourceId] = insertedSetId }
                 if (it.stationName != null && it.stationLoadBasis != null) {
                     val setId = database.workoutLogQueries.lastInsertedSetId().executeAsOne()
                     database.workoutLogQueries.assignStation(
@@ -711,6 +756,28 @@ class SqlDelightBackupRepository(
                         id = setId
                     )
                 }
+                if (it.clusterKind != null) {
+                    database.workoutClusterQueries.assignCluster(
+                        clusterKind = it.clusterKind,
+                        clusterPlannedSegments = it.clusterPlannedSegments?.toLong(),
+                        clusterPerformedSegments = it.clusterPerformedSegments?.toLong(),
+                        id = insertedSetId
+                    )
+                }
+            }
+            // Segments are matched to the fresh local parent id; a segment whose parent was not
+            // inserted is never attached to an existing local set.
+            selection.clusterSegmentsToInsert.forEach { segment ->
+                val setId = checkNotNull(mergedSetIds[segment.setId]) {
+                    "A merged cluster segment has no inserted parent"
+                }
+                database.workoutClusterQueries.insertSegment(
+                    setId = setId,
+                    position = segment.position.toLong(),
+                    reps = segment.reps.toLong(),
+                    weightKg = segment.weightKg,
+                    rir = segment.rir?.toLong()
+                )
             }
             selection.bodyWeightToInsert.forEach {
                 database.bodyWeightQueries.insertMeasurement(
@@ -756,6 +823,18 @@ class SqlDelightBackupRepository(
                     involvements = it.involvements
                 )
             }
+            // Cardio arrives only with identities the live install does not hold; insertion keeps the
+            // file's identity and values and assigns a fresh local row id.
+            selection.cardioActivitiesToInsert.forEach {
+                database.cardioActivityQueries.insertActivity(
+                    identity = it.identity,
+                    type = it.type,
+                    startedAt = it.startedAtMillis,
+                    durationSeconds = it.durationSeconds.toLong(),
+                    distanceMeters = it.distanceMeters?.toLong(),
+                    note = it.note
+                )
+            }
         }
     }
 
@@ -784,6 +863,11 @@ class SqlDelightBackupRepository(
             database.sessionNoteQueries.deleteAll()
             database.warmupPreparationOverrideQueries.deleteAll()
             database.personalRecordQueries.deleteAll()
+            // A segment row references a set id. Nothing guarantees a restored parent will not reuse
+            // an old local id, so every current set's segments are cleared before the rows go.
+            database.workoutLogQueries.selectAllSets().executeAsList().forEach { existing ->
+                database.workoutClusterQueries.deleteSegmentsForSet(existing.id)
+            }
             database.workoutLogQueries.deleteAllSets()
             database.workoutSessionQueries.deleteAllSessions()
             database.workoutImportQueries.deleteAllProvenance()
@@ -972,6 +1056,13 @@ class SqlDelightBackupRepository(
                     entry.position.toLong()
                 )
             }
+            file.planEntries.forEach { entry ->
+                database.planHistoryQueries.setPlanEntryCluster(
+                    entry.cluster,
+                    entry.dayId,
+                    entry.position.toLong()
+                )
+            }
             file.volumeExplanations.forEach { explanation ->
                 database.planVolumeExplanationQueries.insert(
                     planId = explanation.planId,
@@ -1142,6 +1233,13 @@ class SqlDelightBackupRepository(
                     entry.position.toLong()
                 )
             }
+            file.routineEntries.forEach { entry ->
+                database.routineTemplateQueries.setEntryCluster(
+                    entry.cluster,
+                    entry.workoutId,
+                    entry.position.toLong()
+                )
+            }
             file.activations.forEach { activation ->
                 database.trainingScheduleQueries.insertActivationWithId(
                     id = activation.id,
@@ -1200,6 +1298,13 @@ class SqlDelightBackupRepository(
                     entry.position.toLong()
                 )
             }
+            file.activationEntries.forEach { entry ->
+                database.trainingScheduleQueries.setActivationCluster(
+                    entry.cluster,
+                    entry.workoutId,
+                    entry.position.toLong()
+                )
+            }
             file.occurrences.forEach { occurrence ->
                 database.trainingScheduleQueries.insertOccurrenceWithId(
                     id = occurrence.id,
@@ -1243,6 +1348,13 @@ class SqlDelightBackupRepository(
             file.occurrenceEntries.forEach { entry ->
                 database.trainingScheduleQueries.setOccurrenceSuperset(
                     entry.superset,
+                    entry.occurrenceId,
+                    entry.position.toLong()
+                )
+            }
+            file.occurrenceEntries.forEach { entry ->
+                database.trainingScheduleQueries.setOccurrenceCluster(
+                    entry.cluster,
                     entry.occurrenceId,
                     entry.position.toLong()
                 )
@@ -1302,6 +1414,38 @@ class SqlDelightBackupRepository(
                         id = set.id
                     )
                 }
+                if (set.clusterKind != null) {
+                    database.workoutClusterQueries.assignCluster(
+                        clusterKind = set.clusterKind,
+                        clusterPlannedSegments = set.clusterPlannedSegments?.toLong(),
+                        clusterPerformedSegments = set.clusterPerformedSegments?.toLong(),
+                        id = set.id
+                    )
+                }
+            }
+            file.workoutClusterSegments.forEach { segment ->
+                database.workoutClusterQueries.insertSegment(
+                    setId = segment.setId,
+                    position = segment.position.toLong(),
+                    reps = segment.reps.toLong(),
+                    weightKg = segment.weightKg,
+                    rir = segment.rir?.toLong()
+                )
+            }
+            // Cardio is whole-replaced as its own collection: every stored activity is removed, then
+            // the file's activities come back verbatim with their identities. Row ids are local and
+            // deliberately fresh, and no resistance table, session or occurrence is touched.
+            database.cardioActivityQueries.selectAll().executeAsList()
+                .forEach { database.cardioActivityQueries.deleteActivity(it.id) }
+            file.cardioActivities.forEach { activity ->
+                database.cardioActivityQueries.insertActivity(
+                    identity = activity.identity,
+                    type = activity.type,
+                    startedAt = activity.startedAtMillis,
+                    durationSeconds = activity.durationSeconds.toLong(),
+                    distanceMeters = activity.distanceMeters?.toLong(),
+                    note = activity.note
+                )
             }
 
             file.importProvenance.forEach { record ->

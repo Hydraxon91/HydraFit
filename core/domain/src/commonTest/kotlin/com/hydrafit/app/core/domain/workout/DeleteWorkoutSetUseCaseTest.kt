@@ -23,6 +23,13 @@ class DeleteWorkoutSetUseCaseTest {
 
         override suspend fun add(set: WorkoutSet) = Unit
 
+        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = Unit
+
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
+
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
         override suspend fun delete(id: Long) {

@@ -14,6 +14,35 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.11.3–0.11.4 candidate — 2026-10-27 (acceptance incomplete)
+
+- User manually confirmed cluster prescription save/reopen, logging and the segment-aware recorded
+  editor; cardio logging, history/charts, separate CSV export, edit and synthetic cleanup.
+- Independent Luna review closed CL-01–CL-04 and CD-01–CD-02 at HEAD `8c80a07d` plus the
+  reviewed uncommitted candidate. These source closures are not device acceptance or publication.
+- Fresh targeted verification logs: `review-fixes-check.log` (466 executed, none inherited),
+  `review-round2-check.log` (425 executed, none inherited, including migration verification).
+  Artifacts are under the approved external OpenCode temp directory.
+- Partial/resume now has a passing ViewModel recreation and duplicate-tap regression
+  (`cluster-resume-check2.log`, 417 fresh tasks). This is not a database-backed or device test.
+- Unverified: controlled on-device backup replace/merge, pinned debug upgrade, automated partial
+  cluster/resume device acceptance and final visual verification of summary corrections.
+  Delegated coverage acceptance passed six semantic assertions with a viewed screenshot in
+  `0113-coverage-run`; no records were changed.
+- Final post-resume integration `0113-final-post-resume.log` passed 980 fresh tasks, including
+  the real SQLDelight append/reload/completion test, full host suite, migration verification,
+  global lint, debug assembly, release-specific lint and both required iOS compiles.
+- Latest debug APK installed in place. Luna's `0113-segment-readonly.yaml` journey asserted
+  the segment dialog, captured/viewed its screenshot, and paused without saving; Logger returned
+  with the cluster action available. This verifies reachability and layout, not saved-prefix
+  device persistence. The approved 30-minute safe-device extension is exhausted; no test work
+  was created, no existing records were changed, and no Replace restore was attempted.
+- On 2026-10-27 the user explicitly selected **Accept documented limits** for missing device
+  save/pause/reopen persistence, controlled backup replace/merge and pinned-upgrade evidence.
+  These remain unverified, not passed. This accepts the candidate's stated completion limits;
+  it does not authorize publication or imply a reviewer waived them.
+  No release/minified APK was installed, and app data was not cleared.
+
 ## 0.11.0 station identity — 2026-10-26 (partial)
 
 - Source: `release/0.11.0`; debug APK installed on `emulator-5554`; no release/minified APK used.
@@ -4190,6 +4219,3 @@ rather than unit-tested because it is Compose-only.
   paths are documented above as user-verified, not flow-asserted.
 - **Still unverified.** A device backup restore or merge carrying force/device, the added-load
   planner suggestion on device, and the station/distance surfaces (not re-accepted in this round).
-
-
-

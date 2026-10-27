@@ -32,6 +32,7 @@ CREATE TABLE routineEntry (
     superset TEXT,
     distanceMeters INTEGER,
     forceNewtons REAL,
+    cluster TEXT,
     FOREIGN KEY (workoutId) REFERENCES routineWorkout(id)
 );
 
@@ -106,6 +107,9 @@ SELECT last_insert_rowid();
 
 setEntrySuperset:
 UPDATE routineEntry SET superset = ? WHERE workoutId = ? AND position = ?;
+
+setEntryCluster:
+UPDATE routineEntry SET cluster = ? WHERE workoutId = ? AND position = ?;
 
 setArchived:
 UPDATE routineTemplate SET archivedAtMillis = ? WHERE id = ?;

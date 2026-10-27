@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.schedule.FinishMode
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.ScheduleException
@@ -28,7 +29,9 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LiveRestCompletion
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.RestCountdown
 import com.hydrafit.app.core.domain.workout.ShortRestCoach
 import com.hydrafit.app.core.domain.workout.WarmupAction
@@ -37,6 +40,7 @@ import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupPreparationOverrideRepository
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -67,6 +71,7 @@ private data class GuidedSetWriteResult(
 
 class WorkoutLoggerViewModel(
     private val logMutations: WorkoutLogMutations,
+    private val logWorkoutSet: LogWorkoutSetUseCase,
     private val getWorkoutLog: GetWorkoutLogUseCase,
     private val loggingActions: WorkoutLoggingActions,
     private val exerciseCatalog: ExerciseCatalog,
@@ -128,6 +133,7 @@ class WorkoutLoggerViewModel(
      */
     private var manualInputGeneration = 0L
     private var draftContextRevision = 0L
+    private var clusterLogGeneration = 0L
     private var missingLoadPromptRevision = 0L
 
     /**
@@ -246,7 +252,11 @@ class WorkoutLoggerViewModel(
                     // previous context no longer describes the form on screen, and a completed save's
                     // refresh message described that same context.
                     _state.update {
-                        it.copy(manualLogFailed = false, manualLogRefreshFailed = false)
+                        it.copy(
+                            manualLogFailed = false,
+                            manualLogRefreshFailed = false,
+                            clusterDraftError = null
+                        )
                     }
                 }
                 activeActivation = activation
@@ -618,39 +628,79 @@ class WorkoutLoggerViewModel(
 
     fun editLoggedSet(row: LoggedSetRow) {
         if (_state.value.savingLoggedSet) return
-        val unit = _state.value.weightUnit
-        val weight = weightInputFor(row.weightKg, unit)
-        _state.update {
-            it.copy(
-                loggedSetEdit = LoggedSetEdit(
-                    row = row,
-                    weightUnit = unit,
-                    distanceUnit = it.distanceUnit,
-                    // The editor opens on the metric the row was recorded with; the other fields are
-                    // seeded but only submitted when the user switches to one of them.
-                    metric = when {
-                        row.forceNewtons != null -> SetMetric.FORCE
-                        row.distanceMeters != null -> SetMetric.DISTANCE
-                        row.durationSeconds != null -> SetMetric.DURATION
-                        else -> SetMetric.REPETITIONS
-                    },
-                    reps = row.reps?.toString().orEmpty(),
-                    durationSeconds = row.durationSeconds?.toString().orEmpty(),
-                    distanceMeters = row.distanceMeters
-                        ?.let { meters -> it.distanceUnit.displayWhole(meters) }
-                        ?.toString()
-                        .orEmpty(),
-                    forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
-                    deviceName = row.device?.name.orEmpty(),
-                    deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
-                    weightInput = weight,
-                    originalWeightInput = weight,
-                    rir = row.rir?.toString().orEmpty(),
-                    performedAtMillis = row.performedAtMillis
-                ),
-                loggedSetEditFailed = false
-            )
+        val summary = row.cluster
+        if (summary == null) {
+            _state.update {
+                it.copy(
+                    loggedSetEdit = loggedSetEditFor(row, emptyList()),
+                    loggedSetEditFailed = false
+                )
+            }
+            return
         }
+        // A cluster's recorded segments are separate rows, so the editor loads them before it opens;
+        // showing the ordinary fields alone would let a save silently discard them.
+        viewModelScope.launch {
+            val segments = try {
+                logMutations.clusterSegments(row.id).drop(1)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(loggedSetEditFailed = true) }
+                return@launch
+            }
+            if (_state.value.savingLoggedSet) return@launch
+            _state.update {
+                it.copy(
+                    loggedSetEdit = loggedSetEditFor(row, segments),
+                    loggedSetEditFailed = false
+                )
+            }
+        }
+    }
+
+    /** Seeds the correction editor from a recorded row and, for a cluster, its later segments. */
+    private fun loggedSetEditFor(
+        row: LoggedSetRow,
+        segments: List<PerformedClusterSegment>
+    ): LoggedSetEdit {
+        val unit = _state.value.weightUnit
+        val distanceUnit = _state.value.distanceUnit
+        val weight = weightInputFor(row.weightKg, unit)
+        return LoggedSetEdit(
+            row = row,
+            weightUnit = unit,
+            distanceUnit = distanceUnit,
+            // The editor opens on the metric the row was recorded with; the other fields are
+            // seeded but only submitted when the user switches to one of them.
+            metric = when {
+                row.forceNewtons != null -> SetMetric.FORCE
+                row.distanceMeters != null -> SetMetric.DISTANCE
+                row.durationSeconds != null -> SetMetric.DURATION
+                else -> SetMetric.REPETITIONS
+            },
+            reps = row.reps?.toString().orEmpty(),
+            durationSeconds = row.durationSeconds?.toString().orEmpty(),
+            distanceMeters = row.distanceMeters
+                ?.let { meters -> distanceUnit.displayWhole(meters) }
+                ?.toString()
+                .orEmpty(),
+            forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
+            deviceName = row.device?.name.orEmpty(),
+            deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+            weightInput = weight,
+            originalWeightInput = weight,
+            rir = row.rir?.toString().orEmpty(),
+            performedAtMillis = row.performedAtMillis,
+            clusterSegments = segments.map { segment ->
+                LoggedClusterSegmentEdit(
+                    position = segment.position,
+                    reps = segment.reps.toString(),
+                    weightInput = weightInputFor(segment.weightKg, unit),
+                    rir = segment.rir?.toString().orEmpty()
+                )
+            }
+        )
     }
 
     fun onLoggedSetRepsChanged(value: String) = updateLoggedSetEdit { copy(reps = value) }
@@ -680,6 +730,8 @@ class WorkoutLoggerViewModel(
      * device belongs to a force reading only, so leaving Force also clears it.
      */
     fun onLoggedSetMetricChanged(metric: SetMetric) = updateLoggedSetEdit {
+        // A cluster is rep-based external-load work; leaving repetitions would not describe it.
+        if (hasCluster && metric != SetMetric.REPETITIONS) return@updateLoggedSetEdit this
         when (metric) {
             SetMetric.REPETITIONS -> copy(
                 metric = metric,
@@ -736,12 +788,50 @@ class WorkoutLoggerViewModel(
                 isWarmup = set.isWarmup,
                 loadKind = set.loadKind,
                 occurrenceId = occurrenceId,
-                sessionId = set.sessionId
+                sessionId = set.sessionId,
+                cluster = set.cluster
             )
         )
     }
 
     fun onLoggedSetWeightChanged(value: String) = updateLoggedSetEdit { copy(weightInput = value) }
+
+    fun onLoggedSetClusterRepsChanged(position: Int, value: String) = updateLoggedSetEdit {
+        copy(
+            clusterSegments = clusterSegments.update(position) {
+                it.copy(reps = value.filter(Char::isDigit))
+            }
+        )
+    }
+
+    fun onLoggedSetClusterWeightChanged(position: Int, value: String) = updateLoggedSetEdit {
+        copy(
+            clusterSegments = clusterSegments.update(position) {
+                it.copy(
+                    weightInput = value.filter { c ->
+                        c.isDigit() ||
+                            c == '.'
+                    }
+                )
+            }
+        )
+    }
+
+    fun onLoggedSetClusterRirChanged(position: Int, value: String) = updateLoggedSetEdit {
+        copy(
+            clusterSegments = clusterSegments.update(position) {
+                it.copy(rir = value.filter(Char::isDigit))
+            }
+        )
+    }
+
+    /** Replaces the segment at [position]; an unknown position leaves the list unchanged. */
+    private fun List<LoggedClusterSegmentEdit>.update(
+        position: Int,
+        transform: (LoggedClusterSegmentEdit) -> LoggedClusterSegmentEdit
+    ): List<LoggedClusterSegmentEdit> = map { segment ->
+        if (segment.position == position) transform(segment) else segment
+    }
 
     fun onLoggedSetRirChanged(value: String) = updateLoggedSetEdit { copy(rir = value) }
 
@@ -791,7 +881,8 @@ class WorkoutLoggerViewModel(
                         durationSeconds = edit.correctionDurationSeconds,
                         distanceMeters = edit.correctionDistanceMeters,
                         forceNewtons = edit.correctionForceNewtons,
-                        device = edit.correctionDevice
+                        device = edit.correctionDevice,
+                        clusterSegments = edit.correctionCluster(weight)
                     )
                 )
             } catch (cancelled: CancellationException) {
@@ -1172,6 +1263,69 @@ class WorkoutLoggerViewModel(
         return session.id
     }
 
+    /**
+     * Persists a performed cluster through the cluster mutation, which writes the parent set and its
+     * segments in one transaction. The cluster's session is resolved from the parent's own stamp by
+     * the use case, so [logResolved]'s cached backdated session is not reused here.
+     */
+    private suspend fun logResolvedCluster(
+        set: WorkoutSet,
+        cluster: WorkoutCluster,
+        current: WorkoutLoggerUiState,
+        returnSessionId: Boolean = false
+    ): String? {
+        val utcOffsetMillis = runtime.utcOffsetMillis()
+        if (current.performedAtMillis == null) {
+            logWorkoutSet.logCluster(set, cluster, utcOffsetMillis)
+            return if (returnSessionId) logWorkoutSet.observeOpenSession().first()?.id else null
+        }
+        val cacheKey = set.performedAtMillis to current.forceNewSession
+        val cached = resolvedBackdatedSessionId.takeIf { resolvedBackdatedSessionKey == cacheKey }
+        if (cached != null) {
+            logWorkoutSet.logIntoCluster(set, cluster, cached)
+            return cached
+        }
+        val session = logWorkoutSet.logBackdatedCluster(
+            set,
+            cluster,
+            utcOffsetMillis,
+            current.forceNewSession
+        )
+        if (session.id != current.activeSession?.id) {
+            resolvedBackdatedSessionId = session.id
+            resolvedBackdatedSessionKey = cacheKey
+        }
+        return session.id
+    }
+
+    /**
+     * The performed cluster for one logged cluster set: the parent set is always in position 0 and
+     * the editor's later segments follow it. The preflight refusal already ran, so a refusal here is
+     * an internal contradiction rather than a user input problem.
+     */
+    private fun performedCluster(
+        prescription: ClusterPrescription,
+        parent: WorkoutSet,
+        edit: DraftEdit?
+    ): WorkoutCluster {
+        val later = when (
+            val outcome = laterClusterSegments(
+                prescription = prescription,
+                inputs = edit?.laterSegments,
+                weightUnit = edit?.weightUnit ?: _state.value.weightUnit
+            )
+        ) {
+            is ClusterSegments.Refused -> error("A refused cluster draft cannot be logged")
+            is ClusterSegments.Ready -> outcome.segments
+        }
+        return WorkoutCluster.of(
+            parent = parent,
+            kind = prescription.kind,
+            plannedSegments = prescription.segments.size,
+            additionalSegments = later
+        )
+    }
+
     /** Closes the open session; the next logged set auto-starts a new one. */
     fun endSession() {
         invalidateRestTimer()
@@ -1248,7 +1402,8 @@ class WorkoutLoggerViewModel(
                         distanceMeters = prefill?.distanceMeters ?: exercise.distanceMeters,
                         forceNewtons = prefill?.forceNewtons ?: exercise.forceNewtons,
                         setTargets = exercise.setTargets,
-                        orderedPrefill = prefill
+                        orderedPrefill = prefill,
+                        cluster = exercise.cluster
                     )
                 },
                 nowMillis = nowMillis,
@@ -1266,6 +1421,7 @@ class WorkoutLoggerViewModel(
                 draftEdit = if (rebuildDrafts) null else current.draftEdit,
                 missingLoadPrompt = if (rebuildDrafts) null else current.missingLoadPrompt,
                 legacyResolution = if (rebuildDrafts) null else current.legacyResolution,
+                clusterDraftError = if (rebuildDrafts) null else current.clusterDraftError,
                 draftWriteRetries = if (rebuildDrafts) emptyList() else current.draftWriteRetries,
                 appliedGuidedEdits = if (rebuildDrafts) emptyMap() else current.appliedGuidedEdits,
                 confirmingAllDrafts = if (rebuildDrafts) false else current.confirmingAllDrafts,
@@ -1312,7 +1468,170 @@ class WorkoutLoggerViewModel(
         return drafts.filterNot { it.exerciseId in loggedToday }
     }
 
-    /** Logs every set of a draft and removes it from the pending list. */
+    /** Opens the next unsaved segment; reopening resumes the persisted parent, not a new set. */
+    fun openClusterLog(draft: DraftSet) {
+        if (draftSubmissionInProgress) return
+        val prescription = draft.cluster ?: return
+        val occurrenceId = draft.occurrenceId ?: return
+        if (currentOccurrence?.id != occurrenceId || currentOccurrence?.isResolved != false) return
+        val generation = ++clusterLogGeneration
+        val context = draftContextRevision
+        viewModelScope.launch {
+            try {
+                val parent = logWorkoutSet.clusterParents(occurrenceId).firstOrNull {
+                    it.occurrenceEntryId == draft.occurrenceEntryId &&
+                        it.cluster?.isComplete == false
+                }
+                if (generation != clusterLogGeneration ||
+                    context != draftContextRevision
+                ) {
+                    return@launch
+                }
+                val position = parent?.cluster?.performedSegments ?: 0
+                val target = prescription.segments.getOrNull(position) ?: return@launch
+                val unit = _state.value.weightUnit
+                _state.update {
+                    it.copy(
+                        clusterLog = ClusterLogState(
+                            draft,
+                            position,
+                            unit,
+                            target.reps.toString(),
+                            exactEntryText(unit.kilogramsToDisplay(target.weightKg)),
+                            target.rir?.toString().orEmpty()
+                        )
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(clusterDraftError = ClusterDraftError.INVALID_CLUSTER) }
+            }
+        }
+    }
+
+    fun closeClusterLog() {
+        if (draftSubmissionInProgress) return
+        clusterLogGeneration++
+        _state.update { it.copy(clusterLog = null) }
+    }
+
+    fun onClusterLogRepsChanged(value: String) {
+        if (!draftSubmissionInProgress) {
+            _state.update {
+                it.copy(clusterLog = it.clusterLog?.copy(reps = value, failed = false))
+            }
+        }
+    }
+
+    fun onClusterLogWeightChanged(value: String) {
+        if (!draftSubmissionInProgress) {
+            _state.update {
+                it.copy(clusterLog = it.clusterLog?.copy(weightInput = value, failed = false))
+            }
+        }
+    }
+
+    fun onClusterLogRirChanged(value: String) {
+        if (!draftSubmissionInProgress) {
+            _state.update {
+                it.copy(clusterLog = it.clusterLog?.copy(rir = value, failed = false))
+            }
+        }
+    }
+
+    /** Each button press durably records exactly one segment under the shared submission guard. */
+    fun saveClusterSegment() {
+        val edit = _state.value.clusterLog ?: return
+        if (!edit.canSave || !beginDraftSubmission()) return
+        val context = draftContextRevision
+        viewModelScope.launch {
+            try {
+                ensureDraftContext(context)
+                val draft = edit.draft
+                val occurrenceId = requireNotNull(draft.occurrenceId)
+                val prescription = requireNotNull(draft.cluster)
+                val parent = logWorkoutSet.clusterParents(occurrenceId).firstOrNull {
+                    it.occurrenceEntryId == draft.occurrenceEntryId &&
+                        it.cluster?.isComplete == false
+                }
+                ensureDraftContext(context)
+                require((parent?.cluster?.performedSegments ?: 0) == edit.position) {
+                    "The saved cluster changed; reopen it before continuing"
+                }
+                val segment = PerformedClusterSegment(
+                    edit.position,
+                    requireNotNull(edit.reps.toIntOrNull()),
+                    edit.weightUnit.displayToKilograms(
+                        requireNotNull(edit.weightInput.toDoubleOrNull())
+                    ),
+                    edit.rir.toIntOrNull()
+                )
+                segment.requireValid()
+                if (parent == null) {
+                    val current = _state.value
+                    val set = WorkoutSet(
+                        exerciseId = draft.exerciseId,
+                        reps = segment.reps, weightKg = segment.weightKg, rir = segment.rir,
+                        loadKind = LoadKind.EXTERNAL,
+                        performedAtMillis = current.performedAtMillis ?: runtime.nowMillis(),
+                        isWarmup = false, occurrenceId = occurrenceId,
+                        occurrenceEntryId = draft.occurrenceEntryId,
+                        weekNumber = activeActivation?.weekNumber,
+                        cycleNumber = activeActivation?.cycleNumber,
+                        dayIndex = dayIndexFor(occurrenceId),
+                        prescriptionSnapshot = capturePrescription(
+                            draft.exerciseId,
+                            LoadKind.EXTERNAL,
+                            occurrenceId to draft.occurrenceEntryId,
+                            current.performedAtMillis != null,
+                            segment.reps,
+                            null,
+                            null,
+                            null
+                        )?.copy(cluster = prescription)
+                    )
+                    logResolvedCluster(
+                        set,
+                        WorkoutCluster(
+                            prescription.kind,
+                            prescription.segments.size,
+                            listOf(segment)
+                        ),
+                        current
+                    )
+                } else {
+                    logWorkoutSet.resumeCluster(parent.id, listOf(segment))
+                }
+                ensureDraftContext(context)
+                val next = prescription.segments.getOrNull(edit.position + 1)
+                _state.update {
+                    it.copy(
+                        clusterLog = next?.let { target ->
+                            edit.copy(
+                                position = edit.position + 1,
+                                reps = target.reps.toString(),
+                                weightInput = exactEntryText(
+                                    edit.weightUnit.kilogramsToDisplay(target.weightKg)
+                                ),
+                                rir = target.rir?.toString().orEmpty(),
+                                failed = false
+                            )
+                        }
+                    )
+                }
+                refreshRecentSets()
+                refreshOccurrence()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(clusterLog = it.clusterLog?.copy(failed = true)) }
+            } finally {
+                endDraftSubmission()
+            }
+        }
+    }
+
     fun confirmDraft(draft: DraftSet) {
         if (draftSubmissionInProgress || draft !in _state.value.draftSets) return
         val retry = retryFor(draft)
@@ -1390,8 +1709,16 @@ class WorkoutLoggerViewModel(
                     } else {
                         current.performedAtMillis
                     },
-                    performedAtExplicit = inherited?.performedAtExplicit ?: false
-                )
+                    performedAtExplicit = inherited?.performedAtExplicit ?: false,
+                    // A reopened editor keeps the segment values it already holds, unless the display
+                    // unit changed since: that text would be re-read in the new unit, so the
+                    // prescribed values are seeded again instead.
+                    laterSegments = inherited
+                        ?.takeIf { it.weightUnit == current.weightUnit }
+                        ?.laterSegments
+                        ?: base.cluster?.laterSegmentInputs(current.weightUnit).orEmpty()
+                ),
+                clusterDraftError = null
             )
         }
     }
@@ -1437,6 +1764,32 @@ class WorkoutLoggerViewModel(
 
     fun onDraftWeightRevealed() = updateDraftEdit { copy(weightRevealed = true) }
 
+    /** Edits one later cluster segment's repetitions; segment 1 keeps [onDraftRepsChanged]. */
+    fun onDraftSegmentRepsChanged(index: Int, value: String) = updateLaterSegment(index) { input ->
+        input.copy(reps = value.filter(Char::isDigit))
+    }
+
+    /** Edits one later cluster segment's load, entered in the editor's frozen display unit. */
+    fun onDraftSegmentWeightChanged(index: Int, value: String) =
+        updateLaterSegment(index) { input ->
+            input.copy(weightInput = value.filter { char -> char.isDigit() || char == '.' })
+        }
+
+    private fun updateLaterSegment(
+        index: Int,
+        transform: (ClusterSegmentInput) -> ClusterSegmentInput
+    ) = updateDraftEdit {
+        if (index !in laterSegments.indices) {
+            this
+        } else {
+            copy(
+                laterSegments = laterSegments.mapIndexed { position, input ->
+                    if (position == index) transform(input) else input
+                }
+            )
+        }
+    }
+
     fun onDraftPerformedAtChanged(millis: Long?): Boolean {
         if (millis != null && millis > runtime.nowMillis()) return false
         if (millis != null) clearLiveSetStart()
@@ -1449,7 +1802,9 @@ class WorkoutLoggerViewModel(
     fun cancelDraftEdit() {
         if (draftSubmissionInProgress) return
         clearLiveSetStart()
-        _state.update { it.copy(draftEdit = null, confirmingAllDrafts = false) }
+        _state.update {
+            it.copy(draftEdit = null, confirmingAllDrafts = false, clusterDraftError = null)
+        }
     }
 
     fun resetDraftEdit() {
@@ -1475,7 +1830,8 @@ class WorkoutLoggerViewModel(
                     rir = "",
                     weightRevealed = base.loadKind == LoadKind.ADDED,
                     performedAtMillis = current.performedAtMillis,
-                    performedAtExplicit = false
+                    performedAtExplicit = false,
+                    laterSegments = base.cluster?.laterSegmentInputs(current.weightUnit).orEmpty()
                 )
             )
         }
@@ -1613,7 +1969,13 @@ class WorkoutLoggerViewModel(
     }
 
     private fun updateDraftEdit(transform: DraftEdit.() -> DraftEdit) {
-        _state.update { state -> state.copy(draftEdit = state.draftEdit?.transform()) }
+        _state.update { state ->
+            state.copy(
+                draftEdit = state.draftEdit?.transform(),
+                // A refusal described the values that were just replaced, so a new input clears it.
+                clusterDraftError = null
+            )
+        }
     }
 
     /**
@@ -1713,7 +2075,8 @@ class WorkoutLoggerViewModel(
             distanceMeters = prefill?.distanceMeters ?: entry.distanceMeters,
             forceNewtons = prefill?.forceNewtons ?: entry.forceNewtons,
             setTargets = entry.setTargets,
-            orderedPrefill = prefill
+            orderedPrefill = prefill,
+            cluster = entry.cluster
         )
     }
 
@@ -1784,6 +2147,9 @@ class WorkoutLoggerViewModel(
         edit: DraftEdit?,
         contextRevision: Long = draftContextRevision
     ): Boolean {
+        // A cluster whose entered segments cannot form valid performed work is refused outright:
+        // nothing is written, and the draft and editor stay as they are for correction.
+        if (refuseClusterWrite(resolved, edit)) return false
         var completed = 0
         return try {
             logDraft(resolved, edit, contextRevision, onSetLogged = { completed++ })
@@ -1836,7 +2202,8 @@ class WorkoutLoggerViewModel(
                 },
                 appliedGuidedEdits = it.appliedGuidedEdits.filterKeys { key ->
                     key != draft.occurrenceEntryId
-                }
+                },
+                clusterDraftError = null
             )
         }
     }
@@ -1844,6 +2211,32 @@ class WorkoutLoggerViewModel(
     /** The pending retry for [draft], if any, matched by its source row or its remaining row. */
     private fun retryFor(draft: DraftSet): DraftWriteRetry? =
         _state.value.draftWriteRetries.firstOrNull { it.source == draft || it.draft == draft }
+
+    /** The reason [draft]'s cluster cannot be logged exactly as entered, or null for ordinary work. */
+    private fun clusterRefusal(draft: DraftSet, edit: DraftEdit?): ClusterDraftError? {
+        val prescription = draft.cluster ?: return null
+        return clusterDraftRefusal(
+            prescription = prescription,
+            parentReps = draft.reps,
+            parentWeightKg = draft.weightKg,
+            parentRir = edit?.rir?.toIntOrNull(),
+            inputs = edit?.laterSegments,
+            // An edit without its own frozen unit cannot happen; the current preference is only a
+            // fallback so the refusal never depends on a null unit.
+            weightUnit = edit?.weightUnit ?: _state.value.weightUnit
+        )
+    }
+
+    /**
+     * Refuses a cluster write before anything is written. The typed reason is published and the
+     * draft and its editor stay in place, so the reported segment can be corrected; the draft batch
+     * retry state is not involved because no write was attempted.
+     */
+    private fun refuseClusterWrite(draft: DraftSet, edit: DraftEdit?): Boolean {
+        val error = clusterRefusal(draft, edit) ?: return false
+        _state.update { it.copy(clusterDraftError = error, confirmingAllDrafts = false) }
+        return true
+    }
 
     /** The confirmed values and editor state to write for [draft], honoring an open editor or retry. */
     private fun resolveForWrite(draft: DraftSet): Pair<DraftSet, DraftEdit?> {
@@ -1885,6 +2278,12 @@ class WorkoutLoggerViewModel(
         }?.let { missing ->
             setMissingLoadPrompt(missing)
             return
+        }
+        // A cluster the user entered incompletely is refused before the batch starts, so no earlier
+        // draft is written and then left behind by the refusal.
+        drafts.forEach { draft ->
+            val (resolved, edit) = resolveForWrite(draft)
+            if (refuseClusterWrite(resolved, edit)) return
         }
         val contextRevision = draftContextRevision
         if (!beginDraftSubmission()) return
@@ -1947,7 +2346,8 @@ class WorkoutLoggerViewModel(
                         draftEdit = null,
                         missingLoadPrompt = null,
                         draftWriteRetries = emptyList(),
-                        confirmingAllDrafts = false
+                        confirmingAllDrafts = false,
+                        clusterDraftError = null
                     )
                 }
             }
@@ -1969,7 +2369,8 @@ class WorkoutLoggerViewModel(
                 },
                 draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
                     retry.source == draft || retry.draft == draft
-                }
+                },
+                clusterDraftError = null
             )
         }
     }
@@ -2069,6 +2470,14 @@ class WorkoutLoggerViewModel(
         onSetLogged: () -> Unit = {},
         orderedOffsetOverride: Int? = null
     ): String? {
+        if (draft.cluster != null && draft.occurrenceId != null) {
+            require(
+                logWorkoutSet.clusterParents(draft.occurrenceId).none {
+                    it.occurrenceEntryId == draft.occurrenceEntryId &&
+                        it.cluster?.isComplete == false
+                }
+            ) { "Resume the saved cluster before logging another set position" }
+        }
         val link = if (draft.occurrenceId != null) {
             draft.occurrenceId to draft.occurrenceEntryId
         } else {
@@ -2127,85 +2536,92 @@ class WorkoutLoggerViewModel(
             } else {
                 draft.forceNewtons
             }
-            sessionId = logResolved(
-                WorkoutSet(
-                    exerciseId = draft.exerciseId,
-                    reps = if (followsTarget) prescribed?.reps else draft.reps,
-                    durationSeconds = if (followsTarget) {
-                        prescribed?.durationSeconds
-                    } else {
-                        draft.durationSeconds
-                    },
-                    distanceMeters = if (followsTarget) {
-                        prescribed?.distanceMeters
-                    } else {
-                        draft.distanceMeters
-                    },
-                    forceNewtons = setForce,
-                    // A device belongs to a force reading only; it never accompanies another measure.
-                    device = if (setForce != null) draft.device else null,
-                    weightKg = when {
-                        setForce != null -> null
-                        draft.loadKind == LoadKind.BODYWEIGHT -> null
-                        followsTarget -> prescribed?.weightKg
-                        else -> draft.weightKg
-                    },
-                    loadKind = if (followsTarget) {
-                        requireNotNull(prescribed).loadKind
-                    } else {
-                        draft.loadKind
-                    },
-                    performedAtMillis = if (liveCompletion) {
-                        liveSetCompletedAtWallMillis ?: runtime.nowMillis()
-                    } else {
-                        current.performedAtMillis ?: runtime.nowMillis()
-                    },
-                    isWarmup = draft.isWarmup,
-                    weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
-                    cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
-                    dayIndex = dayIndex,
-                    occurrenceId = link?.first,
-                    occurrenceEntryId = link?.second,
-                    prescriptionSnapshot = if (followsTarget) {
-                        captureOrderedPrescription(
-                            draft,
-                            link,
-                            orderedOffset + index,
-                            requireNotNull(prescribed),
-                            backdated
-                        )
-                    } else {
-                        capturePrescription(
-                            draft.exerciseId,
-                            draft.loadKind,
-                            link,
-                            backdated,
-                            draft.reps,
-                            draft.durationSeconds,
-                            draft.distanceMeters,
-                            draft.forceNewtons
-                        )
-                    },
-                    rir = edit?.rir?.toIntOrNull(),
-                    timingProvenance = when {
-                        liveCompletion -> WorkoutTimingProvenance.LIVE
-                        current.performedAtMillis != null -> WorkoutTimingProvenance.CATCH_UP
-                        else -> WorkoutTimingProvenance.UNKNOWN
-                    },
-                    startedAtElapsedMillis = if (liveCompletion) {
-                        liveSetStartedAtElapsedMillis
-                    } else {
-                        null
-                    },
-                    completedAtElapsedMillis = if (liveCompletion) {
-                        liveSetCompletedAtElapsedMillis ?: runtime.elapsedRealtimeMillis()
-                    } else {
-                        null
-                    }
-                ),
-                current,
-                returnSessionId = liveCompletion
+            val submittedSet = WorkoutSet(
+                exerciseId = draft.exerciseId,
+                reps = if (followsTarget) prescribed?.reps else draft.reps,
+                durationSeconds = if (followsTarget) {
+                    prescribed?.durationSeconds
+                } else {
+                    draft.durationSeconds
+                },
+                distanceMeters = if (followsTarget) {
+                    prescribed?.distanceMeters
+                } else {
+                    draft.distanceMeters
+                },
+                forceNewtons = setForce,
+                // A device belongs to a force reading only; it never accompanies another measure.
+                device = if (setForce != null) draft.device else null,
+                weightKg = when {
+                    setForce != null -> null
+                    draft.loadKind == LoadKind.BODYWEIGHT -> null
+                    followsTarget -> prescribed?.weightKg
+                    else -> draft.weightKg
+                },
+                loadKind = if (followsTarget) {
+                    requireNotNull(prescribed).loadKind
+                } else {
+                    draft.loadKind
+                },
+                performedAtMillis = if (liveCompletion) {
+                    liveSetCompletedAtWallMillis ?: runtime.nowMillis()
+                } else {
+                    current.performedAtMillis ?: runtime.nowMillis()
+                },
+                isWarmup = draft.isWarmup,
+                weekNumber = activeActivation?.weekNumber ?: acceptedPlan?.weekNumber,
+                cycleNumber = activeActivation?.cycleNumber ?: acceptedPlan?.cycleNumber,
+                dayIndex = dayIndex,
+                occurrenceId = link?.first,
+                occurrenceEntryId = link?.second,
+                prescriptionSnapshot = if (followsTarget) {
+                    captureOrderedPrescription(
+                        draft,
+                        link,
+                        orderedOffset + index,
+                        requireNotNull(prescribed),
+                        backdated
+                    )
+                } else {
+                    capturePrescription(
+                        draft.exerciseId,
+                        draft.loadKind,
+                        link,
+                        backdated,
+                        draft.reps,
+                        draft.durationSeconds,
+                        draft.distanceMeters,
+                        draft.forceNewtons
+                    )
+                },
+                rir = edit?.rir?.toIntOrNull(),
+                timingProvenance = when {
+                    liveCompletion -> WorkoutTimingProvenance.LIVE
+                    current.performedAtMillis != null -> WorkoutTimingProvenance.CATCH_UP
+                    else -> WorkoutTimingProvenance.UNKNOWN
+                },
+                startedAtElapsedMillis = if (liveCompletion) {
+                    liveSetStartedAtElapsedMillis
+                } else {
+                    null
+                },
+                completedAtElapsedMillis = if (liveCompletion) {
+                    liveSetCompletedAtElapsedMillis ?: runtime.elapsedRealtimeMillis()
+                } else {
+                    null
+                }
             )
+            val prescription = draft.cluster
+            sessionId = if (prescription != null) {
+                logResolvedCluster(
+                    submittedSet,
+                    performedCluster(prescription, submittedSet, edit),
+                    current,
+                    returnSessionId = liveCompletion
+                )
+            } else {
+                logResolved(submittedSet, current, returnSessionId = liveCompletion)
+            }
             onSetLogged()
         }
         return sessionId
@@ -2305,6 +2721,8 @@ class WorkoutLoggerViewModel(
         }
         if (occurrenceContextChanged) {
             draftContextRevision++
+            clusterLogGeneration++
+            _state.update { it.copy(clusterLog = null) }
             dismissInstructions()
             // A replaced occurrence no longer matches the context a manual-set failure or a completed
             // save's refresh message described.
@@ -2617,7 +3035,10 @@ class WorkoutLoggerViewModel(
         val sets = getWorkoutLog()
         val performed = sets
             .filter { set ->
-                !set.isWarmup && set.occurrenceId == occurrence.id && set.occurrenceEntryId != null
+                !set.isWarmup &&
+                    set.occurrenceId == occurrence.id &&
+                    set.occurrenceEntryId != null &&
+                    set.cluster?.isComplete != false
             }
             .groupingBy { requireNotNull(it.occurrenceEntryId) }
             .eachCount()
@@ -2932,6 +3353,7 @@ class WorkoutLoggerViewModel(
         liveCompletion: Boolean = false,
         forcedWarmup: Boolean? = null
     ) {
+        if (refuseClusterWrite(resolved, edit)) return
         val contextRevision = draftContextRevision
         val timerGeneration = liveTimerGeneration
         if (!beginDraftSubmission()) return
@@ -2979,7 +3401,8 @@ class WorkoutLoggerViewModel(
                 it.copy(
                     appliedGuidedEdits = it.appliedGuidedEdits.filterKeys { key ->
                         key != resolved.occurrenceEntryId
-                    }
+                    },
+                    clusterDraftError = null
                 )
             }
             val contextStillCurrent = contextRevision == draftContextRevision &&
@@ -3555,7 +3978,8 @@ class WorkoutLoggerViewModel(
                     dayIndex = set.dayIndex,
                     loadKind = set.loadKind,
                     occurrenceId = set.occurrenceId,
-                    sessionId = set.sessionId
+                    sessionId = set.sessionId,
+                    cluster = set.cluster
                 )
             }
         _state.update { it.copy(recentSets = rows, manualLogRefreshFailed = false) }

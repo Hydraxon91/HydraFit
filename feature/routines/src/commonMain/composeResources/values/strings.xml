@@ -87,6 +87,32 @@
     <string name="routines_superset_error_pair_rest">The rest after the pair must be 1 to %1$d seconds.</string>
     <string name="routines_superset_error_same_exercise">A pair needs two different exercises.</string>
 
+    <string name="routines_cluster_action">Cluster</string>
+    <string name="routines_cluster_title">Cluster prescription</string>
+    <string name="routines_cluster_kind_label">Cluster type</string>
+    <string name="routines_cluster_kind_drop_set">Drop set</string>
+    <string name="routines_cluster_kind_rest_pause">Rest-pause</string>
+    <string name="routines_cluster_segment_label">Segment %1$d</string>
+    <string name="routines_cluster_segment_reps_label">Reps</string>
+    <string name="routines_cluster_segment_load_label">Load (kg)</string>
+    <string name="routines_cluster_segment_rir_label">RIR (optional)</string>
+    <string name="routines_cluster_rest_label">Rest between segments (seconds)</string>
+    <string name="routines_cluster_add_segment">Add segment</string>
+    <string name="routines_cluster_remove_segment">Remove segment</string>
+    <string name="routines_cluster_summary">Cluster %1$s · %2$d segments · %3$s</string>
+    <string name="routines_cluster_summary_kg">%1$s kg</string>
+    <string name="routines_cluster_summary_kind_drop_set">drop set</string>
+    <string name="routines_cluster_summary_kind_rest_pause">rest-pause</string>
+    <string name="routines_cluster_error_too_few_segments">A cluster needs at least %1$d segments.</string>
+    <string name="routines_cluster_error_too_many_segments">A cluster can have at most %1$d segments.</string>
+    <string name="routines_cluster_error_drop_load">A drop set needs each segment load lower than the one before it.</string>
+    <string name="routines_cluster_error_rest_pause_load">A rest-pause cluster repeats one load across all segments.</string>
+    <string name="routines_cluster_error_rest_pause_rest">A rest-pause cluster needs a positive rest between segments.</string>
+    <string name="routines_cluster_error_reps">Reps must be %1$d to %2$d.</string>
+    <string name="routines_cluster_error_load">Enter a load greater than zero kilograms.</string>
+    <string name="routines_cluster_error_rir">A prescribed RIR must be %1$d to %2$d.</string>
+    <string name="routines_cluster_error_rest">Rest must be 0 to %1$d seconds.</string>
+
     <string name="routines_save">Save</string>
     <string name="routines_cancel">Cancel</string>
     <string name="routines_confirm">Confirm</string>

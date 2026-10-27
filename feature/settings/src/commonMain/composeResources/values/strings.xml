@@ -97,6 +97,9 @@
     <string name="settings_backup_export_history_csv">Export history CSV</string>
     <string name="settings_backup_history_csv_description">Saves your recorded training history as a CSV for analysis in another tool. Your personal notes are not included, and this is not a backup — the file can’t be restored into HydraFit.</string>
     <string name="settings_backup_history_csv_exported">History exported as CSV.</string>
+    <string name="settings_backup_export_cardio_csv">Export cardio CSV</string>
+    <string name="settings_backup_cardio_csv_description">Saves recorded cardio activities as a separate CSV for analysis. This is not a backup and can’t be restored into HydraFit.</string>
+    <string name="settings_backup_cardio_csv_exported">Cardio activities exported as CSV.</string>
     <string name="settings_backup_restore">Restore backup</string>
     <string name="settings_backup_unsupported">Backup and restore aren’t available on this platform yet.</string>
     <string name="settings_backup_exported">Backup saved.</string>

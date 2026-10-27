@@ -4,6 +4,7 @@ import com.hydrafit.app.core.database.DatabaseStartupMaintenance
 import com.hydrafit.app.core.database.databaseModule
 import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
 import com.hydrafit.app.core.network.networkModule
+import com.hydrafit.app.feature.cardio.cardioModule
 import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.loggerModule
@@ -29,6 +30,7 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
             routinesModule,
             onboardingModule,
             progressModule,
+            cardioModule,
             platformModule
         )
         modules(extraModules)

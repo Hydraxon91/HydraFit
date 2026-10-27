@@ -2,7 +2,9 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.workout.DeviceAttribution
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSession as DomainWorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
@@ -30,8 +32,32 @@ internal fun WorkoutSet.toDomain(): DomainWorkoutSet = DomainWorkoutSet(
     prescriptionSnapshot = prescriptionSnapshot?.let(WorkoutPrescriptionSnapshotJson::decode),
     distanceMeters = distanceMeters?.toInt(),
     forceNewtons = forceNewtons,
-    device = deviceAttributionOf(deviceName, deviceRatingKg)
+    device = deviceAttributionOf(deviceName, deviceRatingKg),
+    cluster = clusterSummaryOf(clusterKind, clusterPlannedSegments, clusterPerformedSegments)
 )
+
+/**
+ * Strict persisted cluster decoding. All three fields are absent for an ordinary set; a partial or
+ * inconsistent triple is corrupt data rather than an inferred cluster.
+ */
+internal fun clusterSummaryOf(
+    kind: String?,
+    plannedSegments: Long?,
+    performedSegments: Long?
+): WorkoutClusterSummary? {
+    if (kind == null && plannedSegments == null && performedSegments == null) return null
+    require(kind != null && plannedSegments != null && performedSegments != null) {
+        "Incomplete stored cluster identity"
+    }
+    val decodedKind = requireNotNull(
+        runCatching { ClusterKind.valueOf(kind) }.getOrNull()
+    ) { "Unknown stored cluster kind" }
+    return WorkoutClusterSummary(
+        kind = decodedKind,
+        plannedSegments = plannedSegments.toInt(),
+        performedSegments = performedSegments.toInt()
+    ).also { it.requireValid() }
+}
 
 /**
  * Strict persisted device decoding. Both fields are absent for a set with no measuring device; a

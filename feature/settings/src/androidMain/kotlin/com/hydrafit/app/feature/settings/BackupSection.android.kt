@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_backup_cancel
 import hydrafit.feature.settings.generated.resources.settings_backup_export
+import hydrafit.feature.settings.generated.resources.settings_backup_export_cardio_csv
 import hydrafit.feature.settings.generated.resources.settings_backup_export_encrypt
 import hydrafit.feature.settings.generated.resources.settings_backup_export_encrypted_disclosure
 import hydrafit.feature.settings.generated.resources.settings_backup_export_history_csv
@@ -47,6 +48,7 @@ actual fun BackupSection(
     busy: Boolean,
     onExportTo: (handle: String, encrypted: Boolean, password: String?) -> Unit,
     onExportCsvTo: (String) -> Unit,
+    onExportCardioCsvTo: (String) -> Unit,
     onImportFrom: (String) -> Unit,
     modifier: Modifier
 ) {
@@ -71,6 +73,9 @@ actual fun BackupSection(
     val csvPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri -> uri?.let { onExportCsvTo(it.toString()) } }
+    val cardioCsvPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> uri?.let { onExportCardioCsvTo(it.toString()) } }
     val importPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { onImportFrom(it.toString()) } }
@@ -92,6 +97,13 @@ actual fun BackupSection(
             modifier = Modifier.weight(1f).testTag(BackupTestTags.EXPORT_CSV)
         ) {
             Text(stringResource(Res.string.settings_backup_export_history_csv))
+        }
+        OutlinedButton(
+            onClick = { cardioCsvPicker.launch("hydrafit-cardio.csv") },
+            enabled = isSupported && !busy,
+            modifier = Modifier.weight(1f).testTag(BackupTestTags.EXPORT_CARDIO_CSV)
+        ) {
+            Text(stringResource(Res.string.settings_backup_export_cardio_csv))
         }
         OutlinedButton(
             onClick = {

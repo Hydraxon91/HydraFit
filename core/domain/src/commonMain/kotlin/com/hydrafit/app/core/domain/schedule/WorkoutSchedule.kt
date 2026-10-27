@@ -91,6 +91,8 @@ data class ActivationEntry(
     /** The slot's ordered per-set targets, frozen with the rest of the prescription. */
     val setTargets: SlotSetTargets? = null,
     val superset: com.hydrafit.app.core.domain.routine.Superset? = null,
+    /** The slot's ordered cluster prescription, frozen with the rest of the prescription. */
+    val cluster: com.hydrafit.app.core.domain.routine.ClusterPrescription? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Measured force in newtons for a force slot, or null for every other metric. */
@@ -152,6 +154,8 @@ data class OccurrenceEntry(
     val superset: com.hydrafit.app.core.domain.routine.Superset? = null,
     val remainingDisposition: RemainingDisposition? = null,
     val terminalRemainingSets: Int? = null,
+    /** The slot's ordered cluster prescription, copied with the rest of the frozen prescription. */
+    val cluster: com.hydrafit.app.core.domain.routine.ClusterPrescription? = null,
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Measured force in newtons for a force slot, or null for every other metric. */

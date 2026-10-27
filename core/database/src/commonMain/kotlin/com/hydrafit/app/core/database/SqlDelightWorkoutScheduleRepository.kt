@@ -234,6 +234,13 @@ class SqlDelightWorkoutScheduleRepository(
                     workoutId,
                     entry.position.toLong()
                 )
+                queries.setActivationCluster(
+                    entry.cluster?.let(
+                        com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
+                    ),
+                    workoutId,
+                    entry.position.toLong()
+                )
                 writeEntryExplanation(ACTIVATION_ENTRY_KIND, entryId, entry.explanation)
                 entryId
             }
@@ -279,6 +286,13 @@ class SqlDelightWorkoutScheduleRepository(
                 )
                 queries.setOccurrenceSuperset(
                     entry.superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
+                    occurrenceId,
+                    entry.position.toLong()
+                )
+                queries.setOccurrenceCluster(
+                    entry.cluster?.let(
+                        com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
+                    ),
                     occurrenceId,
                     entry.position.toLong()
                 )
@@ -694,6 +708,9 @@ class SqlDelightWorkoutScheduleRepository(
         progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
         setTargets = setTargets?.let(SlotSetTargetsJson::decode),
         superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
+        cluster = cluster?.let(
+            com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::decode
+        ),
         distanceMeters = distanceMeters?.toInt(),
         forceNewtons = forceNewtons
     )
@@ -740,6 +757,9 @@ class SqlDelightWorkoutScheduleRepository(
         setTargets = setTargets?.let(SlotSetTargetsJson::decode),
         superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
         remainingDisposition = remainingDisposition?.toRemainingDisposition(),
+        cluster = cluster?.let(
+            com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::decode
+        ),
         terminalRemainingSets = terminalRemainingSets?.toInt(),
         distanceMeters = distanceMeters?.toInt(),
         forceNewtons = forceNewtons

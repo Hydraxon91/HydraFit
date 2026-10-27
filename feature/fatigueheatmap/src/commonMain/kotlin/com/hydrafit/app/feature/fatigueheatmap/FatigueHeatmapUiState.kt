@@ -12,7 +12,8 @@ data class MuscleFatigueEntry(
     val score: Double,
     val workingSets: Int = 0,
     val estimatedInvolvementCredits: Double = 0.0,
-    val lastTrainedAtMillis: Long? = null
+    val lastTrainedAtMillis: Long? = null,
+    val clusters: Int = 0
 )
 
 data class FatigueHeatmapUiState(

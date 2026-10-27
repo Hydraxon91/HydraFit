@@ -391,6 +391,21 @@ class LogWorkoutSetUseCaseTest {
             sets.add(set)
         }
 
+        override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = add(
+            set.copy(
+                cluster = WorkoutClusterSummary(
+                    kind = cluster.kind,
+                    plannedSegments = cluster.plannedSegments,
+                    performedSegments = cluster.performedSegments
+                )
+            )
+        )
+
+        override suspend fun appendClusterSegments(
+            setId: Long,
+            segments: List<PerformedClusterSegment>
+        ) = Unit
+
         override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 
         override suspend fun delete(id: Long) = Unit

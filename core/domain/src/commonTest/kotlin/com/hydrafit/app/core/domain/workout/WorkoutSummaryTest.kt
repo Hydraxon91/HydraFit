@@ -20,6 +20,29 @@ import kotlin.test.assertTrue
 class WorkoutSummaryTest {
 
     @Test
+    fun partialClustersRemainVisibleWithoutCompletingTheirSlot() {
+        val partial = set(id = 1, occurrenceEntryId = 40, reps = 8).copy(
+            cluster = WorkoutClusterSummary(
+                com.hydrafit.app.core.domain.routine.ClusterKind.DROP_SET,
+                3,
+                2
+            )
+        )
+        val summary = buildWorkoutSummary(
+            occurrence(entry(id = 40, sets = 1, reps = 8)),
+            listOf(partial, partial.copy(id = 2, occurrenceEntryId = null)),
+            emptyList(),
+            emptyMap(),
+            activation()
+        )
+        assertEquals(listOf(1L, 2L), summary.incompleteClusters.map { it.id })
+        assertEquals(0, summary.recordedWorkingSets)
+        assertEquals(1, summary.remainingSets)
+        assertFalse(summary.isComplete)
+        assertTrue(summary.extraSets.isEmpty())
+    }
+
+    @Test
     fun reconcilesAFullyRecordedSlotWithItsFrozenTarget() {
         val summary = buildWorkoutSummary(
             occurrence = occurrence(entry(id = 40, sets = 3, reps = 8, weightKg = 100.0)),

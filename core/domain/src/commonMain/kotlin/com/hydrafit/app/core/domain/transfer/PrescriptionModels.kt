@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlinx.serialization.Serializable
@@ -14,7 +15,7 @@ import kotlinx.serialization.Serializable
 const val PRESCRIPTION_FORMAT: String = "hydrafit-routines"
 
 /** The interchange version this build writes. */
-const val PRESCRIPTION_FORMAT_VERSION: Int = 7
+const val PRESCRIPTION_FORMAT_VERSION: Int = 8
 
 /** The first interchange format with explicit superset membership and rest. */
 const val PRESCRIPTION_SUPERSET_FORMAT_VERSION: Int = 5
@@ -25,14 +26,18 @@ const val PRESCRIPTION_DISTANCE_FORMAT_VERSION: Int = 6
 /** The first interchange format that may carry measured force in canonical newtons. */
 const val PRESCRIPTION_FORCE_FORMAT_VERSION: Int = 7
 
+/** The first interchange format that may carry a slot's ordered cluster prescription. */
+const val PRESCRIPTION_CLUSTER_FORMAT_VERSION: Int = 8
+
 /**
  * The versions a reader accepts. Version 1 carries a rep-only slot; version 2 may carry a timed slot
  * (positive whole seconds instead of a rep count); version 3 may additionally carry a slot's approved
  * progression policy; version 4 may additionally carry its ordered per-set targets; version 5 may
  * carry explicit superset membership and rest, version 6 may carry a distance slot in whole metres,
- * and version 7 may carry a load-free force slot in canonical newtons. A duration in a version-1
- * document, or a policy, ordered targets, distance or force before their own version, is rejected
- * rather than read, so an older file is never reinterpreted.
+ * version 7 may carry a load-free force slot in canonical newtons, and version 8 may carry a slot's
+ * ordered cluster prescription. A duration in a version-1 document, or a policy, ordered targets,
+ * distance, force or cluster before their own version, is rejected rather than read, so an older
+ * file is never reinterpreted.
  */
 val PRESCRIPTION_SUPPORTED_VERSIONS: IntRange = 1..PRESCRIPTION_FORMAT_VERSION
 
@@ -122,7 +127,12 @@ data class PrescriptionEntryRecord(
      * share one repeated prescription. Earlier formats must not carry one.
      */
     val setTargets: String? = null,
-    val superset: String? = null
+    val superset: String? = null,
+    /**
+     * The encoded ordered cluster prescription for this slot (format 8 and later), or null for
+     * ordinary work. Earlier formats must not carry one.
+     */
+    val cluster: String? = null
 )
 
 /** A custom exercise definition the document's routines need, in resolved form (not a stored blob). */
@@ -256,6 +266,17 @@ object PrescriptionValidator {
                         }
                         // Ordered targets describe rep work, so another measure cannot carry them.
                         if (entry.reps == null) fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    if (document.formatVersion < PRESCRIPTION_CLUSTER_FORMAT_VERSION &&
+                        entry.cluster != null
+                    ) {
+                        // A cluster in a document that predates it is not what the writer claimed.
+                        fail(PrescriptionFailure.INVALID_VALUE)
+                    }
+                    entry.cluster?.let { encoded ->
+                        if (runCatching { ClusterPrescriptionJson.decode(encoded) }.isFailure) {
+                            fail(PrescriptionFailure.INVALID_VALUE)
+                        }
                     }
                     if (runCatching {
                             PrescriptionBounds.validate(

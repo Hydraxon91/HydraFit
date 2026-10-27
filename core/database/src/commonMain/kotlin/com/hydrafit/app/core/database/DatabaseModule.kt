@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.backup.BackupCatalog
 import com.hydrafit.app.core.domain.backup.BackupRepository
 import com.hydrafit.app.core.domain.backup.BackupStagingRepository
+import com.hydrafit.app.core.domain.cardio.CardioRepository
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -74,6 +75,7 @@ val databaseModule: Module = module {
     single<PrescriptionImportRepository> { SqlDelightPrescriptionImportRepository(get(), get()) }
     single<ExerciseProgressRepository> { SqlDelightExerciseProgressRepository(get()) }
     single<TrainingCoverageRepository> { SqlDelightTrainingCoverageRepository(get()) }
+    single<CardioRepository> { SqlDelightCardioRepository(get()) }
     single<BodyWeightRepository> { SqlDelightBodyWeightRepository(get(), get()) }
     single<ExerciseNoteRepository> { SqlDelightExerciseNoteRepository(get()) }
     single<SessionNoteRepository> { SqlDelightSessionNoteRepository(get()) }

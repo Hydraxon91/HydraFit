@@ -40,10 +40,13 @@ import androidx.navigation.compose.rememberNavController
 import com.hydrafit.app.core.domain.startup.StartupReadiness
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
+import com.hydrafit.app.core.navigation.LocalCardioNavigator
 import com.hydrafit.app.core.navigation.LocalProgressNavigator
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import com.hydrafit.app.core.navigation.appTabForRequest
 import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
+import com.hydrafit.app.feature.cardio.cardioGraph
+import com.hydrafit.app.feature.cardio.cardioRoute
 import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
@@ -136,6 +139,14 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     val closeProgress: () -> Unit = {
         if (!navController.popBackStack()) openTab(AppTab.LOG)
     }
+    // Cardio is the same shape: a shell-owned pushed destination so the Logger offers the entry
+    // without importing the feature. The graph pops its own back stack entry.
+    val openCardio: () -> Unit = {
+        navController.navigate(cardioRoute) {
+            launchSingleTop = true
+            restoreState = false
+        }
+    }
     // A notification tap names one tab and nothing else; the shell resolves it once the startup gate
     // has run, and a request for the tab already on screen changes nothing.
     val consumeTabRequest by rememberUpdatedState(onTabRequestConsumed)
@@ -197,7 +208,8 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
         CompositionLocalProvider(
             LocalAppTabNavigator provides openTab,
             LocalSetupNavigator provides openSetup,
-            LocalProgressNavigator provides openProgress
+            LocalProgressNavigator provides openProgress,
+            LocalCardioNavigator provides openCardio
         ) {
             NavHost(
                 navController = navController,
@@ -209,6 +221,8 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
                 onboardingGraph(navController = navController, onClose = closeSetup)
                 // Progress is a standalone, pushed destination; it is not a seventh tab entry.
                 progressGraph(navController = navController, onClose = closeProgress)
+                // Cardio is the same standalone pushed destination.
+                cardioGraph(navController = navController)
             }
             // Composed outside the nav host so its ViewModel owner matches the startup gate's.
             OnboardingStartupEntry(navController = navController)

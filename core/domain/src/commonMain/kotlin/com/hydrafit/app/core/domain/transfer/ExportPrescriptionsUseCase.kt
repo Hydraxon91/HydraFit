@@ -105,6 +105,12 @@ private fun RoutineTemplate.toRecord(
                         setTargets = entry.setTargets?.let(SlotSetTargetsJson::encode),
                         superset = entry.superset?.let(
                             com.hydrafit.app.core.domain.routine.SupersetJson::encode
+                        ),
+                        // A cluster's segments each carry a prescribed load, so an export that omits
+                        // prescribed weights must omit the cluster too rather than disclose them
+                        // inside its encoded values.
+                        cluster = entry.cluster?.takeIf { includeWeights }?.let(
+                            com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
                         )
                     )
                 }

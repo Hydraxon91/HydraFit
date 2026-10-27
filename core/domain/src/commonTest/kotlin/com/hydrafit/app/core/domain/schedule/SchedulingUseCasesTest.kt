@@ -17,6 +17,9 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineWorkout
@@ -25,6 +28,9 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.dayOfWeekForEpochDay
 import com.hydrafit.app.core.domain.time.daysFromCivil
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.Test
@@ -38,6 +44,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 
 class SchedulingUseCasesTest {
+
+    @Test
+    fun activatingRoutinePreservesClusterInActivationAndOccurrence() = runTest {
+        val cluster = ClusterPrescription(
+            kind = ClusterKind.DROP_SET,
+            segments = listOf(ClusterSegmentTarget(8, 80.0), ClusterSegmentTarget(6, 60.0)),
+            restSeconds = 15
+        )
+        val original = routine()
+        val workout = original.workouts.first()
+        val withCluster = original.copy(
+            workouts = listOf(
+                workout.copy(entries = listOf(workout.entries.first().copy(cluster = cluster)))
+            )
+        )
+        val id = activateRoutine(withCluster, request(replaceActive = false))
+
+        assertEquals(
+            cluster,
+            requireNotNull(
+                scheduleRepository.getActivation(id)
+            ).workouts.first().entries.first().cluster
+        )
+        assertEquals(cluster, scheduleRepository.occurrences(id).first().entries.first().cluster)
+    }
 
     @Test
     fun freezesOccurrenceSlotCoversWorkingWarmupMatchingAndForeignSets() {
@@ -977,7 +1008,8 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
                         sets = entry.sets,
                         reps = entry.reps,
                         durationSeconds = entry.durationSeconds,
-                        weightKg = entry.weightKg
+                        weightKg = entry.weightKg,
+                        cluster = entry.cluster
                     )
                 }
             )
@@ -1075,6 +1107,21 @@ private class FakeWorkoutLogRepository : WorkoutLogRepository {
     override suspend fun add(set: WorkoutSet) {
         sets.value = sets.value + set.copy(id = nextId++)
     }
+
+    override suspend fun addCluster(set: WorkoutSet, cluster: WorkoutCluster) = add(
+        set.copy(
+            cluster = WorkoutClusterSummary(
+                kind = cluster.kind,
+                plannedSegments = cluster.plannedSegments,
+                performedSegments = cluster.performedSegments
+            )
+        )
+    )
+
+    override suspend fun appendClusterSegments(
+        setId: Long,
+        segments: List<PerformedClusterSegment>
+    ) = Unit
 
     override suspend fun assignSession(setId: Long, sessionId: String) = Unit
 

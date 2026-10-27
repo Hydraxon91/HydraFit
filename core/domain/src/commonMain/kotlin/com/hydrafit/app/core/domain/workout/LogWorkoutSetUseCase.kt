@@ -45,6 +45,97 @@ class LogWorkoutSetUseCase(
     }
 
     /**
+     * Persists one performed cluster into the same session rules as an ordinary set: the parent set
+     * plus its segments are written atomically, so a cluster can never be half-recorded.
+     */
+    suspend fun logCluster(set: WorkoutSet, cluster: WorkoutCluster, utcOffsetMillis: Long) {
+        validate(set)
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps && opening.weightKg == set.weightKg) {
+            "A cluster parent must record its own opening segment"
+        }
+        sessionLock.withLock {
+            val session = resolveSession(set.performedAtMillis, utcOffsetMillis)
+            repository.addCluster(set.copy(sessionId = session.id), cluster)
+        }
+    }
+
+    /** The recorded segments of a performed cluster, including its parent's opening segment. */
+    suspend fun clusterSegments(setId: Long): List<PerformedClusterSegment> =
+        repository.clusterSegments(setId)
+
+    /** Recorded parents for an occurrence; used to resume its saved, incomplete cluster position. */
+    suspend fun clusterParents(occurrenceId: Long): List<WorkoutSet> =
+        repository.setsForOccurrence(occurrenceId).filter { it.cluster != null }
+
+    /**
+     * Adds the segments performed after an interrupted cluster. The parent keeps its identity and
+     * opening segment, and the position becomes satisfied only once every prescribed segment exists.
+     */
+    suspend fun resumeCluster(setId: Long, segments: List<PerformedClusterSegment>) {
+        segments.forEach { it.requireValid() }
+        repository.appendClusterSegments(setId, segments)
+    }
+
+    /** Persists a cluster into an explicit session, mirroring [logInto] for a cached backdated batch. */
+    suspend fun logIntoCluster(set: WorkoutSet, cluster: WorkoutCluster, sessionId: String) {
+        validate(set)
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps && opening.weightKg == set.weightKg) {
+            "A cluster parent must record its own opening segment"
+        }
+        sessionLock.withLock {
+            repository.addCluster(set.copy(sessionId = sessionId), cluster)
+        }
+    }
+
+    /**
+     * Persists a backdated cluster using the same session choice as [logBackdated]: the open session
+     * when the time qualifies, otherwise a new session written already closed. Returns the session.
+     */
+    suspend fun logBackdatedCluster(
+        set: WorkoutSet,
+        cluster: WorkoutCluster,
+        utcOffsetMillis: Long,
+        forceNewSession: Boolean
+    ): WorkoutSession {
+        validate(set)
+        cluster.requireValid()
+        val opening = cluster.segments.first()
+        require(opening.reps == set.reps && opening.weightKg == set.weightKg) {
+            "A cluster parent must record its own opening segment"
+        }
+        return sessionLock.withLock {
+            val target = backdatedAttachTarget(
+                set.performedAtMillis,
+                utcOffsetMillis,
+                forceNewSession
+            )
+                ?: startWorkoutSession(
+                    set.performedAtMillis,
+                    localEpochDay(set.performedAtMillis, utcOffsetMillis),
+                    endedAtMillis = set.performedAtMillis
+                )
+            repository.addCluster(set.copy(sessionId = target.id), cluster)
+            target
+        }
+    }
+
+    private fun validate(set: WorkoutSet) {
+        WorkoutLoadPolicy.validateShape(set.loadKind, set.weightKg)
+        requireValidSetMeasurement(
+            set.reps,
+            set.durationSeconds,
+            set.distanceMeters,
+            set.forceNewtons
+        )
+        requireForceIsLoadFree(set.forceNewtons, set.weightKg)
+        requireValidDevice(set.forceNewtons, set.device)
+    }
+
+    /**
      * Persists a backdated set, choosing its session from the chosen time: the open session when the
      * time is on its local day and not before it began (and [forceNewSession] is false), otherwise a
      * new session anchored at the set's time that is written already closed. The open session is

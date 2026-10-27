@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.toWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -372,6 +373,51 @@ class RoutineTemplateUseCasesTest {
 
         assertRoutineFailure { delete(saved.id) }
         assertEquals(saved.id, repository.get(saved.id)?.id)
+    }
+
+    @Test
+    fun aClusterPrescriptionMustBeRepBasedExternalWork() = runTest {
+        val repository = FakeRoutineTemplateRepository()
+        val saver = save(repository)
+        val cluster = ClusterPrescription(
+            kind = ClusterKind.DROP_SET,
+            segments = listOf(
+                ClusterSegmentTarget(reps = 3, weightKg = 100.0),
+                ClusterSegmentTarget(reps = 3, weightKg = 80.0)
+            )
+        )
+        fun routine(entry: RoutineEntry) = RoutineTemplate(
+            name = "Cluster",
+            workouts = listOf(RoutineWorkout(name = "Day 1", entries = listOf(entry)))
+        )
+        val base = RoutineEntry(
+            exerciseId = "back-squat",
+            sets = 1,
+            reps = 3,
+            weightKg = 100.0,
+            loadKind = LoadKind.EXTERNAL,
+            cluster = cluster
+        )
+
+        // Rep-based external work is exactly what a cluster prescribes.
+        val saved = saver(routine(base))
+        assertEquals(
+            cluster,
+            requireNotNull(repository.get(saved.id)).workouts[0].entries[0].cluster
+        )
+
+        // A timed slot cannot carry a cluster.
+        assertRoutineFailure {
+            saver(routine(base.copy(reps = null, durationSeconds = 90)))
+        }
+        // A non-external load cannot carry one either.
+        assertRoutineFailure {
+            saver(routine(base.copy(loadKind = LoadKind.BODYWEIGHT, weightKg = null)))
+        }
+        // A malformed segment list is refused by the cluster's own validation.
+        assertRoutineFailure {
+            saver(routine(base.copy(cluster = cluster.copy(segments = cluster.segments.take(1)))))
+        }
     }
 
     @Test
