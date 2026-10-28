@@ -199,6 +199,8 @@ import hydrafit.feature.logger.generated.resources.logger_force_value
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
 import hydrafit.feature.logger.generated.resources.logger_guided_all_done
 import hydrafit.feature.logger.generated.resources.logger_guided_collapse_sets
+import hydrafit.feature.logger.generated.resources.logger_guided_edit_failed
+import hydrafit.feature.logger.generated.resources.logger_guided_edit_remaining_note
 import hydrafit.feature.logger.generated.resources.logger_guided_expand_sets
 import hydrafit.feature.logger.generated.resources.logger_guided_log_completed_now
 import hydrafit.feature.logger.generated.resources.logger_guided_set_failed
@@ -2014,6 +2016,8 @@ fun WorkoutLoggerScreen(
                     },
                 // A guided draft's editor only applies values to the pending set; logging is separate.
                 appliesOnly = state.isGuidedActive && edit.draft.occurrenceEntryId != null,
+                saving = state.guidedTargetsSaving,
+                failed = state.guidedTargetsFailed,
                 clusterDraftError = state.clusterDraftError,
                 onRepsChanged = onDraftRepsChanged,
                 onDurationSecondsChanged = onDraftDurationSecondsChanged,
@@ -2111,6 +2115,8 @@ private fun DraftEditDialog(
     canRevealWeight: Boolean,
     showWeight: Boolean,
     appliesOnly: Boolean,
+    saving: Boolean,
+    failed: Boolean,
     clusterDraftError: ClusterDraftError?,
     onRepsChanged: (String) -> Unit,
     onDurationSecondsChanged: (String) -> Unit,
@@ -2134,13 +2140,22 @@ private fun DraftEditDialog(
     var timeError by remember { mutableStateOf(false) }
     val anchor = edit.performedAtMillis ?: nowMillis
     AlertDialog(
-        onDismissRequest = onCancel,
+        onDismissRequest = { if (!saving) onCancel() },
         title = { Text(stringResource(Res.string.logger_draft_edit_title, edit.draft.name)) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (appliesOnly) {
+                    Text(stringResource(Res.string.logger_guided_edit_remaining_note))
+                }
+                if (failed) {
+                    Text(
+                        stringResource(Res.string.logger_guided_edit_failed),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 // Only the draft's frozen measure is shown and submitted, so a force draft edits its
                 // newtons, a distance draft its distance, a timed draft its seconds and a counted
                 // draft its repetitions.
@@ -2294,7 +2309,7 @@ private fun DraftEditDialog(
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                enabled = edit.enteredMetricIsPositive && edit.deviceIsValid
+                enabled = edit.enteredMetricIsPositive && edit.deviceIsValid && !saving
             ) {
                 Text(
                     stringResource(
@@ -2309,10 +2324,12 @@ private fun DraftEditDialog(
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onReset) {
+                TextButton(onClick = onReset, enabled = !saving) {
                     Text(stringResource(Res.string.logger_draft_reset))
                 }
-                TextButton(onClick = onCancel) { Text(stringResource(Res.string.logger_cancel)) }
+                TextButton(onClick = onCancel, enabled = !saving) {
+                    Text(stringResource(Res.string.logger_cancel))
+                }
             }
         }
     )

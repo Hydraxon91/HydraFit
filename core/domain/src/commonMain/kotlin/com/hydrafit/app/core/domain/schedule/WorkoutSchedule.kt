@@ -96,7 +96,9 @@ data class ActivationEntry(
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Measured force in newtons for a force slot, or null for every other metric. */
-    val forceNewtons: Double? = null
+    val forceNewtons: Double? = null,
+    /** User-edited per-set targets for this occurrence only; source prescriptions stay frozen. */
+    val guidedTargets: GuidedWorkoutTargets? = null
 )
 
 data class WorkoutOccurrence(
@@ -159,7 +161,9 @@ data class OccurrenceEntry(
     /** Whole metres for a distance slot, or null for reps and timed work. */
     val distanceMeters: Int? = null,
     /** Measured force in newtons for a force slot, or null for every other metric. */
-    val forceNewtons: Double? = null
+    val forceNewtons: Double? = null,
+    /** User-edited per-set targets for this occurrence only; source prescriptions stay frozen. */
+    val guidedTargets: GuidedWorkoutTargets? = null
 )
 
 /** The single-row scheduling cursor: which block is active and which workout is selected next. */

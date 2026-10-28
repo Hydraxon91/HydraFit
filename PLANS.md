@@ -208,6 +208,11 @@ database as a complete historical audit or infer a write's origin from a missing
   through ordinary refreshes until logged, reset or the workout context changes. Logging remains a
   separate action. No historical set or frozen prescription is changed. Acceptance: Apply and Cancel
   write no workout set; a later explicit logging action writes the edited values exactly once.
+  **Superseded 2026-10-27:** the user settled that Apply must change every remaining set of that
+  exercise in the current occurrence and survive reopening, which the occurrence-entry guided-target
+  override now implements (`65.sqm`, backup format 30). See `docs/integration-audit-2026-10-27.md`
+  and `docs/architecture.md`; the single-set rule above applies only to actual RIR, performed time
+  and device attribution.
 - **LF-06 — replacements use the candidate's own history.** A swap/replacement load is computed from
   the candidate exercise's own baseline at the slot's reps, never from the replaced slot's number;
   insufficient evidence yields no numeric load, and the equipment ceiling still clamps. Replace

@@ -1067,8 +1067,9 @@ workout Skip/partial Finish; single-slot skipping is not introduced.
 ### 1.18 Optional warm-up guidance (WU-01)
 
 `buildWarmupGuidance(occurrence)` in `:core:domain` derives the guided workout's optional warm-up
-guidance from the occurrence's frozen prescription only, so it can never contradict the target the
-user is asked to perform. It is pure: no repository, clock or platform API. Preparation is a fixed,
+guidance from the occurrence's prescription — its frozen values, plus the edited effective ramp
+targets its caller supplies — so it can never contradict the target the user is asked to perform. It
+is pure: no repository, clock or platform API. Preparation is a fixed,
 pattern-selected list of neutral items; easy general movement is a timed checklist entry (seconds are
 never stored as reps) and pattern practice carries easy bodyweight reps. Ramp sets are suggested only
 for the first entry of each movement pattern whose frozen load is a positive numeric external load
@@ -1082,7 +1083,11 @@ frozen working prescription, which a manual routine can leave above the ceiling,
 Availability and ceilings come from a current equipment snapshot; until that first snapshot resolves,
 only preparation is shown and no ramp is offered or recordable, so a suggestion is never made against
 unknown ownership or an unknown ceiling. Known unbounded equipment is a real snapshot and therefore
-differs from an unresolved one. Visible readiness is part of the same state update as guidance built
+differs from an unresolved one. A ramp follows the slot's edited effective target at its next
+remaining set position: its working weight, reps/duration and load meaning come from that target, so
+the suggested loads match the guided rows above them, while recorded warm-ups and the frozen entry
+column stay untouched. An entry the user did not edit keeps the frozen behavior. Visible readiness is
+part of the same state update as guidance built
 from that snapshot, after the refresh's generation guard passes. A superseded refresh may return
 without publishing, so its completion cannot mark readiness or expose the previous guidance's ramps
 while a newer read is pending. Equipment observed before a block starts is used when that block's
@@ -1519,6 +1524,29 @@ suggested number for these slots; an exercise with no qualifying recorded added 
 no-number bodyweight prescription. Substitution and occurrence replacement resolve a candidate's added
 load by the same rule. No schema change was needed, and added-load suggestions carry no persisted
 `LoadOriginExplanation`, because the entry-explanation columns have no load-kind field.
+
+### 1.27 Guided occurrence per-set target persistence (C4-A)
+
+`OccurrenceEntry.guidedTargets` is a nullable, strict version-1 JSON payload of complete effective
+targets keyed by zero-based set position. Resolution starts with original ordered `setTargets`, or
+the original scalar target and cluster, and overlays only positions with user edits. Original scalar,
+ordered-target and cluster columns remain unchanged; activation, routine, accepted-plan, and performed
+set snapshots are not rewritten. Apply accepts an explicit field mask, merges only changed fields into
+each remaining position, preserves every unmasked value and prescribed RIR, and validates the frozen
+load capability and metric shape. Logger Reset stages original remaining targets; edits made afterward
+are composed with reset in the same request and transaction. Completed-prefix overrides remain, and
+partial performed clusters refuse the transaction.
+
+The existing schedule repository writes this payload with occurrence revision advancement under the
+shared reminder gate, rechecking active selected occurrence, revision, entry identity/set count and
+performed count in the transaction. Exercise or original prescription replacement clears unrelated
+overrides. Migration `65.sqm` adds the nullable column (schema 65→66); backup format 30 carries it only
+on occurrence entries and validates it against its owning entry. The Logger derives the effective next
+target for progress, draft prefill and recorded target snapshots — scalar and ordered occurrences
+alike, so a logged set from an edited scalar slot stores its effective target and set position just as
+an ordered slot does — and Apply persists the masked edit
+for every remaining position. RIR, performed time and force-device attribution remain transient
+performed-set values rather than prescription fields.
 
 ## 2. Decision log
 

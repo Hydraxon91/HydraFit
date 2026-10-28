@@ -578,6 +578,18 @@ same atomic write; the replaced slot's reasoning is never inherited. Missing/wit
 produces no numeric load. Confirmation rechecks
 the preview and delegates to the atomic untouched-slot write; accepted-plan substitution is not
 reused because it mutates the master plan and preserves the old load.
+
+Guided per-set editing uses an occurrence-only `guidedTargets` payload: complete effective targets are
+keyed by zero-based set position and override the original ordered target, or the original scalar plus
+cluster fallback, without changing those source columns. Apply merges only explicitly masked editor
+fields into every remaining position; omitted fields and prescribed RIR stay unchanged, and load kind
+plus nullable weight are one atomic edit. Reset stages the original values in the Logger editor; any
+subsequent changes are sent with `resetRemaining` in the same Apply request and transaction. Completed
+positions retain their overrides, warm-ups are not target positions, and any partial performed cluster
+refuses the atomic write. Payloads are strict version 1, added in backup format 30 and schema migration
+65.sqm; the guided Logger uses `ApplyGuidedWorkoutTargetsUseCase` to persist edits and derives progress,
+drafts and recorded target snapshots from the resulting effective targets. Force-device attribution,
+actual RIR and performed time remain one-set-only transient values; Reset clears RIR/time as before.
 Hard equipment/exclusion eligibility is shared through
 `PlannerCandidateEligibility` (used by the deterministic engine, sanitizer,
 substitution and both model engines; the model engines and the deterministic

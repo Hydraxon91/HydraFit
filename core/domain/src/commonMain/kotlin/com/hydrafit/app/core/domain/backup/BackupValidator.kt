@@ -27,6 +27,8 @@ import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
@@ -80,6 +82,11 @@ class BackupValidator(private val catalog: BackupCatalog) {
         }
         if (file.formatVersion < WARMUP_PREPARATION_OVERRIDE_FORMAT_VERSION &&
             file.warmupPreparationOverrides.isNotEmpty()
+        ) {
+            fail(BackupFailure.INVALID_VALUE)
+        }
+        if (file.formatVersion < GUIDED_TARGETS_FORMAT_VERSION &&
+            file.occurrenceEntries.any { it.guidedTargets != null }
         ) {
             fail(BackupFailure.INVALID_VALUE)
         }
@@ -622,6 +629,42 @@ class BackupValidator(private val catalog: BackupCatalog) {
             )
             entry.weightKg?.let { value -> finite(value) }
             involvements(entry.involvements)
+            entry.guidedTargets?.let { encoded ->
+                try {
+                    GuidedWorkoutTargets.decode(
+                        encoded,
+                        OccurrenceEntry(
+                            id = entry.id,
+                            sourceActivationEntryId = entry.sourceActivationEntryId,
+                            position = entry.position,
+                            exerciseId = entry.exerciseId,
+                            exerciseName = entry.exerciseName,
+                            movementPattern = MovementPattern.valueOf(entry.movementPattern),
+                            requiredEquipment = entry.requiredEquipment.split(
+                                ','
+                            ).filter(String::isNotEmpty)
+                                .map(::EquipmentTag).toSet(),
+                            involvements = null,
+                            isUnilateral = entry.isUnilateral,
+                            sets = entry.sets,
+                            reps = entry.reps,
+                            durationSeconds = entry.durationSeconds,
+                            weightKg = entry.weightKg,
+                            loadCapability = ExerciseLoadCapability.valueOf(entry.loadCapability),
+                            loadKind = LoadKind.valueOf(entry.loadKind),
+                            progressionPolicy = entry.progressionPolicy?.let(
+                                SlotProgressionPolicyJson::decode
+                            ),
+                            setTargets = entry.setTargets?.let(SlotSetTargetsJson::decode),
+                            cluster = entry.cluster?.let(ClusterPrescriptionJson::decode),
+                            distanceMeters = entry.distanceMeters,
+                            forceNewtons = entry.forceNewtons
+                        )
+                    )
+                } catch (_: IllegalArgumentException) {
+                    fail(BackupFailure.INVALID_VALUE)
+                }
+            }
         }
         file.scheduleState?.let { state ->
             state.activeActivationId?.let { id -> reference(id, activationIds) }

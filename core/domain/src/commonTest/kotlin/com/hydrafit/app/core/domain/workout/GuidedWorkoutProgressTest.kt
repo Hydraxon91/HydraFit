@@ -3,8 +3,11 @@ package com.hydrafit.app.core.domain.workout
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.FatigueSetEffect
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import kotlin.test.Test
@@ -136,6 +139,42 @@ class GuidedWorkoutProgressTest {
         assertEquals(2, progress.performedSets)
         assertEquals(1, exercise.remainingSets)
         assertFalse(exercise.isComplete)
+    }
+
+    @Test
+    fun publishesEffectiveNextOrderedAndScalarTargetIncludingExplicitNullLoad() {
+        val ordered = entry(id = 40, position = 0, sets = 3).copy(
+            setTargets = com.hydrafit.app.core.domain.engine.SlotSetTargets.of(
+                listOf(
+                    SetTarget(reps = 6, weightKg = 80.0),
+                    SetTarget(reps = 7, weightKg = 82.5),
+                    SetTarget(reps = 8, weightKg = 85.0)
+                )
+            ),
+            guidedTargets = GuidedWorkoutTargets(
+                overrides = listOf(
+                    GuidedWorkoutTargetOverride(1, SetTarget(reps = 9, weightKg = null))
+                )
+            )
+        )
+        val scalar = entry(id = 41, position = 1, sets = 2).copy(
+            guidedTargets = GuidedWorkoutTargets(
+                overrides = listOf(
+                    GuidedWorkoutTargetOverride(0, SetTarget(reps = 10, weightKg = 120.0))
+                )
+            )
+        )
+
+        val progress = buildGuidedWorkoutProgress(
+            occurrenceWith(ordered, scalar),
+            mapOf(40L to 1, 41L to 0)
+        )
+
+        assertEquals(9, progress.exercises[0].reps)
+        assertNull(progress.exercises[0].weightKg)
+        assertEquals(9, progress.exercises[0].nextTarget?.target?.reps)
+        assertEquals(10, progress.exercises[1].reps)
+        assertEquals(120.0, progress.exercises[1].weightKg)
     }
 
     private fun occurrenceWith(vararg entries: OccurrenceEntry) = WorkoutOccurrence(

@@ -356,3 +356,13 @@ than disguising an old fixture as the latest schema.
 
 `20.sqm` demonstrates a table rebuild for column removal: Android minSdk 24
 predates SQLite 3.35's `DROP COLUMN` support.
+
+Migration `65.sqm` adds nullable `occurrenceEntry.guidedTargets` (schema 65→66). It stores only
+strictly versioned per-set overrides for that occurrence; activation, routine and original occurrence
+prescription columns remain unchanged. The payload is validated against its owning entry when read,
+written and restored. `SqlDelightWorkoutScheduleRepository` applies or resets remaining-set overrides
+under `WorkoutReminderDeliveryGate` and a database transaction, rechecking active selected occurrence,
+revision, entry identity/set count and performed count; partial clusters refuse the operation. Entry
+replacement that changes its exercise or original prescription clears these unrelated overrides.
+Backup format 30 carries the same payload only on occurrence entries. `GuidedWorkoutTargetsMigrationTest`
+covers migration preservation and nullable read/write; see `backup.md` for format compatibility.

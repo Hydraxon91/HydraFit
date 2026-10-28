@@ -5,11 +5,16 @@ import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SlotSetTargetsJson
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson
 import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
@@ -65,6 +70,46 @@ class BackupValidatorTest {
     @Test
     fun acceptsAValidMinimalFile() {
         validator.validate(validFile())
+    }
+
+    @Test
+    fun guidedTargetsAreFormat30OnlyAndValidateAgainstOccurrencePrescription() {
+        val prescription = OccurrenceEntry(
+            id = 300L,
+            position = 0,
+            exerciseId = "back-squat",
+            exerciseName = "Squat",
+            movementPattern = MovementPattern.SQUAT,
+            sets = 3,
+            reps = 6,
+            weightKg = 80.0,
+            loadCapability = ExerciseLoadCapability.EXTERNAL,
+            loadKind = LoadKind.EXTERNAL
+        )
+        val entry = occurrenceEntry(id = 300L, occurrenceId = 30L).copy(
+            guidedTargets = GuidedWorkoutTargets.encode(
+                GuidedWorkoutTargets(
+                    overrides = listOf(
+                        GuidedWorkoutTargetOverride(0, SetTarget(reps = 8, weightKg = 90.0))
+                    )
+                ),
+                prescription
+            )
+        )
+        val file = profiledFile(BACKUP_FORMAT_VERSION).copy(
+            activations = listOf(activation(1L)),
+            activationWorkouts = listOf(activationWorkout(10L, 1L)),
+            occurrences = listOf(occurrence(30L, 1L, 10L)),
+            occurrenceEntries = listOf(entry)
+        )
+        validator.validate(file)
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            file.copy(formatVersion = GUIDED_TARGETS_FORMAT_VERSION - 1)
+        }
+        val corrupt = entry.copy(guidedTargets = "{\"version\":99,\"overrides\":[]}")
+        assertFailure(BackupFailure.INVALID_VALUE) {
+            file.copy(occurrenceEntries = listOf(corrupt))
+        }
     }
 
     @Test

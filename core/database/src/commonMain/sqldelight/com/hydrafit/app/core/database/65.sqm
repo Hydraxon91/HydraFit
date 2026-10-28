@@ -1,0 +1,2 @@
+-- Guided occurrence working targets are separate from frozen activation/original target columns.
+ALTER TABLE occurrenceEntry ADD COLUMN guidedTargets TEXT;

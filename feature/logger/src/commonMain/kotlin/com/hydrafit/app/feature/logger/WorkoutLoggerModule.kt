@@ -52,7 +52,8 @@ val loggerModule: Module = module {
             exerciseNoteRepository = get(),
             sessionNoteRepository = get(),
             warmupOverrideRepository = get(),
-            equipment = get()
+            equipment = get(),
+            applyGuidedTargets = get()
         )
     }
     viewModel { OccurrenceReplacementViewModel(get(), get()) }

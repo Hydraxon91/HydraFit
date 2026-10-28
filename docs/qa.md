@@ -14,6 +14,18 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## Open report — routine deletion (2026-10-28; user-reported)
+
+- User tapped a routine's Delete action and confirmed the dialog, but the routine remained listed.
+  The user subsequently reported that the block is inactive. The exact routine identity, any error
+  message, persistence outcome and cause have not been established independently.
+- No automated deletion retry or repair was attempted. Keep this separate from the guided-target
+  repairs; investigate the delete action, reference guards and visible error handling before fixing.
+- A subsequent read-only emulator hierarchy showed “No active training block.” and the message
+  “This routine is used by a training block and can only be archived”. This supports a reference
+  guard refusal, not a confirmed persistence failure; the original confirmation sequence was not
+  replayed. Evidence: external `integration-c4-ui/resume.csv`.
+
 ## Integration repairs — INT-05 (2026-10-27; source reviewed)
 
 - Based on `7166f1f2`, chunk 1 prevents weights-free prescription JSON from retaining ordered
@@ -65,6 +77,88 @@ exact on-screen text.
 - No new device verification of distance metric clearing, force draft precision, actual logging,
   larger fonts, dark mode, locale or accessibility traversal is claimed. These limits do not erase
   the passing host regressions. The user requested unresolved UI steps be retained for later work.
+
+## Integration repairs — guided remaining targets (candidate; acceptance pending)
+
+- GW-01/GW-02 candidate adds occurrence-entry guided overrides separately from frozen targets
+  (migration `65.sqm`, schema 66, backup format 30). Apply patches remaining positions; Reset stages
+  originals and subsequent edits for one atomic Apply. Logged sets, routines and future occurrences
+  are not rewritten. Actual RIR, time and device attribution remain single-set-only.
+- Logger integration resolves effective next-set targets for drafts, guidance, loading and recorded
+  prescription snapshots. Domain regressions cover explicit masks, ordered targets and Reset;
+  SQLDelight tests cover persistence, revision guards, backup round-trip and Reset/patch rollback.
+- Pre-review candidate verification at `7929dae` plus the then-uncommitted repair tree: 3,082 host
+  tests passed (442 executed tasks); shared runtime Koin test passed (29 tests); root lint passed
+  (320 executed tasks); migration verification reran successfully. Android debug assembly and
+  shared/network iOS compilation passed; their combined invocation executed 49 tasks with 377
+  dependencies inherited. Tooling validation, 264 tooling tests and living-doc checks were observed on
+  stdout in that run; no tooling log was stored in that directory. Logs: external
+  `integration-logger-b/deepseek-final/`. Superseded by the post-fix verification below.
+- DeepSeek's prepared fixture creation and activation journeys passed on `emulator-5554`, with
+  viewed screenshots. They created only `HF integration remaining targets` / `HF remaining target
+  check`, one Back Squat slot prescribing 3 × 6 at 80 kg. The user's prior block was independently
+  made inactive before activation. Artifacts: external
+  `integration-c4-ui/create-results/` and `integration-c4-ui/activate-results/`.
+- Prepared Apply/restart/log/Reset phases passed: 8 × 70 persisted across an intentional restart;
+  guided Log set and Start set → Set completed now each recorded one set while the next target stayed
+  8 × 70. Reset followed by an edit atomically gave 9 × 80 at 2/3, and another Reset Apply restored
+  6 × 80 before the last log reached 3/3. Reset then Cancel preserved the override. All four phase
+  screenshots were viewed. Artifacts: external `integration-c4-ui/target-results/phaseA/`, `phaseB/`
+  and `phaseC/`. This is functional evidence, not a clean bounded-run result: the runner used
+  33 calls against a 30-call cap, exceeded its eight-minute budget, and navigated to Log after the
+  intentional restart landed on Equipment, outside its enumerated interactions. An earlier
+  inspection also exceeded its ten-call cap by one. No unknown write outcome was reported.
+- Recorded-prefix rows verified: two `Back Squat 8 reps · 70 kg` rows remained beside the final
+  `6 reps · 80 kg` after Reset, in a viewed screenshot. The workout Finish then resolved the
+  occurrence durably: its summary reports `3 recorded sets · 3 prescribed`, keeps the original
+  `Target: 3 × 6 @ 80 kg` beside the three performed rows, and lists `8 reps at 70 kg` and
+  `6 reps at 80 kg` under Improvements. That separates effective performed work from the frozen
+  original prescription on device.
+- A prepared block-Finish was correctly refused with `Some workouts are still pending` because the
+  occurrence had not been finished yet; the tap applied no write. The follow-up flow then finished
+  the occurrence and the fixture block, and its reopened routine still showed the original three
+  sets of 6 at 80 kg. It stopped before archiving because a generic `Cancel` selector dismissed a
+  transient banner instead of closing the editor. Those are flow-authoring defects recorded here,
+  not product findings.
+- Independent DeepSeek review of this chunk rejected it for one confirmed major defect: a guided edit
+  on a scalar-prescription slot recorded the right reps/load but dropped the set's prescription
+  snapshot, so progression read the set as unknown. It also required a decision on whether warm-up
+  ramps follow the edited target, and noted a documentation error plus missing failure coverage.
+  The approved fixes are: compare the draft's effective targets with the entry's set count when
+  capturing an occurrence snapshot; build warm-up ramps from the edited remaining target while
+  leaving recorded warm-ups and frozen originals alone; add scalar/ordered snapshot, Apply-failure
+  retry and ramp regressions; correct the Koin reference; and drop one comparison that could never
+  detect change. Fix verification: 442 fresh host tasks passed, `WorkoutLoggerViewModelTest` 375
+  and `WarmupGuidanceTest` 21 tests with no failures, migration verification, debug assembly, both
+  iOS compiles, root lint (320 executed), tooling validation, 264 tooling tests and living-doc checks
+  passed. Logs: external `integration-review-fixes-2/`; the tooling and living-doc results in the
+  post-fix round were observed on stdout and have no durable log there.
+- Targeted DeepSeek closure checked the 9-path fix delta against the reviewed baseline and closed
+  IR-C4-01/04/05/06, accepted the approved IR-C4-02 retention decision, and confirmed the derived
+  ramp-recording guard still fails closed. It returned **INCOMPLETE** for one reason only: the new
+  ramp surface had no device evidence, which a reviewer cannot waive. The user then explicitly
+  accepted host-only verification for ramp re-targeting, so that UI check stays unverified below
+  rather than being recorded as a pass.
+- Fixture lifecycle completed on `emulator-5554` after the fixes: the review-fix build activated the
+  synthetic block, applied 8 × 70 kg to its remaining sets (`Target: 8 × 70 kg`, `0 of 3 sets`, no
+  set logged), then skipped that unrecorded occurrence, finished only its block (`No active training
+  block.`) and archived only its routine (`Archived` plus `Restore` on the exact card). The cleanup
+  flow completed 15 of 15 commands. The `Dropset` routines stayed unarchived and untouched. Screenshot
+  `c4-fixture-cleanup` viewed; artifacts under external `integration-c4-ui/ramp-results-5/`. The
+  earlier recorded three-set block and its retained rows were not modified by this journey.
+- The device check that warm-up ramps re-target to the edited load is **unverified and accepted as
+  such by the user**: on this fixture the warm-up card rendered only preparation rows, with no ramp
+  section, before and after the edit. Ramps are gated on the slot's required equipment being shown as
+  available; that gate was not confirmed as the root cause and no equipment setting was changed to
+  force the rows, so this is neither a pass nor a defect. Ramp logic and the editing → ramp projection
+  are covered by host tests (`WarmupGuidanceTest`, `WorkoutLoggerViewModelTest`). Other standing
+  limits above remain in force.
+- Process limits in this chunk, recorded rather than erased: the core acceptance runner used 33 calls
+  against a 30-call cap and exceeded its eight-minute budget; an earlier inspection exceeded its cap
+  by one; the code-fix worker ran roughly 115–120 calls against a 60-call checkpoint while completing
+  only the briefed checks; and the final cleanup used 21 calls against a 20-call brief after one
+  invocation with a wrong flow path, which Maestro rejected before touching the device. No
+  out-of-scope write or unknown write outcome was reported in any of those rounds.
 
 ## Integration repairs — occurrence/Cardio context (2026-10-27; limited device smoke)
 

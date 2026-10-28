@@ -3,7 +3,9 @@ package com.hydrafit.app.core.domain.workout
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.routine.Superset
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
+import com.hydrafit.app.core.domain.schedule.originalTargets
 
 /**
  * One prescribed exercise of an active guided workout with its recorded progress. The prescription
@@ -31,7 +33,9 @@ data class GuidedExerciseProgress(
      * it. Inert: it never affects progress or the prescription.
      */
     val explanation: ExerciseTargetExplanation? = null,
-    val superset: Superset? = null
+    val superset: Superset? = null,
+    /** Effective target for the next pending set position, or the final target when complete. */
+    val nextTarget: GuidedWorkoutTargetOverride? = null
 ) {
     /** Prescribed working sets still unrecorded for this entry. */
     val remainingSets: Int get() = (prescribedSets - performedWorkingSets).coerceAtLeast(0)
@@ -83,21 +87,31 @@ fun buildGuidedWorkoutProgress(
     exercises = occurrence.entries
         .sortedBy { it.position }
         .map { entry ->
+            val completed = (performedWorkingSetsByEntry[entry.id] ?: 0).coerceIn(0, entry.sets)
+            val targets = entry.guidedTargets?.also { it.requireValid(entry) }
+                ?.let { stored ->
+                    originalTargets(entry).map { original ->
+                        stored.overrides.firstOrNull { it.setIndex == original.setIndex }
+                            ?: original
+                    }
+                } ?: originalTargets(entry)
+            val nextIndex = (completed.coerceAtMost(entry.sets - 1)).coerceAtLeast(0)
             GuidedExerciseProgress(
                 occurrenceEntryId = entry.id,
                 exerciseId = entry.exerciseId,
                 exerciseName = entry.exerciseName,
                 prescribedSets = entry.sets,
                 performedWorkingSets = performedWorkingSetsByEntry[entry.id] ?: 0,
-                reps = entry.reps,
-                durationSeconds = entry.durationSeconds,
-                distanceMeters = entry.distanceMeters,
-                forceNewtons = entry.forceNewtons,
-                weightKg = entry.weightKg,
-                loadKind = entry.loadKind,
+                reps = targets[nextIndex].target.reps,
+                durationSeconds = targets[nextIndex].target.durationSeconds,
+                distanceMeters = targets[nextIndex].target.distanceMeters,
+                forceNewtons = targets[nextIndex].target.forceNewtons,
+                weightKg = targets[nextIndex].target.weightKg,
+                loadKind = targets[nextIndex].target.loadKind,
                 loadCapability = entry.loadCapability,
                 explanation = entry.explanation,
-                superset = entry.superset
+                superset = entry.superset,
+                nextTarget = targets[nextIndex]
             )
         }
 )

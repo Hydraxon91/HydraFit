@@ -89,6 +89,7 @@ CREATE TABLE occurrenceEntry (
     distanceMeters INTEGER,
     forceNewtons REAL,
     cluster TEXT,
+    guidedTargets TEXT,
     FOREIGN KEY (occurrenceId) REFERENCES workoutOccurrence(id)
 );
 
@@ -210,6 +211,10 @@ insertOccurrenceEntry:
 INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind, progressionPolicy, setTargets, remainingDisposition, terminalRemainingSets, distanceMeters, forceNewtons)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+insertOccurrenceEntryWithTargets:
+INSERT INTO occurrenceEntry(occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind, progressionPolicy, setTargets, remainingDisposition, terminalRemainingSets, distanceMeters, forceNewtons, guidedTargets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
 lastInsertedOccurrenceEntryId:
 SELECT last_insert_rowid();
 
@@ -235,6 +240,9 @@ UPDATE occurrenceEntry SET cluster = ? WHERE occurrenceId = ? AND position = ?;
 
 setOccurrenceClusterById:
 UPDATE occurrenceEntry SET cluster = ? WHERE id = ?;
+
+setOccurrenceGuidedTargets:
+UPDATE occurrenceEntry SET guidedTargets = ? WHERE id = ?;
 
 remapOccurrenceEquipment:
 UPDATE occurrenceEntry SET requiredEquipment = ? WHERE id = ?;
@@ -276,8 +284,35 @@ INSERT INTO workoutOccurrence(id, activationId, activationWorkoutId, queuePositi
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 insertOccurrenceEntryWithId:
-INSERT INTO occurrenceEntry(id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind, progressionPolicy, setTargets, remainingDisposition, terminalRemainingSets, distanceMeters, forceNewtons)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO occurrenceEntry(id, occurrenceId, sourceActivationEntryId, position, exerciseId, exerciseName, movementPattern, requiredEquipment, involvements, isUnilateral, sets, reps, durationSeconds, weightKg, loadCapability, loadKind, progressionPolicy, setTargets, remainingDisposition, terminalRemainingSets, distanceMeters, forceNewtons, guidedTargets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+applyGuidedTargets:
+UPDATE occurrenceEntry SET guidedTargets = ? WHERE id = ?;
+
+advanceOccurrenceRevision:
+UPDATE workoutOccurrence SET revision = revision + 1 WHERE id = ?;
+
+advanceOccurrenceRevisionIfCurrent:
+UPDATE workoutOccurrence SET revision = revision + 1 WHERE id = ? AND revision = ?;
+
+advanceOccurrenceRevisionForActive:
+UPDATE workoutOccurrence SET revision = revision + 1 WHERE id = ? AND revision = ?
+AND EXISTS (
+    SELECT 1 FROM workoutScheduleState
+    WHERE id = 1 AND activeActivationId = ? AND selectedOccurrenceId = ?
+      AND legacyFallbackEnabled = 0
+);
+
+selectGuidedOccurrenceContext:
+SELECT occurrence.id AS occurrenceId, occurrence.activationId, occurrence.status,
+       occurrence.revision, entry.id AS entryId, entry.exerciseId, entry.sets,
+       entry.guidedTargets, state.activeActivationId, state.selectedOccurrenceId,
+       state.legacyFallbackEnabled
+FROM workoutOccurrence AS occurrence
+JOIN occurrenceEntry AS entry ON entry.occurrenceId = occurrence.id
+CROSS JOIN workoutScheduleState AS state
+WHERE occurrence.id = ? AND entry.id = ?;
 
 deleteAllOccurrenceEntries:
 DELETE FROM occurrenceEntry;

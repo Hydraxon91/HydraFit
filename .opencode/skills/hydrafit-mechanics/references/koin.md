@@ -54,6 +54,14 @@ repository, weight-unit repository and `TimeProvider`), the Logger's second pres
 It holds no new port: every collaborator is already bound elsewhere in the graph, and a history
 correction reuses the Logger ViewModel's existing editor rather than a third one.
 
+Guided occurrence target editing injects `ApplyGuidedWorkoutTargetsUseCase` into the Logger
+ViewModel: `domainModule` registers the use case and `loggerModule` passes it into
+`WorkoutLoggerViewModel`. `databaseModule` binds the `GuidedWorkoutTargetsRepository` port to the
+same `SqlDelightWorkoutScheduleRepository` singleton that already serves the schedule and
+occurrence-replacement ports, so the target write shares one instance, gate and transaction path
+instead of adding a second adapter. `DatabaseModuleVerificationTest` resolves that binding, and the
+shared runtime graph tests resolve the use case and the Logger ViewModel.
+
 `databaseModule` exposes the same `SqlDelightWorkoutScheduleRepository` singleton through schedule
 and occurrence-replacement ports, and binds `TrainingGuidancePreferenceRepository`. `domainModule`
 registers `ReplaceOccurrenceExerciseUseCase`; `loggerModule` registers its separate presentation

@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.domain.workout
 
 import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -46,7 +47,7 @@ data class WarmupPreparationItem(
 }
 
 /**
- * One ramp suggestion, expressed as a percentage of the frozen working weight.
+ * One ramp suggestion, expressed as a percentage of the working weight it was derived from.
  * [isEquipmentLimited] is true when the current equipment ceiling lowered this load below the
  * percentage, so the percentage no longer describes it.
  */
@@ -59,12 +60,12 @@ data class WarmupRampSet(
 )
 
 /**
- * The ramp suggestions for one exercise whose frozen target carries a numeric external load. The
- * fields after [rampSets] are the frozen prescription this plan was derived from: a consumer compares
- * them against the slot it is about to write, so a suggestion can never be recorded against a slot
- * whose exercise, reps or load meaning has since changed. [ceilingKg] is the current equipment ceiling
- * for the slot (null when unbounded or unknown); it bounds edits and is deliberately not part of the
- * prescription fingerprint.
+ * The ramp suggestions for one exercise whose target carries a numeric external load. The fields after
+ * [rampSets] are the prescription this plan was derived from - the slot's edited effective target when
+ * one was supplied, else its frozen prescription: a consumer compares them against the slot it is
+ * about to write, so a suggestion can never be recorded against a slot whose exercise, reps or load
+ * meaning has since changed. [ceilingKg] is the current equipment ceiling for the slot (null when
+ * unbounded or unknown); it bounds edits and is deliberately not part of the prescription fingerprint.
  */
 data class WarmupRampPlan(
     val occurrenceEntryId: Long,
@@ -81,17 +82,28 @@ data class WarmupRampPlan(
     val rampSets: List<WarmupRampSet>,
     val ceilingKg: Double? = null
 ) {
-    /** True when [entry] still carries the exact prescription this plan was built from. */
-    fun matchesPrescription(entry: OccurrenceEntry): Boolean = occurrenceEntryId == entry.id &&
-        exerciseId == entry.exerciseId &&
-        movementPattern == entry.movementPattern &&
-        workingWeightKg == entry.weightKg &&
-        prescribedReps == entry.reps &&
-        prescribedDurationSeconds == entry.durationSeconds &&
-        loadKind == entry.loadKind &&
-        loadCapability == entry.loadCapability
+    /**
+     * True when [entry] still carries the prescription this plan was built from. A plan derived from
+     * the slot's edited [rampTarget] describes that target's load and measure, not the frozen values
+     * the entry keeps, so the supplied target is the one compared.
+     */
+    fun matchesPrescription(entry: OccurrenceEntry, rampTarget: SetTarget? = null): Boolean {
+        val targetWeightKg = if (rampTarget == null) entry.weightKg else rampTarget.weightKg
+        val targetReps = if (rampTarget == null) entry.reps else rampTarget.reps
+        val targetDurationSeconds =
+            if (rampTarget == null) entry.durationSeconds else rampTarget.durationSeconds
+        val targetLoadKind = if (rampTarget == null) entry.loadKind else rampTarget.loadKind
+        return occurrenceEntryId == entry.id &&
+            exerciseId == entry.exerciseId &&
+            movementPattern == entry.movementPattern &&
+            workingWeightKg == targetWeightKg &&
+            prescribedReps == targetReps &&
+            prescribedDurationSeconds == targetDurationSeconds &&
+            loadKind == targetLoadKind &&
+            loadCapability == entry.loadCapability
+    }
 
-    /** True when [other] describes the same frozen prescription for the same slot. */
+    /** True when [other] describes the same prescription for the same slot. */
     fun samePrescriptionAs(other: WarmupRampPlan): Boolean =
         occurrenceEntryId == other.occurrenceEntryId &&
             exerciseId == other.exerciseId &&
@@ -123,7 +135,7 @@ data class WarmupEquipment(
 
 /**
  * Editable product defaults, not validated personal optima. Each ramp set is a percentage of the
- * frozen working weight with an easy rep count.
+ * working weight it is suggested from with an easy rep count.
  */
 private val RAMP_PROFILE: List<Pair<Int, Int>> = listOf(40 to 8, 60 to 5, 80 to 3)
 
@@ -157,23 +169,28 @@ private val UPPER_PULL_PATTERNS = setOf(
 
 /**
  * Builds the optional warm-up guidance for [occurrence]. Pure: it reads no repository or clock and
- * derives everything from the occurrence's frozen prescription, so the guidance never contradicts the
- * target the user is being asked to perform. [equipment] bounds ramp availability and load against
- * the user's current equipment; a null value means the constraints are not yet known, so ramps are
- * suggested from the frozen target alone.
+ * derives everything from the occurrence's prescription, so the guidance never contradicts the target
+ * the user is being asked to perform. [equipment] bounds ramp availability and load against the
+ * user's current equipment; a null value means the constraints are not yet known, so ramps are
+ * suggested from the target alone.
  *
  * [preparationOverrides] replaces a preparation item's built-in measure with the user's persisted
  * override for that action, so a later occurrence carries the edited value instead of the default.
  * An action with no entry keeps its built-in default.
+ *
+ * [rampTargets] carries the edited effective target for an entry whose remaining prescription the user
+ * changed: its ramp is suggested from that target, while the recorded warm-ups and the frozen
+ * prescription stay as they were. An entry absent from the map keeps its frozen behavior.
  */
 fun buildWarmupGuidance(
     occurrence: WorkoutOccurrence,
     equipment: WarmupEquipment? = null,
-    preparationOverrides: Map<WarmupAction, WarmupPreparationItem> = emptyMap()
+    preparationOverrides: Map<WarmupAction, WarmupPreparationItem> = emptyMap(),
+    rampTargets: Map<Long, SetTarget> = emptyMap()
 ): WarmupGuidance = WarmupGuidance(
     preparation = buildWarmupPreparation(occurrence.entries.map { it.movementPattern })
         .map { item -> preparationOverrides[item.action] ?: item },
-    ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position }, equipment)
+    ramps = buildWarmupRamps(occurrence.entries.sortedBy { it.position }, equipment, rampTargets)
 )
 
 /**
@@ -208,27 +225,34 @@ internal fun buildWarmupPreparation(patterns: List<MovementPattern>): List<Warmu
  * or unknown-load entry has no working weight to ramp from and leaves its pattern eligible for a
  * later rampable entry of the same pattern. When [equipment] is known, an entry whose required
  * equipment is not all owned is skipped, and each suggested load is clamped to that equipment's
- * ceiling.
+ * ceiling. An entry named in [rampTargets] is ramped from that edited target instead of its frozen
+ * values, so the suggestion follows the work that is actually still ahead.
  */
 internal fun buildWarmupRamps(
     entries: List<OccurrenceEntry>,
-    equipment: WarmupEquipment? = null
+    equipment: WarmupEquipment? = null,
+    rampTargets: Map<Long, SetTarget> = emptyMap()
 ): List<WarmupRampPlan> {
     val planned = mutableSetOf<MovementPattern>()
     val plans = mutableListOf<WarmupRampPlan>()
     for (entry in entries) {
         if (entry.movementPattern in planned) continue
         if (entry.loadCapability != ExerciseLoadCapability.EXTERNAL) continue
-        if (entry.loadKind != LoadKind.EXTERNAL) continue
+        val effective = rampTargets[entry.id]
+        val loadKind = if (effective == null) entry.loadKind else effective.loadKind
+        if (loadKind != LoadKind.EXTERNAL) continue
         // A distance slot is a carry or a locomotion bout, not a rep-loaded lift: there is no
         // meaningful share of its load to ramp through, and distance never progresses automatically.
-        if (entry.distanceMeters != null) continue
+        val distanceMeters =
+            if (effective == null) entry.distanceMeters else effective.distanceMeters
+        if (distanceMeters != null) continue
         // A measured-force slot is a device reading, not a rep-loaded lift: it has no shareable load
         // to ramp through and never feeds an automatic progression.
-        if (entry.forceNewtons != null) continue
+        val forceNewtons = if (effective == null) entry.forceNewtons else effective.forceNewtons
+        if (forceNewtons != null) continue
         if (!isEquipmentAvailable(entry, equipment)) continue
-        val working = entry.weightKg ?: continue
-        if (!working.isFinite() || working <= 0.0) continue
+        val working = if (effective == null) entry.weightKg else effective.weightKg
+        if (working == null || !working.isFinite() || working <= 0.0) continue
         val ceiling = equipmentCeiling(entry, equipment)
         val rampSets = rampSetsFor(working, ceiling)
         if (rampSets.isEmpty()) continue
@@ -239,9 +263,10 @@ internal fun buildWarmupRamps(
             exerciseName = entry.exerciseName,
             movementPattern = entry.movementPattern,
             workingWeightKg = working,
-            prescribedReps = entry.reps,
-            prescribedDurationSeconds = entry.durationSeconds,
-            loadKind = entry.loadKind,
+            prescribedReps = if (effective == null) entry.reps else effective.reps,
+            prescribedDurationSeconds =
+            if (effective == null) entry.durationSeconds else effective.durationSeconds,
+            loadKind = loadKind,
             loadCapability = entry.loadCapability,
             rampSets = rampSets,
             ceilingKg = ceiling
