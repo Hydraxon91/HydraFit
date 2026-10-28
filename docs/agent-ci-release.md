@@ -31,6 +31,19 @@ codebase must keep every required check green; an uploaded debug artifact is not
     - **Batch publication order (recorded 2026-10-15):** publishing several tags at once hazards both `versionCode` (the run number) and GitHub's "Latest release" badge, because both follow publish time, not version order — pushing `v0.8.1`–`v0.8.3` together produced codes 25/26/24 and marked `v0.8.2` as latest. Push tags oldest-first, and afterwards verify: `gh api repos/<owner>/<repo>/releases/latest --jq .tag_name` names the newest version and each APK's `versionCode` increases with its version (`aapt2 dump badging <apk> | head -1`). Correct a wrong badge with `gh release edit <tag> --latest`. A `versionCode` below an already-published release blocks Android upgrade installs; stable tags now derive their own code, so this cannot recur, and an already-published APK that carries a lower code needs a corrective release (the 0.8.x instance is corrected by `v0.8.4`).
     - **Required secrets:** `RELEASE_KEYSTORE_BASE64` (base64-encoded keystore) plus same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. `GEMINI_API_KEY` is not a CI secret — no CI job calls the Gemini engine.
 
+### Known CI flake: `verifySqlDelightMigration` comparator crash
+
+On 2026-10-28 the post-merge `main` run for `67731104` failed
+`./gradlew verifySqlDelightMigration` with
+`java.lang.IllegalArgumentException: Comparison method violates its general contract!`
+inside SQLDelight's own `VerifyMigrationTask` (thread pool, `match_table_constraints`).
+The identical tree had passed that step minutes earlier on the PR run for the same
+commit, the re-run of the failed workflow passed, and three local
+`--rerun-tasks` runs passed. Treat this signature as a nondeterministic plug-in
+failure rather than a migration defect: re-run the failed job and compare against a
+local `--rerun-tasks` run before changing migrations or schema. A repeat failure at
+the same step is a real signal and needs investigation, not another re-run.
+
 ### Behavioral tooling changes
 
 `AGENTS.md`, `.opencode/agents/`, `.opencode/commands/`, `.opencode/skills/` and
