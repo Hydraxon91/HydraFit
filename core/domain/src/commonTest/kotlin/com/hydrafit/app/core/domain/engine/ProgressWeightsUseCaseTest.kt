@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -357,6 +359,53 @@ class ProgressWeightsUseCaseTest {
             baseline.getValue("bench-press") + resolved.explanation.deltaKg,
             resolved.progressedKg
         )
+    }
+
+    @Test
+    fun clustersNeitherCountNorBreakOrdinaryProgressionInMixedOrSeparateSessions() {
+        for (performed in listOf(1, 2)) {
+            val ordinary = history(completed(1), completed(3), completed(5))
+            val clusters = (
+                work(2, target = null) + work(4, target = target) +
+                    completed(3).map { it.copy(id = it.id + 100, reps = 1) }
+                ).map {
+                it.copy(cluster = WorkoutClusterSummary(ClusterKind.REST_PAUSE, 2, performed))
+            }
+            val mixed = history(ordinary.sets, clusters)
+            assertEquals(
+                ordinary.exposures("bench-press", NOW),
+                mixed.exposures("bench-press", NOW)
+            )
+            assertEquals(
+                useCase(mapOf("bench-press" to 80.0), ordinary, nowMillis = NOW),
+                useCase(mapOf("bench-press" to 80.0), mixed, nowMillis = NOW)
+            )
+            assertTrue(history(clusters).exposures("bench-press", NOW).isEmpty())
+        }
+    }
+
+    @Test
+    fun orderedExposuresIgnoreCompleteAndPartialClustersIncludingDuplicateSlotIndices() {
+        val targets = SlotSetTargets(targets = List(3) { SetTarget(reps = 8, weightKg = 80.0) })
+        val ordinary = completed(1).mapIndexed { index, set ->
+            set.copy(prescriptionSnapshot = target.copy(setIndex = index))
+        }
+        for (performed in listOf(1, 2)) {
+            val clusters = ordinary.map {
+                it.copy(
+                    id = it.id + 100,
+                    reps = 1,
+                    cluster = WorkoutClusterSummary(ClusterKind.REST_PAUSE, 2, performed)
+                )
+            }
+            assertEquals(
+                history(ordinary).orderedExposures("bench-press", targets, NOW),
+                history(ordinary, clusters).orderedExposures("bench-press", targets, NOW)
+            )
+            assertTrue(
+                history(clusters).orderedExposures("bench-press", targets, NOW).isEmpty()
+            )
+        }
     }
 
     private fun completed(day: Int): List<WorkoutSet> = work(day, target = target, weightKg = 80.0)

@@ -1433,6 +1433,25 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun guidedOccurrenceTargetsRoundTripWithoutAppearingOnOtherEntryKinds() = runTest {
+        seedRepresentativeData()
+        val occurrenceEntry = database.trainingScheduleQueries.selectAllOccurrenceEntries()
+            .executeAsList().single()
+        val payload =
+            """{"version":1,"overrides":[{"setIndex":0,"target":{"reps":7,"weightKg":90.0}}]}"""
+        database.trainingScheduleQueries.applyGuidedTargets(payload, occurrenceEntry.id)
+
+        val exported = repository.export("t", 1L)
+        assertEquals(payload, exported.occurrenceEntries.single().guidedTargets)
+        repository.restore(exported)
+        assertEquals(
+            payload,
+            database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList()
+                .single().guidedTargets
+        )
+    }
+
+    @Test
     fun cardioActivitiesRoundTripThroughBackupWithoutTouchingResistanceData() = runTest {
         seedRepresentativeData()
         val cardio = SqlDelightCardioRepository(database)

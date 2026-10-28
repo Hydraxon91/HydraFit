@@ -499,7 +499,8 @@ class SqlDelightBackupRepository(
                             superset = it.superset,
                             cluster = it.cluster,
                             distanceMeters = it.distanceMeters?.toInt(),
-                            forceNewtons = it.forceNewtons
+                            forceNewtons = it.forceNewtons,
+                            guidedTargets = it.guidedTargets
                         )
                     },
                 scheduleState = database.trainingScheduleQueries.selectScheduleState()
@@ -1342,8 +1343,14 @@ class SqlDelightBackupRepository(
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
                     distanceMeters = entry.distanceMeters?.toLong(),
-                    forceNewtons = entry.forceNewtons
+                    forceNewtons = entry.forceNewtons,
+                    guidedTargets = null
                 )
+            }
+            file.occurrenceEntries.forEach { entry ->
+                entry.guidedTargets?.let { payload ->
+                    database.trainingScheduleQueries.applyGuidedTargets(payload, entry.id)
+                }
             }
             file.occurrenceEntries.forEach { entry ->
                 database.trainingScheduleQueries.setOccurrenceSuperset(

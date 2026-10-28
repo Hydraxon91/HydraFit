@@ -341,6 +341,19 @@ because either the recent-sets read or the occurrence read can fail, and a refre
 after the context was replaced is not shown either. The set's occurrence/entry attribution and block
 day are captured at submission. These manual-log outcomes are in memory only.
 
+The manual Logger form retains canonical kilograms and whole metres alongside editable display text.
+Changing the weight or distance preference rewrites valid nonblank text from that canonical value,
+without accumulating conversion rounding across repeated toggles. Blank weight remains absent (and
+distinct from numeric zero); blank distance remains unsubmitted. Incomplete or invalid nonblank text
+stays visible and blocks both the Log action and direct submission. This applies only to manual
+inputs; force/device values are not converted, and draft and correction editors keep their own
+captured-unit behavior. Force and device-rating values in a draft editor use `exactEntryText` on open
+and Reset, preserving full stored precision through Apply, reopen and logging rather than rounding to
+one decimal place. Manual recent-set and plan weight prefills likewise use exact editable text after
+unit conversion, so the displayed and submitted canonical kilograms remain the same. Switching the
+manual measure away from distance clears both its text and canonical metres; returning to distance
+requires a new positive entry before either the Log action or direct submission is accepted.
+
 Recent sets carry nullable stored `sessionId` in `LoggedSetRow`, retaining performed-time descending
 and insertion-id descending tie order. `startsSessionAfter` identifies adjacent explicit boundaries;
 the UI shows "Recorded session" at each boundary, including a returning identity without regrouping.
@@ -407,17 +420,21 @@ edit-confirm for another slot are refused; a repeat "Start set" on the started s
 that slot's explicit "Set completed now" consumes the live event. The Warm-up choice is frozen at
 confirmation, survives legacy/missing-load resolution and failed-write retries, and is discarded on
 cancellation or consumed on success. A warm-up is stored as a warm-up and stays out of the progress
-count. "Edit" opens the one-off draft editor; in guided mode Apply updates only the pending set,
-preserving the values through ordinary refreshes until an explicit log consumes them once, and
-Cancel writes nothing. Guided and planned draft targets state a known dumbbell basis (per hand for
+count. "Edit" opens the one-off draft editor; in guided mode Apply persists masked changes for every
+remaining set position on that occurrence only, preserving original routine/activation targets and
+leaving completed positions unchanged. The effective next target drives guided progress, the draft
+and the recorded target snapshot: an edited scalar slot records that target and its set position
+exactly as an ordered slot does. Reset stages the original target values; further edits are committed
+with Reset in one atomic Apply, while Cancel writes nothing. RIR and performed time retain their
+existing one-set-only behavior, and force-device attribution remains transient performed metadata.
+Guided and planned draft targets state a known dumbbell basis (per hand for
 unilateral work, per dumbbell otherwise) and show a withheld automatic load's recorded reason when
 it distinguishes unreachable inventory from insufficient history; the stored number is never
-doubled or reinterpreted. A single guided confirmation writes one set against the slot's current
+doubled or reinterpreted. A single guided confirmation writes one set against the slot's effective
 remaining ordered target — the submission count never advances the target index to the slot's final
-set — and an explicit edit overrides that set without claiming a target index. Override detection
-compares a timed draft's explicit seconds and otherwise its reps, alongside load, so applying a timed
-edit logs its own seconds once instead of repeating that ordered target, then the next target resumes.
-The manual Log set
+set. An explicit edit persists as the effective target for all remaining positions, and its recorded
+snapshot carries that effective target and position. The next position follows the persisted edit
+until another edit or Reset changes the remaining prescription. The manual Log set
 and Confirm-all paths are unchanged. Guided writes reuse
 the draft load-shape decisions (legacy resolution, missing-load prompt) through `writeGuidedSet`,
 so a single insert either lands or leaves the draft pending for retry. **Set completed now** is a separate explicit action: it timestamps the set
@@ -519,7 +536,9 @@ and below the working weight, so a tiny or bodyweight target yields no ramp. Ram
 by the user's current equipment (`WorkoutLoggerEquipment` observes `EquipmentRepository` and
 `EquipmentSelectionRepository`): an entry whose required equipment is not owned gets no ramp, and each
 load is clamped to the lowest ceiling among that equipment — the frozen prescription is never
-rewritten. Until the first equipment snapshot resolves, only preparation is offered: no ramp is shown
+rewritten. A ramp follows the slot's edited effective target for the remaining sets, so the
+suggested loads match the guided rows it sits above; recorded warm-ups and the frozen original stay
+untouched. Until the first equipment snapshot resolves, only preparation is offered: no ramp is shown
 or recorded against unknown availability or an unknown ceiling (known unbounded equipment still
 offers the full profile). Visible equipment readiness is published in the same state update as
 guidance built from that snapshot, after the generation guard passes; a superseded refresh returning

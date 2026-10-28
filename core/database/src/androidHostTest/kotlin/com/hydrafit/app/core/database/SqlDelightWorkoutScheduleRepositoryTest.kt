@@ -13,15 +13,26 @@ import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
+import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
+import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout
+import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.GuidedTargetField
+import com.hydrafit.app.core.domain.schedule.GuidedTargetPatch
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryDraft
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
@@ -31,7 +42,11 @@ import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.time.DayOfWeek
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
+import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -45,6 +60,278 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class SqlDelightWorkoutScheduleRepositoryTest {
+
+    @Test
+    fun guidedTargetsPersistWithoutChangingFrozenOriginalsAndResetIsRevisionBound() = runTest {
+        val orderedTargets = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 82.5),
+                SetTarget(reps = 7, loadKind = LoadKind.EXTERNAL, weightKg = 80.0),
+                SetTarget(reps = 6, loadKind = LoadKind.EXTERNAL, weightKg = 77.5)
+            )
+        )
+        val activationId = repository.acceptAndActivate(
+            null,
+            activation(setTargets = orderedTargets),
+            listOf(null, null),
+            false
+        )
+        val occurrence = repository.occurrences(activationId).first()
+        val original = occurrence.entries.first()
+        repository.applyTargets(
+            com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest(
+                occurrenceId = occurrence.id,
+                occurrenceRevision = occurrence.revision,
+                entryId = original.id,
+                exerciseId = original.exerciseId,
+                entrySets = original.sets,
+                completedSetCount = 0,
+                resetRemaining = false,
+                patches = mapOf(
+                    0 to GuidedTargetPatch(
+                        SetTarget(reps = 10, weightKg = 70.0),
+                        setOf(GuidedTargetField.REPS, GuidedTargetField.LOAD)
+                    )
+                )
+            )
+        )
+        val edited = repository.getOccurrence(occurrence.id)!!.entries.first()
+        assertEquals(8, edited.reps)
+        assertEquals(82.5, edited.weightKg)
+        assertEquals(8, edited.setTargets?.targets?.first()?.reps)
+        assertEquals(82.5, edited.setTargets?.targets?.first()?.weightKg)
+        assertEquals(listOf<Int?>(8, 7, 6), edited.setTargets?.targets?.map { it.reps })
+        assertEquals(
+            listOf<Double?>(82.5, 80.0, 77.5),
+            edited.setTargets?.targets?.map { it.weightKg }
+        )
+        assertEquals(10, edited.guidedTargets?.targetFor(edited, 0)?.target?.reps)
+        assertEquals(70.0, edited.guidedTargets?.targetFor(edited, 0)?.target?.weightKg)
+        assertEquals(2, repository.getOccurrence(occurrence.id)?.revision)
+
+        assertFailsWith<ScheduleException> {
+            repository.applyTargets(
+                com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest(
+                    occurrenceId = occurrence.id,
+                    occurrenceRevision = 2,
+                    entryId = original.id,
+                    exerciseId = original.exerciseId,
+                    entrySets = original.sets,
+                    completedSetCount = 1,
+                    resetRemaining = false,
+                    patches = emptyMap()
+                )
+            )
+        }
+
+        assertFailsWith<ScheduleException> {
+            repository.applyTargets(
+                com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest(
+                    occurrenceId = occurrence.id,
+                    occurrenceRevision = 1,
+                    entryId = original.id,
+                    exerciseId = original.exerciseId,
+                    entrySets = original.sets,
+                    completedSetCount = 0,
+                    resetRemaining = true,
+                    patches = emptyMap()
+                )
+            )
+        }
+        repository.applyTargets(
+            com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest(
+                occurrenceId = occurrence.id,
+                occurrenceRevision = 2,
+                entryId = original.id,
+                exerciseId = original.exerciseId,
+                entrySets = original.sets,
+                completedSetCount = 0,
+                resetRemaining = true,
+                patches = emptyMap()
+            )
+        )
+        assertNull(repository.getOccurrence(occurrence.id)?.entries?.first()?.guidedTargets)
+    }
+
+    @Test
+    fun resetAndPatchComposeInOneTransactionRetainingCompletedOverrideAndRollingBackInvalidPatch() =
+        runTest {
+            val orderedTargets = SlotSetTargets.of(
+                listOf(
+                    SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 82.5),
+                    SetTarget(reps = 7, loadKind = LoadKind.EXTERNAL, weightKg = 80.0),
+                    SetTarget(reps = 6, loadKind = LoadKind.EXTERNAL, weightKg = 77.5)
+                )
+            )
+            val activationId = repository.acceptAndActivate(
+                null,
+                activation(setTargets = orderedTargets),
+                listOf(null, null),
+                false
+            )
+            val occurrence = repository.occurrences(activationId).first()
+            val original = occurrence.entries.first()
+            repository.applyTargets(
+                GuidedWorkoutTargetsRequest(
+                    occurrence.id,
+                    occurrence.revision,
+                    original.id,
+                    original.exerciseId,
+                    original.sets,
+                    completedSetCount = 0,
+                    resetRemaining = false,
+                    patches = mapOf(
+                        0 to GuidedTargetPatch(
+                            SetTarget(reps = 10, weightKg = 70.0),
+                            setOf(GuidedTargetField.REPS, GuidedTargetField.LOAD)
+                        ),
+                        1 to GuidedTargetPatch(
+                            SetTarget(reps = 11, weightKg = 71.0),
+                            setOf(GuidedTargetField.REPS, GuidedTargetField.LOAD)
+                        )
+                    )
+                )
+            )
+            insertOpenSession("guided-targets", occurrence.id)
+            insertSetForOccurrence(99_001L, "guided-targets", occurrence.id, original.id)
+            val edited = repository.getOccurrence(occurrence.id)!!
+            repository.applyTargets(
+                GuidedWorkoutTargetsRequest(
+                    occurrence.id,
+                    edited.revision,
+                    original.id,
+                    original.exerciseId,
+                    original.sets,
+                    completedSetCount = 1,
+                    resetRemaining = true,
+                    patches = mapOf(
+                        1 to GuidedTargetPatch(
+                            SetTarget(reps = 9, weightKg = 80.0),
+                            setOf(GuidedTargetField.REPS)
+                        )
+                    )
+                )
+            )
+
+            val composed = repository.getOccurrence(occurrence.id)!!
+            val composedEntry = composed.entries.first()
+            assertEquals(10, composedEntry.guidedTargets?.targetFor(composedEntry, 0)?.target?.reps)
+            assertEquals(
+                70.0,
+                composedEntry.guidedTargets?.targetFor(composedEntry, 0)?.target?.weightKg
+            )
+            assertEquals(9, composedEntry.guidedTargets?.targetFor(composedEntry, 1)?.target?.reps)
+            assertEquals(
+                80.0,
+                composedEntry.guidedTargets?.targetFor(composedEntry, 1)?.target?.weightKg
+            )
+            assertEquals(
+                77.5,
+                composedEntry.guidedTargets?.targetFor(composedEntry, 2)?.target?.weightKg
+            )
+
+            val revision = composed.revision
+            assertFailsWith<IllegalArgumentException> {
+                repository.applyTargets(
+                    GuidedWorkoutTargetsRequest(
+                        occurrence.id,
+                        revision,
+                        original.id,
+                        original.exerciseId,
+                        original.sets,
+                        completedSetCount = 1,
+                        resetRemaining = true,
+                        patches = mapOf(
+                            3 to GuidedTargetPatch(
+                                SetTarget(reps = 12, weightKg = 75.0),
+                                setOf(GuidedTargetField.REPS)
+                            )
+                        )
+                    )
+                )
+            }
+            val afterFailure = repository.getOccurrence(occurrence.id)!!
+            assertEquals(revision, afterFailure.revision)
+            assertEquals(composedEntry.guidedTargets, afterFailure.entries.first().guidedTargets)
+        }
+
+    @Test
+    fun refusesAnApplyWhenAClusterIsPartialWithoutAdvancingRevision() = runTest {
+        val block = activation().let { value ->
+            val workout = value.workouts.first()
+            val targetEntry = workout.entries.first()
+            value.copy(
+                workouts = listOf(
+                    workout.copy(
+                        entries = listOf(
+                            targetEntry.copy(
+                                reps = 8,
+                                weightKg = 80.0,
+                                cluster = ClusterPrescription(
+                                    ClusterKind.DROP_SET,
+                                    listOf(
+                                        ClusterSegmentTarget(8, 80.0),
+                                        ClusterSegmentTarget(6, 70.0)
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        }
+        val activationId = repository.acceptAndActivate(null, block, listOf(null, null), false)
+        val occurrence = repository.occurrences(activationId).first()
+        val entry = occurrence.entries.first()
+        SqlDelightWorkoutLogRepository(database).addCluster(
+            WorkoutSet(
+                exerciseId = entry.exerciseId,
+                reps = 8,
+                weightKg = 80.0,
+                performedAtMillis = 1L,
+                sessionId = "s1",
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = entry.id
+            ),
+            WorkoutCluster.of(
+                WorkoutSet(
+                    exerciseId = entry.exerciseId,
+                    reps = 8,
+                    weightKg = 80.0,
+                    performedAtMillis = 1L
+                ),
+                ClusterKind.DROP_SET,
+                2,
+                listOf(PerformedClusterSegment(1, 6, 70.0))
+            )
+        )
+        val request = GuidedWorkoutTargetsRequest(
+            occurrenceId = occurrence.id,
+            occurrenceRevision = occurrence.revision,
+            entryId = entry.id,
+            exerciseId = entry.exerciseId,
+            entrySets = entry.sets,
+            completedSetCount = 0,
+            resetRemaining = false,
+            patches = mapOf(
+                0 to GuidedTargetPatch(
+                    SetTarget(reps = 10, weightKg = 70.0),
+                    setOf(GuidedTargetField.REPS, GuidedTargetField.LOAD)
+                )
+            )
+        )
+        assertFailsWith<ScheduleException> { repository.applyTargets(request) }
+        assertFailsWith<ScheduleException> {
+            repository.applyTargets(request.copy(resetRemaining = true, patches = emptyMap()))
+        }
+        assertEquals(
+            1,
+            database.workoutLogQueries.selectSetsForOccurrence(occurrence.id)
+                .executeAsList().size
+        )
+        assertEquals(occurrence.revision, repository.getOccurrence(occurrence.id)?.revision)
+        assertNull(repository.getOccurrence(occurrence.id)?.entries?.first()?.guidedTargets)
+    }
 
     @Test
     fun muscleExpansionSeedingPreservesFrozenActivationAndOccurrenceProfiles() = runTest {
@@ -900,6 +1187,40 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     }
 
     @Test
+    fun ambiguousDuplicateOccurrenceEditLeavesSqlDelightRowsAndMetadataUnchanged() = runTest {
+        SeedExerciseCatalog(database).seed()
+        val id = repository.acceptAndActivate(null, activation(), listOf(null), false)
+        val occurrence = repository.occurrences(id).first()
+        val targets = listOf(
+            SlotSetTargets.of(List(3) { SetTarget(reps = 8, weightKg = 30.0) }),
+            SlotSetTargets.of(List(3) { SetTarget(reps = 6, weightKg = 35.0) })
+        )
+        val policy = SlotProgressionPolicy(minReps = 6, maxReps = 10, incrementKg = 2.5)
+        val original = occurrence.entries.single()
+        val duplicates = listOf(
+            original.copy(position = 0, setTargets = targets[0], progressionPolicy = policy),
+            original.copy(position = 1, setTargets = targets[1])
+        )
+        repository.replaceOccurrenceEntries(occurrence.id, duplicates)
+        val before = requireNotNull(repository.getOccurrence(occurrence.id))
+        val edit = EditUnstartedOccurrenceUseCase(
+            repository,
+            SqlDelightWorkoutLogRepository(database),
+            SqlDelightExerciseCatalog(database)
+        )
+
+        assertFailsWith<ScheduleException> {
+            edit(
+                occurrence.id,
+                listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8, weightKg = 30.0))
+            )
+        }
+
+        assertEquals(before, repository.getOccurrence(occurrence.id))
+        assertEquals(before.entries, repository.getOccurrence(occurrence.id)?.entries)
+    }
+
+    @Test
     fun deletingOccurrencesCascadesTheirEntries() = runTest {
         val id = repository.acceptAndActivate(
             acceptedPlan = null,
@@ -1085,7 +1406,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
 
     private fun activation(
         explanation: ExerciseTargetExplanation? = null,
-        secondExplanation: ExerciseTargetExplanation? = null
+        secondExplanation: ExerciseTargetExplanation? = null,
+        setTargets: SlotSetTargets? = null
     ) = TrainingActivation(
         templateId = 7L,
         templateRevision = 3,
@@ -1113,7 +1435,8 @@ class SqlDelightWorkoutScheduleRepositoryTest {
                         sets = 3,
                         reps = 8,
                         weightKg = 82.5,
-                        explanation = explanation
+                        explanation = explanation,
+                        setTargets = setTargets
                     )
                 )
             ),

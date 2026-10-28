@@ -3,9 +3,12 @@
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
 
-Logical, versioned JSON (`format` + `formatVersion` 29), restored by whole replacement.
-The reader accepts versions 1–29; version 1 defaults the guided-workout preference to off.
-Format 28 adds ordered cluster prescriptions and performed parent/segment records, with snapshot
+Logical, versioned JSON (`format` + `formatVersion` 30), restored by whole replacement.
+The reader accepts versions 1–30; version 1 defaults the guided-workout preference to off.
+Format 30 adds optional strict versioned `guidedTargets` overrides only on occurrence entries; versions
+1–29 must not carry them, and format-30 payloads validate against the owning occurrence's set count,
+measure, load capability and original cluster structure before restore. The stored original scalar,
+ordered targets and cluster remain unchanged. Format 28 adds ordered cluster prescriptions and performed parent/segment records, with snapshot
 format 6 and prescription interchange v8. A parent retains the opening segment; additional segments
 retain their positions and values. Partial work is not completed by restore. Format 29 adds separate
 manual cardio activities with stable identities, required start/duration and optional distance/note.
@@ -189,7 +192,9 @@ nothing else. The codec encodes defaults, rejects unknown fields, and enforces `
 version, the shared `PrescriptionBounds` per slot, valid movement/load/kind/focus enums, valid
 `MUSCLE:weight` involvement keys for custom definitions, unique custom ids, and two internal
 reference rules: every declared custom definition must be referenced by some slot, and a weights-free
-document (`includesWeights = false`) may not carry a slot weight. Referenced identities are resolved
+document (`includesWeights = false`) may not carry a slot weight, an ordered target's `weightKg`,
+a recipe's `startLoadKg`/`endLoadKg` or cluster segment loads. Explicit zero is a load, not absence.
+Load-free ordered targets and recipe inputs remain valid on import. Referenced identities are resolved
 by the importer (`transfer/PreviewPrescriptionImport`), not by this validator, because only the receiver
 knows its own catalog. The preview reports reuse, creation, name collision, id collision and equipment
 gap, and never substitutes silently: a document definition whose id matches a local row is compared
@@ -201,7 +206,9 @@ accepted in one import.
 `ExportPrescriptionsUseCase(routines: RoutineTemplateRepository, catalog: ExerciseCatalog)` reads only
 the chosen routine ids and the catalog rows they reference, so history, records, notes, credentials,
 equipment inventories, schedule state and explanations are never read and cannot leak. Weights are
-omitted unless the caller passes `includeWeights = true` from an explicit user choice; a slot whose
+omitted unless the caller passes `includeWeights = true` from an explicit user choice. Weights-free
+export omits entire `setTargets` (including recipe inputs) and clusters, retaining scalar sets and
+measurement rather than introducing a redacted encoding; weighted export preserves them. A slot whose
 exercise is no longer in the catalog keeps its stored id as the only available name.
 
 Read-only review of the shipped S1–S2 behavior on a device remains pending.

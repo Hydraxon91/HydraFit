@@ -38,10 +38,12 @@ class CardioViewModelTest {
     private val offsetMillis = 3_600_000L
     private val today = localEpochDay(nowMillis, offsetMillis)
 
+    private var currentNowMillis = nowMillis
+    private var currentOffsetMillis = offsetMillis
     private val timeProvider = object : TimeProvider {
-        override fun nowMillis(): Long = nowMillis
+        override fun nowMillis(): Long = currentNowMillis
 
-        override fun utcOffsetMillis(): Long = offsetMillis
+        override fun utcOffsetMillis(): Long = currentOffsetMillis
     }
 
     @BeforeTest
@@ -163,6 +165,103 @@ class CardioViewModelTest {
 
         assertEquals(CardioEditorError.INVALID_START_TIME, viewModel.state.value.editor?.error)
         assertTrue(repository.addCalls.isEmpty())
+    }
+
+    @Test
+    fun resumeRefreshesCurrentDayAndOffsetButAnOpenEditorKeepsItsCapturedOffset() =
+        runTest(dispatcher) {
+            val repository = FakeCardioRepository()
+            val viewModel = viewModel(repository)
+            advanceUntilIdle()
+            viewModel.onAddActivity()
+            viewModel.onEditorMinutesChanged("5")
+            val enteredText = requireNotNull(viewModel.state.value.editor).startText
+            val originalOffset = viewModel.state.value.editor?.startUtcOffsetMillis
+
+            currentOffsetMillis = -5L * 3_600_000L
+            currentNowMillis += 86_400_000L
+            viewModel.onResume()
+
+            assertEquals(-5L * 3_600_000L, viewModel.state.value.utcOffsetMillis)
+            assertEquals(
+                localEpochDay(currentNowMillis, currentOffsetMillis),
+                viewModel.state.value.todayLocalEpochDay
+            )
+            assertEquals(enteredText, viewModel.state.value.editor?.startText)
+            assertEquals(originalOffset, viewModel.state.value.editor?.startUtcOffsetMillis)
+            assertTrue(repository.addCalls.isEmpty())
+
+            currentOffsetMillis = 9L * 3_600_000L
+            currentNowMillis += 86_400_000L
+            viewModel.onResume()
+            assertEquals(9L * 3_600_000L, viewModel.state.value.utcOffsetMillis)
+            assertEquals(
+                localEpochDay(currentNowMillis, currentOffsetMillis),
+                viewModel.state.value.todayLocalEpochDay
+            )
+            assertEquals(enteredText, viewModel.state.value.editor?.startText)
+            assertEquals(originalOffset, viewModel.state.value.editor?.startUtcOffsetMillis)
+            assertTrue(repository.addCalls.isEmpty())
+
+            viewModel.onEditorSubmit()
+            advanceUntilIdle()
+            assertEquals(
+                parseCardioStartTime(enteredText, offsetMillis),
+                repository.addCalls.single().startedAtMillis
+            )
+
+            viewModel.onAddActivity()
+            assertEquals(9L * 3_600_000L, viewModel.state.value.editor?.startUtcOffsetMillis)
+            assertEquals(
+                isoLocalDateTime(currentNowMillis, currentOffsetMillis),
+                viewModel.state.value.editor?.startText
+            )
+        }
+
+    @Test
+    fun editedTimestampKeepsItsCapturedOffsetAcrossResumeAndSaveRetry() = runTest(dispatcher) {
+        val stored = activity(id = 7, startedAtMillis = nowMillis - 86_400_000L)
+        val repository = FakeCardioRepository(listOf(stored))
+        val viewModel = viewModel(repository)
+        advanceUntilIdle()
+        viewModel.onEditActivity(stored.id)
+        viewModel.onEditorMinutesChanged("12")
+        val editor = requireNotNull(viewModel.state.value.editor)
+        val startText = editor.startText
+        val capturedOffset = editor.startUtcOffsetMillis
+
+        currentOffsetMillis = -8L * 3_600_000L
+        currentNowMillis += 86_400_000L
+        viewModel.onResume()
+        assertEquals(
+            localEpochDay(currentNowMillis, currentOffsetMillis),
+            viewModel.state.value.todayLocalEpochDay
+        )
+        assertEquals(startText, viewModel.state.value.editor?.startText)
+        assertEquals(capturedOffset, viewModel.state.value.editor?.startUtcOffsetMillis)
+        assertTrue(repository.updateCalls.isEmpty())
+
+        repository.updateError = true
+        viewModel.onEditorSubmit()
+        advanceUntilIdle()
+        assertEquals(CardioEditorError.SAVE_FAILED, viewModel.state.value.editor?.error)
+        assertEquals(1, repository.updateCalls.size)
+        assertEquals(
+            parseCardioStartTime(startText, capturedOffset),
+            repository.updateCalls.single().startedAtMillis
+        )
+
+        currentOffsetMillis = 10L * 3_600_000L
+        viewModel.onResume()
+        repository.updateError = false
+        viewModel.onEditorSubmit()
+        advanceUntilIdle()
+        assertEquals(2, repository.updateCalls.size)
+        assertEquals(
+            parseCardioStartTime(startText, capturedOffset),
+            repository.updateCalls.last().startedAtMillis
+        )
+        assertNull(viewModel.state.value.editor)
     }
 
     @Test
@@ -332,6 +431,7 @@ class CardioViewModelTest {
         CardioRepository {
         val activities = MutableStateFlow(initial)
         var activitiesError = false
+        var updateError = false
         var addGate: CompletableDeferred<Unit>? = null
         val addCalls = mutableListOf<CardioActivity>()
         val updateCalls = mutableListOf<CardioActivity>()
@@ -356,6 +456,7 @@ class CardioViewModelTest {
 
         override suspend fun update(activity: CardioActivity) {
             updateCalls += activity
+            if (updateError) throw IllegalStateException("Could not save activity")
         }
 
         override suspend fun delete(id: Long) {

@@ -6,13 +6,17 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
 import com.hydrafit.app.core.domain.workout.ExerciseProgressCalculator
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.StationFilter
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -76,6 +80,68 @@ class SqlDelightExerciseProgressRepositoryTest {
         assertTrue(result.occurrenceEvents.isEmpty())
         val loadRecord = result.records.first { it.key.type == ProgressRecordType.LOAD_AT_REPS }
         assertEquals(60, loadRecord.setIds.size)
+    }
+
+    @Test
+    fun storedClustersKeepIdentityAcrossPagesWithoutOrdinaryRecordsOrStrengthMarks() = runBlocking {
+        writer.add(set(time = 0, weight = 50.0))
+        writer.add(set(time = 3, weight = 60.0).copy(occurrenceId = OCCURRENCE))
+        val request = progressRequest().copy(occurrenceId = OCCURRENCE)
+        val ordinary = repository.observeProgress(request).first()
+        val summaries = mutableMapOf<Long, WorkoutClusterSummary>()
+        // Cross both the tied-timestamp and later-time replay continuations, including batch 256.
+        repeat(520) { index ->
+            val performed = 1 + index % 2
+            val parent = set(time = if (index < 300) 1 else 2, weight = 200.0)
+                .copy(occurrenceId = OCCURRENCE)
+            writer.addCluster(
+                parent,
+                WorkoutCluster(
+                    ClusterKind.REST_PAUSE,
+                    2,
+                    List(performed) { PerformedClusterSegment(it, 10, 200.0) }
+                )
+            )
+            summaries[index + 3L] =
+                WorkoutClusterSummary(ClusterKind.REST_PAUSE, 2, performed)
+        }
+        val mixed = repository.observeProgress(request).first()
+        assertEquals(ordinary.records, mixed.records)
+        assertEquals(ordinary.occurrenceEvents, mixed.occurrenceEvents)
+        assertEquals(ordinary.days.single().bestLoads, mixed.days.single().bestLoads)
+        assertEquals(ordinary.days.single().bestReps, mixed.days.single().bestReps)
+        assertEquals(
+            ordinary.days.single().estimatedOneRepMax,
+            mixed.days.single().estimatedOneRepMax
+        )
+        // Opening work remains descriptive; no segment is invented as an additional ordinary set.
+        assertEquals(522, mixed.days.single().workingSets)
+        val seen = mutableListOf<Long>()
+        var pageRequest = ExerciseHistoryRequest("squat", pageSize = 17)
+        while (true) {
+            val page = repository.observeHistory(pageRequest).first()
+            page.sets.forEach {
+                assertEquals(summaries[it.id], it.cluster)
+                seen += it.id
+            }
+            val cursor = page.nextCursor ?: break
+            pageRequest = pageRequest.copy(cursor = cursor)
+        }
+        assertEquals((522L downTo 3L).toSet() + setOf(1L, 2L), seen.toSet())
+        assertEquals(522, seen.size)
+        for ((id, summary) in summaries) {
+            assertEquals(summary, repository.observeSet("squat", id).first()?.cluster)
+        }
+        val clusterId = summaries.keys.first()
+        database.workoutLogQueries.updateSetValues(12, null, null, null, 300.0, null, clusterId)
+        assertEquals(
+            summaries[clusterId],
+            repository.observeSet("squat", clusterId).first()?.cluster
+        )
+        assertEquals(ordinary.records, repository.observeProgress(request).first().records)
+        writer.delete(clusterId)
+        assertNull(repository.observeSet("squat", clusterId).first())
+        assertEquals(ordinary.records, repository.observeProgress(request).first().records)
     }
 
     @Test

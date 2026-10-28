@@ -73,11 +73,14 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
+import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
 import com.hydrafit.app.core.domain.schedule.CancelTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.FinishTrainingBlockUseCase
 import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRepository
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
@@ -368,6 +371,13 @@ class KoinModulesVerificationTest {
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<GuidedWorkoutTargetsRepository> {
+                        object : GuidedWorkoutTargetsRepository {
+                            override suspend fun applyTargets(
+                                request: GuidedWorkoutTargetsRequest
+                            ) = error("No guided writes expected during graph resolution")
+                        }
+                    }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
                     single<BackupCatalog> { FakeBackupCatalog }
                     single<BackupRepository> { FakeBackupRepository }
@@ -394,6 +404,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<SubstituteExerciseUseCase>())
             assertNotNull(koin.get<SetAcceptedExerciseMeasureUseCase>())
             assertNotNull(koin.get<ReplaceOccurrenceExerciseUseCase>())
+            assertNotNull(koin.get<ApplyGuidedWorkoutTargetsUseCase>())
             assertNotNull(koin.get<PlanBuilderActions>())
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
@@ -776,6 +787,13 @@ class KoinModulesVerificationTest {
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<GuidedWorkoutTargetsRepository> {
+                        object : GuidedWorkoutTargetsRepository {
+                            override suspend fun applyTargets(
+                                request: GuidedWorkoutTargetsRequest
+                            ) = error("No guided writes expected during graph resolution")
+                        }
+                    }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<DistanceUnitRepository> { FakeDistanceUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
@@ -857,6 +875,13 @@ class KoinModulesVerificationTest {
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<GuidedWorkoutTargetsRepository> {
+                        object : GuidedWorkoutTargetsRepository {
+                            override suspend fun applyTargets(
+                                request: GuidedWorkoutTargetsRequest
+                            ) = error("No guided writes expected during graph resolution")
+                        }
+                    }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<ExerciseExclusionRepository> { FakeExerciseExclusionRepository }
                     single<PreferredWeekdaysRepository> { FakePreferredWeekdaysRepository }
@@ -1020,6 +1045,13 @@ class KoinModulesVerificationTest {
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
                     single<WorkoutScheduleRepository> { FakeWorkoutScheduleRepository }
+                    single<GuidedWorkoutTargetsRepository> {
+                        object : GuidedWorkoutTargetsRepository {
+                            override suspend fun applyTargets(
+                                request: GuidedWorkoutTargetsRequest
+                            ) = error("No guided writes expected during graph resolution")
+                        }
+                    }
                     single<WeightUnitRepository> { FakeWeightUnitRepository }
                     single<DistanceUnitRepository> { FakeDistanceUnitRepository }
                     single<RestPreferenceRepository> { FakeRestPreferenceRepository }

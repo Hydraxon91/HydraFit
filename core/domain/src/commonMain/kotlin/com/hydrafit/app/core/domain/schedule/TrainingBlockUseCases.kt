@@ -286,7 +286,30 @@ class EditUnstartedOccurrenceUseCase(
                 // still measured by reps, because the list is rep work and the count is one value.
                 // Pairing is restored below, and only when both members are unchanged and still
                 // adjacent.
-                val existing = occurrence.entries.firstOrNull { it.exerciseId == draft.exerciseId }
+                val matchingEntries = occurrence.entries.filter {
+                    it.exerciseId == draft.exerciseId
+                }
+                if (matchingEntries.size > 1) {
+                    throw ScheduleException("An exercise slot cannot be matched unambiguously")
+                }
+                val existing = matchingEntries.singleOrNull()
+                val existingCluster = existing?.cluster
+                val compatibleCluster = existingCluster?.takeIf {
+                    draft.reps != null &&
+                        draft.durationSeconds == null &&
+                        draft.distanceMeters == null &&
+                        draft.forceNewtons == null &&
+                        kind == com.hydrafit.app.core.domain.workout.LoadKind.EXTERNAL &&
+                        weightKg != null &&
+                        weightKg > 0.0 &&
+                        draft.reps == it.openingSegment.reps &&
+                        weightKg == it.openingSegment.weightKg
+                }
+                if (existingCluster != null && compatibleCluster == null) {
+                    throw ScheduleException(
+                        "A cluster prescription requires compatible reps and external load"
+                    )
+                }
                 val preservedTargets = existing?.setTargets
                     ?.takeIf { it.sets == draft.sets && draft.reps != null }
                 OccurrenceEntry(
@@ -307,7 +330,8 @@ class EditUnstartedOccurrenceUseCase(
                     loadCapability = exercise.loadCapability,
                     loadKind = kind,
                     progressionPolicy = existing?.progressionPolicy,
-                    setTargets = preservedTargets
+                    setTargets = preservedTargets,
+                    cluster = compatibleCluster
                 )
             }
         )

@@ -12,8 +12,12 @@ import com.hydrafit.app.core.domain.equipment.LoadingDumbbell
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
+import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import kotlin.test.AfterTest
@@ -77,6 +81,61 @@ class SqlDelightWorkoutPlanSourcesRepositoryTest {
         assertEquals(1, sources.observe().first().progressionHistory.sets.size)
         assertEquals(80.0, sources.observe().first().progressionHistory.sets.single().weightKg)
     }
+
+    @Test
+    fun progressionSourcesExcludeCompleteAndPartialClustersButRetainTheirStoredIdentity() =
+        runTest {
+            val log = SqlDelightWorkoutLogRepository(database)
+            val sources = SqlDelightWorkoutPlanSourcesRepository(
+                SqlDelightEquipmentProfileRepository(database),
+                SqlDelightEnginePreferenceRepository(database),
+                log,
+                SqlDelightTrainingGoalRepository(database),
+                SqlDelightPersonalRecordRepository(database, TimeProvider { 100L }),
+                SqlDelightExercisePreferenceRepository(database),
+                SqlDelightExerciseExclusionRepository(database),
+                database
+            )
+            val ordinary = WorkoutSet(
+                exerciseId = "barbell-bench-press",
+                reps = 5,
+                weightKg = 80.0,
+                performedAtMillis = 1L
+            )
+            log.add(ordinary)
+            val complete = ordinary.copy(performedAtMillis = 2L)
+            log.addCluster(
+                complete,
+                WorkoutCluster(
+                    ClusterKind.REST_PAUSE,
+                    plannedSegments = 2,
+                    segments = listOf(
+                        PerformedClusterSegment(0, 5, 80.0),
+                        PerformedClusterSegment(1, 3, 80.0)
+                    )
+                )
+            )
+            val partial = ordinary.copy(performedAtMillis = 3L)
+            log.addCluster(
+                partial,
+                WorkoutCluster(
+                    ClusterKind.REST_PAUSE,
+                    plannedSegments = 3,
+                    segments = listOf(PerformedClusterSegment(0, 5, 80.0))
+                )
+            )
+
+            val history = sources.observe().first().progressionHistory
+
+            assertEquals(1, history.sets.size)
+            assertEquals(ordinary, history.sets.single().copy(id = ordinary.id))
+            val stored = database.workoutLogQueries.selectAllSets().executeAsList().map {
+                it.toDomain()
+            }
+            assertEquals(2, stored.count { it.cluster != null })
+            assertEquals(WorkoutClusterSummary(ClusterKind.REST_PAUSE, 2, 2), stored[1].cluster)
+            assertEquals(WorkoutClusterSummary(ClusterKind.REST_PAUSE, 3, 1), stored[2].cluster)
+        }
 
     @Test
     fun sessionClosureInvalidatesCoherentRecordedTargetHistoryWithoutCountChange() = runTest {

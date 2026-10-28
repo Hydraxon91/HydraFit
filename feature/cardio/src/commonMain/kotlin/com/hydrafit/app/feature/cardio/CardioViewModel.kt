@@ -40,12 +40,10 @@ class CardioViewModel(
     private val editActivity = EditCardioActivityUseCase(repository)
     private val deleteActivity = DeleteCardioActivityUseCase(repository)
 
-    private val utcOffsetMillis: Long = timeProvider.utcOffsetMillis()
-
     private val _state = MutableStateFlow(
         CardioUiState(
-            utcOffsetMillis = utcOffsetMillis,
-            todayLocalEpochDay = today()
+            utcOffsetMillis = timeProvider.utcOffsetMillis(),
+            todayLocalEpochDay = today(timeProvider.utcOffsetMillis())
         )
     )
     val state: StateFlow<CardioUiState> = _state.asStateFlow()
@@ -66,7 +64,8 @@ class CardioViewModel(
 
     /** Re-samples the local civil day, e.g. when the screen returns to the foreground. */
     fun onResume() {
-        _state.update { it.copy(todayLocalEpochDay = today()) }
+        val offset = timeProvider.utcOffsetMillis()
+        _state.update { it.copy(utcOffsetMillis = offset, todayLocalEpochDay = today(offset)) }
     }
 
     fun onRangeSelected(range: CardioRange) {
@@ -83,7 +82,11 @@ class CardioViewModel(
         _state.update {
             it.copy(
                 editor = CardioEditorState(
-                    initialStartText = startTextAt(timeProvider.nowMillis()),
+                    initialStartText = startTextAt(
+                        timeProvider.nowMillis(),
+                        _state.value.utcOffsetMillis
+                    ),
+                    startUtcOffsetMillis = _state.value.utcOffsetMillis,
                     type = CardioActivityType.WALKING
                 )
             )
@@ -103,7 +106,11 @@ class CardioViewModel(
                 editor = CardioEditorState(
                     previousId = activity.id,
                     identity = activity.identity,
-                    initialStartText = startTextAt(activity.startedAtMillis),
+                    initialStartText = startTextAt(
+                        activity.startedAtMillis,
+                        current.utcOffsetMillis
+                    ),
+                    startUtcOffsetMillis = current.utcOffsetMillis,
                     type = activity.type,
                     minutesText = minutes.toString(),
                     secondsText = seconds.toString(),
@@ -150,7 +157,7 @@ class CardioViewModel(
         val editor = current.editor ?: return
         if (current.submitting) return
 
-        val startedAtMillis = parseCardioStartTime(editor.startText, current.utcOffsetMillis)
+        val startedAtMillis = parseCardioStartTime(editor.startText, editor.startUtcOffsetMillis)
             ?: return setEditorError(CardioEditorError.INVALID_START_TIME)
         val durationSeconds = parsedDurationSeconds(editor)
             ?: return setEditorError(CardioEditorError.INVALID_DURATION)
@@ -246,10 +253,11 @@ class CardioViewModel(
         }
     }
 
-    private fun today(): Long = localEpochDay(timeProvider.nowMillis(), utcOffsetMillis)
+    private fun today(offsetMillis: Long): Long =
+        localEpochDay(timeProvider.nowMillis(), offsetMillis)
 
-    private fun startTextAt(epochMillis: Long): String =
-        isoLocalDateTime(epochMillis, utcOffsetMillis)
+    private fun startTextAt(epochMillis: Long, offsetMillis: Long): String =
+        isoLocalDateTime(epochMillis, offsetMillis)
 
     private fun updateEditor(transform: (CardioEditorState) -> CardioEditorState) {
         _state.update { current ->

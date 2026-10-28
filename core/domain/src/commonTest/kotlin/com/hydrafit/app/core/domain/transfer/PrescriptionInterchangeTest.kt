@@ -1,6 +1,8 @@
 package com.hydrafit.app.core.domain.transfer
 
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.engine.SetPrescriptionRecipeSnapshot
+import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicyJson
@@ -91,6 +93,143 @@ class PrescriptionInterchangeTest {
         override suspend fun isReferencedByActivation(id: Long): Boolean = false
         override suspend fun delete(id: Long) = Unit
     }
+
+    @Test
+    fun weightsFreeExportOmitsNestedPrescriptionsThroughJsonAndImportMapping() = runBlocking {
+        val targets = SlotSetTargets.of(
+            listOf(SetTarget(reps = 5, weightKg = 0.0)),
+            recipe = recipe(0.0, 80.0)
+        )
+        val cluster = ClusterPrescription(
+            ClusterKind.DROP_SET,
+            listOf(ClusterSegmentTarget(5, 100.0), ClusterSegmentTarget(5, 80.0))
+        )
+        val source = routine.copy(
+            workouts = listOf(
+                RoutineWorkout(
+                    name = "Day",
+                    entries = listOf(
+                        RoutineEntry(
+                            position = 0,
+                            exerciseId = seeded.id,
+                            sets = 1,
+                            reps = 5,
+                            weightKg = 0.0,
+                            setTargets = targets
+                        ),
+                        RoutineEntry(
+                            position = 1,
+                            exerciseId = seeded.id,
+                            sets = 1,
+                            reps = 5,
+                            weightKg = 100.0,
+                            cluster = cluster
+                        )
+                    )
+                )
+            )
+        )
+        val repository = repositoryOf(source)
+        val exporter = ExportPrescriptionsUseCase(repository, catalog)
+        listOf(false, true).forEach { includeWeights ->
+            val exported = exporter(listOf(source.id), includeWeights, "t", 1L)
+            val decoded = PrescriptionJson.decode(PrescriptionJson.encode(exported))
+            PrescriptionValidator.validate(decoded)
+            val records = decoded.routines.single().allEntries()
+            assertEquals(listOf(1, 1), records.map { it.sets })
+            assertEquals(listOf(5, 5), records.map { it.reps })
+            val preview = PreviewPrescriptionImport.build(
+                decoded,
+                PrescriptionImportChoices(),
+                catalog.all(),
+                setOf(EquipmentTag.BARBELL)
+            )
+            assertTrue(preview.canImport)
+            val imported = preview.routines.single().workouts.single().entries
+            if (includeWeights) {
+                assertEquals(targets, imported[0].setTargets)
+                assertEquals(cluster, imported[1].cluster)
+                assertEquals(listOf(0.0, 100.0), imported.map { it.weightKg })
+            } else {
+                records.forEach {
+                    assertNull(it.weightKg)
+                    assertNull(it.setTargets)
+                    assertNull(it.cluster)
+                }
+                imported.forEach {
+                    assertEquals(1, it.sets)
+                    assertEquals(5, it.reps)
+                    assertNull(it.weightKg)
+                    assertNull(it.setTargets)
+                    assertNull(it.cluster)
+                }
+            }
+        }
+        assertEquals(source, repository.get(source.id))
+        assertEquals(targets, source.workouts.single().entries[0].setTargets)
+        assertEquals(cluster, source.workouts.single().entries[1].cluster)
+    }
+
+    @Test
+    fun weightsFreeValidatorRejectsEveryNestedLoadIncludingExplicitZero() {
+        val unloaded = SlotSetTargets.of(listOf(SetTarget(reps = 5)), recipe(null, null))
+        fun document(slot: PrescriptionEntryRecord) = PrescriptionDocument(
+            format = PRESCRIPTION_FORMAT,
+            formatVersion = PRESCRIPTION_FORMAT_VERSION,
+            appVersion = "t",
+            exportedAtMillis = 1L,
+            includesWeights = false,
+            routines = listOf(
+                PrescriptionRoutineRecord(
+                    "Day",
+                    listOf(PrescriptionWorkoutRecord("Day", entries = listOf(slot)))
+                )
+            )
+        )
+        val base = entry(seeded.id).copy(sets = 1)
+        val valid = document(base.copy(setTargets = SlotSetTargetsJson.encode(unloaded)))
+        PrescriptionValidator.validate(PrescriptionJson.decode(PrescriptionJson.encode(valid)))
+        val invalid = mutableListOf<PrescriptionEntryRecord>()
+        listOf(0.0, 80.0).forEach { load ->
+            invalid += base.copy(weightKg = load)
+            listOf(
+                unloaded.copy(targets = listOf(SetTarget(reps = 5, weightKg = load))),
+                unloaded.copy(recipe = recipe(load, null)),
+                unloaded.copy(recipe = recipe(null, load))
+            ).forEach { targets ->
+                invalid += base.copy(setTargets = SlotSetTargetsJson.encode(targets))
+            }
+        }
+        invalid += base.copy(
+            cluster = ClusterPrescriptionJson.encode(
+                ClusterPrescription(
+                    ClusterKind.DROP_SET,
+                    listOf(ClusterSegmentTarget(5, 100.0), ClusterSegmentTarget(5, 80.0))
+                )
+            )
+        )
+        invalid.forEach { slot ->
+            val decoded = PrescriptionJson.decode(PrescriptionJson.encode(document(slot)))
+            assertEquals(
+                PrescriptionFailure.INVALID_VALUE,
+                assertFailsWith<PrescriptionException> {
+                    PrescriptionValidator.validate(decoded)
+                }.failure,
+                "Accepted prescribed load in $slot"
+            )
+            PrescriptionValidator.validate(decoded.copy(includesWeights = true))
+        }
+    }
+
+    private fun recipe(start: Double?, end: Double?) = SetPrescriptionRecipeSnapshot(
+        shape = SetPrescriptionShape.STRAIGHT,
+        sets = 1,
+        startReps = 5,
+        endReps = 5,
+        startLoadKg = start,
+        endLoadKg = end,
+        roundToKg = 2.5
+    )
 
     @Test
     fun exportOmitsWeightsByDefaultAndIncludesThemOnlyOnRequest() = runBlocking {

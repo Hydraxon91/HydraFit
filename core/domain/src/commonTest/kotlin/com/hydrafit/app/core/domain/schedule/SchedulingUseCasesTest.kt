@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.engine.LoadBaselineSource
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
@@ -722,6 +723,111 @@ class SchedulingUseCasesTest {
             .entries.single()
         assertEquals(8, stored.reps)
         assertEquals(targets, stored.setTargets)
+    }
+
+    @Test
+    fun editingDuplicateOrdinarySlotsIsRejectedWithoutLosingEitherMetadataRecord() = runTest {
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        val targets = listOf(
+            SlotSetTargets.of(List(3) { SetTarget(reps = 8, weightKg = 30.0) }),
+            SlotSetTargets.of(List(3) { SetTarget(reps = 6, weightKg = 35.0) })
+        )
+        val policy = SlotProgressionPolicy(minReps = 6, maxReps = 10, incrementKg = 2.5)
+        val duplicateEntries = listOf(
+            occurrence.entries.single().copy(
+                position = 0,
+                setTargets = targets[0],
+                progressionPolicy = policy
+            ),
+            occurrence.entries.single().copy(
+                position = 1,
+                setTargets = targets[1],
+                progressionPolicy = null
+            )
+        )
+        scheduleRepository.replaceOccurrenceEntries(occurrence.id, duplicateEntries)
+        var writes = 0
+        val writer = object : WorkoutScheduleRepository by scheduleRepository {
+            override suspend fun replaceOccurrenceEntries(
+                occurrenceId: Long,
+                entries: List<OccurrenceEntry>
+            ) {
+                writes++
+                scheduleRepository.replaceOccurrenceEntries(occurrenceId, entries)
+            }
+        }
+        val guardedEdit = EditUnstartedOccurrenceUseCase(writer, logRepository, catalog)
+
+        assertFailsWith<ScheduleException> {
+            guardedEdit(
+                occurrence.id,
+                listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8, weightKg = 30.0))
+            )
+        }
+
+        assertEquals(0, writes)
+        assertEquals(duplicateEntries, scheduleRepository.getOccurrence(occurrence.id)?.entries)
+    }
+
+    @Test
+    fun editingKeepsAClusterOnlyForTheSameOpeningRepsAndExternalLoad() = runTest {
+        val cluster = ClusterPrescription(
+            kind = ClusterKind.DROP_SET,
+            segments = listOf(ClusterSegmentTarget(8, 80.0), ClusterSegmentTarget(6, 60.0)),
+            restSeconds = 15
+        )
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        scheduleRepository.replaceOccurrenceEntries(
+            occurrence.id,
+            occurrence.entries.map { it.copy(cluster = cluster) }
+        )
+
+        edit(
+            occurrence.id,
+            listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 8, weightKg = 80.0))
+        )
+
+        assertEquals(
+            cluster,
+            requireNotNull(scheduleRepository.getOccurrence(occurrence.id))
+                .entries.single().cluster
+        )
+    }
+
+    @Test
+    fun editingAClusteredSlotWithIncompatiblePrescriptionIsRejectedWithoutWrites() = runTest {
+        val cluster = ClusterPrescription(
+            kind = ClusterKind.REST_PAUSE,
+            segments = listOf(ClusterSegmentTarget(8, 80.0), ClusterSegmentTarget(4, 80.0)),
+            restSeconds = 20
+        )
+        val activationId = activateRoutine(routine(), request(replaceActive = false))
+        val occurrence = scheduleRepository.occurrences(activationId).first()
+        val clusteredEntries = occurrence.entries.map { it.copy(cluster = cluster) }
+        scheduleRepository.replaceOccurrenceEntries(occurrence.id, clusteredEntries)
+        var writes = 0
+        val writer = object : WorkoutScheduleRepository by scheduleRepository {
+            override suspend fun replaceOccurrenceEntries(
+                occurrenceId: Long,
+                entries: List<OccurrenceEntry>
+            ) {
+                writes++
+                scheduleRepository.replaceOccurrenceEntries(occurrenceId, entries)
+            }
+        }
+        val guardedEdit = EditUnstartedOccurrenceUseCase(writer, logRepository, catalog)
+
+        assertFailsWith<ScheduleException> {
+            guardedEdit(
+                occurrence.id,
+                listOf(OccurrenceEntryDraft("bench-press", sets = 3, reps = 7, weightKg = 80.0))
+            )
+        }
+
+        assertEquals(0, writes)
+        assertEquals(clusteredEntries, scheduleRepository.getOccurrence(occurrence.id)?.entries)
     }
 
     @Test

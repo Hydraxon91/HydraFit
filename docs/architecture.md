@@ -1067,8 +1067,9 @@ workout Skip/partial Finish; single-slot skipping is not introduced.
 ### 1.18 Optional warm-up guidance (WU-01)
 
 `buildWarmupGuidance(occurrence)` in `:core:domain` derives the guided workout's optional warm-up
-guidance from the occurrence's frozen prescription only, so it can never contradict the target the
-user is asked to perform. It is pure: no repository, clock or platform API. Preparation is a fixed,
+guidance from the occurrence's prescription — its frozen values, plus the edited effective ramp
+targets its caller supplies — so it can never contradict the target the user is asked to perform. It
+is pure: no repository, clock or platform API. Preparation is a fixed,
 pattern-selected list of neutral items; easy general movement is a timed checklist entry (seconds are
 never stored as reps) and pattern practice carries easy bodyweight reps. Ramp sets are suggested only
 for the first entry of each movement pattern whose frozen load is a positive numeric external load
@@ -1082,7 +1083,11 @@ frozen working prescription, which a manual routine can leave above the ceiling,
 Availability and ceilings come from a current equipment snapshot; until that first snapshot resolves,
 only preparation is shown and no ramp is offered or recordable, so a suggestion is never made against
 unknown ownership or an unknown ceiling. Known unbounded equipment is a real snapshot and therefore
-differs from an unresolved one. Visible readiness is part of the same state update as guidance built
+differs from an unresolved one. A ramp follows the slot's edited effective target at its next
+remaining set position: its working weight, reps/duration and load meaning come from that target, so
+the suggested loads match the guided rows above them, while recorded warm-ups and the frozen entry
+column stay untouched. An entry the user did not edit keeps the frozen behavior. Visible readiness is
+part of the same state update as guidance built
 from that snapshot, after the refresh's generation guard passes. A superseded refresh may return
 without publishing, so its completion cannot mark readiness or expose the previous guidance's ramps
 while a newer read is pending. Equipment observed before a block starts is used when that block's
@@ -1333,8 +1338,12 @@ resolved values. It has no representation for
 performed history, personal records, notes, credentials, equipment inventories, schedule state, cycle
 progress or engine explanations, and `PrescriptionJson` rejects an unknown field rather than ignoring
 it, so a document cannot smuggle one in. `includesWeights` is the recorded user choice: the exporter
-omits prescribed weights unless it is true, and a document that claims to be weights-free but carries
-one is rejected. `PrescriptionValidator` checks the format/version, the shared prescription bounds,
+omits prescribed weights unless it is true. A weights-free export omits entire ordered per-set targets
+(including recipe inputs) and clusters, retaining the scalar set count and measurement. Validation
+rejects a weights-free document carrying a top-level weight, an ordered target weight, a recipe's
+start/end load or a cluster segment load; explicit zero counts as a load. Load-free ordered targets
+and recipe inputs remain valid on import. `PrescriptionValidator` checks the format/version, the shared
+prescription bounds,
 the shape bounds and the internal references without touching storage or a catalog. The current
 document version is 7: v2 added timed seconds, v3 the progression policy, v4 ordered per-set targets,
 v5 supersets, v6 whole-metre distance and v7 measured force. A field introduced in a later version is
@@ -1416,6 +1425,11 @@ canonical identity prefix is `distance:<n>`. Backup format 26 and prescription i
 distance and the preference, while older files reject a distance field rather than dropping or
 reinterpreting it; the PDF prints `"<n> m"`.
 
+The manual Logger keeps canonical whole metres beside its distance text. Switching to another measure
+clears both, so switching back cannot submit the prior distance until a new positive value is entered.
+Editable weight prefills from recent sets and accepted-plan suggestions use exact converted text rather
+than rounded display text, preserving the same canonical kilogram value through an untouched submission.
+
 ### 1.25 Force as the fourth set measure (0.11.2)
 
 Reps, whole seconds, whole metres and canonical newtons are mutually exclusive measures for performed
@@ -1470,11 +1484,21 @@ Reopening reads the saved parent, so resumption appends rather than duplicates i
 shared draft submission guard serializes segment writes with other draft/guided submissions; an
 incomplete cluster prevents bulk confirmation from creating another parent for that slot.
 
+Editing an unstarted occurrence preserves progression policy and ordered targets only when an
+existing exercise id is unique in that occurrence. Duplicate ids are rejected without replacing any
+entries or metadata because the edit API has no stable entry identity; it does not guess which slot's
+policy, targets or cluster to retain. Unique compatible cluster prescriptions continue to survive
+unchanged edits.
+
 Manual cardio is a separate offline record with stable identity, start time, duration, optional
 distance and note. It has no resistance-session or fatigue contribution. Speed uses matching
 distance-and-duration totals, not durations from activities lacking distance. Settings exports a
 separate cardio CSV; formula-like note cells are prefixed for spreadsheet safety without changing
 stored text. Cardio cancellation is disabled while persistence is in flight.
+On resume, the Cardio screen refreshes its current UTC offset and local-day window, while an open
+editor retains the offset captured when its local timestamp text was created. Resume does not rewrite
+that text or write a record; submission parses it with the captured offset, and a subsequently opened
+editor uses the latest offset.
 
 Migrations `63.sqm` and `64.sqm` add cluster and cardio storage respectively. Backup formats 28 and
 29 carry these records; snapshot format 6 and prescription interchange v8 carry clusters. Restore
@@ -1500,6 +1524,29 @@ suggested number for these slots; an exercise with no qualifying recorded added 
 no-number bodyweight prescription. Substitution and occurrence replacement resolve a candidate's added
 load by the same rule. No schema change was needed, and added-load suggestions carry no persisted
 `LoadOriginExplanation`, because the entry-explanation columns have no load-kind field.
+
+### 1.27 Guided occurrence per-set target persistence (C4-A)
+
+`OccurrenceEntry.guidedTargets` is a nullable, strict version-1 JSON payload of complete effective
+targets keyed by zero-based set position. Resolution starts with original ordered `setTargets`, or
+the original scalar target and cluster, and overlays only positions with user edits. Original scalar,
+ordered-target and cluster columns remain unchanged; activation, routine, accepted-plan, and performed
+set snapshots are not rewritten. Apply accepts an explicit field mask, merges only changed fields into
+each remaining position, preserves every unmasked value and prescribed RIR, and validates the frozen
+load capability and metric shape. Logger Reset stages original remaining targets; edits made afterward
+are composed with reset in the same request and transaction. Completed-prefix overrides remain, and
+partial performed clusters refuse the transaction.
+
+The existing schedule repository writes this payload with occurrence revision advancement under the
+shared reminder gate, rechecking active selected occurrence, revision, entry identity/set count and
+performed count in the transaction. Exercise or original prescription replacement clears unrelated
+overrides. Migration `65.sqm` adds the nullable column (schema 65→66); backup format 30 carries it only
+on occurrence entries and validates it against its owning entry. The Logger derives the effective next
+target for progress, draft prefill and recorded target snapshots — scalar and ordered occurrences
+alike, so a logged set from an edited scalar slot stores its effective target and set position just as
+an ordered slot does — and Apply persists the masked edit
+for every remaining position. RIR, performed time and force-device attribution remain transient
+performed-set values rather than prescription fields.
 
 ## 2. Decision log
 

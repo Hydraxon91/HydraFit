@@ -13,7 +13,14 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
+import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
+import com.hydrafit.app.core.domain.schedule.ClusterSegmentField
+import com.hydrafit.app.core.domain.schedule.ClusterSegmentPatch
 import com.hydrafit.app.core.domain.schedule.FinishMode
+import com.hydrafit.app.core.domain.schedule.GuidedTargetField
+import com.hydrafit.app.core.domain.schedule.GuidedTargetPatch
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
@@ -21,6 +28,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
 import com.hydrafit.app.core.domain.schedule.freezesOccurrenceSlot
+import com.hydrafit.app.core.domain.schedule.originalTargets
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -80,7 +88,8 @@ class WorkoutLoggerViewModel(
     private val exerciseNoteRepository: com.hydrafit.app.core.domain.workout.ExerciseNoteRepository,
     private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository,
     private val warmupOverrideRepository: WarmupPreparationOverrideRepository,
-    private val equipment: WorkoutLoggerEquipment
+    private val equipment: WorkoutLoggerEquipment,
+    private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -142,6 +151,13 @@ class WorkoutLoggerViewModel(
      */
     private var warmupGuidanceGeneration = 0L
     private var warmupGuidancePublishedGeneration = 0L
+
+    /**
+     * Each entry's edited effective target at its next remaining set position, resolved with the same
+     * performed-set read that publishes the occurrence. Only entries with guided overrides appear; an
+     * absent entry keeps ramping from its frozen prescription.
+     */
+    private var rampTargetsByEntry: Map<Long, SetTarget> = emptyMap()
     private val restTimer = runtime.restTimer(viewModelScope)
     private val shortRestCoach = ShortRestCoach()
     private var shortRestCoachingEnabled = false
@@ -297,12 +313,40 @@ class WorkoutLoggerViewModel(
         }
         viewModelScope.launch {
             settings.weightUnitFlow().collectLatest { unit ->
-                _state.update { it.copy(weightUnit = unit) }
+                _state.update { current ->
+                    val value = current.weightInput.toDoubleOrNull()
+                    current.copy(
+                        weightUnit = unit,
+                        weightInput = if (unit == current.weightUnit ||
+                            value == null ||
+                            !value.isFinite() ||
+                            current.manualWeightKg == null
+                        ) {
+                            current.weightInput
+                        } else {
+                            exactEntryText(unit.kilogramsToDisplay(current.manualWeightKg))
+                        }
+                    )
+                }
             }
         }
         viewModelScope.launch {
             settings.distanceUnitFlow().collectLatest { unit ->
-                _state.update { it.copy(distanceUnit = unit) }
+                _state.update { current ->
+                    val value = current.distanceMeters.toDoubleOrNull()
+                    current.copy(
+                        distanceUnit = unit,
+                        distanceMeters = if (unit == current.distanceUnit ||
+                            value == null ||
+                            !value.isFinite() ||
+                            current.manualDistanceMetres == null
+                        ) {
+                            current.distanceMeters
+                        } else {
+                            exactEntryText(unit.metresToDisplay(current.manualDistanceMetres))
+                        }
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -427,6 +471,7 @@ class WorkoutLoggerViewModel(
                 selectedStationId = null,
                 exerciseInstructions = null,
                 weightInput = planWeight,
+                manualWeightKg = suggestedWeightKgByExercise[exerciseId],
                 reps = planReps?.toString() ?: it.reps,
                 // A prescription target is a rep count, so a plan suggestion returns the form to reps.
                 metric = if (planReps != null) SetMetric.REPETITIONS else it.metric,
@@ -441,7 +486,7 @@ class WorkoutLoggerViewModel(
         // The accepted plan's suggestion wins; only fall back to the last logged set when the plan
         // has no suggestion for this exercise.
         if (planWeight.isBlank()) {
-            viewModelScope.launch { prefillFromLastSet(exerciseId, unit) }
+            viewModelScope.launch { prefillFromLastSet(exerciseId) }
         }
         // Load the exercise setup note when an exercise is selected.
         onNoteExerciseSelected(exerciseId)
@@ -457,7 +502,7 @@ class WorkoutLoggerViewModel(
         _state.update { it.copy(selectedStationId = stationId) }
         // Station evidence is a separate comparison population; refresh the form from that station's
         // own latest set instead of leaving the exercise-level planner number in place.
-        viewModelScope.launch { prefillFromLastSet(exerciseId, current.weightUnit) }
+        viewModelScope.launch { prefillFromLastSet(exerciseId) }
     }
 
     fun openManualInstructions() {
@@ -495,7 +540,7 @@ class WorkoutLoggerViewModel(
     }
 
     /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
-    private suspend fun prefillFromLastSet(exerciseId: String, unit: WeightUnit) {
+    private suspend fun prefillFromLastSet(exerciseId: String) {
         val stationId = _state.value.selectedStationId
         val last = getWorkoutLog()
             .filter {
@@ -514,7 +559,10 @@ class WorkoutLoggerViewModel(
             if (current.selectedExerciseId != exerciseId) return@update current
             val option = current.exercises.firstOrNull { it.id == exerciseId }
             current.copy(
-                weightInput = weightInputFor(last.weightKg, unit),
+                weightInput = last.weightKg?.let {
+                    exactEntryText(current.weightUnit.kilogramsToDisplay(it))
+                }.orEmpty(),
+                manualWeightKg = last.weightKg,
                 metric = when {
                     last.forceNewtons != null -> SetMetric.FORCE
                     last.distanceMeters != null -> SetMetric.DISTANCE
@@ -527,6 +575,7 @@ class WorkoutLoggerViewModel(
                     ?.let { current.distanceUnit.displayWhole(it) }
                     ?.toString()
                     .orEmpty(),
+                manualDistanceMetres = last.distanceMeters,
                 forceNewtons = last.forceNewtons?.let(::exactEntryText).orEmpty(),
                 deviceName = last.device?.name.orEmpty(),
                 deviceRatingKg = last.device?.ratingKg?.let(::exactEntryText).orEmpty(),
@@ -551,7 +600,10 @@ class WorkoutLoggerViewModel(
             it.copy(
                 selectedExerciseId = row.exerciseId,
                 exerciseInstructions = null,
-                weightInput = weightInputFor(row.weightKg, unit),
+                weightInput = row.weightKg?.let {
+                    exactEntryText(unit.kilogramsToDisplay(it))
+                }.orEmpty(),
+                manualWeightKg = row.weightKg,
                 metric = when {
                     row.forceNewtons != null -> SetMetric.FORCE
                     row.distanceMeters != null -> SetMetric.DISTANCE
@@ -564,6 +616,7 @@ class WorkoutLoggerViewModel(
                     ?.let { meters -> it.distanceUnit.displayWhole(meters) }
                     ?.toString()
                     .orEmpty(),
+                manualDistanceMetres = row.distanceMeters,
                 forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
                 deviceName = row.device?.name.orEmpty(),
                 deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
@@ -956,7 +1009,13 @@ class WorkoutLoggerViewModel(
     fun onDistanceChanged(value: String) {
         manualInputGeneration++
         _state.update {
-            it.copy(distanceMeters = value.filter { char -> char.isDigit() || char == '.' })
+            val text = value
+            val parsed = text.toDoubleOrNull()
+            it.copy(
+                distanceMeters = text,
+                manualDistanceMetres = parsed?.takeIf { number -> number.isFinite() }
+                    ?.let(it.distanceUnit::displayToMetres)
+            )
         }
     }
 
@@ -993,6 +1052,7 @@ class WorkoutLoggerViewModel(
                     metric = metric,
                     durationSeconds = "",
                     distanceMeters = "",
+                    manualDistanceMetres = null,
                     forceNewtons = "",
                     deviceName = "",
                     deviceRatingKg = ""
@@ -1001,6 +1061,7 @@ class WorkoutLoggerViewModel(
                     metric = metric,
                     reps = "",
                     distanceMeters = "",
+                    manualDistanceMetres = null,
                     forceNewtons = "",
                     deviceName = "",
                     deviceRatingKg = ""
@@ -1017,7 +1078,8 @@ class WorkoutLoggerViewModel(
                     metric = metric,
                     reps = "",
                     durationSeconds = "",
-                    distanceMeters = ""
+                    distanceMeters = "",
+                    manualDistanceMetres = null
                 )
             }
         }
@@ -1026,7 +1088,13 @@ class WorkoutLoggerViewModel(
     fun onWeightChanged(value: String) {
         manualInputGeneration++
         _state.update {
-            it.copy(weightInput = value.filter { char -> char.isDigit() || char == '.' })
+            val text = value
+            val parsed = text.toDoubleOrNull()
+            it.copy(
+                weightInput = text,
+                manualWeightKg = parsed?.takeIf { number -> number.isFinite() && number >= 0.0 }
+                    ?.let(it.weightUnit::displayToKilograms)
+            )
         }
     }
 
@@ -1079,7 +1147,7 @@ class WorkoutLoggerViewModel(
             null
         }
         val distanceMeters = if (current.metric == SetMetric.DISTANCE) {
-            current.distanceMeters.toDoubleOrNull()?.let(current.distanceUnit::displayToMetres)
+            if (current.distanceMeters.isBlank()) null else current.manualDistanceMetres
         } else {
             null
         }
@@ -1103,10 +1171,21 @@ class WorkoutLoggerViewModel(
         // A hidden weight field (bodyweight exercise not revealed, or any force reading) never logs
         // a weight, even if a value was retained from a previous exercise.
         val typedWeight = if (current.showWeightField) {
-            current.weightInput.toDoubleOrNull()
-                ?.let { current.weightUnit.displayToKilograms(it) }
+            if (current.weightInput.isBlank()) null else current.manualWeightKg
         } else {
             null
+        }
+        if (current.showWeightField &&
+            current.weightInput.isNotBlank() &&
+            typedWeight == null
+        ) {
+            return
+        }
+        if (current.metric == SetMetric.DISTANCE &&
+            current.distanceMeters.isNotBlank() &&
+            current.manualDistanceMetres == null
+        ) {
+            return
         }
         val capability = exercises.firstOrNull { it.id == exerciseId }?.loadCapability
             ?: ExerciseLoadCapability.EXTERNAL
@@ -1438,6 +1517,13 @@ class WorkoutLoggerViewModel(
                         ?: current.weightInput
                 } else {
                     current.weightInput
+                },
+                manualWeightKg = if (rebuildDrafts) {
+                    current.selectedExerciseId
+                        ?.let(suggestedWeightKgByExercise::get)
+                        ?: current.manualWeightKg
+                } else {
+                    current.manualWeightKg
                 }
             )
         }
@@ -1673,7 +1759,7 @@ class WorkoutLoggerViewModel(
         val retry = retryFor(draft)
         val applied = draft.occurrenceEntryId
             ?.let { current.appliedGuidedEdits[it] }
-            ?.takeIf { it.targetsPendingDraft(draft) }
+            ?.takeIf { it.metadataBelongsToPendingDraft(draft) }
         // A reopened editor shows the row as it stands (including an applied overlay) converted to
         // the current display unit; the baseline weight stays canonical so a unit change cannot
         // reinterpret it. Only a reset discards the overlay by rebuilding from the source entry.
@@ -1693,9 +1779,10 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
-                    forceNewtons = base.forceNewtons?.let(::formatWeight).orEmpty(),
-                    deviceName = base.device?.name.orEmpty(),
-                    deviceRatingKg = base.device?.ratingKg?.let(::formatWeight).orEmpty(),
+                    forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
+                    deviceName = inherited?.deviceName ?: base.device?.name.orEmpty(),
+                    deviceRatingKg = inherited?.deviceRatingKg
+                        ?: base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                     distanceUnit = current.distanceUnit,
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     weightUnit = current.weightUnit,
@@ -1809,6 +1896,38 @@ class WorkoutLoggerViewModel(
 
     fun resetDraftEdit() {
         val edit = _state.value.draftEdit ?: return
+        if (isGuidedActive && edit.draft.occurrenceEntryId != null) {
+            val base = originalDraftFor(edit.draft)
+            _state.update { current ->
+                current.copy(
+                    draftEdit = edit.copy(
+                        draft = base,
+                        reps = base.reps?.toString().orEmpty(),
+                        durationSeconds = base.durationSeconds?.toString().orEmpty(),
+                        distanceMeters = base.distanceMeters
+                            ?.let { current.distanceUnit.displayWhole(it) }
+                            ?.toString()
+                            .orEmpty(),
+                        forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
+                        deviceName = base.device?.name.orEmpty(),
+                        deviceRatingKg = base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+                        weightInput = weightInputFor(base.weightKg, current.weightUnit),
+                        weightUnit = current.weightUnit,
+                        canonicalWeightKg = base.weightKg,
+                        rir = "",
+                        weightRevealed = base.loadKind == LoadKind.ADDED,
+                        laterSegments = base.cluster?.laterSegmentInputs(
+                            current.weightUnit
+                        ).orEmpty(),
+                        resetGuidedTargets = true,
+                        performedAtMillis = current.performedAtMillis,
+                        performedAtExplicit = false
+                    ),
+                    guidedTargetsFailed = false
+                )
+            }
+            return
+        }
         val base = sourceDraftFor(edit.draft)
         _state.update { current ->
             current.copy(
@@ -1820,9 +1939,9 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
-                    forceNewtons = base.forceNewtons?.let(::formatWeight).orEmpty(),
+                    forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
                     deviceName = base.device?.name.orEmpty(),
-                    deviceRatingKg = base.device?.ratingKg?.let(::formatWeight).orEmpty(),
+                    deviceRatingKg = base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
                     distanceUnit = current.distanceUnit,
                     weightInput = weightInputFor(base.weightKg, current.weightUnit),
                     weightUnit = current.weightUnit,
@@ -1847,19 +1966,7 @@ class WorkoutLoggerViewModel(
         val draft = edit.draft
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
-            _state.update { state ->
-                state.copy(
-                    draftSets = state.draftSets.map { row ->
-                        if (row.occurrenceEntryId == entryId) {
-                            appliedGuidedDraft(sourceDraftFor(row), edit)
-                        } else {
-                            row
-                        }
-                    },
-                    appliedGuidedEdits = state.appliedGuidedEdits + (entryId to edit),
-                    draftEdit = null
-                )
-            }
+            applyGuidedDraftEdit(entryId, edit)
             return
         }
         confirmDraft(draft)
@@ -1985,6 +2092,124 @@ class WorkoutLoggerViewModel(
     private fun appliedGuidedDraft(base: DraftSet, edit: DraftEdit): DraftSet =
         editedDraft(edit.copy(draft = base))
 
+    private fun applyGuidedDraftEdit(entryId: Long, edit: DraftEdit) {
+        if (draftSubmissionInProgress) return
+        val occurrence = currentOccurrence ?: return
+        val entry = occurrence.entries.firstOrNull { it.id == entryId } ?: return
+        val base = if (edit.resetGuidedTargets) originalDraftFor(edit.draft) else edit.draft
+        val edited = editedDraft(edit.copy(draft = base))
+        val index = entry.sets - edit.draft.sets
+        val originalTarget = originalTargets(entry).getOrNull(index) ?: return
+        val currentTarget = if (edit.resetGuidedTargets) {
+            originalTarget
+        } else {
+            entry.guidedTargets?.targetFor(entry, index) ?: originalTarget
+        }
+        val target = editedTarget(edited, currentTarget)
+        val fields = buildSet {
+            if (target.reps != currentTarget.target.reps) add(GuidedTargetField.REPS)
+            if (target.durationSeconds != currentTarget.target.durationSeconds) {
+                add(GuidedTargetField.DURATION_SECONDS)
+            }
+            if (target.distanceMeters != currentTarget.target.distanceMeters) {
+                add(GuidedTargetField.DISTANCE_METERS)
+            }
+            if (target.forceNewtons != currentTarget.target.forceNewtons) {
+                add(GuidedTargetField.FORCE_NEWTONS)
+            }
+            if (target.loadKind != currentTarget.target.loadKind ||
+                target.weightKg != currentTarget.target.weightKg
+            ) {
+                add(GuidedTargetField.LOAD)
+            }
+        }
+        val cluster = currentTarget.cluster
+        val clusterPatches = if (cluster == null) {
+            emptyMap()
+        } else {
+            edit.laterSegments.mapIndexedNotNull { offset, segment ->
+                val original = cluster.segments[offset + 1]
+                val reps = segment.reps.toIntOrNull() ?: return@mapIndexedNotNull null
+                val weight = segment.weightInput.toDoubleOrNull()
+                    ?.let(edit.weightUnit::displayToKilograms) ?: return@mapIndexedNotNull null
+                val changed = buildSet {
+                    if (reps != original.reps) add(ClusterSegmentField.REPS)
+                    if (weight != original.weightKg) add(ClusterSegmentField.LOAD)
+                }
+                if (changed.isEmpty()) {
+                    null
+                } else {
+                    offset + 1 to ClusterSegmentPatch(
+                        ClusterSegmentTarget(reps, weight, original.rir),
+                        changed
+                    )
+                }
+            }.toMap()
+        }
+        val patches = if (fields.isEmpty() && clusterPatches.isEmpty()) {
+            emptyMap()
+        } else {
+            (index until entry.sets).associateWith { setIndex ->
+                GuidedTargetPatch(target, fields, clusterPatches)
+            }
+        }
+        if (patches.isEmpty() && !edit.resetGuidedTargets) {
+            _state.update {
+                it.copy(
+                    draftEdit = null,
+                    appliedGuidedEdits = it.appliedGuidedEdits + (entryId to edit),
+                    guidedTargetsFailed = false
+                )
+            }
+            return
+        }
+        val contextRevision = draftContextRevision
+        val occurrenceId = occurrence.id
+        if (!beginDraftSubmission()) return
+        _state.update { it.copy(guidedTargetsSaving = true, guidedTargetsFailed = false) }
+        viewModelScope.launch {
+            try {
+                applyGuidedTargets(occurrenceId, entryId, edit.resetGuidedTargets, patches)
+                if (contextRevision != draftContextRevision ||
+                    currentOccurrence?.id != occurrenceId
+                ) {
+                    return@launch
+                }
+                _state.update {
+                    it.copy(
+                        draftEdit = null,
+                        appliedGuidedEdits = it.appliedGuidedEdits + (entryId to edit),
+                        guidedTargetsSaving = false
+                    )
+                }
+                refreshOccurrence()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                if (contextRevision == draftContextRevision &&
+                    currentOccurrence?.id == occurrenceId
+                ) {
+                    _state.update {
+                        it.copy(guidedTargetsFailed = true, guidedTargetsSaving = false)
+                    }
+                }
+            } finally {
+                endDraftSubmission()
+                _state.update { it.copy(guidedTargetsSaving = false) }
+            }
+        }
+    }
+
+    private fun editedTarget(draft: DraftSet, original: GuidedWorkoutTargetOverride): SetTarget =
+        original.target.copy(
+            reps = draft.reps,
+            durationSeconds = draft.durationSeconds,
+            distanceMeters = draft.distanceMeters,
+            forceNewtons = draft.forceNewtons,
+            loadKind = draft.loadKind,
+            weightKg = draft.weightKg
+        )
+
     private fun editedDraft(edit: DraftEdit): DraftSet {
         val capability = edit.draft.loadCapability
         val typed = if (edit.weightInput ==
@@ -2051,6 +2276,25 @@ class WorkoutLoggerViewModel(
         return draftForEntry(entry, occurrence.id, draft.sets)
     }
 
+    private fun originalDraftFor(draft: DraftSet): DraftSet {
+        val entryId = draft.occurrenceEntryId ?: return draft
+        val occurrence = currentOccurrence ?: return draft
+        val entry = occurrence.entries.firstOrNull { it.id == entryId } ?: return draft
+        val index = (entry.sets - draft.sets).coerceIn(0, entry.sets - 1)
+        val original = originalTargets(entry)[index]
+        val target = original.target
+        return draft.copy(
+            reps = target.reps,
+            durationSeconds = target.durationSeconds,
+            distanceMeters = target.distanceMeters,
+            forceNewtons = target.forceNewtons,
+            loadKind = target.loadKind,
+            weightKg = target.weightKg,
+            orderedPrefill = target,
+            cluster = original.cluster
+        )
+    }
+
     /** One frozen entry's remaining prescribed sets as the pending draft it describes. */
     private fun draftForEntry(
         entry: OccurrenceEntry,
@@ -2059,24 +2303,39 @@ class WorkoutLoggerViewModel(
     ): DraftSet {
         // An ordered slot seeds the draft from its first remaining target, so an untouched
         // draft matches what it will log and is never misread as an explicit override.
-        val prefill = entry.setTargets?.targets?.getOrNull(entry.sets - remaining)
+        val targetIndex = entry.sets - remaining
+        val effective = entry.guidedTargets?.targetFor(entry, targetIndex)
+        val prefill = effective?.target ?: entry.setTargets?.targets?.getOrNull(targetIndex)
+        val effectiveCluster = effective?.cluster ?: entry.cluster
+        val effectiveTargets = entry.guidedTargets?.let { stored ->
+            com.hydrafit.app.core.domain.engine.SlotSetTargets.of(
+                originalTargets(entry).map { original ->
+                    stored.overrides.firstOrNull { it.setIndex == original.setIndex }
+                        ?.target ?: original.target
+                },
+                entry.setTargets?.recipe
+            )
+        } ?: entry.setTargets
         return DraftSet(
             entry.exerciseId,
             entry.exerciseName,
             remaining,
             prefill?.reps ?: entry.reps,
-            prefill?.weightKg ?: entry.weightKg,
+            prefill?.weightKg ?: if (prefill == null) entry.weightKg else null,
             prefill?.loadKind ?: entry.loadKind,
             loadCapability = entry.loadCapability,
             occurrenceId = occurrenceId,
             occurrenceEntryId = entry.id,
             explanation = entry.explanation,
-            durationSeconds = prefill?.durationSeconds ?: entry.durationSeconds,
-            distanceMeters = prefill?.distanceMeters ?: entry.distanceMeters,
-            forceNewtons = prefill?.forceNewtons ?: entry.forceNewtons,
-            setTargets = entry.setTargets,
+            durationSeconds =
+            prefill?.durationSeconds ?: if (prefill == null) entry.durationSeconds else null,
+            distanceMeters =
+            prefill?.distanceMeters ?: if (prefill == null) entry.distanceMeters else null,
+            forceNewtons =
+            prefill?.forceNewtons ?: if (prefill == null) entry.forceNewtons else null,
+            setTargets = effectiveTargets,
             orderedPrefill = prefill,
-            cluster = entry.cluster
+            cluster = effectiveCluster
         )
     }
 
@@ -2591,7 +2850,13 @@ class WorkoutLoggerViewModel(
                         draft.reps,
                         draft.durationSeconds,
                         draft.distanceMeters,
-                        draft.forceNewtons
+                        draft.forceNewtons,
+                        setIndex = (orderedOffset + index).takeIf {
+                            link?.second?.let { entryId ->
+                                currentOccurrence?.entries?.singleOrNull { it.id == entryId }
+                                    ?.guidedTargets != null
+                            } == true
+                        }
                     )
                 },
                 rir = edit?.rir?.toIntOrNull(),
@@ -2630,7 +2895,7 @@ class WorkoutLoggerViewModel(
     /** Prefills the weight field with the accepted plan's suggestion, in the display unit. */
     private fun suggestedInputFor(exerciseId: String, unit: WeightUnit): String =
         suggestedWeightKgByExercise[exerciseId]
-            ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
+            ?.let { exactEntryText(unit.kilogramsToDisplay(it)) }
             .orEmpty()
 
     private fun suggestedRepsFor(exerciseId: String): String? = acceptedToday?.exercises
@@ -2694,6 +2959,7 @@ class WorkoutLoggerViewModel(
                 liveSetIntentEntryId = null
             }
             currentOccurrence = null
+            rampTargetsByEntry = emptyMap()
             _state.update {
                 it.copy(
                     activeOccurrence = null,
@@ -2756,17 +3022,11 @@ class WorkoutLoggerViewModel(
         val retries = _state.value.draftWriteRetries.filter { retry ->
             drafts.any { it.sameSlotAs(retry.source) }
         }
-        // An applied guided edit is pending, unwritten state: it seeds the refreshed row until the
-        // set is logged, reset, the slot's exercise/measure/target changes, or the workout changes.
         val appliedEdits = _state.value.appliedGuidedEdits.filterValues { edit ->
-            drafts.any { draft -> edit.targetsPendingDraft(draft) }
+            drafts.any { draft -> edit.metadataBelongsToPendingDraft(draft) }
         }
         val displayDrafts = drafts.map { draft ->
-            draft.occurrenceEntryId?.let { appliedEdits[it] }
-                ?.takeIf { edit -> edit.targetsPendingDraft(draft) }
-                ?.let { edit -> appliedGuidedDraft(draft, edit) }
-                ?: retries.firstOrNull { draft.sameSlotAs(it.source) }?.draft
-                ?: draft
+            retries.firstOrNull { draft.sameSlotAs(it.source) }?.draft ?: draft
         }
         val workout = activation.workouts.firstOrNull { it.id == occurrence.activationWorkoutId }
         val prescribed = occurrence.entries.sumOf { it.sets }
@@ -2776,10 +3036,13 @@ class WorkoutLoggerViewModel(
         // Transient per-workout state follows the same occurrence; switching away clears it.
         val sameOccurrence = previousOccurrenceId == occurrence.id
         val equipment = warmupEquipment
+        val rampTargets = effectiveRampTargets(occurrence, performed)
+        rampTargetsByEntry = rampTargets
         val nextGuidance = buildWarmupGuidance(
             occurrence,
             equipment,
-            _state.value.warmupPreparationOverrides
+            _state.value.warmupPreparationOverrides,
+            rampTargets
         )
         // A slot whose prescription changed loses its transient edits, so a value typed for the old
         // exercise can never be shown against the replacement.
@@ -2920,9 +3183,16 @@ class WorkoutLoggerViewModel(
         reps: Int?,
         durationSeconds: Int?,
         distanceMeters: Int?,
-        forceNewtons: Double?
+        forceNewtons: Double?,
+        setIndex: Int? = null
     ): WorkoutPrescriptionSnapshot? {
-        val captured = captureSlotPrescription(exerciseId, kind, link, backdated) ?: return null
+        val captured = captureSlotPrescription(
+            exerciseId,
+            kind,
+            link,
+            backdated,
+            setIndex
+        ) ?: return null
         // A reps/duration/distance/force switch is a legitimate edit, but the captured slot keeps
         // its own measure. Recording the slot's target against a differently measured set would
         // contradict itself, so the set simply carries no target and its exposure stays unjudgeable.
@@ -2952,14 +3222,16 @@ class WorkoutLoggerViewModel(
             val entry = occurrence.entries.singleOrNull {
                 it.id == link.second && it.exerciseId == draft.exerciseId
             } ?: return null
-            if (entry.setTargets != targets) return null
+            // The draft's targets resolve this entry's own prescription, which for a scalar slot is
+            // synthesized from its guided overrides; a plan draft never carries those.
+            if (targets.sets != entry.sets) return null
             entry.progressionPolicy to isDeloadWeek(activeActivation?.weekNumber)
         } else {
             if (backdated || activeActivation != null) return null
             val entry = acceptedToday?.exercises?.singleOrNull {
                 it.exerciseId == draft.exerciseId
             } ?: return null
-            if (entry.setTargets != targets) return null
+            if (entry.setTargets?.sets != targets.sets) return null
             entry.progressionPolicy to isDeloadWeek(acceptedPlan?.weekNumber)
         }
         return WorkoutPrescriptionSnapshot(
@@ -2982,24 +3254,33 @@ class WorkoutLoggerViewModel(
         exerciseId: String,
         kind: LoadKind,
         link: Pair<Long, Long?>?,
-        backdated: Boolean
+        backdated: Boolean,
+        setIndex: Int? = null
     ): WorkoutPrescriptionSnapshot? {
         if (link != null) {
             val occurrence = currentOccurrence?.takeIf { it.id == link.first } ?: return null
             val entry = occurrence.entries.singleOrNull {
                 it.id == link.second && it.exerciseId == exerciseId && it.loadKind == kind
             } ?: return null
+            val target = if (setIndex != null) {
+                entry.guidedTargets?.targetFor(entry, setIndex)?.target
+                    ?: originalTargets(entry).getOrNull(setIndex)?.target
+            } else {
+                null
+            }
             return WorkoutPrescriptionSnapshot(
                 exerciseId = exerciseId,
                 sets = entry.sets,
-                reps = entry.reps,
-                durationSeconds = entry.durationSeconds,
-                distanceMeters = entry.distanceMeters,
-                forceNewtons = entry.forceNewtons,
-                loadKind = entry.loadKind,
-                weightKg = entry.weightKg,
+                reps = target?.reps ?: entry.reps,
+                durationSeconds = target?.durationSeconds ?: entry.durationSeconds,
+                distanceMeters = target?.distanceMeters ?: entry.distanceMeters,
+                forceNewtons = target?.forceNewtons ?: entry.forceNewtons,
+                loadKind = target?.loadKind ?: entry.loadKind,
+                weightKg = target?.weightKg ?: if (target == null) entry.weightKg else null,
                 isDeload = isDeloadWeek(activeActivation?.weekNumber),
-                progressionPolicy = entry.progressionPolicy
+                progressionPolicy = entry.progressionPolicy,
+                setIndex = setIndex,
+                targetRir = target?.targetRir
             )
         }
         if (backdated || activeActivation != null) return null
@@ -3050,6 +3331,21 @@ class WorkoutLoggerViewModel(
             .toSet()
         return performed to frozen
     }
+
+    /**
+     * Each entry's edited effective target at its next remaining set position, for ramp suggestions
+     * only. Once every set is performed the last position is used, so the ramp does not disappear
+     * while the work is still on screen. An entry without guided overrides is absent, so its ramp
+     * keeps describing the frozen prescription.
+     */
+    private fun effectiveRampTargets(
+        occurrence: WorkoutOccurrence,
+        performed: Map<Long, Int>
+    ): Map<Long, SetTarget> = occurrence.entries.mapNotNull { entry ->
+        val targets = entry.guidedTargets ?: return@mapNotNull null
+        val index = (performed[entry.id] ?: 0).coerceIn(0, (entry.sets - 1).coerceAtLeast(0))
+        entry.id to targets.targetFor(entry, index).target
+    }.toMap()
 
     /** Concludes the current workout occurrence: finish, finish partially, or skip. */
     fun finishWorkout() = resolveCurrentOccurrence(FinishMode.FULL)
@@ -3622,9 +3918,10 @@ class WorkoutLoggerViewModel(
         // An edit left above the current equipment ceiling must be corrected before it can be logged.
         if (row.exceedsCeiling) return
         val entry = occurrence.entries.firstOrNull { it.id == occurrenceEntryId } ?: return
-        // Reject a suggestion whose slot no longer carries the same frozen prescription, so a value
-        // shown for an earlier exercise/reps/load can never be recorded against a replaced slot.
-        if (!plan.matchesPrescription(entry)) return
+        // Reject a suggestion whose slot no longer carries the same prescription, so a value shown
+        // for an earlier exercise/reps/load can never be recorded against a replaced slot. A slot the
+        // user edited is compared against the edited target its suggestion was derived from.
+        if (!plan.matchesPrescription(entry, rampTargetsByEntry[entry.id])) return
         val draft = DraftSet(
             exerciseId = entry.exerciseId,
             name = entry.exerciseName,
@@ -3811,8 +4108,8 @@ class WorkoutLoggerViewModel(
     }
 
     /**
-     * Rebuilds [guidance] with [overrides] applied, keeping the occurrence and equipment it was
-     * derived from. A null guidance (no active occurrence) stays null.
+     * Rebuilds [guidance] with [overrides] applied, keeping the occurrence, equipment and edited ramp
+     * targets it was derived from. A null guidance (no active occurrence) stays null.
      */
     private fun guidanceWithOverrides(
         guidance: WarmupGuidance?,
@@ -3820,7 +4117,7 @@ class WorkoutLoggerViewModel(
     ): WarmupGuidance? {
         if (guidance == null) return null
         val occurrence = currentOccurrence ?: return guidance
-        return buildWarmupGuidance(occurrence, warmupEquipment, overrides)
+        return buildWarmupGuidance(occurrence, warmupEquipment, overrides, rampTargetsByEntry)
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.workout
 
+import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -281,6 +282,53 @@ class WarmupGuidanceTest {
         assertTrue(ramp.matchesPrescription(entry))
         // The ramp itself stays counted warm-up work, unchanged by the slot being timed.
         assertEquals(listOf(8, 5, 3), ramp.rampSets.map { it.reps })
+    }
+
+    @Test
+    fun rampsFollowTheEditedEffectiveTargetWhenOneIsSupplied() {
+        val entry = entry(0, MovementPattern.SQUAT, weightKg = 80.0)
+        val edited = SetTarget(reps = 8, weightKg = 70.0, loadKind = LoadKind.EXTERNAL)
+
+        val editedPlan = buildWarmupGuidance(
+            occurrenceWith(entry),
+            rampTargets = mapOf(entry.id to edited)
+        ).ramps.single()
+
+        // The suggestion describes the target still ahead, not the frozen 80 kg it replaced.
+        assertEquals(70.0, editedPlan.workingWeightKg)
+        assertEquals(8, editedPlan.prescribedReps)
+        assertEquals(LoadKind.EXTERNAL, editedPlan.loadKind)
+        assertEquals(listOf(27.5, 42.5, 55.0), editedPlan.rampSets.map { it.weightKg })
+        assertTrue(editedPlan.matchesPrescription(entry, edited))
+        assertFalse(editedPlan.matchesPrescription(entry))
+
+        // Without the edited target the same occurrence keeps today's frozen behavior.
+        val frozenPlan = buildWarmupGuidance(occurrenceWith(entry)).ramps.single()
+        assertEquals(80.0, frozenPlan.workingWeightKg)
+        assertEquals(listOf(32.5, 47.5, 65.0), frozenPlan.rampSets.map { it.weightKg })
+        assertTrue(frozenPlan.matchesPrescription(entry))
+    }
+
+    @Test
+    fun anEditedBodyweightOrZeroTargetKeepsTheExistingRampExclusion() {
+        val entry = entry(0, MovementPattern.SQUAT, weightKg = 80.0)
+        val occurrence = occurrenceWith(entry)
+
+        val bodyweight = buildWarmupGuidance(
+            occurrence,
+            rampTargets = mapOf(
+                entry.id to SetTarget(reps = 8, loadKind = LoadKind.BODYWEIGHT)
+            )
+        )
+        val zero = buildWarmupGuidance(
+            occurrence,
+            rampTargets = mapOf(
+                entry.id to SetTarget(reps = 8, weightKg = 0.0, loadKind = LoadKind.EXTERNAL)
+            )
+        )
+
+        assertTrue(bodyweight.ramps.isEmpty())
+        assertTrue(zero.ramps.isEmpty())
     }
 
     @Test

@@ -86,6 +86,12 @@ summary's live occurrence read seeks one occurrence instead of scanning the set 
 `ExerciseProgressIndexMigrationTest` and `WorkoutSetOccurrenceIndexMigrationTest` cover preservation
 and indexed query plans for fresh/migrated schemas. The request fixes
 `nowMillis` and the UTC offset; future passage/offset changes require a new request from the caller.
+History and replay projections also carry the parent set's nullable cluster kind and planned/performed
+segment counts. They decode through the same strict `clusterSummaryOf` helper as workout-log mapping,
+preserving complete and partial cluster identity without reading or rewriting stored segment rows.
+`ProgressionHistory` and descriptive Progress records use that identity to exclude cluster parents
+from ordinary exposure and record populations; cluster work is not treated as an `UNKNOWN` ordinary
+exposure. This remains query-only and requires no schema or stored-format change.
 Query-only equipment identity repair (0.7.6 C6) adds custom-id movement and per-row equipment-reference
 updates in `Equipment.sq`, `Exercise.sq`, `ExerciseOverride.sq` and `TrainingSchedule.sq`.
 `SeedEquipmentCatalog` remaps legacy custom equipment on reserved ids transactionally before canonical
@@ -350,3 +356,13 @@ than disguising an old fixture as the latest schema.
 
 `20.sqm` demonstrates a table rebuild for column removal: Android minSdk 24
 predates SQLite 3.35's `DROP COLUMN` support.
+
+Migration `65.sqm` adds nullable `occurrenceEntry.guidedTargets` (schema 65→66). It stores only
+strictly versioned per-set overrides for that occurrence; activation, routine and original occurrence
+prescription columns remain unchanged. The payload is validated against its owning entry when read,
+written and restored. `SqlDelightWorkoutScheduleRepository` applies or resets remaining-set overrides
+under `WorkoutReminderDeliveryGate` and a database transaction, rechecking active selected occurrence,
+revision, entry identity/set count and performed count; partial clusters refuse the operation. Entry
+replacement that changes its exercise or original prescription clears these unrelated overrides.
+Backup format 30 carries the same payload only on occurrence entries. `GuidedWorkoutTargetsMigrationTest`
+covers migration preservation and nullable read/write; see `backup.md` for format compatibility.

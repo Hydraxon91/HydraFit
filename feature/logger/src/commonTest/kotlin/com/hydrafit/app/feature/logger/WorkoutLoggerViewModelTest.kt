@@ -44,7 +44,13 @@ import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout
+import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
 import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
+import com.hydrafit.app.core.domain.schedule.GuidedTargetField
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRepository
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
@@ -59,9 +65,11 @@ import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState
+import com.hydrafit.app.core.domain.schedule.applyGuidedTargetPatch
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
+import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
@@ -104,6 +112,7 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -378,6 +387,191 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun manualWeightUnitChangesKeepCanonicalLoadAcrossRepeatedToggles() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val units = MutableStateFlow(WeightUnit.KG)
+        val viewModel = viewModel(repository = repository, weightUnitFlow = units)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("12.345678901234567")
+        units.value = WeightUnit.KG
+        runCurrent()
+        assertEquals("12.345678901234567", viewModel.state.value.weightInput)
+
+        repeat(4) {
+            units.value = WeightUnit.LB
+            runCurrent()
+            assertEquals(
+                exactEntryText(WeightUnit.LB.kilogramsToDisplay(12.345678901234567)),
+                viewModel.state.value.weightInput
+            )
+            units.value = WeightUnit.KG
+            runCurrent()
+            assertEquals("12.345678901234567", viewModel.state.value.weightInput)
+        }
+        assertTrue(viewModel.state.value.canLog)
+
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(12.345678901234567, repository.all().single().weightKg)
+    }
+
+    @Test
+    fun delayedManualPrefillUsesTheCurrentUnitAndRetainsItsCanonicalWeight() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository(
+            initial = listOf(
+                WorkoutSet(
+                    id = 1L,
+                    exerciseId = "back-squat",
+                    reps = 3,
+                    weightKg = 60.0,
+                    performedAtMillis = MONDAY - DAY
+                )
+            )
+        )
+        val units = MutableStateFlow(WeightUnit.KG)
+        val viewModel =
+            viewModel(repository = repository, timeMillis = MONDAY, weightUnitFlow = units)
+        advanceUntilIdle()
+        val gate = CompletableDeferred<Unit>()
+        repository.allGate = gate
+
+        viewModel.onExerciseSelected("back-squat")
+        runCurrent()
+        units.value = WeightUnit.LB
+        runCurrent()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(WeightUnit.LB, viewModel.state.value.weightUnit)
+        assertEquals(60.0, viewModel.state.value.manualWeightKg)
+        assertEquals(
+            exactEntryText(WeightUnit.LB.kilogramsToDisplay(60.0)),
+            viewModel.state.value.weightInput
+        )
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.onRepsChanged("3")
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(60.0, repository.all().maxBy { it.id }.weightKg)
+        units.value = WeightUnit.KG
+        runCurrent()
+        assertEquals("60", viewModel.state.value.weightInput)
+    }
+
+    @Test
+    fun manualDistanceUnitChangesKeepWholeMetresAndInvalidTextUnresolved() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val units = MutableStateFlow(DistanceUnit.METERS)
+        val viewModel = viewModel(repository = repository, distanceUnitFlow = units)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onMetricChanged(SetMetric.DISTANCE)
+        viewModel.onDistanceChanged("123")
+
+        repeat(4) {
+            units.value = DistanceUnit.FEET
+            runCurrent()
+            assertEquals(
+                exactEntryText(DistanceUnit.FEET.metresToDisplay(123)),
+                viewModel.state.value.distanceMeters
+            )
+            units.value = DistanceUnit.METERS
+            runCurrent()
+            assertEquals("123", viewModel.state.value.distanceMeters)
+        }
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(123, repository.all().single().distanceMeters)
+
+        viewModel.onDistanceChanged("1e")
+        assertEquals("1e", viewModel.state.value.distanceMeters)
+        units.value = DistanceUnit.FEET
+        runCurrent()
+        assertEquals("1e", viewModel.state.value.distanceMeters)
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(1, repository.all().size)
+    }
+
+    @Test
+    fun switchingAwayFromDistanceClearsItsCanonicalValueUntilPositiveReentry() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val viewModel = viewModel(repository = repository)
+            advanceUntilIdle()
+            viewModel.onExerciseSelected("back-squat")
+            viewModel.onMetricChanged(SetMetric.DISTANCE)
+            viewModel.onDistanceChanged("123")
+            assertTrue(viewModel.state.value.canLog)
+
+            viewModel.onMetricChanged(SetMetric.REPETITIONS)
+            viewModel.onRepsChanged("5")
+            viewModel.onMetricChanged(SetMetric.DISTANCE)
+
+            assertNull(viewModel.state.value.manualDistanceMetres)
+            assertFalse(viewModel.state.value.canLog)
+            viewModel.log()
+            advanceUntilIdle()
+            assertTrue(repository.all().isEmpty())
+
+            viewModel.onDistanceChanged("124")
+            assertTrue(viewModel.state.value.canLog)
+            viewModel.log()
+            advanceUntilIdle()
+            assertEquals(124, repository.all().single().distanceMeters)
+        }
+
+    @Test
+    fun blankAndZeroManualWeightRemainDistinctAndInvalidWeightCannotLog() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("")
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertNull(repository.all().single().weightKg)
+
+        viewModel.onWeightChanged("0")
+        assertEquals(0.0, viewModel.state.value.manualWeightKg)
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(0.0, repository.all().last().weightKg)
+
+        viewModel.onWeightChanged("1e")
+        assertEquals("1e", viewModel.state.value.weightInput)
+        val units = MutableStateFlow(WeightUnit.KG)
+        val togglingViewModel =
+            viewModel(repository = FakeWorkoutLogRepository(), weightUnitFlow = units)
+        advanceUntilIdle()
+        togglingViewModel.onExerciseSelected("back-squat")
+        togglingViewModel.onRepsChanged("5")
+        togglingViewModel.onWeightChanged("1e")
+        units.value = WeightUnit.LB
+        runCurrent()
+        assertEquals("1e", togglingViewModel.state.value.weightInput)
+        assertFalse(togglingViewModel.state.value.canLog)
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(2, repository.all().size)
+        viewModel.onWeightChanged("-1")
+        assertEquals("-1", viewModel.state.value.weightInput)
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(2, repository.all().size)
+    }
+
+    @Test
     fun quickFillsEveryFieldFromARecentSet() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
             initial = listOf(
@@ -404,6 +598,42 @@ class WorkoutLoggerViewModelTest {
         assertTrue(state.isWarmup)
         assertEquals("3", state.rir)
     }
+
+    @Test
+    fun recentWeightPrefillPreservesCanonicalPrecisionAcrossUnitTogglesAndLogging() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository(
+                initial = listOf(
+                    WorkoutSet(
+                        id = 1L,
+                        exerciseId = "back-squat",
+                        reps = 4,
+                        weightKg = 60.123,
+                        performedAtMillis = 1L
+                    )
+                )
+            )
+            val units = MutableStateFlow(WeightUnit.KG)
+            val viewModel = viewModel(repository = repository, weightUnitFlow = units)
+            advanceUntilIdle()
+            viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+            assertEquals(exactEntryText(60.123), viewModel.state.value.weightInput)
+            repeat(3) {
+                units.value = WeightUnit.LB
+                runCurrent()
+                assertEquals(
+                    exactEntryText(WeightUnit.LB.kilogramsToDisplay(60.123)),
+                    viewModel.state.value.weightInput
+                )
+                units.value = WeightUnit.KG
+                runCurrent()
+                assertEquals(exactEntryText(60.123), viewModel.state.value.weightInput)
+            }
+            viewModel.onRepsChanged("4")
+            viewModel.log()
+            advanceUntilIdle()
+            assertEquals(60.123, repository.all().maxBy { it.id }.weightKg)
+        }
 
     @Test
     fun quickFillingAForceSetKeepsItsExactNewtonsAndDeviceRating() = runTest(dispatcher) {
@@ -498,7 +728,10 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
 
-        assertEquals("220.5", viewModel.state.value.weightInput)
+        assertEquals(
+            exactEntryText(WeightUnit.LB.kilogramsToDisplay(100.0)),
+            viewModel.state.value.weightInput
+        )
     }
 
     @Test
@@ -851,7 +1084,7 @@ class WorkoutLoggerViewModelTest {
         assertEquals(120.0, viewModel.state.value.draftSets.single().weightKg)
 
         // An ordinary re-read of the same occurrence keeps the applied values.
-        val refreshed = twoOccurrences().map { occurrence ->
+        val refreshed = schedule.occurrences(5L).map { occurrence ->
             if (occurrence.id == 30L) {
                 occurrence.copy(revision = occurrence.revision + 1)
             } else {
@@ -871,10 +1104,248 @@ class WorkoutLoggerViewModelTest {
         assertEquals(10, logged.reps)
         assertEquals(120.0, logged.weightKg)
 
-        // The remaining set of the slot follows the plan again.
+        // Every remaining set follows the persisted guided target.
         assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
-        assertEquals(8, viewModel.state.value.draftSets.single().reps)
-        assertEquals(100.0, viewModel.state.value.draftSets.single().weightKg)
+        assertEquals(10, viewModel.state.value.draftSets.single().reps)
+        assertEquals(120.0, viewModel.state.value.draftSets.single().weightKg)
+    }
+
+    @Test
+    fun aScalarSlotsAppliedGuidedTargetRecordsItsOwnPositionAndEffectiveValues() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        // A scalar-prescription slot (no ordered targets) whose remaining positions the user already
+        // edited, including a prescribed RIR that a later Apply must preserve.
+        val scalar = twoOccurrences().map { occurrence ->
+            if (occurrence.id != 30L) return@map occurrence
+            occurrence.copy(
+                entries = occurrence.entries.map { entry ->
+                    entry.copy(
+                        guidedTargets = GuidedWorkoutTargets(
+                            overrides = listOf(0, 1).map { index ->
+                                GuidedWorkoutTargetOverride(
+                                    setIndex = index,
+                                    target = SetTarget(
+                                        reps = 8,
+                                        weightKg = 100.0,
+                                        loadKind = LoadKind.EXTERNAL,
+                                        targetRir = 2
+                                    )
+                                )
+                            }
+                        )
+                    )
+                }
+            )
+        }
+        schedule.set(blockActivation(), scalar, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.onDraftWeightChanged("90")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        // Fails pre-correction: the occurrence branch compared the draft's synthesized targets with
+        // the absent frozen ordered targets, so every logged set of an edited scalar slot stored no
+        // prescriptionSnapshot and its progression exposure stayed unjudgeable.
+        val snapshot = assertNotNull(repository.all().single().prescriptionSnapshot)
+        assertEquals(0, snapshot.setIndex)
+        assertEquals(2, snapshot.sets)
+        assertEquals(6, snapshot.reps)
+        assertEquals(90.0, snapshot.weightKg)
+        assertEquals(2, snapshot.targetRir)
+    }
+
+    @Test
+    fun anAppliedGuidedOrderedEditStillRecordsEachRemainingPositionOnce() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), orderedOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("9")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        val logged = repository.all().sortedBy { it.id }
+        assertEquals(2, logged.size)
+        assertEquals(listOf(9, 9), logged.map { it.reps })
+        // Each confirmation records the position it followed; the scalar fix adds no second index and
+        // skips none.
+        assertEquals(listOf(0, 1), logged.mapNotNull { it.prescriptionSnapshot?.setIndex })
+    }
+
+    @Test
+    fun aFailedGuidedApplyKeepsTheEditorAndWritesNothingUntilRetried() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val guidedTargets = FakeGuidedWorkoutTargetsRepository(schedule)
+        guidedTargets.failApply = true
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            guidedTargets = guidedTargets
+        )
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.onDraftWeightChanged("90")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        // The refusal keeps the open editor and its typed values, adds no one-off overlay and writes
+        // no occurrence target or performed set.
+        assertTrue(viewModel.state.value.guidedTargetsFailed)
+        assertFalse(viewModel.state.value.guidedTargetsSaving)
+        assertNotNull(viewModel.state.value.draftEdit)
+        assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
+        assertTrue(repository.all().isEmpty())
+        assertTrue(schedule.guidedTargetRequests.isEmpty())
+        assertNull(schedule.getOccurrence(30L)!!.entries.single().guidedTargets)
+
+        guidedTargets.failApply = false
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        assertFalse(viewModel.state.value.guidedTargetsFailed)
+        assertNull(viewModel.state.value.draftEdit)
+        assertEquals(1, viewModel.state.value.appliedGuidedEdits.size)
+        val applied = assertNotNull(schedule.getOccurrence(30L)!!.entries.single().guidedTargets)
+        assertEquals(6, applied.overrides.first().target.reps)
+        assertEquals(90.0, applied.overrides.first().target.weightKg)
+        // The retry refreshed the pending rows from the persisted edit.
+        assertEquals(6, viewModel.state.value.draftSets.single().reps)
+        assertEquals(90.0, viewModel.state.value.draftSets.single().weightKg)
+    }
+
+    @Test
+    fun warmupRampsFollowTheAppliedGuidedTargetAndSurviveAPreparationSave() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+        assertEquals(
+            100.0,
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance).ramps.single()
+                .workingWeightKg
+        )
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftWeightChanged("90")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        // The ramp follows the edited remaining target, not the frozen 100 kg it replaced.
+        val edited = assertNotNull(viewModel.state.value.visibleWarmupGuidance).ramps.single()
+        assertEquals(90.0, edited.workingWeightKg)
+        assertTrue(edited.rampSets.all { it.weightKg < 90.0 })
+
+        // Its suggestion is still attributable to the edited slot, so it can be recorded.
+        viewModel.logWarmupRamp(40L, rampIndex = 0)
+        runCurrent()
+        assertEquals(35.0, repository.all().single().weightKg)
+
+        // Saving a preparation override rebuilds the guidance without reverting the ramps.
+        viewModel.editWarmupPreparation(WarmupAction.LOWER_BODY_PRACTICE)
+        viewModel.onWarmupEditorRepsChanged("12")
+        viewModel.saveWarmupEditor()
+        runCurrent()
+        assertEquals(
+            90.0,
+            assertNotNull(viewModel.state.value.visibleWarmupGuidance).ramps.single()
+                .workingWeightKg
+        )
+    }
+
+    @Test
+    fun forceDraftEditKeepsExactForceAndDeviceRatingThroughResetApplyReopenAndLog() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val forceOccurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id != 30L) return@map occurrence
+            occurrence.copy(
+                entries = occurrence.entries.map { entry ->
+                    entry.copy(
+                        sets = 2,
+                        reps = null,
+                        durationSeconds = null,
+                        weightKg = null,
+                        forceNewtons = 247.35
+                    )
+                }
+            )
+        }
+        schedule.set(blockActivation(), forceOccurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        assertEquals("247.35", viewModel.state.value.draftEdit?.forceNewtons)
+        viewModel.onDraftForceChanged("300")
+        viewModel.onDraftDeviceNameChanged("Grip meter")
+        viewModel.onDraftDeviceRatingChanged("70.75")
+        viewModel.resetDraftEdit()
+        assertEquals("247.35", viewModel.state.value.draftEdit?.forceNewtons)
+        assertEquals("", viewModel.state.value.draftEdit?.deviceRatingKg)
+
+        viewModel.onDraftDeviceNameChanged("Grip meter")
+        viewModel.onDraftDeviceRatingChanged("60.25")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+        assertTrue(repository.all().isEmpty())
+
+        viewModel.editGuidedSet(40L)
+        assertEquals("247.35", viewModel.state.value.draftEdit?.forceNewtons)
+        assertEquals("60.25", viewModel.state.value.draftEdit?.deviceRatingKg)
+        viewModel.confirmGuidedSet(40L)
+        runCurrent()
+
+        val logged = repository.all().single()
+        assertEquals(247.35, logged.forceNewtons)
+        assertEquals(DeviceAttribution("Grip meter", 60.25), logged.device)
+    }
+
+    @Test
+    fun guidedResetStagesOriginalsAndAppliesLaterEditsInOnePersistedRequest() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), orderedOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        viewModel.editGuidedSet(40L)
+        viewModel.onDraftRepsChanged("12")
+        viewModel.onDraftWeightChanged("65")
+        viewModel.resetDraftEdit()
+        assertEquals("10", viewModel.state.value.draftEdit?.reps)
+        assertEquals("60", viewModel.state.value.draftEdit?.weightInput)
+        viewModel.onDraftRepsChanged("9")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        val request = schedule.guidedTargetRequests.single()
+        assertTrue(request.resetRemaining)
+        assertEquals(setOf(0, 1, 2), request.patches.keys)
+        assertTrue(request.patches.values.all { it.fields == setOf(GuidedTargetField.REPS) })
+        val effective = schedule.getOccurrence(30L)!!.entries.single().guidedTargets!!
+        assertEquals(listOf(9, 9, 9), effective.overrides.map { it.target.reps })
+        assertEquals(listOf(60.0, 70.0, 80.0), effective.overrides.map { it.target.weightKg })
+        assertTrue(repository.all().isEmpty())
     }
 
     @Test
@@ -896,7 +1367,7 @@ class WorkoutLoggerViewModelTest {
         // An ordinary re-read of the same occurrence keeps the applied scalar values.
         schedule.set(
             blockActivation(),
-            twoOccurrences().map { occurrence ->
+            schedule.occurrences(5L).map { occurrence ->
                 if (occurrence.id == 30L) {
                     occurrence.copy(revision = occurrence.revision + 1)
                 } else {
@@ -909,8 +1380,7 @@ class WorkoutLoggerViewModelTest {
         assertEquals(1, viewModel.state.value.appliedGuidedEdits.size)
         assertEquals(10, viewModel.state.value.draftSets.single().reps)
 
-        // The manual Log form writes the pending set; the pending overlay described the consumed
-        // position, so the next remaining set follows the plan instead of repeating it.
+        // The manual form writes entered performance; persisted prescription remains for the next set.
         viewModel.onExerciseSelected("back-squat")
         viewModel.onRepsChanged("8")
         viewModel.onWeightChanged("100")
@@ -923,8 +1393,8 @@ class WorkoutLoggerViewModelTest {
         assertTrue(viewModel.state.value.appliedGuidedEdits.isEmpty())
         val remaining = viewModel.state.value.draftSets.single()
         assertEquals(1, remaining.sets)
-        assertEquals(8, remaining.reps)
-        assertEquals(100.0, remaining.weightKg)
+        assertEquals(10, remaining.reps)
+        assertEquals(120.0, remaining.weightKg)
     }
 
     @Test
@@ -2801,7 +3271,8 @@ class WorkoutLoggerViewModelTest {
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-            equipment = testEquipment()
+            equipment = testEquipment(),
+            applyGuidedTargets = guidedTargetUseCase(repository)
         )
         advanceUntilIdle()
 
@@ -2892,7 +3363,8 @@ class WorkoutLoggerViewModelTest {
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-            equipment = testEquipment()
+            equipment = testEquipment(),
+            applyGuidedTargets = guidedTargetUseCase(repository)
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2925,7 +3397,8 @@ class WorkoutLoggerViewModelTest {
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-            equipment = testEquipment()
+            equipment = testEquipment(),
+            applyGuidedTargets = guidedTargetUseCase(repository)
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -2989,7 +3462,8 @@ class WorkoutLoggerViewModelTest {
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-            equipment = testEquipment()
+            equipment = testEquipment(),
+            applyGuidedTargets = guidedTargetUseCase(repository)
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -3852,7 +4326,9 @@ class WorkoutLoggerViewModelTest {
 
     @Test
     fun prefillsTheWeightFromTheAcceptedPlanSuggestionInTheDisplayUnit() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
         val viewModel = viewModel(
+            repository = repository,
             timeMillis = MONDAY,
             acceptedPlan = acceptedPlan(listOf("back-squat"), suggestedWeightKg = 100.0),
             weightUnit = WeightUnit.LB
@@ -3861,8 +4337,15 @@ class WorkoutLoggerViewModelTest {
 
         viewModel.onExerciseSelected("back-squat")
 
-        // 100 kg -> 220.46 lb, shown to one decimal
-        assertEquals("220.5", viewModel.state.value.weightInput)
+        // Editable text preserves the exact converted value rather than a rounded display value.
+        assertEquals(
+            exactEntryText(WeightUnit.LB.kilogramsToDisplay(100.0)),
+            viewModel.state.value.weightInput
+        )
+        viewModel.onRepsChanged("5")
+        viewModel.log()
+        advanceUntilIdle()
+        assertEquals(100.0, repository.all().single().weightKg)
     }
 
     @Test
@@ -4009,7 +4492,8 @@ class WorkoutLoggerViewModelTest {
             exerciseNoteRepository = FakeExerciseNoteRepository(),
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-            equipment = testEquipment()
+            equipment = testEquipment(),
+            applyGuidedTargets = guidedTargetUseCase(repository)
         )
         advanceUntilIdle()
         assertEquals(null, viewModel.state.value.todayFocus)
@@ -4871,20 +5355,20 @@ class WorkoutLoggerViewModelTest {
         viewModel.confirmGuidedSet(40L)
         runCurrent()
 
-        // The edited seconds are logged once and the set does not claim the frozen 60-second target.
+        // The performance and target snapshot both reflect the persisted edited seconds.
         val logged = repository.all().single()
         assertEquals(120, logged.durationSeconds)
         assertNull(logged.reps)
-        assertNull(assertNotNull(logged.prescriptionSnapshot).setIndex)
+        assertEquals(0, assertNotNull(logged.prescriptionSnapshot).setIndex)
 
-        // The next untouched set follows its own ordered target again.
+        // The edited target applies to every remaining position.
         val remaining = viewModel.state.value.draftSets.single()
         assertEquals(2, remaining.sets)
-        assertEquals(90, remaining.durationSeconds)
+        assertEquals(120, remaining.durationSeconds)
         viewModel.confirmGuidedSet(40L)
         runCurrent()
         val second = repository.all().last()
-        assertEquals(90, second.durationSeconds)
+        assertEquals(120, second.durationSeconds)
         assertEquals(1, second.prescriptionSnapshot?.setIndex)
     }
 
@@ -4909,8 +5393,8 @@ class WorkoutLoggerViewModelTest {
         runCurrent()
         val logged = repository.all().single()
         assertEquals(120, logged.durationSeconds)
-        assertNull(assertNotNull(logged.prescriptionSnapshot).setIndex)
-        assertEquals(90, viewModel.state.value.draftSets.single().durationSeconds)
+        assertEquals(0, assertNotNull(logged.prescriptionSnapshot).setIndex)
+        assertEquals(120, viewModel.state.value.draftSets.single().durationSeconds)
     }
 
     @Test
@@ -4939,8 +5423,7 @@ class WorkoutLoggerViewModelTest {
         assertEquals(10, remaining.reps)
         assertEquals(60.0, remaining.weightKg)
 
-        // The next target is value-identical but a different position: editing and consuming it
-        // must expire the same way rather than replay onto the third set.
+        // Editing the second position applies its load to all remaining positions in one Apply.
         viewModel.editGuidedSet(40L)
         viewModel.onDraftWeightChanged("65")
         viewModel.confirmDraftEdit()
@@ -4955,7 +5438,7 @@ class WorkoutLoggerViewModelTest {
         val last = viewModel.state.value.draftSets.single()
         assertEquals(1, last.sets)
         assertEquals(8, last.reps)
-        assertEquals(70.0, last.weightKg)
+        assertEquals(65.0, last.weightKg)
     }
 
     @Test
@@ -5015,11 +5498,11 @@ class WorkoutLoggerViewModelTest {
         val logged = repository.all().single()
         assertEquals(12, logged.reps)
         assertEquals(65.0, logged.weightKg)
-        assertNull(logged.prescriptionSnapshot?.setIndex)
+        assertEquals(0, logged.prescriptionSnapshot?.setIndex)
 
         val remaining = viewModel.state.value.draftSets.single()
-        assertEquals(8, remaining.reps)
-        assertEquals(70.0, remaining.weightKg)
+        assertEquals(12, remaining.reps)
+        assertEquals(65.0, remaining.weightKg)
     }
 
     @Test
@@ -5609,6 +6092,8 @@ class WorkoutLoggerViewModelTest {
         history: FakePlanHistoryRepository = FakePlanHistoryRepository(acceptedPlan),
         catalog: ExerciseCatalog = FakeExerciseCatalog,
         weightUnit: WeightUnit = WeightUnit.KG,
+        weightUnitFlow: MutableStateFlow<WeightUnit>? = null,
+        distanceUnitFlow: MutableStateFlow<DistanceUnit>? = null,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
         sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
         equipment: WorkoutLoggerEquipment = testEquipment()
@@ -5627,15 +6112,17 @@ class WorkoutLoggerViewModelTest {
         exerciseCatalog = catalog,
         runtime = WorkoutLoggerRuntime(TimeProvider { timeMillis }),
         settings = WorkoutLoggerSettings(
-            FakeWeightUnitRepository(weightUnit),
+            FakeWeightUnitRepository(weightUnitFlow ?: MutableStateFlow(weightUnit)),
             FakeGuidedWorkoutPreferenceRepository(false),
             FakeRestPreferenceRepository(),
-            FakeTrainingGuidancePreferences()
+            FakeTrainingGuidancePreferences(),
+            distanceUnitRepository = distanceUnitFlow?.let(::FakeDistanceUnitRepository)
         ),
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-        equipment = equipment
+        equipment = equipment,
+        applyGuidedTargets = guidedTargetUseCase(repository)
     )
 
     private fun sessionViewModel(
@@ -5665,8 +6152,51 @@ class WorkoutLoggerViewModelTest {
         exerciseNoteRepository = noteRepository,
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
-        equipment = testEquipment()
+        equipment = testEquipment(),
+        applyGuidedTargets = guidedTargetUseCase(repository)
     )
+
+    private fun guidedTargetUseCase(
+        log: WorkoutLogRepository,
+        schedule: WorkoutScheduleRepository = FakeWorkoutScheduleRepository(),
+        guidedTargets: GuidedWorkoutTargetsRepository? = null
+    ) = ApplyGuidedWorkoutTargetsUseCase(
+        schedule,
+        log,
+        guidedTargets ?: FakeGuidedWorkoutTargetsRepository(schedule)
+    )
+
+    /** The shared guided-target write port, with the in-memory occurrence store it edits. */
+    private class FakeGuidedWorkoutTargetsRepository(
+        private val schedule: WorkoutScheduleRepository
+    ) : GuidedWorkoutTargetsRepository {
+        /** When true, the store refuses the write as a storage failure would. */
+        var failApply: Boolean = false
+
+        override suspend fun applyTargets(request: GuidedWorkoutTargetsRequest) {
+            if (failApply) error("Injected guided target write failure")
+            (schedule as? MutableWorkoutScheduleRepository)
+                ?.guidedTargetRequests
+                ?.add(request)
+            val occurrence = requireNotNull(schedule.getOccurrence(request.occurrenceId))
+            val entry =
+                requireNotNull(occurrence.entries.firstOrNull { it.id == request.entryId })
+            val targets = applyGuidedTargetPatch(
+                entry,
+                entry.guidedTargets,
+                request.completedSetCount,
+                request.resetRemaining,
+                request.patches
+            )
+            schedule.updateOccurrence(
+                occurrence.copy(
+                    entries = occurrence.entries.map {
+                        if (it.id == request.entryId) it.copy(guidedTargets = targets) else it
+                    }
+                )
+            )
+        }
+    }
 
     /** The set use case the ViewModel writes clusters through; production shares one singleton. */
     private fun logWorkoutSet(
@@ -9274,6 +9804,7 @@ class WorkoutLoggerViewModelTest {
                     viewModel.enterMissingLoad()
                     viewModel.onDraftWeightChanged("80")
                     viewModel.confirmDraftEdit()
+                    runCurrent()
                     viewModel.confirmGuidedSetNow(40L)
                 }
                 "legacy" -> viewModel.resolveLegacyAsExternal()
@@ -10041,7 +10572,8 @@ class WorkoutLoggerViewModelTest {
         weightUnit: WeightUnit = WeightUnit.KG,
         weightUnitFlow: MutableStateFlow<WeightUnit>? = null,
         warmupOverrides: FakeWarmupPreparationOverrideRepository =
-            FakeWarmupPreparationOverrideRepository()
+            FakeWarmupPreparationOverrideRepository(),
+        guidedTargets: GuidedWorkoutTargetsRepository? = null
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         logWorkoutSet = logWorkoutSet(repository, sessions),
@@ -10070,7 +10602,8 @@ class WorkoutLoggerViewModelTest {
         exerciseNoteRepository = FakeExerciseNoteRepository(),
         sessionNoteRepository = FakeSessionNoteRepository(),
         warmupOverrideRepository = warmupOverrides,
-        equipment = equipment
+        equipment = equipment,
+        applyGuidedTargets = guidedTargetUseCase(repository, schedule, guidedTargets)
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(
@@ -10651,6 +11184,15 @@ class WorkoutLoggerViewModelTest {
         override suspend fun setUnit(unit: WeightUnit) = Unit
     }
 
+    private class FakeDistanceUnitRepository(private val units: MutableStateFlow<DistanceUnit>) :
+        DistanceUnitRepository {
+        override suspend fun selectedUnit(): DistanceUnit = units.value
+
+        override fun unitFlow(): Flow<DistanceUnit> = units
+
+        override suspend fun setUnit(unit: DistanceUnit) = Unit
+    }
+
     private class FakeGuidedWorkoutPreferenceRepository(private var enabled: Boolean) :
         GuidedWorkoutPreferenceRepository {
         override suspend fun isGuidedWorkoutEnabled(): Boolean = enabled
@@ -10794,6 +11336,7 @@ class WorkoutLoggerViewModelTest {
         private val activationState = MutableStateFlow<TrainingActivation?>(null)
         private val occurrenceState = MutableStateFlow<List<WorkoutOccurrence>>(emptyList())
         private val state = MutableStateFlow(WorkoutScheduleState())
+        val guidedTargetRequests = mutableListOf<GuidedWorkoutTargetsRequest>()
 
         /** Simulates the active block being replaced or cancelled as a resolve commits. */
         var cancelBlockOnResolve: Boolean = false
@@ -10897,7 +11440,11 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun updateActivationHeader(activation: TrainingActivation) = Unit
 
-        override suspend fun updateOccurrence(occurrence: WorkoutOccurrence) = Unit
+        override suspend fun updateOccurrence(occurrence: WorkoutOccurrence) {
+            occurrenceState.value = occurrenceState.value.map {
+                if (it.id == occurrence.id) occurrence else it
+            }
+        }
 
         override suspend fun replaceOccurrenceEntries(
             occurrenceId: Long,

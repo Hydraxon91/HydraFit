@@ -162,7 +162,10 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         distanceMeters: Long?,
         forceNewtons: Double?,
         deviceName: String?,
-        deviceRatingKg: Double?
+        deviceRatingKg: Double?,
+        clusterKind: String?,
+        clusterPlannedSegments: Long?,
+        clusterPerformedSegments: Long?
     ) = WorkoutHistorySet(
         id = id,
         exerciseId = exerciseId,
@@ -179,7 +182,8 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         occurrenceId = occurrenceId,
         distanceMeters = distanceMeters?.toInt(),
         forceNewtons = forceNewtons,
-        device = deviceAttributionOf(deviceName, deviceRatingKg)
+        device = deviceAttributionOf(deviceName, deviceRatingKg),
+        cluster = clusterSummaryOf(clusterKind, clusterPlannedSegments, clusterPerformedSegments)
     )
 
     private fun replaySet(
@@ -198,7 +202,10 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         distanceMeters: Long?,
         forceNewtons: Double?,
         deviceName: String?,
-        deviceRatingKg: Double?
+        deviceRatingKg: Double?,
+        clusterKind: String?,
+        clusterPlannedSegments: Long?,
+        clusterPerformedSegments: Long?
     ) = WorkoutSet(
         id = id,
         exerciseId = exerciseId,
@@ -212,7 +219,8 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
         durationSeconds = durationSeconds?.toInt(),
         distanceMeters = distanceMeters?.toInt(),
         forceNewtons = forceNewtons,
-        device = deviceAttributionOf(deviceName, deviceRatingKg)
+        device = deviceAttributionOf(deviceName, deviceRatingKg),
+        cluster = clusterSummaryOf(clusterKind, clusterPlannedSegments, clusterPerformedSegments)
     )
 
     private companion object {

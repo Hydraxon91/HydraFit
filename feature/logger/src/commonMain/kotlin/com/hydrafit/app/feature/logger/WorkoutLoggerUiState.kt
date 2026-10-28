@@ -404,7 +404,9 @@ data class DraftEdit(
      * The cluster's later segments as entered, seeded from the prescription when the editor opens.
      * Segment 1 is the editor's own reps/weight/RIR fields, so this list is empty for ordinary work.
      */
-    val laterSegments: List<ClusterSegmentInput> = emptyList()
+    val laterSegments: List<ClusterSegmentInput> = emptyList(),
+    /** True when Reset staged original guided prescription values for the next Apply. */
+    val resetGuidedTargets: Boolean = false
 ) {
     /** True when the frozen draft records elapsed seconds instead of repetitions. */
     val isTimed: Boolean get() = draft.durationSeconds != null
@@ -444,6 +446,15 @@ data class DraftEdit(
         isDistance == (draft.distanceMeters != null) &&
         isForce == (draft.forceNewtons != null) &&
         this.draft.orderedPrefill == draft.orderedPrefill
+
+    fun metadataBelongsToPendingDraft(draft: DraftSet): Boolean =
+        this.draft.occurrenceEntryId != null &&
+            this.draft.occurrenceEntryId == draft.occurrenceEntryId &&
+            this.draft.exerciseId == draft.exerciseId &&
+            this.draft.sets == draft.sets &&
+            isTimed == (draft.durationSeconds != null) &&
+            isDistance == (draft.distanceMeters != null) &&
+            isForce == (draft.forceNewtons != null)
 }
 
 /**
@@ -540,6 +551,10 @@ data class WorkoutLoggerUiState(
     val deviceRatingKg: String = "",
     val distanceUnit: DistanceUnit = DistanceUnit.METERS,
     val weightInput: String = "",
+    /** Canonical value represented by the manual weight text, retained across display-unit changes. */
+    val manualWeightKg: Double? = null,
+    /** Canonical whole-metre value represented by the manual distance text. */
+    val manualDistanceMetres: Int? = null,
     val rir: String = "",
     val isWarmup: Boolean = false,
     val recentSets: List<LoggedSetRow> = emptyList(),
@@ -603,6 +618,10 @@ data class WorkoutLoggerUiState(
     val guidedEnabled: Boolean = false,
     /** The active occurrence's guided progress, or null when guided mode is off or no workout is active. */
     val guidedProgress: GuidedWorkoutProgress? = null,
+    /** True while the persisted guided target Apply/Reset transaction is in flight. */
+    val guidedTargetsSaving: Boolean = false,
+    /** A failed target transaction leaves the editor open and retryable. */
+    val guidedTargetsFailed: Boolean = false,
     /**
      * One paired turn the user explicitly skipped. It records no set and satisfies no target, and is
      * cleared after the next guided write so the outstanding member is selected again.
@@ -831,7 +850,25 @@ data class WorkoutLoggerUiState(
         }
 
     val canLog: Boolean
-        get() = selectedExerciseId != null && enteredMetricIsPositive && deviceIsValid
+        get() = selectedExerciseId != null &&
+            enteredMetricIsPositive &&
+            deviceIsValid &&
+            manualWeightIsValid &&
+            manualDistanceIsValid
+
+    private val manualWeightIsValid: Boolean
+        get() = !showWeightField ||
+            weightInput.isBlank() ||
+            weightInput.toDoubleOrNull()?.let { value ->
+                value.isFinite() && value >= 0.0 && manualWeightKg != null
+            } == true
+
+    private val manualDistanceIsValid: Boolean
+        get() = metric != SetMetric.DISTANCE ||
+            distanceMeters.isBlank() ||
+            distanceMeters.toDoubleOrNull()?.let { value ->
+                value.isFinite() && manualDistanceMetres != null
+            } == true
 
     /**
      * True when the manual form's device fields may be submitted: only a force reading may carry a
@@ -845,7 +882,7 @@ data class WorkoutLoggerUiState(
         get() = when (metric) {
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
-            SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
+            SetMetric.DISTANCE -> (manualDistanceMetres ?: 0) > 0
             SetMetric.FORCE -> forceNewtons.toDoubleOrNull()
                 ?.let { it.isFinite() && it > 0.0 } == true
         }

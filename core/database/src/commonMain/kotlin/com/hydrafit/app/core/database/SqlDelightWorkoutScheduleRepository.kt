@@ -11,6 +11,9 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.schedule.ActivationEntry as DomainActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout as DomainActivationWorkout
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRepository
+import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry as DomainOccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
@@ -24,6 +27,7 @@ import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence as DomainWorkoutO
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleState as DomainWorkoutScheduleState
+import com.hydrafit.app.core.domain.schedule.applyGuidedTargetPatch
 import com.hydrafit.app.core.domain.schedule.toWeekdayMask
 import com.hydrafit.app.core.domain.schedule.weekdaysOf
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
@@ -36,7 +40,8 @@ class SqlDelightWorkoutScheduleRepository(
     private val database: HydraFitDatabase,
     private val gate: WorkoutReminderDeliveryGate = WorkoutReminderDeliveryGate()
 ) : WorkoutScheduleRepository,
-    OccurrenceReplacementRepository {
+    OccurrenceReplacementRepository,
+    GuidedWorkoutTargetsRepository {
     private val queries = database.trainingScheduleQueries
     private val planWriter = AcceptedPlanWriter(database)
 
@@ -396,16 +401,22 @@ class SqlDelightWorkoutScheduleRepository(
 
     override suspend fun updateOccurrence(occurrence: DomainWorkoutOccurrence) {
         gate.mutate {
-            queries.updateOccurrence(
-                queuePosition = occurrence.queuePosition.toLong(),
-                scheduledEpochDay = occurrence.scheduledEpochDay,
-                notBeforeEpochDay = occurrence.notBeforeEpochDay,
-                startedAtMillis = occurrence.startedAtMillis,
-                resolvedAtMillis = occurrence.resolvedAtMillis,
-                status = occurrence.status.name,
-                revision = occurrence.revision.toLong(),
-                id = occurrence.id
-            )
+            database.transaction {
+                val current = queries.selectOccurrenceById(occurrence.id).executeAsOneOrNull()
+                if (current == null || current.revision + 1L != occurrence.revision.toLong()) {
+                    throw ScheduleException("That workout changed; refresh and try again")
+                }
+                queries.updateOccurrence(
+                    queuePosition = occurrence.queuePosition.toLong(),
+                    scheduledEpochDay = occurrence.scheduledEpochDay,
+                    notBeforeEpochDay = occurrence.notBeforeEpochDay,
+                    startedAtMillis = occurrence.startedAtMillis,
+                    resolvedAtMillis = occurrence.resolvedAtMillis,
+                    status = occurrence.status.name,
+                    revision = occurrence.revision.toLong(),
+                    id = occurrence.id
+                )
+            }
         }
     }
 
@@ -416,6 +427,86 @@ class SqlDelightWorkoutScheduleRepository(
         nowMillis: Long
     ) = gate.mutate {
         replaceUntouchedEntryLocked(occurrenceId, expectedRevision, replacement, nowMillis)
+    }
+
+    override suspend fun applyTargets(request: GuidedWorkoutTargetsRequest) = gate.mutate {
+        database.transaction {
+            val context = queries.selectGuidedOccurrenceContext(
+                request.occurrenceId,
+                request.entryId
+            ).executeAsOneOrNull()
+                ?: throw ScheduleException("That occurrence entry no longer exists")
+            val entry = queries.selectOccurrenceEntryById(request.entryId).executeAsOne()
+            if (context.entryId != entry.id || context.exerciseId != entry.exerciseId) {
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+            if (context.legacyFallbackEnabled != 0L ||
+                context.activeActivationId != context.activationId ||
+                context.selectedOccurrenceId != request.occurrenceId ||
+                context.status in RESOLVED_STATUS_NAMES ||
+                context.revision != request.occurrenceRevision.toLong() ||
+                context.exerciseId != request.exerciseId ||
+                context.sets != request.entrySets.toLong()
+            ) {
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+            val rows = database.workoutLogQueries.selectSetsForOccurrence(request.occurrenceId)
+                .executeAsList().filter {
+                    it.isWarmup == 0L &&
+                        it.occurrenceEntryId == request.entryId
+                }
+            val partialCluster = rows.any { row ->
+                clusterSummaryOf(
+                    row.clusterKind,
+                    row.clusterPlannedSegments,
+                    row.clusterPerformedSegments
+                )
+                    ?.isComplete == false
+            }
+            if (partialCluster) {
+                throw ScheduleException(
+                    "Finish or resolve the partial cluster first"
+                )
+            }
+            val completed = rows.count { row ->
+                if (row.clusterKind == null) {
+                    true
+                } else {
+                    clusterSummaryOf(
+                        row.clusterKind,
+                        row.clusterPlannedSegments,
+                        row.clusterPerformedSegments
+                    )?.isComplete == true
+                }
+            }
+            if (completed != request.completedSetCount || completed !in 0..entry.sets.toInt()) {
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+            val domainEntry = entry.toDomain()
+            val persisted = entry.guidedTargets?.let {
+                GuidedWorkoutTargets.decode(it, domainEntry)
+            }
+            val updated = applyGuidedTargetPatch(
+                entry = domainEntry,
+                existing = persisted,
+                completedSetCount = completed,
+                reset = request.resetRemaining,
+                patches = request.patches
+            )
+            val priorPayload = entry.guidedTargets
+            val nextPayload = updated?.let { GuidedWorkoutTargets.encode(it, domainEntry) }
+            queries.applyGuidedTargets(nextPayload, request.entryId)
+            if (queries.advanceOccurrenceRevisionForActive(
+                    request.occurrenceId,
+                    request.occurrenceRevision.toLong(),
+                    context.activationId,
+                    request.occurrenceId
+                ).value == 0L
+            ) {
+                queries.applyGuidedTargets(priorPayload, request.entryId)
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+        }
     }
 
     private fun replaceUntouchedEntryLocked(
@@ -445,6 +536,7 @@ class SqlDelightWorkoutScheduleRepository(
                 original.durationSeconds != replacement.durationSeconds?.toLong() ||
                 original.position != replacement.position.toLong() ||
                 original.sourceActivationEntryId != replacement.sourceActivationEntryId ||
+                replacement.guidedTargets != null ||
                 original.remainingDisposition != null ||
                 replacement.remainingDisposition != null ||
                 replacement.terminalRemainingSets != null
@@ -570,7 +662,11 @@ class SqlDelightWorkoutScheduleRepository(
         occurrenceId: Long,
         position: Int = this.position
     ): DomainOccurrenceEntry {
-        queries.insertOccurrenceEntry(
+        val encodedTargets = guidedTargets?.let {
+            it.requireValid(this)
+            GuidedWorkoutTargets.encode(it, this)
+        }
+        queries.insertOccurrenceEntryWithTargets(
             occurrenceId = occurrenceId,
             sourceActivationEntryId = sourceActivationEntryId,
             position = position.toLong(),
@@ -591,7 +687,8 @@ class SqlDelightWorkoutScheduleRepository(
             remainingDisposition = remainingDisposition?.name,
             terminalRemainingSets = terminalRemainingSets?.toLong(),
             distanceMeters = distanceMeters?.toLong(),
-            forceNewtons = forceNewtons
+            forceNewtons = forceNewtons,
+            guidedTargets = encodedTargets
         )
         val entryId = queries.lastInsertedOccurrenceEntryId().executeAsOne()
         queries.setOccurrenceSupersetById(
@@ -599,13 +696,33 @@ class SqlDelightWorkoutScheduleRepository(
             entryId
         )
         writeEntryExplanation(OCCURRENCE_ENTRY_KIND, entryId, explanation)
-        return copy(
+        val inserted = copy(
             id = entryId,
             position = position
         )
+        val guidedTargets = guidedTargets?.also { it.requireValid(inserted) }
+        return inserted.copy(guidedTargets = guidedTargets)
     }
 
     private fun DomainOccurrenceEntry.update(queries: TrainingScheduleQueries, position: Int) {
+        val current = queries.selectOccurrenceEntryById(id).executeAsOneOrNull()
+        val targetChanged = current != null &&
+            (
+                current.exerciseId != exerciseId ||
+                    current.sets != sets.toLong() ||
+                    current.reps != reps?.toLong() ||
+                    current.durationSeconds != durationSeconds?.toLong() ||
+                    current.distanceMeters != distanceMeters?.toLong() ||
+                    current.forceNewtons != forceNewtons ||
+                    current.weightKg != weightKg ||
+                    current.loadKind != loadKind.name ||
+                    current.loadCapability != loadCapability.name ||
+                    current.setTargets != setTargets?.let(SlotSetTargetsJson::encode) ||
+                    current.cluster !=
+                    cluster?.let(
+                        com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::encode
+                    )
+                )
         queries.updateOccurrenceEntry(
             position = position.toLong(),
             exerciseId = exerciseId,
@@ -628,6 +745,7 @@ class SqlDelightWorkoutScheduleRepository(
             forceNewtons = forceNewtons,
             id = id
         )
+        if (targetChanged) queries.applyGuidedTargets(null, id)
         queries.setOccurrenceSupersetById(
             superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::encode),
             id
@@ -737,33 +855,39 @@ class SqlDelightWorkoutScheduleRepository(
 
     private fun OccurrenceEntry.toDomain(
         explanation: ExerciseTargetExplanation? = null
-    ): DomainOccurrenceEntry = DomainOccurrenceEntry(
-        id = id,
-        sourceActivationEntryId = sourceActivationEntryId, position = position.toInt(),
-        exerciseId = exerciseId,
-        exerciseName = exerciseName,
-        movementPattern = decodeMovementPattern(movementPattern),
-        requiredEquipment = decodeEquipment(requiredEquipment),
-        involvements = involvements?.let { decodeInvolvements(it) },
-        isUnilateral = isUnilateral != 0L,
-        sets = sets.toInt(),
-        reps = reps?.toInt(),
-        durationSeconds = durationSeconds?.toInt(),
-        weightKg = weightKg,
-        loadCapability = decodeLoadCapability(loadCapability),
-        loadKind = decodeLoadKind(loadKind),
-        explanation = explanation,
-        progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
-        setTargets = setTargets?.let(SlotSetTargetsJson::decode),
-        superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
-        remainingDisposition = remainingDisposition?.toRemainingDisposition(),
-        cluster = cluster?.let(
-            com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::decode
-        ),
-        terminalRemainingSets = terminalRemainingSets?.toInt(),
-        distanceMeters = distanceMeters?.toInt(),
-        forceNewtons = forceNewtons
-    )
+    ): DomainOccurrenceEntry {
+        val domain = DomainOccurrenceEntry(
+            id = id,
+            sourceActivationEntryId = sourceActivationEntryId,
+            position = position.toInt(),
+            exerciseId = exerciseId,
+            exerciseName = exerciseName,
+            movementPattern = decodeMovementPattern(movementPattern),
+            requiredEquipment = decodeEquipment(requiredEquipment),
+            involvements = involvements?.let { decodeInvolvements(it) },
+            isUnilateral = isUnilateral != 0L,
+            sets = sets.toInt(),
+            reps = reps?.toInt(),
+            durationSeconds = durationSeconds?.toInt(),
+            weightKg = weightKg,
+            loadCapability = decodeLoadCapability(loadCapability),
+            loadKind = decodeLoadKind(loadKind),
+            explanation = explanation,
+            progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::decode),
+            setTargets = setTargets?.let(SlotSetTargetsJson::decode),
+            superset = superset?.let(com.hydrafit.app.core.domain.routine.SupersetJson::decode),
+            remainingDisposition = remainingDisposition?.toRemainingDisposition(),
+            cluster = cluster?.let(
+                com.hydrafit.app.core.domain.routine.ClusterPrescriptionJson::decode
+            ),
+            terminalRemainingSets = terminalRemainingSets?.toInt(),
+            distanceMeters = distanceMeters?.toInt(),
+            forceNewtons = forceNewtons
+        )
+        return domain.copy(
+            guidedTargets = guidedTargets?.let { GuidedWorkoutTargets.decode(it, domain) }
+        )
+    }
 
     /** The recorded reasoning per entry id for one entry kind; a row that cannot decode is dropped. */
     private fun entryExplanations(

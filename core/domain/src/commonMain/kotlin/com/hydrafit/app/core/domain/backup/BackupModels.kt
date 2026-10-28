@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT: String = "hydrafit-backup"
 
 /** The format version this build writes. */
-const val BACKUP_FORMAT_VERSION: Int = 29
+const val BACKUP_FORMAT_VERSION: Int = 30
 
 /**
  * Format 27 adds measured force in canonical newtons to performed sets and every prescription
@@ -25,6 +25,9 @@ const val CLUSTER_FORMAT_VERSION: Int = 28
  * representation and dropping it would silently lose recorded activity.
  */
 const val CARDIO_FORMAT_VERSION: Int = 29
+
+/** The first format that carries guided per-set overrides on occurrence entries. */
+const val GUIDED_TARGETS_FORMAT_VERSION: Int = 30
 
 /** Format 26 adds whole-metre set/prescription distance and the metres/feet preference. */
 const val DISTANCE_FORMAT_VERSION: Int = 26
@@ -792,7 +795,9 @@ data class BackupOccurrenceEntryRecord(
     /** Whole metres for a distance slot, format 26 and later. */
     val distanceMeters: Int? = null,
     /** Measured force in canonical newtons, format 27 and later. */
-    val forceNewtons: Double? = null
+    val forceNewtons: Double? = null,
+    /** Guided per-set occurrence overrides, format 30 and later. */
+    val guidedTargets: String? = null
 )
 
 @Serializable

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
+    <string name="logger_guided_edit_remaining_note">Changes apply to the remaining sets in this workout only. They do not change the routine or future workouts.</string>
+    <string name="logger_guided_edit_failed">These targets could not be saved. Your edits are still here; try again.</string>
     <string name="logger_instructions">Instructions</string>
     <string name="logger_technique_considerations">Technique considerations available</string>
     <string name="nav_label">Log</string>

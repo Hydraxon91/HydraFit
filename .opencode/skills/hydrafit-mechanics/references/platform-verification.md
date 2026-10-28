@@ -7,6 +7,21 @@ Paths are relative to the repository root; package shorthand is defined in
 remain kilograms. Unilateral rows use the logged per-hand value rather than
 doubling the 1RM input.
 
+The Logger's manual form retains canonical kilograms beside its display text. A preference change
+reformats valid input from the retained value with `exactEntryText`; it does not round the value at
+each toggle. Whole-metre manual distance uses the same approach, with `DistanceUnit` converting the
+retained integer to display text. Blank remains absent, while invalid/incomplete nonblank input is
+preserved and cannot be submitted. This is separate from draft/correction editors, which freeze the
+unit captured when they opened. Recent-set and accepted-plan weight prefills also use exact editable
+text after unit conversion, keeping the rendered value and submitted canonical kilograms consistent.
+Switching the manual measure away from distance clears its canonical metres as well as its text, so
+selecting distance again requires a fresh positive entry before logging.
+
+Draft editor force and device-rating prefills are also exact entry text, not one-decimal display
+formatting: both opening the editor and Reset preserve the stored double through the editor's
+Apply/reopen/log path. These values stay in newtons and kilograms respectively; neither is converted
+when a weight or distance preference changes.
+
 Measured force is the exception: newtons are canonical and are never converted by `WeightUnit` or by
 the metres/feet preference, so `formatWeight(forceNewtons)` only trims the number. A device's
 `ratingKg` is a descriptive manufacturer figure shown in kilograms; it is not converted to newtons and
