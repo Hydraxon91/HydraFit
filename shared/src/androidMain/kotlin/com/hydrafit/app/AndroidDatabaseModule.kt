@@ -36,6 +36,9 @@ import com.hydrafit.app.feature.routines.AndroidWorkoutReminderScheduler
 import com.hydrafit.app.feature.routines.localMinuteEpochMillis
 import com.hydrafit.app.feature.settings.AndroidAutomaticBackupScheduler
 import com.hydrafit.app.feature.settings.AutomaticBackupCoordinator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.onClose
 import org.koin.dsl.module
@@ -92,6 +95,12 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
             readiness = get()
         ).also { it.start() }
     }.factory.beanDefinition.onClose { it?.close() }
+    // The retired on-device planner's weights are dead weight; delete them off the main thread.
+    single(createdAtStart = true) {
+        CoroutineScope(Dispatchers.IO).launch {
+            StaleOnDeviceModelCleanup(context.applicationContext.filesDir).run()
+        }
+    }
     single<PrescriptionDocumentStore> {
         AndroidPrescriptionDocumentStore(context.applicationContext)
     }

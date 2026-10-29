@@ -36,7 +36,8 @@ do not assume the generation target and post-filter floor should be identical.
   malformed or sanitizer-rejected plans explicitly. Legacy Gemini identities remain in saved history.
 - On-device generation was removed in 0.12.x: `:core:llm`, the LiteRT-LM runtime, the Settings
   import/remove controls and the on-device storage row are gone. A stored `LOCAL_LLM` selection
-  resolves to the deterministic engine. An older `on_device_llm.litertlm` file is left untouched.
+  resolves to the deterministic engine, and Android startup deletes the retired
+  `on_device_llm.litertlm`/`.target` files off the main thread.
 - Legacy Gemini implementation: network `GeminiWorkoutPlannerEngine.kt` and
   `GeminiDtos.kt`. HTTP transient retries: `MAX_RETRIES = 2`, base delay
   `1_000` ms, maximum delay `8_000` ms. HTTP failures surface as

@@ -820,8 +820,8 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 ## 5. On-device LLM (removed)
 - The on-device planner, its Settings import/model controls and the imported-model storage row
   were removed in 0.12.x. No on-device generation path or runtime remains.
-- An imported `on_device_llm.litertlm` may still exist in the app's private storage from an older
-  build; nothing reads it. Deleting that file needs a separate user-approved cleanup decision.
+- An `on_device_llm.litertlm`/`.target` left by an older build is deleted from app storage at
+  startup, off the main thread; only those two exact filenames are touched.
 - A stored `LOCAL_LLM` selection from an older install falls back to the deterministic planner.
 
 ## 6. Log
