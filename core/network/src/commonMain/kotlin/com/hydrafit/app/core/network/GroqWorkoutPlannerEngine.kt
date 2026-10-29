@@ -52,8 +52,8 @@ class GroqWorkoutPlannerEngine(
         }
         val exercises = catalog.all()
         PlannerCandidateEligibility.requireWorkouts(exercises, request)
-        val ids = PlannerCandidateEligibility.candidates(exercises, request).map { it.id }
-        val source = promptBuilder.buildRequest(request, ids)
+        val candidates = PlannerCandidateEligibility.candidates(exercises, request)
+        val source = promptBuilder.buildRequest(request, candidates.map { it.id })
         val sourceSchema = requireNotNull(source.generationConfig?.responseSchema)
         val schema = convertSchema(
             geminiJson.parseToJsonElement(geminiJson.encodeToString(sourceSchema))
@@ -83,7 +83,7 @@ class GroqWorkoutPlannerEngine(
             } catch (error: Exception) {
                 throw failure(PlanFailureReason.NETWORK, "Could not reach Groq", true)
             }
-            if (response.status.isSuccess()) return planFrom(response, ids, exercises, request)
+            if (response.status.isSuccess()) return planFrom(response, candidates, request)
 
             val body = runCatching { response.bodyAsText() }.getOrDefault("")
             val status = response.status.value
@@ -104,15 +104,14 @@ class GroqWorkoutPlannerEngine(
             if (!transient || attempt >= MAX_RETRIES) {
                 throw failure(reason, "Groq request failed with status $status", transient)
             }
-            delay(retryDelayMillis(response, attempt))
+            delay(retryDelayMillis(response, attempt, reason))
             attempt++
         }
     }
 
     private suspend fun planFrom(
         response: io.ktor.client.statement.HttpResponse,
-        ids: List<String>,
-        exercises: List<com.hydrafit.app.core.domain.equipment.Exercise>,
+        candidates: List<com.hydrafit.app.core.domain.equipment.Exercise>,
         request: PlanRequest
     ): WeeklyPlan {
         val text = try {
@@ -123,7 +122,7 @@ class GroqWorkoutPlannerEngine(
             null
         } ?: throw failure(PlanFailureReason.INVALID_RESPONSE, "Groq response contained no plan")
         val parsed = try {
-            resolveExerciseIds(parseWeeklyPlan(text, id), ids, exercises)
+            resolveExerciseIds(parseWeeklyPlan(text, id), candidates)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -148,7 +147,8 @@ class GroqWorkoutPlannerEngine(
 
     private fun retryDelayMillis(
         response: io.ktor.client.statement.HttpResponse,
-        attempt: Int
+        attempt: Int,
+        reason: PlanFailureReason
     ): Long {
         val hint = response.headers[HttpHeaders.RetryAfter]
             ?.removeSuffix("s")
@@ -156,8 +156,10 @@ class GroqWorkoutPlannerEngine(
             ?.let { (it * 1000).toLong() }
         if (hint != null) {
             if (hint > MAX_RETRY_HINT_MILLIS) {
+                // The wait the provider asked for is outside our budget, so the request stops with
+                // the reason the status already established, not a rate limit it may not be.
                 throw failure(
-                    PlanFailureReason.RATE_LIMITED,
+                    reason,
                     "Groq asked to retry after ${hint / 1_000}s, above the " +
                         "${MAX_RETRY_HINT_MILLIS / 1_000}s limit",
                     true

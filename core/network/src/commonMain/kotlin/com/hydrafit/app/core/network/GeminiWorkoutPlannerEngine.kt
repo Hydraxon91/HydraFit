@@ -57,9 +57,8 @@ class GeminiWorkoutPlannerEngine(
         }
         val catalogExercises = catalog.all()
         PlannerCandidateEligibility.requireWorkouts(catalogExercises, request)
-        val availableIds = PlannerCandidateEligibility.candidates(catalogExercises, request)
-            .map { it.id }
-        val payload = buildRequest(request, availableIds)
+        val candidates = PlannerCandidateEligibility.candidates(catalogExercises, request)
+        val payload = buildRequest(request, candidates.map { it.id })
         val url = "${config.baseUrl}/models/${config.model}:generateContent"
 
         var attempt = 0
@@ -99,8 +98,7 @@ class GeminiWorkoutPlannerEngine(
                     )
                 val plan = resolveExerciseIds(
                     parseWeeklyPlan(text, PlannerEngineId.GEMINI_API),
-                    availableIds,
-                    catalogExercises
+                    candidates
                 )
                 return sanitizer.sanitize(plan, request) ?: fallback.generatePlan(request)
             }

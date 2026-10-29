@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
@@ -121,22 +122,118 @@ class GroqWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun resolvesAReturnedDisplayNameToTheEligibleId() = runTest {
+    fun resolvesUppercasedIdsToTheirEligibleId() = runTest {
         val content = """{"days":[""" + listOf("press", "row", "squat").joinToString(",") {
             """{"focus":"FULL_BODY","exercises":[""" +
                 """{"exerciseId":"${it.uppercase()}","sets":3,"reps":8},""" +
                 """{"exerciseId":"curl","sets":2,"reps":10}]}"""
         } + "]}"
         val parsed = parseWeeklyPlan(content, PlannerEngineId.GROQ_API)
-        val resolved = resolveExerciseIds(
-            parsed,
-            listOf("press", "row", "squat", "curl"),
-            catalog.all()
-        )
+        val candidates = catalog.all()
+        val resolved = resolveExerciseIds(parsed, candidates)
         assertEquals(
             listOf("press", "row", "squat"),
             resolved.days.map { day -> day.exercises.first().exerciseId }
         )
+    }
+
+    @Test
+    fun resolvesAnExactDisplayNameToItsEligibleId() = runTest {
+        val named = exercise("press", MovementPattern.HORIZONTAL_PUSH, name = "Barbell Bench Press")
+        val content = """{"days":[{"focus":"FULL_BODY","exercises":[""" +
+            """{"exerciseId":"Barbell Bench Press","sets":3,"reps":8}]}]}"""
+        val parsed = parseWeeklyPlan(content, PlannerEngineId.GROQ_API)
+
+        val resolved = resolveExerciseIds(parsed, listOf(named))
+
+        assertEquals("press", resolved.days.single().exercises.single().exerciseId)
+    }
+
+    @Test
+    fun leavesASharedDisplayNameUnresolvedInsteadOfChoosingARow() = runTest {
+        val shared = listOf(
+            exercise("press-a", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press"),
+            exercise("press-b", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press")
+        )
+        val content = """{"days":[{"focus":"FULL_BODY","exercises":[""" +
+            """{"exerciseId":"bench press","sets":3,"reps":8}]}]}"""
+
+        listOf(shared, shared.reversed()).forEach { candidates ->
+            val resolved = resolveExerciseIds(
+                parseWeeklyPlan(content, PlannerEngineId.GROQ_API),
+                candidates
+            )
+
+            // The name cannot say which exercise was meant, so the sanitizer drops the slot
+            // instead of the app silently choosing one of the two.
+            assertEquals(
+                "bench press",
+                resolved.days.single().exercises.single().exerciseId
+            )
+        }
+    }
+
+    @Test
+    fun resolvesASharedNameToTheOnlyEligibleMatch() = runTest {
+        val shared = listOf(
+            exercise("bench-barbell", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press"),
+            exercise(
+                "bench-cable",
+                MovementPattern.HORIZONTAL_PUSH,
+                name = "Bench Press",
+                equipment = setOf(EquipmentTag.CABLE_MACHINE)
+            )
+        )
+        val candidates = PlannerCandidateEligibility.candidates(shared, request)
+        assertEquals(listOf("bench-barbell"), candidates.map { it.id })
+        val content = """{"days":[{"focus":"FULL_BODY","exercises":[""" +
+            """{"exerciseId":"Bench Press","sets":3,"reps":8}]}]}"""
+
+        val resolved = resolveExerciseIds(
+            parseWeeklyPlan(content, PlannerEngineId.GROQ_API),
+            candidates
+        )
+
+        assertEquals("bench-barbell", resolved.days.single().exercises.single().exerciseId)
+    }
+
+    @Test
+    fun keepsTheServiceUnavailableReasonForALongRetryHintOnA5xx() = runTest {
+        var calls = 0
+        val mock = MockEngine {
+            calls++
+            respond(
+                """{"error":{"message":"overloaded"}}""",
+                HttpStatusCode.ServiceUnavailable,
+                headersOf(
+                    HttpHeaders.ContentType to listOf("application/json"),
+                    HttpHeaders.RetryAfter to listOf("120")
+                )
+            )
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engineFor(mock).generatePlan(request)
+        }
+        assertEquals(PlanFailureReason.SERVICE_UNAVAILABLE, failure.reason)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun keepsTheRateLimitReasonForALongRetryHint() = runTest {
+        val mock = MockEngine {
+            respond(
+                """{"error":{"code":"rate_limit_exceeded","message":"tokens per minute"}}""",
+                HttpStatusCode.TooManyRequests,
+                headersOf(
+                    HttpHeaders.ContentType to listOf("application/json"),
+                    HttpHeaders.RetryAfter to listOf("120")
+                )
+            )
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engineFor(mock).generatePlan(request)
+        }
+        assertEquals(PlanFailureReason.RATE_LIMITED, failure.reason)
     }
 
     @Test
@@ -240,10 +337,15 @@ class GroqWorkoutPlannerEngineTest {
         assertEquals(PlanFailureReason.INVALID_RESPONSE, failure.reason)
     }
 
-    private fun exercise(id: String, pattern: MovementPattern) = Exercise(
+    private fun exercise(
+        id: String,
+        pattern: MovementPattern,
+        name: String = id,
+        equipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL)
+    ) = Exercise(
         id = id,
-        name = id,
-        requiredEquipment = setOf(EquipmentTag.BARBELL),
+        name = name,
+        requiredEquipment = equipment,
         primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
         movementPattern = pattern
     )
