@@ -459,7 +459,7 @@ Former slice ids are recorded in parentheses.
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
 | 0.12.0 | Research remote providers first; then scope provider-specific identity and shared validation work | Gemini baseline, OpenRouter and Groq; CATP7-R01; S1-013, S3-005/S3-006; provider selection and repair/rejection decisions remain gated |
-| 0.12.1 | Retire the on-device LLM feature and runtime from the app (implemented on `research/0.12.0`, uncommitted review) | Removal contract, existing imported files and settings, shared consumers and migration behavior require separate decisions and approval |
+| 0.12.1 | Retired on-device LLM feature and runtime (implemented on `research/0.12.0`) | Remaining: decision on deleting an existing imported model file; release verification |
 
 Research precedes implementation: compare Gemini with OpenRouter and Groq BYOK
 options using representative synthetic requests. Assess current pricing and quotas,
