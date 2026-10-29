@@ -18,7 +18,7 @@ Companion reading: `README.md` (what the app does), `PLANS.md` (current work), `
 ### 1.1 KMP module layering (feature → domain ← database)
 
 HydraFit is a small, single-purpose Gradle module graph. `:core:domain` is commonMain-only Kotlin
-with no platform APIs; `:core:database`/`:core:network`/`:core:llm`/`:core:userdata` provide
+with no platform APIs; `:core:database`/`:core:network`/`:core:userdata` provide
 implementations and platform glue; `:core:exercisecontent` bundles app-owned catalog content
 (offline exercise instructions) with its read-only viewer; each `:feature:*` owns UI + ViewModel;
 `:shared` is the composition root; `:androidApp` is the platform entry point.
@@ -44,11 +44,11 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
 ### 1.2 Domain ports/interfaces with SQLDelight implementations
 
 Domain declares repository and engine **interfaces**; implementations live in `:core:database` /
-`:core:network` / `:core:llm`. The dependency direction is `feature → domain ← implementation`.
+`:core:network`. The dependency direction is `feature → domain ← implementation`.
 
 - **Examples:** `WorkoutLogRepository`, `WorkoutSessionRepository`, `PlanHistoryRepository`,
   `ExerciseCatalog`, `WorkoutPlanSourcesRepository` (domain) implemented by `SqlDelight*` classes;
-  `EngineAvailability`, `OnDeviceModelManager`, `ApiKeyStore` (ports) implemented per platform.
+  `EngineAvailability`, `ApiKeyStore` (ports) implemented per platform.
 - **Consistency:** high. All persistence goes through SQLDelight-generated queries; no raw SQL in
   features. `ExerciseCatalog.observeAll()` even has a default `flow { emit(all()) }` so simple/test
   implementations need not override it.
@@ -134,7 +134,7 @@ All use cases and both model-backed engine bindings live in `:shared` (`domainMo
 `initKoin(platformModule)` from the `Application`/iOS entry.
 
 - **Examples:** `shared/…/DomainModule.kt` (use cases + engines), `shared/…/AndroidDatabaseModule.kt`
-  (`TimeProvider`, `ApiKeyStore`, `OnDeviceTextGenerator`, `AndroidDatabaseDriverFactory`),
+  (`TimeProvider`, `ApiKeyStore`, `AndroidDatabaseDriverFactory`),
   `Koin.kt` (`startKoin` + starting off-main startup maintenance).
 - **Consistency:** high. `:core:domain` exposes no Koin module (PLANS.md "Decisions Made": "Domain
   use cases and the `WorkoutPlannerEngine` binding live in `:shared`'s `domainModule`").
@@ -241,9 +241,10 @@ and take the state plus callbacks.
 
 One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) backs
 three active implementations selected by `DefaultWorkoutPlannerEngineProvider` from the persisted engine
-preference. `GroqWorkoutPlannerEngine` and `LocalLlmWorkoutPlannerEngine` both funnel output
-through the shared `WeeklyPlanSanitizer` + `PlanVarietyEnforcer`; the deterministic engine returns
-directly. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
+preference. `GroqWorkoutPlannerEngine` funnels output through the shared `WeeklyPlanSanitizer` +
+`PlanVarietyEnforcer`; the deterministic engine returns directly. Stored `GEMINI_API` and `LOCAL_LLM`
+identities remain readable for plan history, but both resolve to the deterministic engine. The
+on-device planner and its LiteRT-LM runtime were removed in 0.12.x. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
 `SubstituteExerciseUseCase` to swap one slot of an accepted plan; when the replaced slot is
 qualifying direct arm work, coverage-preserving replacements are ranked first while other same-pattern
 replacements remain available for explicit user choice.
@@ -616,8 +617,7 @@ Platform behavior is supplied by source-set-specific classes bound in platform K
 Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
 
 - **Examples:** `AndroidDatabaseDriverFactory`/`NativeDatabaseDriverFactory`,
-  `AndroidKeystoreApiKeyStore`/`NoopApiKeyStore`, `UnsupportedOnDeviceTextGenerator`,
-  `OnDeviceModelSection`, backup UI (`BackupSection`), monotonic elapsed time
+  `AndroidKeystoreApiKeyStore`/`NoopApiKeyStore`, backup UI (`BackupSection`), monotonic elapsed time
   (`elapsedRealtimeMillis`), and rest-alert permission (`rememberRestAlertPermission`) each have
   `commonMain` declarations with Android/iOS implementations. Settings also uses a narrow
   modifier adapter to expose guidance and storage test tags as Android resource IDs, with a no-op on iOS.
@@ -633,7 +633,7 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   without app-level inset code; a custom `Scaffold` or `NavigationBar` inset would have to preserve
   that.
 - **Violations / tensions:** real Android/iOS bindings are not exercised by Koin verification (PLANS
-  records this); the synchronous `ApiKeyStore`/`OnDeviceModelManager` ports push threading discipline
+  records this); the synchronous `ApiKeyStore` port pushes threading discipline
   onto callers (S2-007).
 - **Ranked improvements:** (M) make the IO ports `suspend` (S2-007); add an instrumented verification
   for the Android graph where feasible.

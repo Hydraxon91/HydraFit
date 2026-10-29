@@ -16,7 +16,6 @@ class DefaultWorkoutPlannerEngineProviderTest {
 
     private val deterministic = FakeEngine(PlannerEngineId.DETERMINISTIC)
     private val groq = FakeEngine(PlannerEngineId.GROQ_API)
-    private val localLlm = FakeEngine(PlannerEngineId.LOCAL_LLM)
 
     @Test
     fun usesDeterministicWhenThatIsSelected() = runTest {
@@ -45,10 +44,8 @@ class DefaultWorkoutPlannerEngineProviderTest {
     }
 
     @Test
-    fun usesTheOnDeviceEngineWhenSelected() = runTest {
-        val provider = provider(selected = PlannerEngineId.LOCAL_LLM, apiKey = "")
-
-        assertSame(localLlm, provider.get())
+    fun legacyOnDeviceSelectionUsesDeterministic() = runTest {
+        assertSame(deterministic, provider(PlannerEngineId.LOCAL_LLM, "").get())
     }
 
     private fun provider(selected: PlannerEngineId, apiKey: String) =
@@ -56,7 +53,6 @@ class DefaultWorkoutPlannerEngineProviderTest {
             preference = FakeEnginePreferenceRepository(selected),
             deterministic = deterministic,
             groq = groq,
-            localLlm = localLlm,
             apiKeyProvider = GroqApiKeyProvider { apiKey }
         )
 

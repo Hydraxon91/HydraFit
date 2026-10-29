@@ -12,8 +12,6 @@ import com.hydrafit.app.core.domain.storage.ClearDataCategoryUseCase
 import com.hydrafit.app.core.domain.storage.DataCategory
 import com.hydrafit.app.core.domain.storage.StorageUsage
 import com.hydrafit.app.core.domain.storage.StorageUsageUseCase
-import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
-import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -26,36 +24,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The storage section's view of the on-device model file. The ViewModel depends on this bound type
- * instead of the platform manager directly, so a platform module that provides no manager (iOS)
- * still resolves the graph and simply reports the model as not installed. See [OnDeviceModelHandle].
- */
-interface StorageModelHandle {
-    fun isInstalled(): Boolean
-
-    fun remove(): ModelUpdateResult
-}
-
-/** Adapts the platform manager; a null manager reads as absent and refuses removal. */
-class OnDeviceModelHandle(private val manager: OnDeviceModelManager?) : StorageModelHandle {
-    override fun isInstalled(): Boolean = manager?.isInstalled() ?: false
-
-    override fun remove(): ModelUpdateResult = manager?.remove() ?: ModelUpdateResult.FAILED
-}
-
-/**
  * Drives the Settings storage surface: it loads the reported usage, opens a confirmation for a
  * requested removal and only executes that removal on [confirm]. A database category goes through
- * [ClearDataCategoryUseCase], the recorded snapshots through [ClearAutomaticBackupFilesUseCase] and
- * the model file through [StorageModelHandle]. Every finished removal reloads the usage, so the
- * counts on screen reflect what is actually stored. Cancellation is rethrown, never reported as a
- * failure.
+ * [ClearDataCategoryUseCase] and the recorded snapshots through
+ * [ClearAutomaticBackupFilesUseCase]. Every finished removal reloads the usage, so the counts on
+ * screen reflect what is actually stored. Cancellation is rethrown, never reported as a failure.
  */
 class StorageDataViewModel(
     private val storageUsage: StorageUsageUseCase,
     private val clearCategory: ClearDataCategoryUseCase,
     private val clearBackupFiles: ClearAutomaticBackupFilesUseCase,
-    private val modelHandle: StorageModelHandle,
     private val runBackup: RunAutomaticBackupUseCase,
     private val appVersionProvider: AppVersionProvider,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
@@ -84,14 +62,6 @@ class StorageDataViewModel(
                 status = null
             )
         }
-    }
-
-    /**
-     * Opens the confirmation for the on-device model file. The model row uses this entry point so
-     * the same never-remove-on-first-tap rule applies; [confirm] performs the removal itself.
-     */
-    fun removeModel() {
-        request(DataCategory.ON_DEVICE_MODEL)
     }
 
     /** Records the text typed into the ALL_DATA confirmation field. */
@@ -179,26 +149,16 @@ class StorageDataViewModel(
         DataCategory.BACKUP_FILES ->
             StorageDataStatus.BackupFilesRemoved(clearBackupFiles())
 
-        DataCategory.ON_DEVICE_MODEL -> removeModelFile()
-
         else -> {
             clearCategory(category)
             StorageDataStatus.CategoryRemoved(category)
         }
     }
 
-    private fun removeModelFile(): StorageDataStatus =
-        if (modelHandle.remove() == ModelUpdateResult.SUCCESS) {
-            StorageDataStatus.ModelRemoved
-        } else {
-            StorageDataStatus.ModelRemovalFailed
-        }
-
     private suspend fun loadUsage() {
         try {
             val usage: StorageUsage = withContext(dispatcher) { storageUsage() }
-            val installed = withContext(dispatcher) { modelHandle.isInstalled() }
-            _state.update { it.copy(usage = usage, modelInstalled = installed) }
+            _state.update { it.copy(usage = usage) }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Throwable) {

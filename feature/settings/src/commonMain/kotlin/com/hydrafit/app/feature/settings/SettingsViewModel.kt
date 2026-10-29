@@ -113,8 +113,7 @@ class SettingsViewModel(
                     distanceUnit = distanceUnit,
                     guidedWorkoutEnabled = guidedWorkoutEnabled,
                     workoutDataSharingEnabled = shareWorkoutData,
-                    apiKeyConfigured = !apiKeyStore.load().isNullOrBlank(),
-                    isLocalLlmInstalled = PlannerEngineId.LOCAL_LLM in available
+                    apiKeyConfigured = !apiKeyStore.load().isNullOrBlank()
                 )
             }
         }

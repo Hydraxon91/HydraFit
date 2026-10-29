@@ -87,16 +87,15 @@ Research may conclude that a feature isn't supported; reserving a version doesn'
 
 The **built-in deterministic planner** is the default. It runs offline and produces the same plan from the same inputs. Equipment, exercise preferences, fatigue estimates, load history and training goals inform its choices. Its calculations and tradeoffs are documented in the [architecture](docs/architecture.md) and [fatigue formula](docs/fatigue-formula.md).
 
-Two optional AI engines use the same planning interface:
+One optional AI engine uses the same planning interface:
 
 - **Groq API:** needs your own API key and a network connection. It sends equipment, fatigue and goals to Groq; sharing logged workout history requires a separate consent toggle, off by default. Groq's rate limits, charges and data policies apply. Generated plans are validated but may still need your review.
-- **On-device LLM:** experimental and Android-only, using LiteRT-LM with a user-imported model. No model is bundled. The tested Gemma pack does not currently produce usable complete weekly plans and falls back to the built-in planner. Treat local generation as non-functional for now; reliability work is planned in 0.12.x.
 
 Some older plans also contain loads whose meaning was never established. The Logger labels these as “recorded, unconfirmed” rather than rewriting them. Generated bodyweight prescriptions do not suggest external loads; added kilograms are treated as added load, not total resistance. Added-load e1RM/progression and assisted or negative-load support remain outside the current contract.
 
 ## Development
 
-HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection, Ktor for Groq and LiteRT-LM for local inference. Android is the shipping platform; iOS compilation is checked, but an iOS app isn't shipped yet.
+HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection and Ktor for the optional Groq planner. Android is the shipping platform; iOS compilation is checked, but an iOS app isn't shipped yet.
 
 Domain logic lives in `core/domain`, storage and engine integrations have their own core modules, and each feature owns its UI and navigation. `shared` connects them; `androidApp` is the Android entry point. See the [architecture guide](docs/architecture.md) for the boundaries.
 

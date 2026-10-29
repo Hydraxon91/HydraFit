@@ -1,7 +1,6 @@
 package com.hydrafit.app
 
 import android.content.Context
-import android.net.Uri
 import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
@@ -15,11 +14,6 @@ import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
-import com.hydrafit.app.core.llm.AndroidOnDeviceModelManager
-import com.hydrafit.app.core.llm.AndroidOnDevicePlannerLogger
-import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
-import com.hydrafit.app.core.llm.OnDevicePlannerLogger
-import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.AndroidAutomaticBackupStateStore
@@ -28,7 +22,6 @@ import com.hydrafit.app.core.userdata.backup.AndroidBackupEncryptionKeyStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFileStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFolderStore
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
-import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidGroqApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
@@ -80,26 +73,6 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
         val store = get<ApiKeyStore>()
         GroqApiKeyProvider { store.load().orEmpty() }
     }
-    single { AndroidOnDeviceModelManager(context.applicationContext) }
-    single<OnDeviceTextGenerator> {
-        LiteRtLmTextGenerator(context.applicationContext, get<AndroidOnDeviceModelManager>())
-    }
-    single<OnDeviceModelManager> {
-        val manager = get<AndroidOnDeviceModelManager>()
-        // Resolve the generator (cheap: it loads no model until generate) so removing the model also
-        // stops its cached native engine instead of leaving it holding backend resources.
-        val generator = get<OnDeviceTextGenerator>()
-        DelegatingOnDeviceModelManager(
-            installedCheck = manager::isInstalled,
-            targetCheck = manager::modelTarget,
-            onInstall = { source -> manager.importFromUri(Uri.parse(source)) },
-            onRemove = {
-                manager.remove()
-                generator.release()
-            }
-        )
-    }
-    single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
     single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
     single<BackupFolderStore> { AndroidBackupFolderStore(context.applicationContext) }
     single<StorageUsagePort> {

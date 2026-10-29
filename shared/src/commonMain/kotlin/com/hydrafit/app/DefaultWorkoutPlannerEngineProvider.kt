@@ -10,15 +10,14 @@ class DefaultWorkoutPlannerEngineProvider(
     private val preference: EnginePreferenceRepository,
     private val deterministic: WorkoutPlannerEngine,
     private val groq: WorkoutPlannerEngine,
-    private val localLlm: WorkoutPlannerEngine,
     private val apiKeyProvider: GroqApiKeyProvider
 ) : WorkoutPlannerEngineProvider {
 
     override suspend fun get(): WorkoutPlannerEngine = when (preference.selectedEngine()) {
-        PlannerEngineId.GEMINI_API -> deterministic
+        // Retired cloud and on-device engines stay readable in history but are never selected.
+        PlannerEngineId.GEMINI_API, PlannerEngineId.LOCAL_LLM -> deterministic
         PlannerEngineId.GROQ_API ->
             if (apiKeyProvider.groqApiKey().isNotBlank()) groq else deterministic
-        PlannerEngineId.LOCAL_LLM -> localLlm
         PlannerEngineId.DETERMINISTIC -> deterministic
     }
 }

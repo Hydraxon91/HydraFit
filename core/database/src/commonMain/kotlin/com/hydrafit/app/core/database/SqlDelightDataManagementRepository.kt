@@ -49,7 +49,7 @@ class SqlDelightDataManagementRepository(
             DataCategory.TRAINING_SETUP -> clearTrainingSetup()
             DataCategory.EXERCISE_DATA -> clearExerciseData()
             DataCategory.ALL_DATA -> clearAllData()
-            DataCategory.BACKUP_FILES, DataCategory.ON_DEVICE_MODEL ->
+            DataCategory.BACKUP_FILES ->
                 throw IllegalArgumentException("$category is removed outside the database")
         }
     }

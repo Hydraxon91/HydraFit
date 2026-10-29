@@ -159,9 +159,6 @@ class SqlDelightDataManagementRepositoryTest {
         assertFailsWith<IllegalArgumentException> {
             repository.clear(DataCategory.BACKUP_FILES)
         }
-        assertFailsWith<IllegalArgumentException> {
-            repository.clear(DataCategory.ON_DEVICE_MODEL)
-        }
         assertEquals(1, repository.counts()[DataCountKind.SESSIONS])
     }
 

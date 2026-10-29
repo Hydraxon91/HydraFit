@@ -815,13 +815,12 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Sharing toggle OFF → no weight history sent (consent gate); ON changes behaviour.
 - Historical Gemini plans retain their attribution; a legacy Gemini selection uses the offline engine.
 
-## 5. Plan — on-device LLM
-- No model imported → the engine is greyed out in Settings.
-- Import the portable pack (`gemma3-1b-it-int4.litertlm`) → generation starts on GPU/CPU; a plan is produced or a reason is logged.
-- **Recovery regression:** after a failed generation or a model change, tapping generate again must not fail with "Engine is not initialized" — the generator drops the stale engine instead of caching a closed one.
-- NPU pack (`…_sm8850.litertlm`) → import is refused with the "NPU model packs aren't supported" message; the hint/link that used to point at these packs is gone. A pre-existing NPU install shows "NPU build (unsupported)" and the on-device engine stays unavailable; if reached, the generator still tries NPU → GPU → CPU and falls back with a clear log line.
-- If the on-device plan is rejected, logcat (`adb logcat -s LiteRtLmTextGenerator OnDevicePlanner`) shows `On-device plan did not satisfy the request: days=N/M, per-day=[…]` so the shape can be triaged.
-- OOM → deterministic fallback (unchanged).
+## 5. On-device LLM (removed)
+- The on-device planner, its Settings import/model controls and the imported-model storage row
+  were removed in 0.12.x. No on-device generation path or runtime remains.
+- An imported `on_device_llm.litertlm` may still exist in the app's private storage from an older
+  build; nothing reads it. Deleting that file needs a separate user-approved cleanup decision.
+- A stored `LOCAL_LLM` selection from an older install falls back to the deterministic planner.
 
 ## 6. Log
 - Log a set: exercise search, reps, weight, RIR, warm-up, bodyweight/blank weight, "per hand" hint.

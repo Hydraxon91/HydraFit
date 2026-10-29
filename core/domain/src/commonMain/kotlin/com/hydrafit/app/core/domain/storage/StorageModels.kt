@@ -8,7 +8,6 @@ enum class DataCategory {
     TRAINING_SETUP,
     EXERCISE_DATA,
     BACKUP_FILES,
-    ON_DEVICE_MODEL,
     ALL_DATA
 }
 
