@@ -37,8 +37,11 @@ exact on-screen text.
   are user-reported results and no automated pass is claimed. The key was restored by the user.
 - Not covered by that check: the ambiguous-name drop (host-tested only), and dark mode, larger text,
   locale and TalkBack.
-- The pinned `v0.11.3` → candidate debug upgrade with retained data has not been run, so on-device
-  migration and retained-settings behavior remain unverified.
+- The pinned `v0.11.3` → candidate debug upgrade with retained data was not run: the emulator's
+  database was already at the candidate schema, so the check would have required erasing existing
+  emulator data. The user accepted this limit on 2026-10-29, so on-device migration and
+  retained-settings behavior remain unverified; `verifySqlDelightMigration` and the full host matrix
+  cover the schema change itself.
 
 ## Bonsai 2B experiment — failed for now (2026-10-29)
 
