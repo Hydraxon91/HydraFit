@@ -22,7 +22,7 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
-val defaultVersionName = "0.7.6-dev"
+val defaultVersionName = "0.12.0-dev"
 val defaultVersionCode = 1
 val releaseTagPattern = Regex("""^v\d+\.\d+\.\d+([-+].*)?$""")
 val stableReleaseTagPattern = Regex("""^v(\d+)\.(\d+)\.(\d+)$""")
