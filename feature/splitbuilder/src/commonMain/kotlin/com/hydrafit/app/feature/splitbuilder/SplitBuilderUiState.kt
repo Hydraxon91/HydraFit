@@ -140,8 +140,6 @@ data class SplitBuilderUiState(
     val isTransientError: Boolean = false,
     val errorDetail: String? = null,
     val failureReason: PlanFailureReason? = null,
-    /** Why a fallback plan was shown, when the requested engine is known to have failed a step. */
-    val fallbackReason: PlanFailureReason? = null,
     /** True while the swap candidate dialog is shown for [swapTargetDayIndex]/[swapTargetPosition]. */
     val swapDialogOpen: Boolean = false,
     val swapTargetDayIndex: Int? = null,

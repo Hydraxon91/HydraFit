@@ -916,7 +916,6 @@ class SplitBuilderViewModel(
                 hasError = false,
                 isTransientError = false,
                 errorDetail = null,
-                fallbackReason = null,
                 volumeExplanationInvalidated = accepted.volumeExplanationStatus ==
                     VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION,
                 requestedEngine = accepted.engine,
@@ -954,7 +953,6 @@ class SplitBuilderViewModel(
                 isTransientError = false,
                 errorDetail = null,
                 failureReason = null,
-                fallbackReason = null,
                 volumeExplanationInvalidated = false,
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
@@ -1004,16 +1002,7 @@ class SplitBuilderViewModel(
                     draftDates = request.workoutEpochDays,
                     canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
                         lastRequest?.let { fingerprintOf(it, catalog) != fingerprint } == true,
-                    volumeExplanationInvalidated = false,
-                    // Surface a mismatch between the selected cloud engine and the returned plan.
-                    fallbackReason = if (
-                        plan.engine != inputs.requestedEngine &&
-                        inputs.requestedEngine == PlannerEngineId.GROQ_API
-                    ) {
-                        PlanFailureReason.INVALID_RESPONSE
-                    } else {
-                        null
-                    }
+                    volumeExplanationInvalidated = false
                 )
             }
         } catch (cancellation: CancellationException) {

@@ -1,5 +1,7 @@
 package com.hydrafit.app
 
+import com.hydrafit.app.core.domain.engine.PlanFailureReason
+import com.hydrafit.app.core.domain.engine.PlanGenerationException
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -7,6 +9,9 @@ import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -32,10 +37,13 @@ class DefaultWorkoutPlannerEngineProviderTest {
     }
 
     @Test
-    fun fallsBackToDeterministicWhenGroqSelectedButKeyBlank() = runTest {
+    fun reportsAMissingKeyInsteadOfSubstitutingTheBuiltInPlanner() = runTest {
         val provider = provider(selected = PlannerEngineId.GROQ_API, apiKey = "")
 
-        assertSame(deterministic, provider.get())
+        val failure = assertFailsWith<PlanGenerationException> { provider.get() }
+
+        assertEquals(PlanFailureReason.MISSING_API_KEY, failure.reason)
+        assertFalse(failure.transient)
     }
 
     @Test

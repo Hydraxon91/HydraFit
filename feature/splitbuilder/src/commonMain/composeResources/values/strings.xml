@@ -65,7 +65,6 @@
     <string name="engine_label_groq">Groq</string>
     <string name="engine_label_local_llm">the on-device model</string>
     <string name="split_fallback_note">Couldn’t run %1$s — showing the built-in plan instead.</string>
-    <string name="split_fallback_invalid_response">The response wasn’t usable (invalid response), so a built-in plan is shown.</string>
     <string name="split_accept_plan">Use this plan</string>
     <string name="split_plan_accepted">Plan saved. The logger will follow it this week.</string>
     <string name="split_regenerate">Regenerate</string>
@@ -80,6 +79,7 @@
     <string name="split_error_timeout">The request to Groq timed out. Check your connection and try again.</string>
     <string name="split_error_network">Couldn’t reach Groq. Check your connection and try again.</string>
     <string name="split_error_api_key">Groq rejected the API key. Add or update it in Settings.</string>
+    <string name="split_error_api_key_missing">No Groq API key is saved. Add one in Settings to use cloud planning, or keep using the built-in planner.</string>
     <string name="split_error_invalid_request">Groq rejected the request. Try regenerating, or switch to the built-in planner.</string>
     <string name="split_error_invalid_response">Groq returned a response the app couldn’t use. Please try again.</string>
     <string name="split_error_no_eligible_exercises">No exercises are available for this plan. Review your excluded exercises and available equipment, then retry.</string>
