@@ -14,6 +14,26 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## Groq planner — user-reported manual check (2026-10-29)
+
+- The user reported that the supplied emulator checklist worked without error: key entry and
+  selection, normal and bodyweight-only generation, key removal and deterministic planning.
+  These are user-reported results, not independently witnessed or automated assertions.
+- Error states did not occur during that check, so their UI presentation remains unverified.
+
+## Bonsai 2B experiment — failed for now (2026-10-29)
+
+- An experimental, unmerged CPU-only Bonsai 2B integration was tested on an S25
+  (`SM-S931B`). One synthetic four-day native-harness request took 278 seconds:
+  approximately 167 seconds to first token and 3.26 tokens/second during decode.
+  This is not a repeated benchmark or a verified app-generated plan.
+- An earlier app attempt fell back after its 90-second no-output guard expired during
+  prefill. A subsequent harness run completed after experimental prefill heartbeat
+  changes; the final timeout changes were not verified end-to-end in the app.
+- The user judged the latency unacceptable and ended the experiment. Plan quality
+  across repeated requests, peak memory and heat remain unverified; no Gemini latency
+  comparison was measured. The experiment was not reviewed, merged or released.
+
 ## Open report — routine deletion (2026-10-28; user-reported)
 
 - User tapped a routine's Delete action and confirmed the dialog, but the routine remained listed.
@@ -786,16 +806,14 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Week 4 shows the deload banner; suggested weights appear when history/sharing exists.
 - Airplane mode → deterministic plan still generates.
 
-## 4. Plan — Gemini (typed failure reasons)
-- No API key → Gemini is unavailable in Settings.
-- Valid key → **plan generates** (this was the pre-fix failure: the response schema now constrains `exerciseId` to the catalog, so a valid-but-unknown id can no longer collapse a day and force a fallback). If the model still returns names, they are resolved by name.
-- Blank/cleared key with Gemini selected → shows an API-key reason (not a generic message).
-- Rate limit (429) → "rate-limiting" reason; retries up to twice.
-- Daily quota (429, per-day) → "quota" reason and **no retry**.
-- Service 5xx → "temporarily unavailable" reason + Retry.
-- Airplane mode with Gemini selected → "couldn't reach" / timeout reason.
-- Any failure → the specific localized reason is shown, with the raw backend detail underneath.
+## 4. Plan — Groq (typed failure reasons)
+- No Groq API key → Groq is unavailable in Settings; a saved Gemini key is not reused.
+- Save a user-owned Groq key → Groq becomes selectable; clearing it disables Groq.
+- Valid key → generate and validate a plan, including a bodyweight-only request.
+- Authentication, rate limit, service and network failures → the corresponding reason is shown;
+  sanitizer rejection is an invalid response, not a silently substituted plan.
 - Sharing toggle OFF → no weight history sent (consent gate); ON changes behaviour.
+- Historical Gemini plans retain their attribution; a legacy Gemini selection uses the offline engine.
 
 ## 5. Plan — on-device LLM
 - No model imported → the engine is greyed out in Settings.
