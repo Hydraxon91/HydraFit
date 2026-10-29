@@ -87,9 +87,9 @@ review cycles do not mean larger implementation chunks or fewer required tests.
 | 0.9.x | profiles/plate/increments; imports; sharing + PDF + CSV; auto backups; encryption; merge restore; storage/reset | 0.9.0–0.9.6 | 7 |
 | 0.10.x | integrity; policies; prescriptions + presets + generation + RIR/RPE; supersets; effort/readiness | 0.10.0–0.10.4 | 5 |
 | 0.11.x | duration + timed preparation; distance; force; clusters; cardio | 0.11.0–0.11.4 | 5 |
-| 0.12.x | provider research first; remote AI reliability and local AI retirement | 0.12.0–0.12.1 | 2 |
+| 0.12.x | provider research; remote AI reliability and local LLM retirement (0.12.1 folded) | 0.12.0 | 1 |
 | 0.13.x | design/polish; tablet + foldable; accessibility + localization; recovery + final closure | 0.13.0–0.13.3 | 4 |
-| **Total before 1.0.0** | **0.8.0 (active) + 26 = 27, then 1.0.0** | | **27** |
+| **Total before 1.0.0** | **0.8.0 (active) + 25 = 26, then 1.0.0** | | **26** |
 
 Counts above are planned release scopes, not tag counts; folding publishes fewer tags. The 0.10.x
 series published `v0.10.0`, `v0.10.1` (0.10.2 folded) and `v0.10.3` (0.10.4 folded).
@@ -452,14 +452,15 @@ approximations. Split further if a metric's complete consumer chain is too large
 Gate: measurement semantics remain faithful throughout logging and portability;
 research candidates have explicit evidence-backed decisions before completion.
 
-### 0.12 — Optional AI Reliability (0.12.0–0.12.1, 2 publications)
+### 0.12 — Optional AI Reliability (0.12.0; 0.12.1 folded into 0.12.0, 1 publication)
 
-Former slice ids are recorded in parentheses.
+Former slice ids are recorded in parentheses. `0.12.1`'s on-device retirement shipped in the same
+publication as the provider work, so it is recorded as folded rather than retagged.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.12.0 | Research remote providers first; then scope provider-specific identity and shared validation work | Gemini baseline, OpenRouter and Groq; CATP7-R01; S1-013, S3-005/S3-006; provider selection and repair/rejection decisions remain gated |
-| 0.12.1 | Retired on-device LLM feature and runtime (implemented on `research/0.12.0`) | Remaining: decision on deleting an existing imported model file; release verification |
+| 0.12.0 | Remote provider research and the Groq replacement; approved AI validation/identity work; on-device LLM retirement (former `0.12.0`–`0.12.3`; `0.12.1` folded into this release) | Gemini baseline, OpenRouter and Groq; CATP7-R01; S1-013; provider selection and repair/rejection decisions remain gated |
+| ~~0.12.1~~ | **Folded into 0.12.0** — on-device LLM retirement shipped there | Not published separately |
 
 Research precedes implementation: compare Gemini with OpenRouter and Groq BYOK
 options using representative synthetic requests. Assess current pricing and quotas,

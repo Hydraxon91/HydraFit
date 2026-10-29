@@ -54,7 +54,7 @@
     <string name="settings_distance_unit_section">Distance unit</string>
     <string name="settings_distance_unit_meters">Metres (m)</string>
     <string name="settings_distance_unit_feet">Feet (ft)</string>
-    <string name="settings_gemini_unavailable">Add your Groq API key to enable cloud planning. Groq receives your planning inputs and may charge your account.</string>
+    <string name="settings_cloud_unavailable">Add your Groq API key to enable cloud planning. Groq receives your planning inputs and may charge your account.</string>
     <string name="settings_api_key_section">Groq API key</string>
     <string name="settings_api_key_label">API key</string>
     <string name="settings_api_key_save">Save</string>

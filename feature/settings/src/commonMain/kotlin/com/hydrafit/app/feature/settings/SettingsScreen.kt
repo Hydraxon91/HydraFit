@@ -45,6 +45,7 @@ import hydrafit.feature.settings.generated.resources.settings_api_key_configured
 import hydrafit.feature.settings.generated.resources.settings_api_key_label
 import hydrafit.feature.settings.generated.resources.settings_api_key_save
 import hydrafit.feature.settings.generated.resources.settings_api_key_section
+import hydrafit.feature.settings.generated.resources.settings_cloud_unavailable
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_feet
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_meters
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_section
@@ -53,7 +54,6 @@ import hydrafit.feature.settings.generated.resources.settings_engine_gemini
 import hydrafit.feature.settings.generated.resources.settings_engine_groq
 import hydrafit.feature.settings.generated.resources.settings_engine_local_llm
 import hydrafit.feature.settings.generated.resources.settings_engine_section
-import hydrafit.feature.settings.generated.resources.settings_gemini_unavailable
 import hydrafit.feature.settings.generated.resources.settings_goal_balanced
 import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
@@ -194,7 +194,7 @@ fun SettingsScreen(
             }
         if (!state.isGroqAvailable) {
             Text(
-                text = stringResource(Res.string.settings_gemini_unavailable),
+                text = stringResource(Res.string.settings_cloud_unavailable),
                 style = MaterialTheme.typography.bodySmall
             )
         }

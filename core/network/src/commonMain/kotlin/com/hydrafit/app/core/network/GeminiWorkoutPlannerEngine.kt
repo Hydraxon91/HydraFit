@@ -14,7 +14,6 @@ import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
-import com.hydrafit.app.core.domain.equipment.Exercise
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -98,7 +97,7 @@ class GeminiWorkoutPlannerEngine(
                         reason = PlanFailureReason.INVALID_RESPONSE,
                         message = "Gemini response contained no content"
                     )
-                val plan = normalizeExerciseIds(
+                val plan = resolveExerciseIds(
                     parseWeeklyPlan(text, PlannerEngineId.GEMINI_API),
                     availableIds,
                     catalogExercises
@@ -139,30 +138,6 @@ class GeminiWorkoutPlannerEngine(
         return "perday" in normalized.replace(" ", "") ||
             "per day" in normalized ||
             "daily limit" in normalized
-    }
-
-    /** Maps model-returned ids to catalog ids, tolerating a returned name or different casing. */
-    private fun normalizeExerciseIds(
-        plan: WeeklyPlan,
-        availableIds: List<String>,
-        catalogExercises: List<Exercise>
-    ): WeeklyPlan {
-        if (availableIds.isEmpty()) return plan
-        val byId = availableIds.associateBy { it.lowercase() }
-        val byName = catalogExercises.associateBy { it.name.lowercase() }
-        return plan.copy(
-            days = plan.days.map { day ->
-                day.copy(
-                    exercises = day.exercises.map { planned ->
-                        val raw = planned.exerciseId
-                        val resolved = byId[raw.lowercase()]
-                            ?: byName[raw.lowercase()]?.id
-                            ?: raw
-                        planned.copy(exerciseId = resolved)
-                    }
-                )
-            }
-        )
     }
 
     private fun failureMessage(status: HttpStatusCode, body: String): String {

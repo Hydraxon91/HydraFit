@@ -810,8 +810,10 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - No Groq API key → Groq is unavailable in Settings; a saved Gemini key is not reused.
 - Save a user-owned Groq key → Groq becomes selectable; clearing it disables Groq.
 - Valid key → generate and validate a plan, including a bodyweight-only request.
-- Authentication, rate limit, service and network failures → the corresponding reason is shown;
-  sanitizer rejection is an invalid response, not a silently substituted plan.
+- Authentication, rate limit, service and network failures → the corresponding reason is shown.
+  A transient 429/5xx retries up to twice; a per-day quota reason does not retry.
+- A returned display name resolves onto an eligible exercise id; an unresolved id is dropped by
+  the sanitizer, and a plan left unusable is reported as an invalid response.
 - Sharing toggle OFF → no weight history sent (consent gate); ON changes behaviour.
 - Historical Gemini plans retain their attribution; a legacy Gemini selection uses the offline engine.
 

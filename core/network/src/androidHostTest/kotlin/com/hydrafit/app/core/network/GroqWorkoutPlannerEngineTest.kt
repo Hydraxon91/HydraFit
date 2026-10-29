@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
+import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -117,6 +118,96 @@ class GroqWorkoutPlannerEngineTest {
         val plan = engine.generatePlan(request)
         assertEquals(PlannerEngineId.GROQ_API, plan.engine)
         assertEquals(3, plan.days.size)
+    }
+
+    @Test
+    fun resolvesAReturnedDisplayNameToTheEligibleId() = runTest {
+        val content = """{"days":[""" + listOf("press", "row", "squat").joinToString(",") {
+            """{"focus":"FULL_BODY","exercises":[""" +
+                """{"exerciseId":"${it.uppercase()}","sets":3,"reps":8},""" +
+                """{"exerciseId":"curl","sets":2,"reps":10}]}"""
+        } + "]}"
+        val parsed = parseWeeklyPlan(content, PlannerEngineId.GROQ_API)
+        val resolved = resolveExerciseIds(
+            parsed,
+            listOf("press", "row", "squat", "curl"),
+            catalog.all()
+        )
+        assertEquals(
+            listOf("press", "row", "squat"),
+            resolved.days.map { day -> day.exercises.first().exerciseId }
+        )
+    }
+
+    @Test
+    fun mapsADailyQuotaWithoutRetrying() = runTest {
+        var calls = 0
+        val mock = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":"rate_limit_exceeded",""" +
+                    """"message":"Rate limit reached for tokens per day (TPD)"}}""",
+                HttpStatusCode.TooManyRequests,
+                headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engineFor(mock).generatePlan(request)
+        }
+        assertEquals(PlanFailureReason.QUOTA_EXHAUSTED, failure.reason)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun retriesATransientRateLimitThenReportsIt() = runTest {
+        var calls = 0
+        val mock = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":"rate_limit_exceeded","message":"tokens per minute"}}""",
+                HttpStatusCode.TooManyRequests,
+                headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engineFor(mock).generatePlan(request)
+        }
+        assertEquals(PlanFailureReason.RATE_LIMITED, failure.reason)
+        assertEquals(3, calls)
+    }
+
+    private fun engineFor(mock: MockEngine): GroqWorkoutPlannerEngine {
+        val client = createGeminiHttpClient(mock)
+        val sanitizer = WeeklyPlanSanitizer(catalog)
+        val builder = GeminiWorkoutPlannerEngine(
+            client,
+            GeminiConfig(),
+            catalog,
+            ApiKeyProvider { "unused" },
+            sanitizer,
+            fallback
+        )
+        return GroqWorkoutPlannerEngine(
+            client,
+            catalog,
+            GroqApiKeyProvider { "test-key" },
+            sanitizer,
+            builder
+        )
+    }
+
+    private suspend fun generateWithSingleReply(content: String): WeeklyPlan {
+        val response = geminiJson.encodeToString(
+            GroqResponse(listOf(GroqChoice(GroqMessage("assistant", content))))
+        )
+        val mock = MockEngine {
+            respond(
+                response,
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        return engineFor(mock).generatePlan(request)
     }
 
     @Test

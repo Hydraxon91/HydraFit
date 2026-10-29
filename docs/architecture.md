@@ -250,10 +250,13 @@ qualifying direct arm work, coverage-preserving replacements are ranked first wh
 replacements remain available for explicit user choice.
 
 Groq uses a user-supplied key in a separate Android Keystore-backed slot and sends requests directly
-to Groq. The legacy Gemini identity remains readable for plan history; a saved Gemini selection uses
-the deterministic engine rather than sending the old key to Groq. Groq parsing and sanitizer failures
-surface as invalid responses instead of silently substituting an engine. The Groq implementation
-reuses the existing prompt builder but adapts its schema to Groq's strict JSON format.
+to Groq with the pinned `openai/gpt-oss-120b` model. The legacy Gemini identity remains readable for
+plan history; a saved Gemini selection uses the deterministic engine rather than sending the old key
+to Groq. Groq parsing and sanitizer failures surface as invalid responses instead of silently
+substituting an engine. The Groq implementation reuses the existing prompt builder but adapts its
+schema to Groq's strict JSON format, resolves a returned display name onto an eligible id, retries a
+transient rate limit or 5xx up to twice with bounded backoff and honours `Retry-After`, and reports a
+per-day quota without retrying. iOS has no cloud key entry, so Groq is unavailable there by design.
 
 The deterministic engine additionally pursues **four prescribed direct isolation sets each for
 BICEPS and TRICEPS per normal generated week, regardless of goal**. A qualifying set must use the
