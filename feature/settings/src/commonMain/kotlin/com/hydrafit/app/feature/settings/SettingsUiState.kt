@@ -17,6 +17,6 @@ data class SettingsUiState(
     val apiKeyInput: String = "",
     val isLocalLlmInstalled: Boolean = false
 ) {
-    val isGeminiAvailable: Boolean
-        get() = PlannerEngineId.GEMINI_API in availableEngines
+    val isGroqAvailable: Boolean
+        get() = PlannerEngineId.GROQ_API in availableEngines
 }

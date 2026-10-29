@@ -224,7 +224,7 @@ class GeminiWorkoutPlannerEngine(
 
     private fun HttpStatusCode.isTransient(): Boolean = value in TRANSIENT_STATUS_CODES
 
-    private suspend fun buildRequest(
+    internal suspend fun buildRequest(
         request: PlanRequest,
         availableIds: List<String>
     ): GeminiRequest {

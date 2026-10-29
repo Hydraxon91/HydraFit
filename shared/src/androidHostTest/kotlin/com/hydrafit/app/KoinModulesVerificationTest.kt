@@ -170,6 +170,7 @@ import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
@@ -290,6 +291,7 @@ class KoinModulesVerificationTest {
         single<ApiKeyStore> { FakeApiKeyStore }
         single<AppVersionProvider> { FakeAppVersionProvider }
         single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
+        single<GroqApiKeyProvider> { GroqApiKeyProvider { "test-key" } }
         single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
         single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
         single<BackupFileStore> { UnsupportedBackupFileStore() }

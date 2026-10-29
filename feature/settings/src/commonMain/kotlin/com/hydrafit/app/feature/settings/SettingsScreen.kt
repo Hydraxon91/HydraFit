@@ -50,6 +50,7 @@ import hydrafit.feature.settings.generated.resources.settings_distance_unit_mete
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_section
 import hydrafit.feature.settings.generated.resources.settings_engine_deterministic
 import hydrafit.feature.settings.generated.resources.settings_engine_gemini
+import hydrafit.feature.settings.generated.resources.settings_engine_groq
 import hydrafit.feature.settings.generated.resources.settings_engine_local_llm
 import hydrafit.feature.settings.generated.resources.settings_engine_section
 import hydrafit.feature.settings.generated.resources.settings_gemini_unavailable
@@ -172,7 +173,7 @@ fun SettingsScreen(
             text = stringResource(Res.string.settings_engine_section),
             style = MaterialTheme.typography.titleMedium
         )
-        PlannerEngineId.entries.forEach { engine ->
+        PlannerEngineId.entries.filterNot { it == PlannerEngineId.GEMINI_API }.forEach { engine ->
             val enabled = engine in state.availableEngines
             Row(
                 modifier = Modifier
@@ -192,7 +193,7 @@ fun SettingsScreen(
                 Text(stringResource(engine.labelResource()))
             }
         }
-        if (!state.isGeminiAvailable) {
+        if (!state.isGroqAvailable) {
             Text(
                 text = stringResource(Res.string.settings_gemini_unavailable),
                 style = MaterialTheme.typography.bodySmall
@@ -382,6 +383,7 @@ fun SettingsScreen(
 private fun PlannerEngineId.labelResource(): StringResource = when (this) {
     PlannerEngineId.DETERMINISTIC -> Res.string.settings_engine_deterministic
     PlannerEngineId.GEMINI_API -> Res.string.settings_engine_gemini
+    PlannerEngineId.GROQ_API -> Res.string.settings_engine_groq
     PlannerEngineId.LOCAL_LLM -> Res.string.settings_engine_local_llm
 }
 

@@ -4,7 +4,7 @@ import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
-import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.Test
 import kotlin.test.assertSame
@@ -15,7 +15,7 @@ import kotlinx.coroutines.test.runTest
 class DefaultWorkoutPlannerEngineProviderTest {
 
     private val deterministic = FakeEngine(PlannerEngineId.DETERMINISTIC)
-    private val gemini = FakeEngine(PlannerEngineId.GEMINI_API)
+    private val groq = FakeEngine(PlannerEngineId.GROQ_API)
     private val localLlm = FakeEngine(PlannerEngineId.LOCAL_LLM)
 
     @Test
@@ -26,17 +26,22 @@ class DefaultWorkoutPlannerEngineProviderTest {
     }
 
     @Test
-    fun usesGeminiWhenSelectedAndKeyPresent() = runTest {
-        val provider = provider(selected = PlannerEngineId.GEMINI_API, apiKey = "key")
+    fun usesGroqWhenSelectedAndKeyPresent() = runTest {
+        val provider = provider(selected = PlannerEngineId.GROQ_API, apiKey = "key")
 
-        assertSame(gemini, provider.get())
+        assertSame(groq, provider.get())
     }
 
     @Test
-    fun fallsBackToDeterministicWhenGeminiSelectedButKeyBlank() = runTest {
-        val provider = provider(selected = PlannerEngineId.GEMINI_API, apiKey = "")
+    fun fallsBackToDeterministicWhenGroqSelectedButKeyBlank() = runTest {
+        val provider = provider(selected = PlannerEngineId.GROQ_API, apiKey = "")
 
         assertSame(deterministic, provider.get())
+    }
+
+    @Test
+    fun legacyGeminiSelectionUsesDeterministic() = runTest {
+        assertSame(deterministic, provider(PlannerEngineId.GEMINI_API, "key").get())
     }
 
     @Test
@@ -50,9 +55,9 @@ class DefaultWorkoutPlannerEngineProviderTest {
         DefaultWorkoutPlannerEngineProvider(
             preference = FakeEnginePreferenceRepository(selected),
             deterministic = deterministic,
-            gemini = gemini,
+            groq = groq,
             localLlm = localLlm,
-            apiKeyProvider = ApiKeyProvider { apiKey }
+            apiKeyProvider = GroqApiKeyProvider { apiKey }
         )
 
     private class FakeEngine(override val id: PlannerEngineId) : WorkoutPlannerEngine {

@@ -83,8 +83,8 @@ import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
 import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
-import com.hydrafit.app.core.network.ApiKeyProvider
-import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.network.GroqApiKeyProvider
+import com.hydrafit.app.core.network.GroqWorkoutPlannerEngine
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
@@ -122,14 +122,14 @@ val domainModule: Module = module {
             progressReporter = get()
         )
     }
-    single<EngineAvailability> { DefaultEngineAvailability(get<ApiKeyProvider>(), get()) }
+    single<EngineAvailability> { DefaultEngineAvailability(get<GroqApiKeyProvider>(), get()) }
     single<WorkoutPlannerEngineProvider> {
         DefaultWorkoutPlannerEngineProvider(
             preference = get(),
             deterministic = get<DeterministicWorkoutPlannerEngine>(),
-            gemini = get<GeminiWorkoutPlannerEngine>(),
+            groq = get<GroqWorkoutPlannerEngine>(),
             localLlm = get<LocalLlmWorkoutPlannerEngine>(),
-            apiKeyProvider = get<ApiKeyProvider>()
+            apiKeyProvider = get<GroqApiKeyProvider>()
         )
     }
     single { OnDeviceEngineLifecycle(get(), get()) }

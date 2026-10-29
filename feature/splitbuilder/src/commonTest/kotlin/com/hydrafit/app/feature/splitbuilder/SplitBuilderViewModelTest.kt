@@ -856,11 +856,11 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
-    fun flagsAnInvalidResponseWhenGeminiFallsBack() = runTest(dispatcher) {
+    fun flagsAnInvalidResponseWhenGroqFallsBack() = runTest(dispatcher) {
         val viewModel = viewModel(
             availableEquipment = setOf(EquipmentTag.DUMBBELL),
             engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
-            preference = FakeEnginePreferenceRepository(PlannerEngineId.GEMINI_API)
+            preference = FakeEnginePreferenceRepository(PlannerEngineId.GROQ_API)
         )
         advanceUntilIdle()
 

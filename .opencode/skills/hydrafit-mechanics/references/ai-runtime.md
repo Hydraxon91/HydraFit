@@ -31,7 +31,10 @@ constraints from post-generation validation when diagnosing fallback.
 validation floor. Read its values and comments before diagnosing count failures;
 do not assume the generation target and post-filter floor should be identical.
 
-- Gemini implementation: network `GeminiWorkoutPlannerEngine.kt` and
+- Active remote implementation: network `GroqWorkoutPlannerEngine.kt` uses the existing Gemini
+  prompt builder, converts its schema to strict Groq JSON, sends a user-owned Groq key and rejects
+  malformed or sanitizer-rejected plans explicitly. Legacy Gemini identities remain in saved history.
+- Legacy Gemini implementation: network `GeminiWorkoutPlannerEngine.kt` and
   `GeminiDtos.kt`. HTTP transient retries: `MAX_RETRIES = 2`, base delay
   `1_000` ms, maximum delay `8_000` ms. HTTP failures surface as
   `PlanGenerationException`; the current sanitizer-rejection branch calls its

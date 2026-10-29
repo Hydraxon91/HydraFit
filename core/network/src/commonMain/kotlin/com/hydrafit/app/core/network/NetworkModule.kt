@@ -16,4 +16,5 @@ val networkModule: Module = module {
             fallback = get<DeterministicWorkoutPlannerEngine>()
         )
     }
+    single { GroqWorkoutPlannerEngine(get(), get(), get(), get(), get()) }
 }

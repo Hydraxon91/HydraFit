@@ -240,13 +240,19 @@ and take the state plus callbacks.
 ### 1.7 Swappable `WorkoutPlannerEngine` strategy (+ model-backed fallbacks)
 
 One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) backs
-three implementations selected by `DefaultWorkoutPlannerEngineProvider` from the persisted engine
-preference. `GeminiWorkoutPlannerEngine` and `LocalLlmWorkoutPlannerEngine` both funnel output
+three active implementations selected by `DefaultWorkoutPlannerEngineProvider` from the persisted engine
+preference. `GroqWorkoutPlannerEngine` and `LocalLlmWorkoutPlannerEngine` both funnel output
 through the shared `WeeklyPlanSanitizer` + `PlanVarietyEnforcer`; the deterministic engine returns
 directly. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
 `SubstituteExerciseUseCase` to swap one slot of an accepted plan; when the replaced slot is
 qualifying direct arm work, coverage-preserving replacements are ranked first while other same-pattern
 replacements remain available for explicit user choice.
+
+Groq uses a user-supplied key in a separate Android Keystore-backed slot and sends requests directly
+to Groq. The legacy Gemini identity remains readable for plan history; a saved Gemini selection uses
+the deterministic engine rather than sending the old key to Groq. Groq parsing and sanitizer failures
+surface as invalid responses instead of silently substituting an engine. The Groq implementation
+reuses the existing prompt builder but adapts its schema to Groq's strict JSON format.
 
 The deterministic engine additionally pursues **four prescribed direct isolation sets each for
 BICEPS and TRICEPS per normal generated week, regardless of goal**. A qualifying set must use the

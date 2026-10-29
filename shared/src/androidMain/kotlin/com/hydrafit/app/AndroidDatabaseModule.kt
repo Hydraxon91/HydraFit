@@ -21,6 +21,7 @@ import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
 import com.hydrafit.app.core.llm.OnDevicePlannerLogger
 import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.AndroidAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupCrypto
 import com.hydrafit.app.core.userdata.backup.AndroidBackupEncryptionKeyStore
@@ -29,7 +30,7 @@ import com.hydrafit.app.core.userdata.backup.AndroidBackupFolderStore
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
-import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AndroidGroqApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.storage.AndroidStorageUsagePort
@@ -71,10 +72,13 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<RestAlertScheduler> { get<AndroidRestAlertScheduler>() }
     single { AndroidWorkoutReminderScheduler(context.applicationContext) }
     single<WorkoutReminderScheduler> { get<AndroidWorkoutReminderScheduler>() }
-    single<ApiKeyStore> { AndroidKeystoreApiKeyStore(context.applicationContext) }
+    single<ApiKeyStore> { AndroidGroqApiKeyStore(context.applicationContext) }
     single<ApiKeyProvider> {
+        ApiKeyProvider { "" }
+    }
+    single<GroqApiKeyProvider> {
         val store = get<ApiKeyStore>()
-        ApiKeyProvider { store.load()?.takeIf { it.isNotBlank() } ?: geminiApiKey }
+        GroqApiKeyProvider { store.load().orEmpty() }
     }
     single { AndroidOnDeviceModelManager(context.applicationContext) }
     single<OnDeviceTextGenerator> {

@@ -87,6 +87,7 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import hydrafit.feature.splitbuilder.generated.resources.Res
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_deterministic
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_gemini
+import hydrafit.feature.splitbuilder.generated.resources.engine_label_groq
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_local_llm
 import hydrafit.feature.splitbuilder.generated.resources.focus_full_body
 import hydrafit.feature.splitbuilder.generated.resources.focus_legs
@@ -1110,6 +1111,7 @@ private fun candidateMissingLoadReason(outcome: LoadInventoryOutcome?): StringRe
 private fun PlannerEngineId.labelResource(): StringResource = when (this) {
     PlannerEngineId.DETERMINISTIC -> Res.string.engine_label_deterministic
     PlannerEngineId.GEMINI_API -> Res.string.engine_label_gemini
+    PlannerEngineId.GROQ_API -> Res.string.engine_label_groq
     PlannerEngineId.LOCAL_LLM -> Res.string.engine_label_local_llm
 }
 

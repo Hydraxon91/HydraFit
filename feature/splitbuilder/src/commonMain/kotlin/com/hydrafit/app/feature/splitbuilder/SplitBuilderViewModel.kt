@@ -1005,11 +1005,10 @@ class SplitBuilderViewModel(
                     canRegenerate = inputs.requestedEngine != PlannerEngineId.DETERMINISTIC ||
                         lastRequest?.let { fingerprintOf(it, catalog) != fingerprint } == true,
                     volumeExplanationInvalidated = false,
-                    // Gemini only returns a fallback plan after a sanitize reject; any other failure
-                    // throws, so a deterministic result for a Gemini request means an unusable reply.
+                    // Surface a mismatch between the selected cloud engine and the returned plan.
                     fallbackReason = if (
                         plan.engine != inputs.requestedEngine &&
-                        inputs.requestedEngine == PlannerEngineId.GEMINI_API
+                        inputs.requestedEngine == PlannerEngineId.GROQ_API
                     ) {
                         PlanFailureReason.INVALID_RESPONSE
                     } else {

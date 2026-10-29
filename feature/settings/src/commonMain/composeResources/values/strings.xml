@@ -7,6 +7,7 @@
     <string name="settings_engine_section">Planning engine</string>
     <string name="settings_engine_deterministic">Deterministic (offline)</string>
     <string name="settings_engine_gemini">Gemini API (cloud)</string>
+    <string name="settings_engine_groq">Groq API (cloud)</string>
     <string name="settings_engine_local_llm">On-device (experimental)</string>
     <string name="settings_goal_section">Training goal</string>
     <string name="settings_goal_balanced">Balanced</string>
@@ -53,9 +54,9 @@
     <string name="settings_distance_unit_section">Distance unit</string>
     <string name="settings_distance_unit_meters">Metres (m)</string>
     <string name="settings_distance_unit_feet">Feet (ft)</string>
-    <string name="settings_gemini_unavailable">Add a Gemini API key to enable the cloud engine.</string>
+    <string name="settings_gemini_unavailable">Add your Groq API key to enable cloud planning. Groq receives your planning inputs and may charge your account.</string>
     <string name="settings_local_llm_slow">On-device planning can take several minutes, depending on your phone’s processor.</string>
-    <string name="settings_api_key_section">Gemini API key</string>
+    <string name="settings_api_key_section">Groq API key</string>
     <string name="settings_api_key_label">API key</string>
     <string name="settings_api_key_save">Save</string>
     <string name="settings_api_key_clear">Clear</string>
