@@ -76,7 +76,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 | 0.9.x — Equipment & data | 0.9.0 published 2026-10-15: equipment profiles, per-profile loading setup and plate/dumbbell calculators. Then individual importers, sharing and backup improvements |
 | 0.10.x — Progression & prescriptions | History integrity before new progression policies; per-set targets, pyramids and supersets in separate releases |
 | 0.11.x — Other training metrics | Duration, distance and force metrics delivered separately; drop sets, rest-pause and cardio need research first |
-| 0.12.x — Optional AI | Identity and validation fixes, then measured local-model and engine lifecycle improvements |
+| 0.12.x — Optional AI | Identity and validation fixes, cloud provider replacement and on-device planner retirement |
 | 0.13.x — Design & polish | Screen-by-screen polish, tablet and foldable layouts, then final accessibility, localization and integration checks |
 | 1.0 | Verified Android release, after all pre-1.0 work is delivered or explicitly resolved |
 | Beyond 1.0 | iOS shipping and desktop support |

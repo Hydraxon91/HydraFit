@@ -568,7 +568,7 @@ any approved review-report paths before starting.
 
 - **Do Not Change Core Architecture Decisions:** Never migrate, switch, or replace SQLDelight, Koin, Ktor, or Compose Multiplatform for an alternative (e.g., swapping SQLDelight for Room KMP, or Koin for Hilt/manual DI) — even if you believe a build failure is caused by one of these libraries. Diagnose library-related errors and fix query, binding, mapping or usage problems within the approved scope and existing stack. If the proposed remedy requires an architectural substitution, an unapproved dependency/configuration change, or work outside that scope, stop, report the evidence and await instruction.
 - **No Stealth Infrastructure Changes:** Any proposed changes to CI/CD workflows, Gradle configuration, signing setup, or the module graph must be explicitly highlighted in your plan. If a plan involves changing where the app is built, signed, or published, you must call this out as a "Major Infrastructure Change" and await explicit confirmation. Module-graph changes explicitly enumerated in an approved work chunk are covered by that chunk's approval.
-- **No Unrequested Cloud/LLM Provider Changes:** Do not swap the Gemini API for another LLM provider, and do not change the on-device model (e.g., swapping Gemma for another MediaPipe-compatible model) without explicit instruction.
+- **No Unrequested Cloud/LLM Provider Changes:** Do not swap the Groq API for another LLM provider, and do not reintroduce an on-device model, without explicit instruction.
 
 ### Dependency & Ecosystem Lock
 
@@ -598,7 +598,7 @@ any approved review-report paths before starting.
 
 - **Audit Existing Utilities First:** Before creating a new helper function, use case, or utility method, explicitly search the codebase to see if a similar mechanism already exists.
 - **Utilize Project Helpers:** Always prioritize using existing project utilities (e.g., a shared `FatigueCalculator`, an existing repository interface, a shared date/time helper in `:core:domain`) over inventing local custom logic.
-- **Strategy Pattern Discipline:** Never add a fourth `WorkoutPlannerEngine` implementation, or logic that bypasses the interface, without explicit instruction. All three engines (Deterministic, Gemini API, Local LLM) must remain interchangeable via the same interface and swappable only through Koin DI.
+- **Strategy Pattern Discipline:** Never add another selectable `WorkoutPlannerEngine` implementation, or logic that bypasses the interface, without explicit instruction. The selectable engines (Deterministic, Groq API) must remain interchangeable via the same interface and swappable only through Koin DI.
 - **Extensibility Guardrails:** HydraFit is designed so new features (e.g., a future food/macro tracker) arrive as new modules, not edits to existing ones. Never introduce a dependency between two `feature/*` modules. If two features need to share something, propose moving it into `core/domain` (as an interface) or `core/userdata` (as shared data) and ask first.
 - **Feature Registration, Not Hardcoding:** Each feature module exports its own Koin module, route, and nav graph; the app shell (`shared`) aggregates those exports in a single explicit list at its composition root (`Koin.kt` / `App.kt`). Do not inline a feature's destinations, screens, or bindings in `androidApp` or `shared`, and do not add feature-specific logic there. Adding a feature should mean adding its exported entry to that aggregation list, never editing another feature.
 - **No Speculative Abstractions:** Extensibility means clean seams, not unused frameworks. Do not build plugin systems, generic "feature interfaces," or placeholder modules for features that don't exist yet. If in doubt, ask.
@@ -607,8 +607,8 @@ any approved review-report paths before starting.
 ### Environment Variable / Secrets Guardrails
 
 - **No Secret or Config Inventions:** Never introduce a new `local.properties` key, `BuildConfig` field, or hardcoded API key reference without explicitly calling it out to the user first.
-- **Documentation Requirement:** Any new required local config (e.g., a Gemini API key) must be simultaneously documented in the root `local.properties.template` or equivalent setup file inside the same session.
-- **Never Commit Secrets:** API keys (Gemini, signing keystore passwords, etc.) must never appear in committed files. Use `local.properties` (gitignored) for local dev and GitHub Actions Secrets for CI.
+- **Documentation Requirement:** Any new required local config (e.g., a release signing path) must be simultaneously documented in the root `local.properties.template` or equivalent setup file inside the same session.
+- **Never Commit Secrets:** API keys (cloud planner keys, signing keystore passwords, etc.) must never appear in committed files. Use `local.properties` (gitignored) for local dev and GitHub Actions Secrets for CI.
 
 ## Agent Behavior Guidelines
 
@@ -688,7 +688,7 @@ Added by the 0.2.2 review (RG); rationale lives in `docs/architecture.md` and
 `docs/code-review-0.2.2.md`, not here. Marked **[current]** (code already follows) or
 **[target, new code only]** (existing code is not refactored unless a task is in scope).
 
-- **[target] Engine substitution is explicit, never silent.** If an engine's generated plan is rejected post-generation (e.g. a sanitize/validation failure, as in S3-001's Gemini case), the engine must not quietly substitute another engine's plan without surfacing it — either throw `PlanGenerationException` with the mapped `reason` (SplitBuilder shows reason + Retry), or return the fallback plan so `usedFallbackEngine` renders the fallback note. This does **not** apply to the Local LLM engine's existing `fallback: WorkoutPlannerEngine` constructor parameter, which is a separate, already-correct, already-tested pattern: it exists specifically to catch `OutOfMemoryError` and other generation failures *before* a plan is produced, and already surfaces via `usedFallbackEngine`. Do not add a *new, second* fallback-engine dependency to any engine to paper over a rejected/invalid plan after the fact — fix the rejection path explicitly instead. (`docs/architecture.md` §1.7; S3-001)
+- **[target] Engine substitution is explicit, never silent.** If an engine's generated plan is rejected post-generation (e.g. a sanitize/validation failure), the engine must not quietly substitute another engine's plan without surfacing it — either throw `PlanGenerationException` with the mapped `reason` (SplitBuilder shows reason + Retry), or return the fallback plan so `usedFallbackEngine` renders the fallback note. Do not add a fallback-engine dependency to any engine to paper over a rejected or invalid plan after the fact — fix the rejection path explicitly instead. (`docs/architecture.md` §1.7; S3-001)
 - **[target] `sessionId` is the one segmentation truth.** Runtime fatigue segmentation reads `sessionId` only. A `performedAt` correction must leave sessions non-interleaved in time, with each session's bounds and `localEpochDay` consistent with its sets, and with no tolerance/threshold. Manual End/New session boundaries are preserved. The mechanism is decided in the gated fix plan. (`docs/architecture.md` §1.8; S1-007, 2b)
 - **[target] Nullable stored fields must not conflate "absent" with "explicitly empty".** If a user can clear a value, the cleared state gets its own encoding. (`docs/architecture.md` §1.8; S2-001)
 - **[current] Migrations are verified.** Every `.sqm` chain is covered by `verifyMigrations` + a schema snapshot or a v1→current test; each new table/column ships with a migration and a migration test in the same change. (`docs/architecture.md` §1.9; S2-004/TS3-001)
@@ -738,7 +738,7 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
 - **Unit tests are mandatory for all `:core:domain` logic**, not optional: every use case, the fatigue algorithm, and each `WorkoutPlannerEngine` implementation must ship with tests using `kotlin.test` (common) and MockK (JVM-side mocking of dependencies like repositories or the Ktor client).
 - **New code without a corresponding test is incomplete work.** Write the corresponding tests in the same approved work scope as a new use case or engine implementation, unless explicitly told to defer them. Run the required tests before reporting that work complete or committing it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
-- **Test the fallback paths, not just the happy path.** The Local LLM engine's `OutOfMemoryError` → Deterministic Engine fallback needs an explicit test, not just manual verification.
+- **Test the fallback and failure paths, not just the happy path.** Every engine fallback or substitution path needs an explicit test, not just manual verification — for example a missing cloud key failing before any request is sent, or a sanitizer-rejected model plan surfacing its typed failure.
 - **Countdown tests must keep coroutine time and injected clocks consistent.** Do not call `advanceUntilIdle()` while an active timer repeatedly schedules work against a fixed injected clock. Use `runCurrent()` for immediate assertions, or bounded advancement synchronized with the injected clock. Keep timer cleanup in `finally`. If a test hangs, inspect the executor and capture a bounded thread dump; do not launch another run until the stuck executor has exited. A Gradle-client timeout does not guarantee its workers stopped.
 - **Verify the Koin graph in tests, not on a device.** Koin resolves dependencies at runtime, so a missing binding or a mis-ordered `get()` chain compiles fine and crashes on first injection. Every module that registers bindings (`databaseModule`, each feature's Koin module, and the platform modules where testable) must be covered by a `koin-test` verification test (`verify()` or `checkModules`, whichever the approved Koin version supports). When you add or change a binding, a ViewModel constructor, or a module, run that verification before its step/work chunk is reported complete or committed. A Koin change without a passing verification test is incomplete work. If verification cannot cover a binding (for example, one that needs an Android `Context`), say so and name what is left unverified instead of silently skipping it.
 - **`koin-test` is a test-scope dependency only.** Adding it to `libs.versions.toml` and the relevant module's test source set is a dependency change: propose the version and the modules it goes in, and wait for approval. Never add it to a main/production source set.
@@ -815,8 +815,8 @@ Mechanics reference links are relative to its skill directory, as its index stat
 ## Architecture boundaries
 
 HydraFit is offline-first, Android-first Kotlin/Compose Multiplatform with optional
-Gemini/Local planning and a default Deterministic engine behind `WorkoutPlannerEngine`.
-Keep SQLDelight, Koin, Ktor and LiteRT-LM within the existing architecture and approval locks.
+Groq cloud planning and a default Deterministic engine behind `WorkoutPlannerEngine`.
+Keep SQLDelight, Koin, Ktor and Compose Multiplatform within the existing architecture and approval locks.
 
 - `androidApp` is the Android entry point; `shared` is the app shell/composition root,
   not a home for feature, domain or data logic. If no module fits new logic, ask first.

@@ -49,7 +49,6 @@ Kotlin package roots:
 - Domain: `core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/`
 - Database: `core/database/src/commonMain/kotlin/com/hydrafit/app/core/database/`
 - Network: `core/network/src/commonMain/kotlin/com/hydrafit/app/core/network/`
-- Local inference: `core/llm/src/commonMain/kotlin/com/hydrafit/app/core/llm/`
 - Exercise instructions: `core/exercisecontent/src/commonMain/kotlin/com/hydrafit/app/core/exercisecontent/`
 - User-data ports: `core/userdata/src/commonMain/kotlin/com/hydrafit/app/core/userdata/`
 - Shell: `shared/src/commonMain/kotlin/com/hydrafit/app/`

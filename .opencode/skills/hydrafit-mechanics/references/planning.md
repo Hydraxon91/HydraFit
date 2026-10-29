@@ -24,8 +24,7 @@ mapping is applied. A unique compatible clustered entry continues to preserve it
 
 `PlanRequest.plannerSupersetPreference` is null by default; a non-null
 `PlannerSupersetPreference(transitionSeconds, pairRestSeconds)` opts in. `GenerateWeeklySplitUseCase`
-applies `PlannerSupersetPairing` after the selected engine returns, so deterministic, Gemini and
-local-LLM output follow one rule. Only already-selected **adjacent** curated biceps/triceps isolation
+applies `PlannerSupersetPairing` after the selected engine returns, so deterministic and cloud output follow one rule. Only already-selected **adjacent** curated biceps/triceps isolation
 slots are grouped; nothing is reordered, added or re-prescribed, and an already-paired slot is left
 alone. Custom exercises and `close-grip-bench-press` are excluded (the catalog classifies it as a
 compound `HORIZONTAL_PUSH`, not an isolation pattern). Grouping never changes fatigue or
@@ -562,7 +561,7 @@ deterministic skip reports `ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE`; an
 `AI_GENERATED` assessment reports `COMPATIBLE_CANDIDATES_ABOVE_SORENESS_THRESHOLD`
 instead, because the sanitizer does not run the planner's selection branch.
 
-Gemini and local-model prompts receive advisory arm-coverage guidance, and their
+Cloud planner prompts receive advisory arm-coverage guidance, and their
 sanitized plans receive the same coverage assessment without rejection for
 missing direct work. Coverage assessment is persisted with accepted plans (see
 above); it is not performed volume. The
