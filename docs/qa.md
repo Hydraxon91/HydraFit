@@ -30,7 +30,8 @@ exact on-screen text.
   output, the provider's missing-key failure, a restored cloud engine selection, and both retry-hint
   reasons with their request counts.
 - **Manual device check (user-executed, 2026-10-29, debug `0.7.6-dev-eba4b7d4-dirty` on
-  `emulator-5554`):** with the saved Groq key cleared, Settings kept Groq API (cloud) selected but
+  `emulator-5554`; that is the pre-bump development string, and local debug builds now report
+  `0.12.0-dev-…`):** with the saved Groq key cleared, Settings kept Groq API (cloud) selected but
   unavailable alongside the cloud-unavailable note, Deterministic stayed selectable, a plan attempt
   showed the missing-key message with no plan, and re-entering the key made Groq selectable again.
   The user performed these steps directly; the delegated runner was cancelled beforehand, so these
