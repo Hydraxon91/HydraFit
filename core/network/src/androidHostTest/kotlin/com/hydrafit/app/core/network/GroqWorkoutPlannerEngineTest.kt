@@ -261,6 +261,41 @@ class GroqWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun generatePlanDropsAnAmbiguousNameFromTheProvider() = runTest {
+        val collidingCatalog = object : ExerciseCatalog {
+            override suspend fun all() = listOf(
+                exercise("press-a", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press"),
+                exercise("press-b", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press"),
+                exercise("row", MovementPattern.HORIZONTAL_PULL),
+                exercise("squat", MovementPattern.SQUAT)
+            )
+        }
+        val content = """{"days":[{"focus":"FULL_BODY","exercises":[""" +
+            """{"exerciseId":"Bench Press","sets":3,"reps":8},""" +
+            """{"exerciseId":"row","sets":3,"reps":8},""" +
+            """{"exerciseId":"squat","sets":3,"reps":8}]}]}"""
+        val response = geminiJson.encodeToString(
+            GroqResponse(listOf(GroqChoice(GroqMessage("assistant", content))))
+        )
+        val mock = MockEngine {
+            respond(
+                response,
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val singleDay = PlanRequest(1, setOf(EquipmentTag.BARBELL), emptyMap(), nowMillis = 0L)
+
+        val plan = engineFor(mock, collidingCatalog).generatePlan(singleDay)
+
+        // The engine's own output never contains a collision row.
+        assertEquals(
+            listOf("row", "squat"),
+            plan.days.single().exercises.map { it.exerciseId }
+        )
+    }
+
+    @Test
     fun keepsTheServiceUnavailableReasonForALongRetryHintOnA5xx() = runTest {
         var calls = 0
         val mock = MockEngine {
@@ -339,20 +374,23 @@ class GroqWorkoutPlannerEngineTest {
         assertEquals(3, calls)
     }
 
-    private fun engineFor(mock: MockEngine): GroqWorkoutPlannerEngine {
+    private fun engineFor(
+        mock: MockEngine,
+        catalogOverride: ExerciseCatalog = catalog
+    ): GroqWorkoutPlannerEngine {
         val client = createGeminiHttpClient(mock)
-        val sanitizer = WeeklyPlanSanitizer(catalog)
+        val sanitizer = WeeklyPlanSanitizer(catalogOverride)
         val builder = GeminiWorkoutPlannerEngine(
             client,
             GeminiConfig(),
-            catalog,
+            catalogOverride,
             ApiKeyProvider { "unused" },
             sanitizer,
             fallback
         )
         return GroqWorkoutPlannerEngine(
             client,
-            catalog,
+            catalogOverride,
             GroqApiKeyProvider { "test-key" },
             sanitizer,
             builder
