@@ -239,12 +239,14 @@ and take the state plus callbacks.
 
 ### 1.7 Swappable `WorkoutPlannerEngine` strategy (+ model-backed fallbacks)
 
-One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) backs
-three active implementations selected by `DefaultWorkoutPlannerEngineProvider` from the persisted engine
-preference. `GroqWorkoutPlannerEngine` funnels output through the shared `WeeklyPlanSanitizer` +
+One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) has
+two selectable implementations resolved by `DefaultWorkoutPlannerEngineProvider` from the persisted
+engine preference. `GroqWorkoutPlannerEngine` funnels output through the shared `WeeklyPlanSanitizer` +
 `PlanVarietyEnforcer`; the deterministic engine returns directly. Stored `GEMINI_API` and `LOCAL_LLM`
 identities remain readable for plan history, but both resolve to the deterministic engine. The
-on-device planner and its LiteRT-LM runtime were removed in 0.12.x. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
+on-device planner and its LiteRT-LM runtime were removed in 0.12.x; `GeminiWorkoutPlannerEngine`
+remains as the shared prompt and schema builder that Groq reuses and is not selectable. The
+deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
 `SubstituteExerciseUseCase` to swap one slot of an accepted plan; when the replaced slot is
 qualifying direct arm work, coverage-preserving replacements are ranked first while other same-pattern
 replacements remain available for explicit user choice.
@@ -252,11 +254,17 @@ replacements remain available for explicit user choice.
 Groq uses a user-supplied key in a separate Android Keystore-backed slot and sends requests directly
 to Groq with the pinned `openai/gpt-oss-120b` model. The legacy Gemini identity remains readable for
 plan history; a saved Gemini selection uses the deterministic engine rather than sending the old key
-to Groq. Groq parsing and sanitizer failures surface as invalid responses instead of silently
+to Groq. A saved Groq selection with no key fails with `MISSING_API_KEY` instead of silently
+substituting the built-in planner, so the screen never reports an absent key as an unusable model
+response. Groq parsing and sanitizer failures surface as invalid responses instead of silently
 substituting an engine. The Groq implementation reuses the existing prompt builder but adapts its
-schema to Groq's strict JSON format, resolves a returned display name onto an eligible id, retries a
+schema to Groq's strict JSON format, resolves a returned display name only when exactly one eligible
+exercise carries it (a name shared by two eligible exercises is left unresolved for the sanitizer to
+drop rather than choosing one), retries a
 transient rate limit or 5xx up to twice with bounded backoff and honours `Retry-After`, and reports a
-per-day quota without retrying. iOS has no cloud key entry, so Groq is unavailable there by design.
+per-day quota without retrying. An over-budget `Retry-After` ends the request with the reason its
+status established rather than relabelling a 5xx as a rate limit. iOS has no cloud key entry, so Groq
+is unavailable there by design.
 
 The deterministic engine additionally pursues **four prescribed direct isolation sets each for
 BICEPS and TRICEPS per normal generated week, regardless of goal**. A qualifying set must use the
@@ -467,27 +475,20 @@ only the plan origin and app-verified adjustments, never model rationale.
 
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
-  `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
+  `GroqWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
   `PlanVarietyEnforcer`, `SplitResolver`, `PlannerPromptFragments`.
-- **Consistency:** high. `GeneratedWeeklySplitUseCase` resolves the engine through the provider, so
+- **Consistency:** high. `GenerateWeeklySplitUseCase` resolves the engine through the provider, so
   engine choice is a Koin concern.
 - **Violations / tensions:** fallback semantics differ per engine and are not part of the interface:
-  Deterministic never falls back; Local LLM falls back on OOM/unusable output and logs it through
-  `OnDevicePlannerLogger`; Gemini **silently** returns a Deterministic plan when sanitization rejects
-  the reply (S3-001), which contradicts PLANS.md line 291 ("never silently falls back to
-  Deterministic"). `PlanVarietyEnforcer` rejects rather than repairs a repetitive model week
-  (S1-013), which is why the on-device engine falls back today. The on-device native wait has no
-  timeout (S3-004).
-- **Ranked improvements:**
-  1. (S) Make Gemini surface `INVALID_RESPONSE` instead of silent fallback (S3-001).
-  2. (M) Bound the on-device `done.await()` and add a repair path to the enforcer for 0.2.4 (S3-004,
-     S1-013).
-- **Resolved (0.2.2 RF):** the Gemini sanitize reject is no longer silent — it keeps the
-  Deterministic fallback but sets `SplitBuilderUiState.fallbackReason = INVALID_RESPONSE`, so the
-  screen names the reason under the fallback note (`a07134e`; a recorded deviation from "never
-  silently falls back"). The on-device native wait is bounded at 300 s and cancels the conversation
-  on timeout (`6c38b17`). The `PlanVarietyEnforcer` repair-vs-reject question (S1-013) stays open for
-  0.2.4.
+  the deterministic engine never falls back, and Groq throws a typed `PlanGenerationException` for
+  every failure instead of returning another engine's plan. A saved Groq selection without a key is
+  reported as `MISSING_API_KEY` rather than reaching an engine at all. `PlanVarietyEnforcer` rejects
+  rather than repairs a repetitive model week (S1-013).
+- **Resolved (0.2.2 RF, superseded in 0.12.x):** the Gemini sanitize reject used to keep the
+  deterministic plan while setting `SplitBuilderUiState.fallbackReason = INVALID_RESPONSE`
+  (`a07134e`). Gemini is no longer selectable, and the fallback-reason field was removed in 0.12.x so
+  an absent key is not described as an invalid response; only the generic
+  `usedFallbackEngine` note remains for a retired stored selection.
 
 ### 1.8 Immutable (snapshotted) log and plan history
 
@@ -1570,9 +1571,9 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D4 | `:core:domain` is commonMain-only, no platform APIs | PLANS.md "Decisions Made" | None recorded | Current |
 | D5 | Use cases + engine binding live in `:shared`'s `domainModule` | PLANS.md "Decisions Made" | None recorded | Current |
 | D6 | Compose Multiplatform resources; avoid moko-resources | PLANS.md "Decisions Made" | moko-resources deferred "unless native resource access becomes a concrete requirement" | Current |
-| D7 | Three `WorkoutPlannerEngine`s behind one interface, swappable only via Koin | AGENTS.md "Strategy Pattern Discipline"; PLANS.md engine decisions | None to replace the interface | Current |
+| D7 | Engines behind one `WorkoutPlannerEngine` interface, swappable only via Koin | AGENTS.md "Strategy Pattern Discipline"; PLANS.md engine decisions | None to replace the interface | Current; two selectable engines (deterministic, Groq) after the 0.12.x removal |
 | D8 | Gemini never silently falls back to Deterministic | PLANS.md line 291 | None recorded | **Contradicted by S3-001** |
-| D9 | Local LLM falls back on OOM/errors and when no model is present | PLANS.md "Decisions Made" (line 279) | None recorded | Current |
+| D9 | Local LLM falls back on OOM/errors and when no model is present | PLANS.md "Decisions Made" (line 279) | None recorded | Superseded in 0.12.x: the on-device engine was removed |
 | D10 | Immutable log/plan snapshots (involvements, names, week/day) | PLANS.md lines 302-303; `docs/fatigue-formula.md` "Sessions and input" | Legacy binary primary/secondary explicitly replaced (PLANS.md line 303) | Current; edges S2-001, S5-001 |
 | D11 | Additive `.sqm` migrations; never edit released schema | AGENTS.md "Migration Discipline"; PLANS.md decisions | None recorded | Current; unverified (S2-004) |
 | D12 | Fatigue model (bounded index, session diminishing returns, compound/isolation split, C2 relative load, C3 RIR) | `docs/plans-archive.md` "Fatigue model redesign" + C1-C3; `docs/fatigue-formula.md` | Investigated/rejected variants are recorded (drop `D`, drop headroom) in the archive | Current |
@@ -1581,7 +1582,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D15 | Pinned dependency versions (SQLDelight 2.4.0, Koin 4.2.2, Ktor 3.6.0, serialization 1.11.0, coroutines 1.11.0, MockK 1.14.11, navigation-compose 2.9.2) | PLANS.md "Decisions Made" | None recorded | Current |
 | D16 | MockK is JVM-only; `commonTest` stays on `kotlin.test` with hand-written fakes | PLANS.md "Decisions Made" | None recorded | Current (and the source of the fake duplication, TS4-001) |
 | D17 | Koin `4.2.2`: `Module.verify()` is JVM-only, `checkModules()` deprecated; verify in Android host tests | PLANS.md "Decisions Made" (line 288) | None recorded | Current; known unverified bindings recorded |
-| D18 | On-device model imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Current |
+| D18 | On-device model was imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Superseded in 0.12.x: the on-device planner, model import and runtime were removed |
 | D19 | Gemini model `gemini-3.1-flash-lite`; sampling params omitted | PLANS.md line 282 | None recorded | Current |
 | D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
 | D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility implemented in 0.10.0 via recorded targets | Current |
@@ -1658,7 +1659,7 @@ primary sources, not recollection:
 
 Applied to this codebase:
 
-- **DIP and ISP are load-bearing.** DIP is what makes `domain` ports → SQLDelight/Ktor/LiteRT
+- **DIP and ISP are load-bearing.** DIP is what makes `domain` ports → SQLDelight/Ktor
   implementations + Koin wiring testable; ISP is Martin's compile-time argument in practice —
   `WorkoutLogRepository`'s width (S1-006) is exactly why there are 8 hand-written doubles (TS4-001).
   Follow these closely.
@@ -1691,7 +1692,7 @@ real, and keep the SOLID tags as review optics (as §3 does) rather than refacto
 | `interface` + multiple impls | `interface` + DI | Same idea; implementations are bound in Koin, not `new`ed inline. |
 | `sealed interface` / `sealed class` | discriminated union (`abstract record` + subtypes) | Used here heavily via enums instead (see next row). |
 | `enum class` with constructor params | `enum` with fields | e.g. `TrainingGoal(defaultSets, …)`, `MovementPattern(isCompound)`. |
-| `expect`/`actual` | partial classes / conditional compilation | HydraFit uses it once (`OnDeviceModelSection`); platform selection is otherwise source sets + DI. |
+| `expect`/`actual` | partial classes / conditional compilation | HydraFit uses it for a few platform seams (`AndroidDatabaseDriverFactory`/`NativeDatabaseDriverFactory`, `rememberRestAlertPermission`); platform selection is otherwise source sets + DI. |
 | Extension function | extension method | e.g. `WeightUnit.kilogramsToDisplay`, `AcceptedPlan.toWeeklyPlan`. |
 | `suspend fun` + coroutines | `async`/`await` + `Task` | Cancellation is cooperative via `CancellationException`. |
 | `Flow` / `StateFlow` | `IObservable<T>` / `BehaviorSubject<T>` | `StateFlow` is a hot, always-valued observable; `Flow` is a cold stream. |

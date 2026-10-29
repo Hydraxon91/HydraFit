@@ -454,13 +454,14 @@ research candidates have explicit evidence-backed decisions before completion.
 
 ### 0.12 — Optional AI Reliability (0.12.0; 0.12.1 folded into 0.12.0, 1 publication)
 
-Former slice ids are recorded in parentheses. `0.12.1`'s on-device retirement shipped in the same
-publication as the provider work, so it is recorded as folded rather than retagged.
+Former slice ids are recorded in parentheses. `0.12.1`'s on-device retirement is folded into the same
+0.12.0 publication rather than retagged. The work is implemented and committed on the release
+branch; publication remains pending explicit approval.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
 | 0.12.0 | Remote provider research and the Groq replacement; approved AI validation/identity work; on-device LLM retirement (former `0.12.0`–`0.12.3`; `0.12.1` folded into this release) | Gemini baseline, OpenRouter and Groq; CATP7-R01; S1-013; provider selection and repair/rejection decisions remain gated |
-| ~~0.12.1~~ | **Folded into 0.12.0** — on-device LLM retirement shipped there | Not published separately |
+| ~~0.12.1~~ | **Folded into 0.12.0** — on-device LLM retirement is part of this release, not published separately | Not published separately |
 
 Research precedes implementation: compare Gemini with OpenRouter and Groq BYOK
 options using representative synthetic requests. Assess current pricing and quotas,

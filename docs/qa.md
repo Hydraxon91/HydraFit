@@ -21,6 +21,14 @@ exact on-screen text.
   These are user-reported results, not independently witnessed or automated assertions.
 - Error states did not occur during that check, so their UI presentation remains unverified.
 
+## Groq planner — 0.12.0 review corrections (2026-10-29)
+
+- Corrected on the release branch after the full-range review: an ambiguous display name no longer
+  resolves by catalog order, a stored Groq selection without a key reports a missing-key reason
+  instead of an invalid response, and an over-budget `Retry-After` keeps its HTTP status's reason.
+- Covered by host tests for the identity, provider and retry paths. The missing-key and
+  ambiguous-name screens were not re-checked on a device, so their presentation remains unverified.
+
 ## Bonsai 2B experiment — failed for now (2026-10-29)
 
 - An experimental, unmerged CPU-only Bonsai 2B integration was tested on an S25
@@ -808,12 +816,17 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 
 ## 4. Plan — Groq (typed failure reasons)
 - No Groq API key → Groq is unavailable in Settings; a saved Gemini key is not reused.
+- A stored Groq selection whose key was removed → the screen reports that no key is saved and no plan
+  is generated. It must not return the built-in plan described as an unusable Groq response.
 - Save a user-owned Groq key → Groq becomes selectable; clearing it disables Groq.
 - Valid key → generate and validate a plan, including a bodyweight-only request.
 - Authentication, rate limit, service and network failures → the corresponding reason is shown.
-  A transient 429/5xx retries up to twice; a per-day quota reason does not retry.
-- A returned display name resolves onto an eligible exercise id; an unresolved id is dropped by
-  the sanitizer, and a plan left unusable is reported as an invalid response.
+  A transient 429/5xx retries up to twice; a per-day quota reason does not retry. A `Retry-After`
+  above the 60 s budget still reports the status's own reason, so a 5xx is never shown as a rate limit.
+- A returned display name resolves onto an eligible exercise id only when exactly one eligible
+  exercise carries that name; a name shared by two eligible exercises is dropped rather than guessed,
+  an unresolved id is dropped by the sanitizer, and a plan left unusable is reported as an invalid
+  response.
 - Sharing toggle OFF → no weight history sent (consent gate); ON changes behaviour.
 - Historical Gemini plans retain their attribution; a legacy Gemini selection uses the offline engine.
 

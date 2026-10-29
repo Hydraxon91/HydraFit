@@ -7,7 +7,7 @@ Composition files:
 
 | Location | Export / responsibility |
 | --- | --- |
-| Shell `DomainModule.kt` | `domainModule`: use cases (incl. `SubstituteExerciseUseCase` / `PlanBuilderActions`), configs, deterministic/local engines, provider |
+| Shell `DomainModule.kt` | `domainModule`: use cases (incl. `SubstituteExerciseUseCase` / `PlanBuilderActions`), configs, deterministic engine, provider |
 | Database `DatabaseModule.kt` | `databaseModule`: DB and repository implementations |
 | Network `NetworkModule.kt` | `networkModule`: HTTP client, Groq engine and legacy Gemini prompt builder |
 | Feature `EquipmentFeatureModule.kt` | `equipmentModule` |
@@ -17,10 +17,11 @@ Composition files:
 | Feature `SettingsModule.kt` | `settingsModule` |
 | Feature `OnboardingModule.kt` | `onboardingModule` (exported, aggregated by the shell; `OnboardingViewModel` + `OnboardingEntryViewModel`) |
 | Feature `progress/ProgressModule.kt` | `progressModule` (exported; one `ProgressViewModel`). Registered in the shell's aggregation separately from the six tab destinations; progress is a pushed, non-tab route. |
-| Platform `AndroidDatabaseModule.kt` / `IosDatabaseModule.kt` | Driver, clock, key store, local runtime adapters |
+| Platform `AndroidDatabaseModule.kt` / `IosDatabaseModule.kt` | Driver, clock, key store, backup and reminder adapters |
 
 Shell `Koin.kt` aggregates the modules and invokes catalog/equipment seeding
-after startup. `core/llm` has no separate Koin module.
+after startup. There is no separate local-runtime module; the on-device planner was
+removed in 0.12.x.
 Existing bindings use `single { ... }`, `single<Port> { Implementation(...) }`,
 `singleOf(::UseCase)`, and `viewModel { FeatureViewModel(...) }`.
 

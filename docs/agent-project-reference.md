@@ -171,7 +171,7 @@ A compact map is sufficient:
 
 ## Project Overview
 
-HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Groq API / Local On-Device LLM) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.
+HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Groq API) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.
 
 Tech stack:
 - **Kotlin Multiplatform (KMP)** — `commonMain` for shared logic, `androidMain`/`iosMain` for platform-specific glue
@@ -179,7 +179,6 @@ Tech stack:
 - **SQLDelight** — typed, multiplatform-tested local database
 - **Ktor** — HTTP client for the Groq API engine
 - **Koin** — dependency injection, enabling engine strategy swaps
-- **Google LiteRT-LM** (`litertlm-android`) — on-device Gemma model execution (experimental engine; MediaPipe's mobile LLM Inference was deprecated)
 - **GitHub Actions** — CI/CD (lint, unit tests, debug APK build/publish)
 
 ## Architecture
@@ -194,7 +193,6 @@ HydraFit/
 │   ├── navigation/         # Shared navigation contract: FeatureDestination (route + label + graph) exported by each feature and aggregated by the shell
 │   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
 │   ├── network/            # Ktor client setup, planner API DTOs and schemas
-│   ├── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine
 │   └── exercisecontent/    # Bundled app-owned catalog content: offline exercise instructions and their read-only viewer
 ├── feature/
 │   ├── equipment/          # Equipment Profiler UI + ViewModels
@@ -204,7 +202,7 @@ HydraFit/
 │   ├── routines/           # Manual routine authoring + training-block scheduling UI + ViewModels
 │   ├── progress/           # Standalone Exercise Progress: range charts, all-time records and read-only recorded history (pushed from the Logger, not a tab)
 │   ├── onboarding/         # Setup state machine, step editors and first-workout handoffs
-│   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
+│   └── settings/           # Planner engine, cloud API key, backup and storage settings UI + ViewModels
 └── .github/workflows/      # CI/CD pipeline definitions
 ```
 
@@ -233,7 +231,7 @@ RELEASE_KEY_ALIAS=hydrafit
 RELEASE_KEY_PASSWORD=changeme
 ```
 
-> **CI/CD:** Signed release builds require four GitHub Actions Secrets (Settings → Secrets and Actions): `RELEASE_KEYSTORE_BASE64` (the base64-encoded keystore) plus the same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. `release.yml` decodes the keystore under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH` for the build, so `RELEASE_KEYSTORE_PATH` is a local-only key, not a CI secret. `GEMINI_API_KEY` is **not** currently a CI secret — no CI job calls the Gemini engine, so CI builds embed an empty key.
+> **CI/CD:** Signed release builds require four GitHub Actions Secrets (Settings → Secrets and Actions): `RELEASE_KEYSTORE_BASE64` (the base64-encoded keystore) plus the same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. `release.yml` decodes the keystore under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH` for the build, so `RELEASE_KEYSTORE_PATH` is a local-only key, not a CI secret. No planner key is a build input: the Groq key is entered by the user in Settings, so CI builds carry no planner credential at all.
 
 > A `local.properties.template` (with placeholder values, no real secrets) should exist at the repo root and be kept up to date whenever a new config key is introduced.
 
