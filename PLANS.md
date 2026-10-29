@@ -121,6 +121,15 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 - Future numbers are approved roadmap targets, not implementation/publication approvals. M8 now spans **0.12.x**, with CATP7-R01 targeting **0.12.0**, superseding the former provisional 0.6.0 placement. Further splitting remains possible at each scope gate.
 - Development builds use a `-dev` string; release versions still come from tags via the existing `release.yml` workflow.
 
+### 0.12.0 post-release documentation audit (open, recorded 2026-10-29)
+
+Reviewer nits C1-05…C1-07 and related residue found while closing the release. None misstates shipped behavior, so they are deferred to the documentation audit that follows publication:
+
+- **C1-05** — dead planner-key build plumbing: `androidApp/build.gradle.kts` reads `GEMINI_API_KEY` into `BuildConfig`, `HydraFitApplication` forwards it to `initKoin`, and `androidDatabaseModule` discards it. Removing the field, parameter and template note is a four-file cleanup that needs its own approval.
+- **C1-06** — `docs/agent-project-reference.md` still says "all three planning strategies implement".
+- **C1-07** — `references/planning.md` has a line wrapped past the file's ~100-column style.
+- Further residue for the same sweep: Android startup does not delete the importer's `on_device_llm.litertlm.tmp`; the retired Gemini Keystore slot (`hydrafit_gemini_api_key`) remains on device, unread; `docs/roadmap.md` still phrases local-LLM retirement as planned; `.gitignore` still ignores `core/llm/src/androidMain/jniLibs/`.
+
 ### 0.10.5 — post-0.10.3 live-use fixes (scope approved 2026-10-25; implementation gated)
 
 **Overnight decisions and ownership approved 2026-10-25; record first, do not start yet.**
