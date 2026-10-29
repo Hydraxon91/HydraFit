@@ -816,6 +816,10 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 
 ## 4. Plan — Groq (typed failure reasons)
 - No Groq API key → Groq is unavailable in Settings; a saved Gemini key is not reused.
+- A stored Groq selection whose key was removed stays shown as selected but unavailable in Settings,
+  with the cloud-unavailable note. Planning reports the missing key until a key is added or the
+  built-in planner is selected explicitly; the app must not show the built-in planner as selected
+  while the stored selection still blocks planning.
 - A stored Groq selection whose key was removed → the screen reports that no key is saved and no plan
   is generated. It must not return the built-in plan described as an unusable Groq response.
 - Save a user-owned Groq key → Groq becomes selectable; clearing it disables Groq.

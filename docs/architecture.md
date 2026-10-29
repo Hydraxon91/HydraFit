@@ -1632,7 +1632,7 @@ Legend: ✅ satisfied, ⚠️ mixed/violated with evidence, n/a.
 | 1.4 Koin composition root | ✅ (DI module) | ✅ | n/a | ✅ | ✅ | Config duplication S6-001 weakens "one definition"; acceptable for a DI module. |
 | 1.5 Use cases | ⚠️ | ✅ | ✅ | ✅ | ✅ | `LogWorkoutSetUseCase` session-policy tension (S1-004); historical S1-009 dependency count alone does not establish SRP drift. |
 | 1.6 UiState/ViewModel | ⚠️ | ✅ | ✅ | ✅ | ✅ | Historical S4-001/S4-004 concerns need current verification; size and dependency count alone do not establish responsibility boundaries. |
-| 1.7 Engine strategy | ✅ | ✅ | ✅ | ✅ | ✅ | Three implementations, one interface; LSP holds at the interface; differing fallback **semantics** are per-implementation and partly contradict D8 (S3-001). |
+| 1.7 Engine strategy | ✅ | ✅ | ✅ | ✅ | ✅ | Two selectable implementations behind one interface (deterministic, Groq) plus the retained Gemini prompt/schema builder; LSP holds at the interface, and every failure of a cloud selection surfaces rather than substituting an engine. |
 | 1.8 Snapshot models | ✅ | ✅ | n/a | ✅ | n/a | Value semantics; null-vs-empty conflation is a correctness edge (S2-001). |
 | 1.9 Additive migrations | ✅ | ✅ | n/a | n/a | n/a | Ordered, additive; verification gap (S2-004). |
 | 1.10 Platform source sets | ✅ | ✅ | ✅ | ✅ | ✅ | One `expect/actual`; platform selection via Koin. Sync IO ports push dispatch to callers (S2-007). |
@@ -1666,7 +1666,7 @@ Applied to this codebase:
 - **OCP only at real variation points.** The `WorkoutPlannerEngine` strategy is the textbook win;
   elsewhere prefer idiomatic Kotlin (`sealed` + `when` + data classes) over open inheritance —
   Kotlin classes are closed by default, so interfaces/extension functions are the seams.
-- **LSP matters only when several implementations share one contract** (the three engines), and is
+- **LSP matters only when several implementations share one contract** (the engine interface), and is
   about subtyping/contracts, not class hierarchies.
 - **SRP with judgment** — reason-to-change/actor, not "one method per class". North's critique is
   real; splitting code that always changes together adds indirection. This project's own "no style
