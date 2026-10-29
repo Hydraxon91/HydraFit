@@ -107,7 +107,17 @@ class SettingsViewModel(
             _state.update {
                 it.copy(
                     availableEngines = available,
-                    selectedEngine = if (stored in available) stored else available.firstOrNull(),
+                    // A cloud selection whose key is gone keeps its row visible as unavailable: the
+                    // screen must not claim the built-in planner is selected while planning would
+                    // report the missing key. Retired identities exist only for history, so those
+                    // show the engine that actually runs.
+                    selectedEngine = if (stored in available ||
+                        stored == PlannerEngineId.GROQ_API
+                    ) {
+                        stored
+                    } else {
+                        available.firstOrNull() ?: PlannerEngineId.DETERMINISTIC
+                    },
                     selectedGoal = goal,
                     weightUnit = unit,
                     distanceUnit = distanceUnit,

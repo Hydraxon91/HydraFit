@@ -162,6 +162,18 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun keepsASavedGroqSelectionVisibleWhenItsKeyIsMissing() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            available = listOf(PlannerEngineId.DETERMINISTIC),
+            stored = PlannerEngineId.GROQ_API
+        )
+        advanceUntilIdle()
+
+        assertEquals(PlannerEngineId.GROQ_API, viewModel.state.value.selectedEngine)
+        assertFalse(viewModel.state.value.isGroqAvailable)
+    }
+
+    @Test
     fun fallsBackToAnAvailableEngineWhenTheStoredOneIsUnavailable() = runTest(dispatcher) {
         val viewModel = viewModel(
             available = listOf(PlannerEngineId.DETERMINISTIC),
