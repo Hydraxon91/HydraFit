@@ -26,8 +26,19 @@ exact on-screen text.
 - Corrected on the release branch after the full-range review: an ambiguous display name no longer
   resolves by catalog order, a stored Groq selection without a key reports a missing-key reason
   instead of an invalid response, and an over-budget `Retry-After` keeps its HTTP status's reason.
-- Covered by host tests for the identity, provider and retry paths. The missing-key and
-  ambiguous-name screens were not re-checked on a device, so their presentation remains unverified.
+- Host tests cover identity resolution through the sanitizer and through the engine's own generated
+  output, the provider's missing-key failure, a restored cloud engine selection, and both retry-hint
+  reasons with their request counts.
+- **Manual device check (user-executed, 2026-10-29, debug `0.7.6-dev-eba4b7d4-dirty` on
+  `emulator-5554`):** with the saved Groq key cleared, Settings kept Groq API (cloud) selected but
+  unavailable alongside the cloud-unavailable note, Deterministic stayed selectable, a plan attempt
+  showed the missing-key message with no plan, and re-entering the key made Groq selectable again.
+  The user performed these steps directly; the delegated runner was cancelled beforehand, so these
+  are user-reported results and no automated pass is claimed. The key was restored by the user.
+- Not covered by that check: the ambiguous-name drop (host-tested only), and dark mode, larger text,
+  locale and TalkBack.
+- The pinned `v0.11.3` → candidate debug upgrade with retained data has not been run, so on-device
+  migration and retained-settings behavior remain unverified.
 
 ## Bonsai 2B experiment — failed for now (2026-10-29)
 
