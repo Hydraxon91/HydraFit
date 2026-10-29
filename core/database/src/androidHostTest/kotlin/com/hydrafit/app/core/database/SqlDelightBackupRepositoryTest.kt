@@ -819,6 +819,19 @@ class SqlDelightBackupRepositoryTest {
     }
 
     @Test
+    fun restoreKeepsACloudEngineSelection() = runTest {
+        seedRepresentativeData()
+        database.plannerEngineQueries.updateEngine("GROQ_API")
+        val exported = repository.export(appVersion = "t", exportedAtMillis = 1L)
+        assertEquals("GROQ_API", exported.settings?.engineId)
+
+        database.plannerEngineQueries.updateEngine("DETERMINISTIC")
+        repository.restore(exported)
+
+        assertEquals("GROQ_API", database.plannerEngineQueries.selectEngine().executeAsOne())
+    }
+
+    @Test
     fun restoreOfVersionOneSettingsKeepsGuidedWorkoutsDisabled() = runTest {
         seedRepresentativeData()
         val exported = repository.export(appVersion = "t", exportedAtMillis = 1L)

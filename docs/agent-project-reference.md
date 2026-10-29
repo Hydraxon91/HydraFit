@@ -171,15 +171,14 @@ A compact map is sufficient:
 
 ## Project Overview
 
-HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Gemini API / Local On-Device LLM) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.
+HydraFit is an **open-source, offline-first fitness planning app** built with Kotlin Multiplatform and Compose Multiplatform, Android-first with iOS as a future target. Its core feature is a swappable workout-planning strategy engine (Deterministic / Groq API) sitting behind a single `WorkoutPlannerEngine` interface, combined with equipment-based filtering and a muscle fatigue tracking system.
 
 Tech stack:
 - **Kotlin Multiplatform (KMP)** — `commonMain` for shared logic, `androidMain`/`iosMain` for platform-specific glue
 - **Compose Multiplatform** — declarative UI, shared across platforms
 - **SQLDelight** — typed, multiplatform-tested local database
-- **Ktor** — HTTP client for the Gemini API engine
+- **Ktor** — HTTP client for the Groq API engine
 - **Koin** — dependency injection, enabling engine strategy swaps
-- **Google LiteRT-LM** (`litertlm-android`) — on-device Gemma model execution (experimental engine; MediaPipe's mobile LLM Inference was deprecated)
 - **GitHub Actions** — CI/CD (lint, unit tests, debug APK build/publish)
 
 ## Architecture
@@ -193,8 +192,7 @@ HydraFit/
 │   ├── userdata/           # Shared user profile, body metrics, goals, unit preferences, settings — used by any feature, owned by none
 │   ├── navigation/         # Shared navigation contract: FeatureDestination (route + label + graph) exported by each feature and aggregated by the shell
 │   ├── database/           # SQLDelight schema (.sq files), versioned .sqm migrations, generated queries, repository implementations
-│   ├── network/            # Ktor client setup, Gemini API DTOs, response_schema definitions
-│   ├── llm/                # On-device text generation (LiteRT-LM), model management, local planner engine
+│   ├── network/            # Ktor client setup, planner API DTOs and schemas
 │   └── exercisecontent/    # Bundled app-owned catalog content: offline exercise instructions and their read-only viewer
 ├── feature/
 │   ├── equipment/          # Equipment Profiler UI + ViewModels
@@ -204,7 +202,7 @@ HydraFit/
 │   ├── routines/           # Manual routine authoring + training-block scheduling UI + ViewModels
 │   ├── progress/           # Standalone Exercise Progress: range charts, all-time records and read-only recorded history (pushed from the Logger, not a tab)
 │   ├── onboarding/         # Setup state machine, step editors and first-workout handoffs
-│   └── settings/           # Planner engine, API key, and on-device model settings UI + ViewModels
+│   └── settings/           # Planner engine, cloud API key, backup and storage settings UI + ViewModels
 └── .github/workflows/      # CI/CD pipeline definitions
 ```
 
@@ -222,12 +220,10 @@ Use the bounded commands under Key Commands. Redirect build/test output to a log
 
 ## Local Configuration (`local.properties`)
 
-Required in root `local.properties` (gitignored, never committed):
+Release signing values, when needed, belong in root `local.properties` (gitignored, never committed).
+Groq keys are entered by users in Settings; they are not supplied by the build.
 
 ```properties
-# Gemini API Engine
-GEMINI_API_KEY=your_google_ai_studio_key_here
-
 # Release signing (only needed for release builds)
 RELEASE_KEYSTORE_PATH=/path/to/keystore.jks
 RELEASE_KEYSTORE_PASSWORD=changeme
@@ -235,7 +231,7 @@ RELEASE_KEY_ALIAS=hydrafit
 RELEASE_KEY_PASSWORD=changeme
 ```
 
-> **CI/CD:** Signed release builds require four GitHub Actions Secrets (Settings → Secrets and Actions): `RELEASE_KEYSTORE_BASE64` (the base64-encoded keystore) plus the same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. `release.yml` decodes the keystore under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH` for the build, so `RELEASE_KEYSTORE_PATH` is a local-only key, not a CI secret. `GEMINI_API_KEY` is **not** currently a CI secret — no CI job calls the Gemini engine, so CI builds embed an empty key.
+> **CI/CD:** Signed release builds require four GitHub Actions Secrets (Settings → Secrets and Actions): `RELEASE_KEYSTORE_BASE64` (the base64-encoded keystore) plus the same-named `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. `release.yml` decodes the keystore under `$RUNNER_TEMP` and exports `RELEASE_KEYSTORE_PATH` for the build, so `RELEASE_KEYSTORE_PATH` is a local-only key, not a CI secret. No planner key is a build input: the Groq key is entered by the user in Settings, so CI builds carry no planner credential at all.
 
 > A `local.properties.template` (with placeholder values, no real secrets) should exist at the repo root and be kept up to date whenever a new config key is introduced.
 
@@ -651,8 +647,8 @@ authorization. Its value is as a measured pilot, not as protection.
 - Repository implementations here fulfill the interfaces declared in `core/domain` — the direction of dependency is always `feature → domain ← database`, never `domain → database`.
 
 ### `core/network/`
-- Ktor client configuration and Gemini API request/response DTOs.
-- `response_schema` structured output definitions for the Gemini engine live here, not scattered across feature modules.
+- Ktor client configuration and cloud planner request/response DTOs.
+- Structured output schema construction lives here, not scattered across feature modules.
 
 ### `core/exercisecontent/`
 - Bundles app-owned catalog content that no single feature owns: the offline exercise instructions

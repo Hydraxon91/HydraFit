@@ -45,28 +45,28 @@ class SettingsViewModelTest {
     @Test
     fun listsAvailableEnginesAndSelectsTheStoredOne() = runTest(dispatcher) {
         val viewModel = viewModel(
-            available = listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GEMINI_API),
-            stored = PlannerEngineId.GEMINI_API
+            available = listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GROQ_API),
+            stored = PlannerEngineId.GROQ_API
         )
         advanceUntilIdle()
 
         assertEquals(
-            listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GEMINI_API),
+            listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GROQ_API),
             viewModel.state.value.availableEngines
         )
-        assertEquals(PlannerEngineId.GEMINI_API, viewModel.state.value.selectedEngine)
-        assertTrue(viewModel.state.value.isGeminiAvailable)
+        assertEquals(PlannerEngineId.GROQ_API, viewModel.state.value.selectedEngine)
+        assertTrue(viewModel.state.value.isGroqAvailable)
     }
 
     @Test
-    fun hidesGeminiWhenNoApiKeyIsConfigured() = runTest(dispatcher) {
+    fun hidesGroqWhenNoApiKeyIsConfigured() = runTest(dispatcher) {
         val viewModel = viewModel(
             available = listOf(PlannerEngineId.DETERMINISTIC),
             stored = PlannerEngineId.DETERMINISTIC
         )
         advanceUntilIdle()
 
-        assertFalse(viewModel.state.value.isGeminiAvailable)
+        assertFalse(viewModel.state.value.isGroqAvailable)
     }
 
     @Test
@@ -75,7 +75,7 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             preference = repository,
             availability = FakeEngineAvailability(
-                listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GEMINI_API)
+                listOf(PlannerEngineId.DETERMINISTIC, PlannerEngineId.GROQ_API)
             ),
             apiKeyStore = FakeApiKeyStore(),
             trainingGoalRepository = FakeTrainingGoalRepository(),
@@ -85,11 +85,11 @@ class SettingsViewModelTest {
         )
         advanceUntilIdle()
 
-        viewModel.onEngineSelected(PlannerEngineId.GEMINI_API)
+        viewModel.onEngineSelected(PlannerEngineId.GROQ_API)
         advanceUntilIdle()
 
-        assertEquals(PlannerEngineId.GEMINI_API, repository.stored)
-        assertEquals(PlannerEngineId.GEMINI_API, viewModel.state.value.selectedEngine)
+        assertEquals(PlannerEngineId.GROQ_API, repository.stored)
+        assertEquals(PlannerEngineId.GROQ_API, viewModel.state.value.selectedEngine)
     }
 
     @Test
@@ -159,6 +159,18 @@ class SettingsViewModelTest {
 
         assertEquals(TrainingGoal.STRENGTH, goals.stored)
         assertEquals(TrainingGoal.STRENGTH, viewModel.state.value.selectedGoal)
+    }
+
+    @Test
+    fun keepsASavedGroqSelectionVisibleWhenItsKeyIsMissing() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            available = listOf(PlannerEngineId.DETERMINISTIC),
+            stored = PlannerEngineId.GROQ_API
+        )
+        advanceUntilIdle()
+
+        assertEquals(PlannerEngineId.GROQ_API, viewModel.state.value.selectedEngine)
+        assertFalse(viewModel.state.value.isGroqAvailable)
     }
 
     @Test

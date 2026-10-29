@@ -14,9 +14,8 @@ data class SettingsUiState(
     val guidedWorkoutEnabled: Boolean = false,
     val workoutDataSharingEnabled: Boolean = false,
     val apiKeyConfigured: Boolean = false,
-    val apiKeyInput: String = "",
-    val isLocalLlmInstalled: Boolean = false
+    val apiKeyInput: String = ""
 ) {
-    val isGeminiAvailable: Boolean
-        get() = PlannerEngineId.GEMINI_API in availableEngines
+    val isGroqAvailable: Boolean
+        get() = PlannerEngineId.GROQ_API in availableEngines
 }

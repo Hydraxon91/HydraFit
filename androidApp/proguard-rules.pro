@@ -32,10 +32,6 @@
 -keep class io.ktor.client.engine.okhttp.OkHttpEngineContainer { *; }
 -keep class io.ktor.client.engine.okhttp.OkHttpEngine { *; }
 
-# LiteRT-LM binds native methods by name (Java_com_google_ai_edge_litertlm_LiteRtLmJni_*);
-# renaming these classes/methods breaks the JNI lookup.
--keep class com.google.ai.edge.litertlm.** { *; }
-
 -if @kotlinx.serialization.Serializable class **
 -keepclassmembers class <1> {
     static <1>$Companion Companion;

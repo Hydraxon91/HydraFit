@@ -81,10 +81,8 @@ import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
-import com.hydrafit.app.core.llm.LocalLlmWorkoutPlannerEngine
-import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
-import com.hydrafit.app.core.network.ApiKeyProvider
-import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.network.GroqApiKeyProvider
+import com.hydrafit.app.core.network.GroqWorkoutPlannerEngine
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
@@ -112,27 +110,15 @@ val domainModule: Module = module {
     single { DeterministicWorkoutPlannerEngine(get(), weightConfig = get(), periodization = get()) }
     single { WeeklyPlanSanitizer(get(), periodization = get(), weightConfig = get()) }
     single<OnDevicePlanProgressReporter> { DefaultOnDevicePlanProgressReporter() }
-    single {
-        LocalLlmWorkoutPlannerEngine(
-            generator = get(),
-            fallback = get<DeterministicWorkoutPlannerEngine>(),
-            catalog = get(),
-            sanitizer = get(),
-            logger = get(),
-            progressReporter = get()
-        )
-    }
-    single<EngineAvailability> { DefaultEngineAvailability(get<ApiKeyProvider>(), get()) }
+    single<EngineAvailability> { DefaultEngineAvailability(get<GroqApiKeyProvider>()) }
     single<WorkoutPlannerEngineProvider> {
         DefaultWorkoutPlannerEngineProvider(
             preference = get(),
             deterministic = get<DeterministicWorkoutPlannerEngine>(),
-            gemini = get<GeminiWorkoutPlannerEngine>(),
-            localLlm = get<LocalLlmWorkoutPlannerEngine>(),
-            apiKeyProvider = get<ApiKeyProvider>()
+            groq = get<GroqWorkoutPlannerEngine>(),
+            apiKeyProvider = get<GroqApiKeyProvider>()
         )
     }
-    single { OnDeviceEngineLifecycle(get(), get()) }
     singleOf(::GenerateWeeklySplitUseCase)
     single { SuggestedWeightConfig() }
     single { PeriodizationConfig() }

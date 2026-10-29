@@ -13,12 +13,6 @@ sealed interface StorageDataStatus {
     /** The recorded automatic snapshots were deleted; [count] were removed. */
     data class BackupFilesRemoved(val count: Int) : StorageDataStatus
 
-    /** The imported on-device model file was removed. */
-    data object ModelRemoved : StorageDataStatus
-
-    /** The model manager refused the removal, so the model file is still there. */
-    data object ModelRemovalFailed : StorageDataStatus
-
     /** A removal failed; [failure] is the typed reason when the throw was a BackupException. */
     data class Failed(val failure: BackupFailure?) : StorageDataStatus
 }
@@ -36,13 +30,12 @@ sealed interface StorageBackupStatus {
 }
 
 /**
- * What the storage section shows: the last loaded usage, whether the on-device model file is
- * present, the category awaiting confirmation and the outcome of the last action. [pending] is the
- * confirmation request itself, so a tap never removes anything on its own.
+ * What the storage section shows: the last loaded usage, the category awaiting confirmation and the
+ * outcome of the last action. [pending] is the confirmation request itself, so a tap never removes
+ * anything on its own.
  */
 data class StorageDataUiState(
     val usage: StorageUsage? = null,
-    val modelInstalled: Boolean = false,
     val pending: DataCategory? = null,
     /** The text typed into the ALL_DATA confirmation field. */
     val typedConfirmation: String = "",

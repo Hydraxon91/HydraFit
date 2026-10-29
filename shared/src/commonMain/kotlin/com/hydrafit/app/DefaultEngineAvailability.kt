@@ -2,21 +2,13 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
-import com.hydrafit.app.core.llm.OnDeviceTextGenerator
-import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 
-class DefaultEngineAvailability(
-    private val apiKeyProvider: ApiKeyProvider,
-    private val onDeviceGenerator: OnDeviceTextGenerator
-) : EngineAvailability {
+class DefaultEngineAvailability(private val apiKeyProvider: GroqApiKeyProvider) :
+    EngineAvailability {
 
-    override fun availableEngines(): List<PlannerEngineId> = buildList {
-        add(PlannerEngineId.DETERMINISTIC)
-        if (apiKeyProvider.geminiApiKey().isNotBlank()) {
-            add(PlannerEngineId.GEMINI_API)
-        }
-        if (onDeviceGenerator.isAvailable()) {
-            add(PlannerEngineId.LOCAL_LLM)
-        }
-    }
+    override fun availableEngines(): List<PlannerEngineId> = listOfNotNull(
+        PlannerEngineId.DETERMINISTIC,
+        PlannerEngineId.GROQ_API.takeIf { apiKeyProvider.groqApiKey().isNotBlank() }
+    )
 }

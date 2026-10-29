@@ -17,6 +17,7 @@ class NetworkModuleVerificationTest {
         networkModule.verify(
             extraTypes = listOf(
                 ApiKeyProvider::class,
+                GroqApiKeyProvider::class,
                 ExerciseCatalog::class,
                 GeminiConfig::class,
                 HttpClientEngine::class,

@@ -45,14 +45,15 @@ import hydrafit.feature.settings.generated.resources.settings_api_key_configured
 import hydrafit.feature.settings.generated.resources.settings_api_key_label
 import hydrafit.feature.settings.generated.resources.settings_api_key_save
 import hydrafit.feature.settings.generated.resources.settings_api_key_section
+import hydrafit.feature.settings.generated.resources.settings_cloud_unavailable
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_feet
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_meters
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_section
 import hydrafit.feature.settings.generated.resources.settings_engine_deterministic
 import hydrafit.feature.settings.generated.resources.settings_engine_gemini
+import hydrafit.feature.settings.generated.resources.settings_engine_groq
 import hydrafit.feature.settings.generated.resources.settings_engine_local_llm
 import hydrafit.feature.settings.generated.resources.settings_engine_section
-import hydrafit.feature.settings.generated.resources.settings_gemini_unavailable
 import hydrafit.feature.settings.generated.resources.settings_goal_balanced
 import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
@@ -60,7 +61,6 @@ import hydrafit.feature.settings.generated.resources.settings_goal_section
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
 import hydrafit.feature.settings.generated.resources.settings_guided_workout
 import hydrafit.feature.settings.generated.resources.settings_guided_workout_description
-import hydrafit.feature.settings.generated.resources.settings_local_llm_slow
 import hydrafit.feature.settings.generated.resources.settings_planning_section
 import hydrafit.feature.settings.generated.resources.settings_rest_default_description
 import hydrafit.feature.settings.generated.resources.settings_rest_default_save
@@ -123,7 +123,6 @@ fun SettingsRoute(
         onApiKeyChanged = viewModel::onApiKeyChanged,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
-        onModelChanged = viewModel::refresh,
         onOpenAcknowledgments = onOpenAcknowledgments,
         onOpenSetup = openSetup,
         modifier = modifier
@@ -145,7 +144,6 @@ fun SettingsScreen(
     onApiKeyChanged: (String) -> Unit,
     onSaveApiKey: () -> Unit,
     onClearApiKey: () -> Unit,
-    onModelChanged: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier
@@ -172,35 +170,31 @@ fun SettingsScreen(
             text = stringResource(Res.string.settings_engine_section),
             style = MaterialTheme.typography.titleMedium
         )
-        PlannerEngineId.entries.forEach { engine ->
-            val enabled = engine in state.availableEngines
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
+        PlannerEngineId.entries
+            .filterNot { it == PlannerEngineId.GEMINI_API || it == PlannerEngineId.LOCAL_LLM }
+            .forEach { engine ->
+                val enabled = engine in state.availableEngines
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = state.selectedEngine == engine,
+                            enabled = enabled,
+                            onClick = { onEngineSelected(engine) }
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
                         selected = state.selectedEngine == engine,
-                        enabled = enabled,
-                        onClick = { onEngineSelected(engine) }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = state.selectedEngine == engine,
-                    onClick = { onEngineSelected(engine) },
-                    enabled = enabled
-                )
-                Text(stringResource(engine.labelResource()))
+                        onClick = { onEngineSelected(engine) },
+                        enabled = enabled
+                    )
+                    Text(stringResource(engine.labelResource()))
+                }
             }
-        }
-        if (!state.isGeminiAvailable) {
+        if (!state.isGroqAvailable) {
             Text(
-                text = stringResource(Res.string.settings_gemini_unavailable),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        if (state.isLocalLlmInstalled) {
-            Text(
-                text = stringResource(Res.string.settings_local_llm_slow),
+                text = stringResource(Res.string.settings_cloud_unavailable),
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -331,11 +325,6 @@ fun SettingsScreen(
             }
         }
 
-        OnDeviceModelSection(
-            installed = state.isLocalLlmInstalled,
-            onModelChanged = onModelChanged
-        )
-
         Text(
             text = stringResource(Res.string.settings_api_key_section),
             style = MaterialTheme.typography.titleMedium
@@ -382,6 +371,7 @@ fun SettingsScreen(
 private fun PlannerEngineId.labelResource(): StringResource = when (this) {
     PlannerEngineId.DETERMINISTIC -> Res.string.settings_engine_deterministic
     PlannerEngineId.GEMINI_API -> Res.string.settings_engine_gemini
+    PlannerEngineId.GROQ_API -> Res.string.settings_engine_groq
     PlannerEngineId.LOCAL_LLM -> Res.string.settings_engine_local_llm
 }
 

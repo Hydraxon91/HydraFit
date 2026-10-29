@@ -10,9 +10,13 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class AndroidKeystoreApiKeyStore(context: Context) : ApiKeyStore {
+class AndroidKeystoreApiKeyStore(
+    context: Context,
+    private val keyAlias: String = KEY_ALIAS,
+    preferencesName: String = PREFS_NAME
+) : ApiKeyStore {
 
-    private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
 
     override fun load(): String? {
         val iv = preferences.getString(KEY_IV, null) ?: return null
@@ -40,14 +44,14 @@ class AndroidKeystoreApiKeyStore(context: Context) : ApiKeyStore {
 
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.let {
+        (keyStore.getEntry(keyAlias, null) as? KeyStore.SecretKeyEntry)?.let {
             return it.secretKey
         }
 
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         generator.init(
             KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)

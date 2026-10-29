@@ -50,22 +50,17 @@ import hydrafit.feature.settings.generated.resources.settings_backup_error_start
 import hydrafit.feature.settings.generated.resources.settings_backup_error_too_large
 import hydrafit.feature.settings.generated.resources.settings_backup_error_unknown_catalog
 import hydrafit.feature.settings.generated.resources.settings_backup_error_unsupported_version
-import hydrafit.feature.settings.generated.resources.settings_model_action_failed
-import hydrafit.feature.settings.generated.resources.settings_model_remove
 import hydrafit.feature.settings.generated.resources.settings_storage_backup_disabled
 import hydrafit.feature.settings.generated.resources.settings_storage_category_all_data
 import hydrafit.feature.settings.generated.resources.settings_storage_category_backup_files
 import hydrafit.feature.settings.generated.resources.settings_storage_category_body_and_records
 import hydrafit.feature.settings.generated.resources.settings_storage_category_exercise_data
-import hydrafit.feature.settings.generated.resources.settings_storage_category_on_device_model
 import hydrafit.feature.settings.generated.resources.settings_storage_category_planning
 import hydrafit.feature.settings.generated.resources.settings_storage_category_training_setup
 import hydrafit.feature.settings.generated.resources.settings_storage_category_workout_history
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_all
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_all_kept
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_category_kept
-import hydrafit.feature.settings.generated.resources.settings_storage_confirm_model
-import hydrafit.feature.settings.generated.resources.settings_storage_confirm_model_kept
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_snapshots
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_snapshots_kept
 import hydrafit.feature.settings.generated.resources.settings_storage_confirm_snapshots_none
@@ -87,14 +82,11 @@ import hydrafit.feature.settings.generated.resources.settings_storage_count_sess
 import hydrafit.feature.settings.generated.resources.settings_storage_count_sets
 import hydrafit.feature.settings.generated.resources.settings_storage_database_size
 import hydrafit.feature.settings.generated.resources.settings_storage_description
-import hydrafit.feature.settings.generated.resources.settings_storage_model_installed
-import hydrafit.feature.settings.generated.resources.settings_storage_model_not_installed
 import hydrafit.feature.settings.generated.resources.settings_storage_no_data
 import hydrafit.feature.settings.generated.resources.settings_storage_remove
 import hydrafit.feature.settings.generated.resources.settings_storage_remove_all
 import hydrafit.feature.settings.generated.resources.settings_storage_remove_failed
 import hydrafit.feature.settings.generated.resources.settings_storage_removed_category
-import hydrafit.feature.settings.generated.resources.settings_storage_removed_model
 import hydrafit.feature.settings.generated.resources.settings_storage_removed_snapshots
 import hydrafit.feature.settings.generated.resources.settings_storage_section
 import hydrafit.feature.settings.generated.resources.settings_storage_size_bytes
@@ -154,7 +146,6 @@ fun StorageDataRoute(
                 onRemove = { viewModel.request(DataCategory.BACKUP_FILES) }
             )
         }
-        ModelStateRow(state = state, onRemove = viewModel::removeModel)
         usage?.categories?.forEach { categoryUsage ->
             CategoryRow(
                 usage = categoryUsage,
@@ -203,37 +194,6 @@ private fun SnapshotRow(usage: StorageUsage, enabled: Boolean, onRemove: () -> U
                 )
             ) {
                 Text(stringResource(Res.string.settings_storage_remove))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModelStateRow(state: StorageDataUiState, onRemove: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().testTag(StorageDataTestTags.MODEL_ROW),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(
-                if (state.modelInstalled) {
-                    Res.string.settings_storage_model_installed
-                } else {
-                    Res.string.settings_storage_model_not_installed
-                }
-            ),
-            style = MaterialTheme.typography.bodySmall
-        )
-        if (state.modelInstalled) {
-            TextButton(
-                onClick = onRemove,
-                enabled = !state.inProgress,
-                modifier = Modifier.testTag(
-                    StorageDataTestTags.removeAction(DataCategory.ON_DEVICE_MODEL)
-                )
-            ) {
-                Text(stringResource(Res.string.settings_model_remove))
             }
         }
     }
@@ -406,11 +366,6 @@ private fun ConfirmBody(state: StorageDataUiState, category: DataCategory) {
             Disclosure(Res.string.settings_storage_confirm_snapshots_kept)
         }
 
-        DataCategory.ON_DEVICE_MODEL -> {
-            Text(stringResource(Res.string.settings_storage_confirm_model))
-            Disclosure(Res.string.settings_storage_confirm_model_kept)
-        }
-
         DataCategory.ALL_DATA -> {
             Text(stringResource(Res.string.settings_storage_confirm_all))
             state.usage?.categories?.forEach { categoryUsage ->
@@ -492,10 +447,6 @@ private fun statusMessage(status: StorageDataStatus): String = when (status) {
     is StorageDataStatus.BackupFilesRemoved ->
         stringResource(Res.string.settings_storage_removed_snapshots, status.count)
 
-    StorageDataStatus.ModelRemoved -> stringResource(Res.string.settings_storage_removed_model)
-    StorageDataStatus.ModelRemovalFailed ->
-        stringResource(Res.string.settings_model_action_failed)
-
     is StorageDataStatus.Failed -> status.failure?.messageResource()?.let {
         stringResource(it)
     } ?: stringResource(Res.string.settings_storage_remove_failed)
@@ -564,7 +515,6 @@ private fun DataCategory.labelResource(): StringResource = when (this) {
     DataCategory.TRAINING_SETUP -> Res.string.settings_storage_category_training_setup
     DataCategory.EXERCISE_DATA -> Res.string.settings_storage_category_exercise_data
     DataCategory.BACKUP_FILES -> Res.string.settings_storage_category_backup_files
-    DataCategory.ON_DEVICE_MODEL -> Res.string.settings_storage_category_on_device_model
     DataCategory.ALL_DATA -> Res.string.settings_storage_category_all_data
 }
 

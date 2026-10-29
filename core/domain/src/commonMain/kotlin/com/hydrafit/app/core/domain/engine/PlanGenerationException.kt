@@ -23,6 +23,9 @@ enum class PlanFailureReason {
     /** The API key is missing, invalid, or not permitted. */
     INVALID_API_KEY,
 
+    /** The selected cloud engine has no key saved on this device, so no request was attempted. */
+    MISSING_API_KEY,
+
     /** The provider rejected the request itself (HTTP 4xx other than auth/rate). */
     INVALID_REQUEST,
 

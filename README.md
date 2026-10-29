@@ -45,7 +45,7 @@ cd HydraFit
 ./gradlew :androidApp:assembleDebug
 ```
 
-Android Studio can help set up the SDK. See the [project reference](docs/agent-project-reference.md) for configuration and test commands. Gemini is optional: if you want to use it, add your own API key to the gitignored `local.properties`, following [`local.properties.template`](local.properties.template). Keys are available from [Google AI Studio](https://aistudio.google.com).
+Android Studio can help set up the SDK. See the [project reference](docs/agent-project-reference.md) for configuration and test commands. Cloud planning is optional: obtain your own Groq API key and enter it in Settings on Android. Usage is subject to your Groq account's limits and charges.
 
 Use debug builds on the development emulator, not signed or minified release APKs. Publishing and signing instructions live in the [release guide](docs/agent-ci-release.md).
 
@@ -76,7 +76,7 @@ The next versions are deliberately smaller: each gets a focused scope and its ow
 | 0.9.x — Equipment & data | 0.9.0 published 2026-10-15: equipment profiles, per-profile loading setup and plate/dumbbell calculators. Then individual importers, sharing and backup improvements |
 | 0.10.x — Progression & prescriptions | History integrity before new progression policies; per-set targets, pyramids and supersets in separate releases |
 | 0.11.x — Other training metrics | Duration, distance and force metrics delivered separately; drop sets, rest-pause and cardio need research first |
-| 0.12.x — Optional AI | Identity and validation fixes, then measured local-model and engine lifecycle improvements |
+| 0.12.x — Optional AI | Identity and validation fixes, cloud provider replacement and on-device planner retirement |
 | 0.13.x — Design & polish | Screen-by-screen polish, tablet and foldable layouts, then final accessibility, localization and integration checks |
 | 1.0 | Verified Android release, after all pre-1.0 work is delivered or explicitly resolved |
 | Beyond 1.0 | iOS shipping and desktop support |
@@ -87,16 +87,15 @@ Research may conclude that a feature isn't supported; reserving a version doesn'
 
 The **built-in deterministic planner** is the default. It runs offline and produces the same plan from the same inputs. Equipment, exercise preferences, fatigue estimates, load history and training goals inform its choices. Its calculations and tradeoffs are documented in the [architecture](docs/architecture.md) and [fatigue formula](docs/fatigue-formula.md).
 
-Two optional AI engines use the same planning interface:
+One optional AI engine uses the same planning interface:
 
-- **Gemini API:** needs an API key and a network connection. It sends equipment, fatigue and goals to Google; sharing logged workout history requires a separate consent toggle, off by default. Plan quality is inconsistent.
-- **On-device LLM:** experimental and Android-only, using LiteRT-LM with a user-imported model. No model is bundled. The tested Gemma pack does not currently produce usable complete weekly plans and falls back to the built-in planner. Treat local generation as non-functional for now; reliability work is planned in 0.12.x.
+- **Groq API:** needs your own API key and a network connection. It sends equipment, fatigue and goals to Groq; sharing logged workout history requires a separate consent toggle, off by default. Groq's rate limits, charges and data policies apply. Generated plans are validated but may still need your review.
 
 Some older plans also contain loads whose meaning was never established. The Logger labels these as “recorded, unconfirmed” rather than rewriting them. Generated bodyweight prescriptions do not suggest external loads; added kilograms are treated as added load, not total resistance. Added-load e1RM/progression and assisted or negative-load support remain outside the current contract.
 
 ## Development
 
-HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection, Ktor for Gemini and LiteRT-LM for local inference. Android is the shipping platform; iOS compilation is checked, but an iOS app isn't shipped yet.
+HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection and Ktor for the optional Groq planner. Android is the shipping platform; iOS compilation is checked, but an iOS app isn't shipped yet.
 
 Domain logic lives in `core/domain`, storage and engine integrations have their own core modules, and each feature owns its UI and navigation. `shared` connects them; `androidApp` is the Android entry point. See the [architecture guide](docs/architecture.md) for the boundaries.
 

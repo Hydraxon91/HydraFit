@@ -14,6 +14,49 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## Groq planner — user-reported manual check (2026-10-29)
+
+- The user reported that the supplied emulator checklist worked without error: key entry and
+  selection, normal and bodyweight-only generation, key removal and deterministic planning.
+  These are user-reported results, not independently witnessed or automated assertions.
+- Error states did not occur during that check, so their UI presentation remains unverified.
+
+## Groq planner — 0.12.0 review corrections (2026-10-29)
+
+- Corrected on the release branch after the full-range review: an ambiguous display name no longer
+  resolves by catalog order, a stored Groq selection without a key reports a missing-key reason
+  instead of an invalid response, and an over-budget `Retry-After` keeps its HTTP status's reason.
+- Host tests cover identity resolution through the sanitizer and through the engine's own generated
+  output, the provider's missing-key failure, a restored cloud engine selection, and both retry-hint
+  reasons with their request counts.
+- **Manual device check (user-executed, 2026-10-29, debug `0.7.6-dev-eba4b7d4-dirty` on
+  `emulator-5554`; that is the pre-bump development string, and local debug builds now report
+  `0.12.0-dev-…`):** with the saved Groq key cleared, Settings kept Groq API (cloud) selected but
+  unavailable alongside the cloud-unavailable note, Deterministic stayed selectable, a plan attempt
+  showed the missing-key message with no plan, and re-entering the key made Groq selectable again.
+  The user performed these steps directly; the delegated runner was cancelled beforehand, so these
+  are user-reported results and no automated pass is claimed. The key was restored by the user.
+- Not covered by that check: the ambiguous-name drop (host-tested only), and dark mode, larger text,
+  locale and TalkBack.
+- The pinned `v0.11.3` → candidate debug upgrade with retained data was not run: the emulator's
+  database was already at the candidate schema, so the check would have required erasing existing
+  emulator data. The user accepted this limit on 2026-10-29, so on-device migration and
+  retained-settings behavior remain unverified; `verifySqlDelightMigration` and the full host matrix
+  cover the schema change itself.
+
+## Bonsai 2B experiment — failed for now (2026-10-29)
+
+- An experimental, unmerged CPU-only Bonsai 2B integration was tested on an S25
+  (`SM-S931B`). One synthetic four-day native-harness request took 278 seconds:
+  approximately 167 seconds to first token and 3.26 tokens/second during decode.
+  This is not a repeated benchmark or a verified app-generated plan.
+- An earlier app attempt fell back after its 90-second no-output guard expired during
+  prefill. A subsequent harness run completed after experimental prefill heartbeat
+  changes; the final timeout changes were not verified end-to-end in the app.
+- The user judged the latency unacceptable and ended the experiment. Plan quality
+  across repeated requests, peak memory and heat remain unverified; no Gemini latency
+  comparison was measured. The experiment was not reviewed, merged or released.
+
 ## Open report — routine deletion (2026-10-28; user-reported)
 
 - User tapped a routine's Delete action and confirmed the dialog, but the routine remained listed.
@@ -786,24 +829,32 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Week 4 shows the deload banner; suggested weights appear when history/sharing exists.
 - Airplane mode → deterministic plan still generates.
 
-## 4. Plan — Gemini (typed failure reasons)
-- No API key → Gemini is unavailable in Settings.
-- Valid key → **plan generates** (this was the pre-fix failure: the response schema now constrains `exerciseId` to the catalog, so a valid-but-unknown id can no longer collapse a day and force a fallback). If the model still returns names, they are resolved by name.
-- Blank/cleared key with Gemini selected → shows an API-key reason (not a generic message).
-- Rate limit (429) → "rate-limiting" reason; retries up to twice.
-- Daily quota (429, per-day) → "quota" reason and **no retry**.
-- Service 5xx → "temporarily unavailable" reason + Retry.
-- Airplane mode with Gemini selected → "couldn't reach" / timeout reason.
-- Any failure → the specific localized reason is shown, with the raw backend detail underneath.
+## 4. Plan — Groq (typed failure reasons)
+- No Groq API key → Groq is unavailable in Settings; a saved Gemini key is not reused.
+- A stored Groq selection whose key was removed stays shown as selected but unavailable in Settings,
+  with the cloud-unavailable note. Planning reports the missing key until a key is added or the
+  built-in planner is selected explicitly; the app must not show the built-in planner as selected
+  while the stored selection still blocks planning.
+- A stored Groq selection whose key was removed → the screen reports that no key is saved and no plan
+  is generated. It must not return the built-in plan described as an unusable Groq response.
+- Save a user-owned Groq key → Groq becomes selectable; clearing it disables Groq.
+- Valid key → generate and validate a plan, including a bodyweight-only request.
+- Authentication, rate limit, service and network failures → the corresponding reason is shown.
+  A transient 429/5xx retries up to twice; a per-day quota reason does not retry. A `Retry-After`
+  above the 60 s budget still reports the status's own reason, so a 5xx is never shown as a rate limit.
+- A returned display name resolves onto an eligible exercise id only when exactly one eligible
+  exercise carries that name; a name shared by two eligible exercises is dropped rather than guessed,
+  an unresolved id is dropped by the sanitizer, and a plan left unusable is reported as an invalid
+  response.
 - Sharing toggle OFF → no weight history sent (consent gate); ON changes behaviour.
+- Historical Gemini plans retain their attribution; a legacy Gemini selection uses the offline engine.
 
-## 5. Plan — on-device LLM
-- No model imported → the engine is greyed out in Settings.
-- Import the portable pack (`gemma3-1b-it-int4.litertlm`) → generation starts on GPU/CPU; a plan is produced or a reason is logged.
-- **Recovery regression:** after a failed generation or a model change, tapping generate again must not fail with "Engine is not initialized" — the generator drops the stale engine instead of caching a closed one.
-- NPU pack (`…_sm8850.litertlm`) → import is refused with the "NPU model packs aren't supported" message; the hint/link that used to point at these packs is gone. A pre-existing NPU install shows "NPU build (unsupported)" and the on-device engine stays unavailable; if reached, the generator still tries NPU → GPU → CPU and falls back with a clear log line.
-- If the on-device plan is rejected, logcat (`adb logcat -s LiteRtLmTextGenerator OnDevicePlanner`) shows `On-device plan did not satisfy the request: days=N/M, per-day=[…]` so the shape can be triaged.
-- OOM → deterministic fallback (unchanged).
+## 5. On-device LLM (removed)
+- The on-device planner, its Settings import/model controls and the imported-model storage row
+  were removed in 0.12.x. No on-device generation path or runtime remains.
+- An `on_device_llm.litertlm`/`.target` left by an older build is deleted from app storage at
+  startup, off the main thread; only those two exact filenames are touched.
+- A stored `LOCAL_LLM` selection from an older install falls back to the deterministic planner.
 
 ## 6. Log
 - Log a set: exercise search, reps, weight, RIR, warm-up, bodyweight/blank weight, "per hand" hint.

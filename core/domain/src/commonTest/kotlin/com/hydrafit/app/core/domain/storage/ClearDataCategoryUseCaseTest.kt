@@ -30,9 +30,6 @@ class ClearDataCategoryUseCaseTest {
         val repository = ClearRepository()
 
         assertFailsWith<IllegalArgumentException> {
-            ClearDataCategoryUseCase(repository)(DataCategory.ON_DEVICE_MODEL)
-        }
-        assertFailsWith<IllegalArgumentException> {
             ClearDataCategoryUseCase(repository)(DataCategory.BACKUP_FILES)
         }
         assertEquals(emptyList(), repository.cleared)

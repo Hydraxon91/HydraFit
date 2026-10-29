@@ -87,9 +87,9 @@ review cycles do not mean larger implementation chunks or fewer required tests.
 | 0.9.x | profiles/plate/increments; imports; sharing + PDF + CSV; auto backups; encryption; merge restore; storage/reset | 0.9.0–0.9.6 | 7 |
 | 0.10.x | integrity; policies; prescriptions + presets + generation + RIR/RPE; supersets; effort/readiness | 0.10.0–0.10.4 | 5 |
 | 0.11.x | duration + timed preparation; distance; force; clusters; cardio | 0.11.0–0.11.4 | 5 |
-| 0.12.x | identity recovery + validation; measured + lifecycle | 0.12.0–0.12.1 | 2 |
+| 0.12.x | provider research; remote AI reliability and local LLM retirement (0.12.1 folded) | 0.12.0 | 1 |
 | 0.13.x | design/polish; tablet + foldable; accessibility + localization; recovery + final closure | 0.13.0–0.13.3 | 4 |
-| **Total before 1.0.0** | **0.8.0 (active) + 26 = 27, then 1.0.0** | | **27** |
+| **Total before 1.0.0** | **0.8.0 (active) + 25 = 26, then 1.0.0** | | **26** |
 
 Counts above are planned release scopes, not tag counts; folding publishes fewer tags. The 0.10.x
 series published `v0.10.0`, `v0.10.1` (0.10.2 folded) and `v0.10.3` (0.10.4 folded).
@@ -133,9 +133,8 @@ series published `v0.10.0`, `v0.10.1` (0.10.2 folded) and `v0.10.3` (0.10.4 fold
   switching changes available equipment and attainable loads correctly.
 - For prescriptions/effort targets, verify authoring → activation → logging →
   export/restore, preserving targets without recording them as actual effort.
-- For local AI, complete research and disposition first. Use one benchmark matrix
-  for cold/repeated generation, cancellation, memory and explicit fallback; do not
-  hold supported lifecycle fixes indefinitely for a positive generation experiment.
+- For AI, research remote providers before provider-specific work. Plan local LLM
+  retirement with explicit preservation decisions for existing user data.
 - For tablet/foldable adaptation, verify workout/draft continuity across resizing,
   rotation and supported fold/posture transitions.
 - Before implementation, split bundles that require unrelated fixtures, unresolved
@@ -159,7 +158,7 @@ cycles, not engineering work. The lower count alone does not shorten the estimat
 | 0.9.x | Equipment & Data Freedom | EQ-01, OF-05/06/07, QL-02, OF-01 extensions |
 | 0.10.x | Trustworthy Progression & Flexible Prescriptions | OF-10A/B, PYR-01, item 9 B2/B3, item 8 |
 | 0.11.x | Beyond Rep-Based Sets | OF-10C/D, timed/distance/force grip, advanced set semantics |
-| 0.12.x | Optional AI Reliability | M8-P0–P4, CATP7-R01, AI review/performance follow-ups |
+| 0.12.x | Optional AI Reliability | remote provider research, applicable AI findings, local LLM retirement |
 | 0.13.x | Final UX & Design | QL-01 final pass, UX-01 adaptive tablet/foldable layouts, full-flow integration and remaining quality gates |
 | 1.0.0 | Verified Android-first completion | All pre-1.0 scopes delivered or explicitly dispositioned; stability gate |
 | Beyond 1.0 | Additional platforms | iOS shipping/Keychain-backed ApiKeyStore; desktop |
@@ -453,52 +452,30 @@ approximations. Split further if a metric's complete consumer chain is too large
 Gate: measurement semantics remain faithful throughout logging and portability;
 research candidates have explicit evidence-backed decisions before completion.
 
-### 0.12 — Optional AI Reliability (0.12.0–0.12.1, 2 publications)
+### 0.12 — Optional AI Reliability (0.12.0; 0.12.1 folded into 0.12.0, 1 publication)
 
-Former slice ids are recorded in parentheses.
+Former slice ids are recorded in parentheses. `0.12.1`'s on-device retirement is folded into the same
+0.12.0 publication rather than retagged. The work is implemented and committed on the release
+branch; publication remains pending explicit approval.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
-| 0.12.0 | Identity-safe Gemini name recovery; approved AI validation/enforcer fixes (former `0.12.0`–`0.12.1`) | CATP7-R01; S1-013, S3-005/S3-006; canonical IDs preserved, local numbered-ID compatibility verified; current-source confirmation, repair/rejection decision, async schema/count checks |
-| 0.12.1 | Measured local-generation reliability improvements, if supported; approved engine lifecycle and resource improvements (former `0.12.2`–`0.12.3`) | M8 experiments; approved supported scope and licenses; benchmark prompt/schema/pack/backend candidates; initialization/cancellation bounds, repeated generations, cleanup, OOM/failure fallback, Koin and shared-contract checks |
+| 0.12.0 | Remote provider research and the Groq replacement; approved AI validation/identity work; on-device LLM retirement (former `0.12.0`–`0.12.3`; `0.12.1` folded into this release) | Gemini baseline, OpenRouter and Groq; CATP7-R01; S1-013; provider selection and repair/rejection decisions remain gated |
+| ~~0.12.1~~ | **Folded into 0.12.0** — on-device LLM retirement is part of this release, not published separately | Not published separately |
 
-Before experiments, complete **M8-P0**: supported requests/hardware, evaluation
-matrix, success/fallback distinction and performance targets. Candidate license
-research belongs to **M8-P1** and must precede the relevant experiments. These are
-decision/research gates, not standalone app releases.
+Research precedes implementation: compare Gemini with OpenRouter and Groq BYOK
+options using representative synthetic requests. Assess current pricing and quotas,
+key friction, privacy and data handling, availability, structured-output support,
+valid-plan rate and latency. Establish a provider decision before provider-specific
+changes; a gateway does not eliminate the need to validate generated plans. No
+provider switch or research execution is authorized by this roadmap.
 
-M8-P1–P4 evaluation, experiments and published results span these slices. Separate
-unrelated validation findings or experiments into further releases at their scope
-gates. Complete outstanding AI measurements and explicitly disposition unsupported
-results before closing 0.12.x; fallback is never counted as local-generation success.
-
-- **M8-P0–P4:** declared supported requests/hardware, synthetic evaluation matrix,
-  valid-plan versus fallback rate, cold load/latency/memory/repeat stability targets,
-  exact artifact/license research, controlled experiments and published results.
-- **CATP7-R01:** identity-safe Gemini display-name recovery for colliding custom/
-  seeded identities; retain canonical-ID handling and verify local numbered IDs.
-- **S1-013, S3-005/S3-006:** resolve enforcer/AI follow-ups through current-source
-  audit and individually approved fixes; decide repair versus explicit rejection.
-- Verify async `anyOf` schema/count enforcement; benchmark prompt/schema budgets,
-  approved pack/backend candidates, engine initialization and cancellation bounds.
-- Verify resource cleanup, repeated generations, OOM/failure fallback, Koin and
-  shared-contract compatibility; complete outstanding engine-only AI measurements.
-- Keep MIT source, independent model/runtime/license notices, offline user import
-  and unbundled proprietary QNN binaries. No provider/model/runtime swap is implied.
-- **Candidate model families:** evaluate candidate on-device models such as Bonsai 2
-  (2B/4B/9B, ternary/Qwen3.5) against the current Gemma pack on the same M8 matrix
-  (valid-plan rate, latency, memory, device coverage, license terms); no replacement
-  is approved and the LiteRT-LM runtime/interface is unchanged.
-- **Planner provider reconsideration (0.12.0):** evaluate free and API-free
-  alternatives to the remote Gemini engine (hosted free tiers, self-hosted or keyless
-  options) on cost, API-key friction, privacy, availability, quality and offline
-  behavior, keeping Gemini as the comparison baseline; no provider swap is implied
-  and the default offline Deterministic planner is unchanged.
-
-Gate: agreed supported-scope targets pass or receive an explicit user-approved
-disposition. Retain local AI and honest experimental labels if targets are unmet;
-surfaced Deterministic fallback never counts as successful local generation.
-CATP7-R01 may move earlier as a separately approved corrective if needed.
+Audit CATP7-R01 and S1-013/S3-005/S3-006 against current consumers after that decision;
+retain canonical identity safety and decide repair versus explicit rejection. The
+0.12.x end state removes on-device LLM capability, not the offline deterministic
+planner. Existing imported model files and saved settings need an explicit handling
+decision before removal. Preserve experimental evidence without claiming that one
+model test proves all local models non-viable; see `docs/qa.md`.
 
 ### 0.13 — Final UX & Design (0.13.0–0.13.3, 4 publications, provisional)
 
@@ -579,7 +556,8 @@ retain their separate approval/Plan Mode requirements.
 3. Android upgrade/migration/recovery paths, accessibility, supported layouts and
    measured performance meet agreed targets; release-blocking defects are closed.
 4. Training estimates, records and unknown values remain honestly distinguished.
-   AI is optional, retained, observable on fallback and labelled to match evidence.
+   Remote AI is optional, observable on fallback and labelled to match evidence;
+   the deterministic planner remains available offline.
 5. Living docs, third-party notices and release verification limits are current;
    required tests/lint/debug/iOS compilation and approved release checks pass.
 

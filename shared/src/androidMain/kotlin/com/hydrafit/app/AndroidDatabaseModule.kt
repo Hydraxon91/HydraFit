@@ -1,7 +1,6 @@
 package com.hydrafit.app
 
 import android.content.Context
-import android.net.Uri
 import android.provider.Settings
 import com.hydrafit.app.core.database.AndroidDatabaseDriverFactory
 import com.hydrafit.app.core.database.DatabaseDriverFactory
@@ -15,21 +14,16 @@ import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
-import com.hydrafit.app.core.llm.AndroidOnDeviceModelManager
-import com.hydrafit.app.core.llm.AndroidOnDevicePlannerLogger
-import com.hydrafit.app.core.llm.LiteRtLmTextGenerator
-import com.hydrafit.app.core.llm.OnDevicePlannerLogger
-import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.AndroidAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupCrypto
 import com.hydrafit.app.core.userdata.backup.AndroidBackupEncryptionKeyStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFileStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFolderStore
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
-import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
-import com.hydrafit.app.core.userdata.settings.AndroidKeystoreApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AndroidGroqApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.storage.AndroidStorageUsagePort
@@ -42,6 +36,9 @@ import com.hydrafit.app.feature.routines.AndroidWorkoutReminderScheduler
 import com.hydrafit.app.feature.routines.localMinuteEpochMillis
 import com.hydrafit.app.feature.settings.AndroidAutomaticBackupScheduler
 import com.hydrafit.app.feature.settings.AutomaticBackupCoordinator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.onClose
 import org.koin.dsl.module
@@ -71,31 +68,14 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single<RestAlertScheduler> { get<AndroidRestAlertScheduler>() }
     single { AndroidWorkoutReminderScheduler(context.applicationContext) }
     single<WorkoutReminderScheduler> { get<AndroidWorkoutReminderScheduler>() }
-    single<ApiKeyStore> { AndroidKeystoreApiKeyStore(context.applicationContext) }
+    single<ApiKeyStore> { AndroidGroqApiKeyStore(context.applicationContext) }
     single<ApiKeyProvider> {
+        ApiKeyProvider { "" }
+    }
+    single<GroqApiKeyProvider> {
         val store = get<ApiKeyStore>()
-        ApiKeyProvider { store.load()?.takeIf { it.isNotBlank() } ?: geminiApiKey }
+        GroqApiKeyProvider { store.load().orEmpty() }
     }
-    single { AndroidOnDeviceModelManager(context.applicationContext) }
-    single<OnDeviceTextGenerator> {
-        LiteRtLmTextGenerator(context.applicationContext, get<AndroidOnDeviceModelManager>())
-    }
-    single<OnDeviceModelManager> {
-        val manager = get<AndroidOnDeviceModelManager>()
-        // Resolve the generator (cheap: it loads no model until generate) so removing the model also
-        // stops its cached native engine instead of leaving it holding backend resources.
-        val generator = get<OnDeviceTextGenerator>()
-        DelegatingOnDeviceModelManager(
-            installedCheck = manager::isInstalled,
-            targetCheck = manager::modelTarget,
-            onInstall = { source -> manager.importFromUri(Uri.parse(source)) },
-            onRemove = {
-                manager.remove()
-                generator.release()
-            }
-        )
-    }
-    single<OnDevicePlannerLogger> { AndroidOnDevicePlannerLogger() }
     single<BackupFileStore> { AndroidBackupFileStore(context.applicationContext) }
     single<BackupFolderStore> { AndroidBackupFolderStore(context.applicationContext) }
     single<StorageUsagePort> {
@@ -115,6 +95,12 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
             readiness = get()
         ).also { it.start() }
     }.factory.beanDefinition.onClose { it?.close() }
+    // The retired on-device planner's weights are dead weight; delete them off the main thread.
+    single(createdAtStart = true) {
+        CoroutineScope(Dispatchers.IO).launch {
+            StaleOnDeviceModelCleanup(context.applicationContext.filesDir).run()
+        }
+    }
     single<PrescriptionDocumentStore> {
         AndroidPrescriptionDocumentStore(context.applicationContext)
     }

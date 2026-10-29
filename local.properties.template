@@ -1,7 +1,6 @@
 # Copy to local.properties (gitignored) and fill in locally. Never commit real secrets.
-
-# Gemini API Engine
-GEMINI_API_KEY=your_google_ai_studio_key_here
+# Cloud planner keys (for example a Groq key) are not build inputs: users enter them in
+# Settings on the device.
 
 # Release signing (only needed for `assembleRelease`/signed builds).
 # Each key falls back to an environment variable of the same name, so CI can
@@ -19,6 +18,3 @@ RELEASE_KEY_PASSWORD=changeme
 # for the build, so that path is local-only and never a secret. The
 # password/alias values come from the same-named `RELEASE_KEYSTORE_PASSWORD`,
 # `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD` secrets.
-#
-# `GEMINI_API_KEY` is not currently a CI secret: no CI job calls the Gemini
-# engine, so CI builds embed an empty key.

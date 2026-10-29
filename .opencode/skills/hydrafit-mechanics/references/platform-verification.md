@@ -186,8 +186,7 @@ require Koin verification; applicable UI acceptance is not deferred by tiering.
 ```text
 :core:domain:testAndroidHostTest      pure planner/fatigue tests
 :core:database:testAndroidHostTest    SQL repositories and migrations
-:core:network:testAndroidHostTest     Gemini/HTTP and network Koin verification
-:core:llm:testAndroidHostTest         local engine and fallback tests
+:core:network:testAndroidHostTest     Groq/HTTP, DTO and network Koin verification
 :core:exercisecontent:testAndroidHostTest  instruction IDs, coverage and missing-content lookup
 :feature:<name>:testAndroidHostTest   feature state tests
 :shared:testAndroidHostTest           application graph/provider tests

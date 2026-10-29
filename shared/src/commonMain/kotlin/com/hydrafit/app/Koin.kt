@@ -2,7 +2,6 @@ package com.hydrafit.app
 
 import com.hydrafit.app.core.database.DatabaseStartupMaintenance
 import com.hydrafit.app.core.database.databaseModule
-import com.hydrafit.app.core.llm.OnDeviceEngineLifecycle
 import com.hydrafit.app.core.network.networkModule
 import com.hydrafit.app.feature.cardio.cardioModule
 import com.hydrafit.app.feature.equipment.equipmentModule
@@ -38,6 +37,4 @@ fun initKoin(platformModule: Module, extraModules: List<Module> = emptyList()) {
     // Catalog seeding, custom-exercise dedupe and the legacy session backfill run off the main
     // thread; the app shell gates its first screen on StartupReadiness.
     koinApplication.koin.get<DatabaseStartupMaintenance>().start()
-    // Releases the cached on-device engine (off main) whenever a non-on-device engine is selected.
-    koinApplication.koin.get<OnDeviceEngineLifecycle>().start()
 }

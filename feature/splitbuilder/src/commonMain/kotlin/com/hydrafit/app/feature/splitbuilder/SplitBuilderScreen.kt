@@ -87,6 +87,7 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import hydrafit.feature.splitbuilder.generated.resources.Res
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_deterministic
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_gemini
+import hydrafit.feature.splitbuilder.generated.resources.engine_label_groq
 import hydrafit.feature.splitbuilder.generated.resources.engine_label_local_llm
 import hydrafit.feature.splitbuilder.generated.resources.focus_full_body
 import hydrafit.feature.splitbuilder.generated.resources.focus_legs
@@ -123,6 +124,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_deload_week
 import hydrafit.feature.splitbuilder.generated.resources.split_error
 import hydrafit.feature.splitbuilder.generated.resources.split_error_api_key
+import hydrafit.feature.splitbuilder.generated.resources.split_error_api_key_missing
 import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_request
 import hydrafit.feature.splitbuilder.generated.resources.split_error_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_error_network
@@ -185,7 +187,6 @@ import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unava
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_ai_rejected
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_insufficient_evidence
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_unavailable_not_load_tracked
-import hydrafit.feature.splitbuilder.generated.resources.split_fallback_invalid_response
 import hydrafit.feature.splitbuilder.generated.resources.split_fallback_note
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_by
 import hydrafit.feature.splitbuilder.generated.resources.split_generated_routine_name
@@ -718,12 +719,6 @@ fun SplitBuilderScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                if (state.fallbackReason == PlanFailureReason.INVALID_RESPONSE) {
-                    Text(
-                        text = stringResource(Res.string.split_fallback_invalid_response),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
             }
             plan.days.forEach { day ->
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1110,6 +1105,7 @@ private fun candidateMissingLoadReason(outcome: LoadInventoryOutcome?): StringRe
 private fun PlannerEngineId.labelResource(): StringResource = when (this) {
     PlannerEngineId.DETERMINISTIC -> Res.string.engine_label_deterministic
     PlannerEngineId.GEMINI_API -> Res.string.engine_label_gemini
+    PlannerEngineId.GROQ_API -> Res.string.engine_label_groq
     PlannerEngineId.LOCAL_LLM -> Res.string.engine_label_local_llm
 }
 
@@ -1373,6 +1369,7 @@ private fun PlanFailureReason?.reasonMessage(): StringResource? = when (this) {
     PlanFailureReason.TIMEOUT -> Res.string.split_error_timeout
     PlanFailureReason.NETWORK -> Res.string.split_error_network
     PlanFailureReason.INVALID_API_KEY -> Res.string.split_error_api_key
+    PlanFailureReason.MISSING_API_KEY -> Res.string.split_error_api_key_missing
     PlanFailureReason.INVALID_REQUEST -> Res.string.split_error_invalid_request
     PlanFailureReason.INVALID_RESPONSE -> Res.string.split_error_invalid_response
     PlanFailureReason.NO_ELIGIBLE_EXERCISES -> Res.string.split_error_no_eligible_exercises

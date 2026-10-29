@@ -18,7 +18,7 @@ Companion reading: `README.md` (what the app does), `PLANS.md` (current work), `
 ### 1.1 KMP module layering (feature → domain ← database)
 
 HydraFit is a small, single-purpose Gradle module graph. `:core:domain` is commonMain-only Kotlin
-with no platform APIs; `:core:database`/`:core:network`/`:core:llm`/`:core:userdata` provide
+with no platform APIs; `:core:database`/`:core:network`/`:core:userdata` provide
 implementations and platform glue; `:core:exercisecontent` bundles app-owned catalog content
 (offline exercise instructions) with its read-only viewer; each `:feature:*` owns UI + ViewModel;
 `:shared` is the composition root; `:androidApp` is the platform entry point.
@@ -44,11 +44,11 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
 ### 1.2 Domain ports/interfaces with SQLDelight implementations
 
 Domain declares repository and engine **interfaces**; implementations live in `:core:database` /
-`:core:network` / `:core:llm`. The dependency direction is `feature → domain ← implementation`.
+`:core:network`. The dependency direction is `feature → domain ← implementation`.
 
 - **Examples:** `WorkoutLogRepository`, `WorkoutSessionRepository`, `PlanHistoryRepository`,
   `ExerciseCatalog`, `WorkoutPlanSourcesRepository` (domain) implemented by `SqlDelight*` classes;
-  `EngineAvailability`, `OnDeviceModelManager`, `ApiKeyStore` (ports) implemented per platform.
+  `EngineAvailability`, `ApiKeyStore` (ports) implemented per platform.
 - **Consistency:** high. All persistence goes through SQLDelight-generated queries; no raw SQL in
   features. `ExerciseCatalog.observeAll()` even has a default `flow { emit(all()) }` so simple/test
   implementations need not override it.
@@ -134,7 +134,7 @@ All use cases and both model-backed engine bindings live in `:shared` (`domainMo
 `initKoin(platformModule)` from the `Application`/iOS entry.
 
 - **Examples:** `shared/…/DomainModule.kt` (use cases + engines), `shared/…/AndroidDatabaseModule.kt`
-  (`TimeProvider`, `ApiKeyStore`, `OnDeviceTextGenerator`, `AndroidDatabaseDriverFactory`),
+  (`TimeProvider`, `ApiKeyStore`, `AndroidDatabaseDriverFactory`),
   `Koin.kt` (`startKoin` + starting off-main startup maintenance).
 - **Consistency:** high. `:core:domain` exposes no Koin module (PLANS.md "Decisions Made": "Domain
   use cases and the `WorkoutPlannerEngine` binding live in `:shared`'s `domainModule`").
@@ -239,14 +239,32 @@ and take the state plus callbacks.
 
 ### 1.7 Swappable `WorkoutPlannerEngine` strategy (+ model-backed fallbacks)
 
-One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) backs
-three implementations selected by `DefaultWorkoutPlannerEngineProvider` from the persisted engine
-preference. `GeminiWorkoutPlannerEngine` and `LocalLlmWorkoutPlannerEngine` both funnel output
-through the shared `WeeklyPlanSanitizer` + `PlanVarietyEnforcer`; the deterministic engine returns
-directly. The deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
+One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) has
+two selectable implementations resolved by `DefaultWorkoutPlannerEngineProvider` from the persisted
+engine preference. `GroqWorkoutPlannerEngine` funnels output through the shared `WeeklyPlanSanitizer` +
+`PlanVarietyEnforcer`; the deterministic engine returns directly. Stored `GEMINI_API` and `LOCAL_LLM`
+identities remain readable for plan history, but both resolve to the deterministic engine. The
+on-device planner and its LiteRT-LM runtime were removed in 0.12.x; `GeminiWorkoutPlannerEngine`
+remains as the shared prompt and schema builder that Groq reuses and is not selectable. The
+deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
 `SubstituteExerciseUseCase` to swap one slot of an accepted plan; when the replaced slot is
 qualifying direct arm work, coverage-preserving replacements are ranked first while other same-pattern
 replacements remain available for explicit user choice.
+
+Groq uses a user-supplied key in a separate Android Keystore-backed slot and sends requests directly
+to Groq with the pinned `openai/gpt-oss-120b` model. The legacy Gemini identity remains readable for
+plan history; a saved Gemini selection uses the deterministic engine rather than sending the old key
+to Groq. A saved Groq selection with no key fails with `MISSING_API_KEY` instead of silently
+substituting the built-in planner, so the screen never reports an absent key as an unusable model
+response. Groq parsing and sanitizer failures surface as invalid responses instead of silently
+substituting an engine. The Groq implementation reuses the existing prompt builder but adapts its
+schema to Groq's strict JSON format, resolves a returned display name only when exactly one eligible
+exercise carries it (a name shared by two eligible exercises is left unresolved for the sanitizer to
+drop rather than choosing one), retries a
+transient rate limit or 5xx up to twice with bounded backoff and honours `Retry-After`, and reports a
+per-day quota without retrying. An over-budget `Retry-After` ends the request with the reason its
+status established rather than relabelling a 5xx as a rate limit. iOS has no cloud key entry, so Groq
+is unavailable there by design.
 
 The deterministic engine additionally pursues **four prescribed direct isolation sets each for
 BICEPS and TRICEPS per normal generated week, regardless of goal**. A qualifying set must use the
@@ -457,27 +475,20 @@ only the plan origin and app-verified adjustments, never model rationale.
 
 - **Examples:** `WorkoutPlannerEngine`, `WorkoutPlannerEngineProvider`,
   `DefaultWorkoutPlannerEngineProvider`, `DeterministicWorkoutPlannerEngine`,
-  `GeminiWorkoutPlannerEngine`, `LocalLlmWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
+  `GroqWorkoutPlannerEngine`, `WeeklyPlanSanitizer`,
   `PlanVarietyEnforcer`, `SplitResolver`, `PlannerPromptFragments`.
-- **Consistency:** high. `GeneratedWeeklySplitUseCase` resolves the engine through the provider, so
+- **Consistency:** high. `GenerateWeeklySplitUseCase` resolves the engine through the provider, so
   engine choice is a Koin concern.
 - **Violations / tensions:** fallback semantics differ per engine and are not part of the interface:
-  Deterministic never falls back; Local LLM falls back on OOM/unusable output and logs it through
-  `OnDevicePlannerLogger`; Gemini **silently** returns a Deterministic plan when sanitization rejects
-  the reply (S3-001), which contradicts PLANS.md line 291 ("never silently falls back to
-  Deterministic"). `PlanVarietyEnforcer` rejects rather than repairs a repetitive model week
-  (S1-013), which is why the on-device engine falls back today. The on-device native wait has no
-  timeout (S3-004).
-- **Ranked improvements:**
-  1. (S) Make Gemini surface `INVALID_RESPONSE` instead of silent fallback (S3-001).
-  2. (M) Bound the on-device `done.await()` and add a repair path to the enforcer for 0.2.4 (S3-004,
-     S1-013).
-- **Resolved (0.2.2 RF):** the Gemini sanitize reject is no longer silent — it keeps the
-  Deterministic fallback but sets `SplitBuilderUiState.fallbackReason = INVALID_RESPONSE`, so the
-  screen names the reason under the fallback note (`a07134e`; a recorded deviation from "never
-  silently falls back"). The on-device native wait is bounded at 300 s and cancels the conversation
-  on timeout (`6c38b17`). The `PlanVarietyEnforcer` repair-vs-reject question (S1-013) stays open for
-  0.2.4.
+  the deterministic engine never falls back, and Groq throws a typed `PlanGenerationException` for
+  every failure instead of returning another engine's plan. A saved Groq selection without a key is
+  reported as `MISSING_API_KEY` rather than reaching an engine at all. `PlanVarietyEnforcer` rejects
+  rather than repairs a repetitive model week (S1-013).
+- **Resolved (0.2.2 RF, superseded in 0.12.x):** the Gemini sanitize reject used to keep the
+  deterministic plan while setting `SplitBuilderUiState.fallbackReason = INVALID_RESPONSE`
+  (`a07134e`). Gemini is no longer selectable, and the fallback-reason field was removed in 0.12.x so
+  an absent key is not described as an invalid response; only the generic
+  `usedFallbackEngine` note remains for a retired stored selection.
 
 ### 1.8 Immutable (snapshotted) log and plan history
 
@@ -610,8 +621,7 @@ Platform behavior is supplied by source-set-specific classes bound in platform K
 Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
 
 - **Examples:** `AndroidDatabaseDriverFactory`/`NativeDatabaseDriverFactory`,
-  `AndroidKeystoreApiKeyStore`/`NoopApiKeyStore`, `UnsupportedOnDeviceTextGenerator`,
-  `OnDeviceModelSection`, backup UI (`BackupSection`), monotonic elapsed time
+  `AndroidKeystoreApiKeyStore`/`NoopApiKeyStore`, backup UI (`BackupSection`), monotonic elapsed time
   (`elapsedRealtimeMillis`), and rest-alert permission (`rememberRestAlertPermission`) each have
   `commonMain` declarations with Android/iOS implementations. Settings also uses a narrow
   modifier adapter to expose guidance and storage test tags as Android resource IDs, with a no-op on iOS.
@@ -627,7 +637,7 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   without app-level inset code; a custom `Scaffold` or `NavigationBar` inset would have to preserve
   that.
 - **Violations / tensions:** real Android/iOS bindings are not exercised by Koin verification (PLANS
-  records this); the synchronous `ApiKeyStore`/`OnDeviceModelManager` ports push threading discipline
+  records this); the synchronous `ApiKeyStore` port pushes threading discipline
   onto callers (S2-007).
 - **Ranked improvements:** (M) make the IO ports `suspend` (S2-007); add an instrumented verification
   for the Android graph where feasible.
@@ -1561,9 +1571,9 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D4 | `:core:domain` is commonMain-only, no platform APIs | PLANS.md "Decisions Made" | None recorded | Current |
 | D5 | Use cases + engine binding live in `:shared`'s `domainModule` | PLANS.md "Decisions Made" | None recorded | Current |
 | D6 | Compose Multiplatform resources; avoid moko-resources | PLANS.md "Decisions Made" | moko-resources deferred "unless native resource access becomes a concrete requirement" | Current |
-| D7 | Three `WorkoutPlannerEngine`s behind one interface, swappable only via Koin | AGENTS.md "Strategy Pattern Discipline"; PLANS.md engine decisions | None to replace the interface | Current |
+| D7 | Engines behind one `WorkoutPlannerEngine` interface, swappable only via Koin | AGENTS.md "Strategy Pattern Discipline"; PLANS.md engine decisions | None to replace the interface | Current; two selectable engines (deterministic, Groq) after the 0.12.x removal |
 | D8 | Gemini never silently falls back to Deterministic | PLANS.md line 291 | None recorded | **Contradicted by S3-001** |
-| D9 | Local LLM falls back on OOM/errors and when no model is present | PLANS.md "Decisions Made" (line 279) | None recorded | Current |
+| D9 | Local LLM falls back on OOM/errors and when no model is present | PLANS.md "Decisions Made" (line 279) | None recorded | Superseded in 0.12.x: the on-device engine was removed |
 | D10 | Immutable log/plan snapshots (involvements, names, week/day) | PLANS.md lines 302-303; `docs/fatigue-formula.md` "Sessions and input" | Legacy binary primary/secondary explicitly replaced (PLANS.md line 303) | Current; edges S2-001, S5-001 |
 | D11 | Additive `.sqm` migrations; never edit released schema | AGENTS.md "Migration Discipline"; PLANS.md decisions | None recorded | Current; unverified (S2-004) |
 | D12 | Fatigue model (bounded index, session diminishing returns, compound/isolation split, C2 relative load, C3 RIR) | `docs/plans-archive.md` "Fatigue model redesign" + C1-C3; `docs/fatigue-formula.md` | Investigated/rejected variants are recorded (drop `D`, drop headroom) in the archive | Current |
@@ -1572,7 +1582,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D15 | Pinned dependency versions (SQLDelight 2.4.0, Koin 4.2.2, Ktor 3.6.0, serialization 1.11.0, coroutines 1.11.0, MockK 1.14.11, navigation-compose 2.9.2) | PLANS.md "Decisions Made" | None recorded | Current |
 | D16 | MockK is JVM-only; `commonTest` stays on `kotlin.test` with hand-written fakes | PLANS.md "Decisions Made" | None recorded | Current (and the source of the fake duplication, TS4-001) |
 | D17 | Koin `4.2.2`: `Module.verify()` is JVM-only, `checkModules()` deprecated; verify in Android host tests | PLANS.md "Decisions Made" (line 288) | None recorded | Current; known unverified bindings recorded |
-| D18 | On-device model imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Current |
+| D18 | On-device model was imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Superseded in 0.12.x: the on-device planner, model import and runtime were removed |
 | D19 | Gemini model `gemini-3.1-flash-lite`; sampling params omitted | PLANS.md line 282 | None recorded | Current |
 | D20 | Editable routine templates vs frozen activations and occurrences; one active finite block at a time | PLANS.md "Decisions Made" (2026-10-07 routine/scheduling contract) | Shared references and endless recurrence considered; copy semantics chosen | Current |
 | D21 | Explicit Finish/Skip advances the queue; logging a set, End/New session, expiry and midnight do not; progression stays the accepted-plan ordinal | PLANS.md "Decisions Made" (2026-10-07) | Occurrence-aware progression eligibility implemented in 0.10.0 via recorded targets | Current |
@@ -1622,7 +1632,7 @@ Legend: ✅ satisfied, ⚠️ mixed/violated with evidence, n/a.
 | 1.4 Koin composition root | ✅ (DI module) | ✅ | n/a | ✅ | ✅ | Config duplication S6-001 weakens "one definition"; acceptable for a DI module. |
 | 1.5 Use cases | ⚠️ | ✅ | ✅ | ✅ | ✅ | `LogWorkoutSetUseCase` session-policy tension (S1-004); historical S1-009 dependency count alone does not establish SRP drift. |
 | 1.6 UiState/ViewModel | ⚠️ | ✅ | ✅ | ✅ | ✅ | Historical S4-001/S4-004 concerns need current verification; size and dependency count alone do not establish responsibility boundaries. |
-| 1.7 Engine strategy | ✅ | ✅ | ✅ | ✅ | ✅ | Three implementations, one interface; LSP holds at the interface; differing fallback **semantics** are per-implementation and partly contradict D8 (S3-001). |
+| 1.7 Engine strategy | ✅ | ✅ | ✅ | ✅ | ✅ | Two selectable implementations behind one interface (deterministic, Groq) plus the retained Gemini prompt/schema builder; LSP holds at the interface, and every failure of a cloud selection surfaces rather than substituting an engine. |
 | 1.8 Snapshot models | ✅ | ✅ | n/a | ✅ | n/a | Value semantics; null-vs-empty conflation is a correctness edge (S2-001). |
 | 1.9 Additive migrations | ✅ | ✅ | n/a | n/a | n/a | Ordered, additive; verification gap (S2-004). |
 | 1.10 Platform source sets | ✅ | ✅ | ✅ | ✅ | ✅ | One `expect/actual`; platform selection via Koin. Sync IO ports push dispatch to callers (S2-007). |
@@ -1649,14 +1659,14 @@ primary sources, not recollection:
 
 Applied to this codebase:
 
-- **DIP and ISP are load-bearing.** DIP is what makes `domain` ports → SQLDelight/Ktor/LiteRT
+- **DIP and ISP are load-bearing.** DIP is what makes `domain` ports → SQLDelight/Ktor
   implementations + Koin wiring testable; ISP is Martin's compile-time argument in practice —
   `WorkoutLogRepository`'s width (S1-006) is exactly why there are 8 hand-written doubles (TS4-001).
   Follow these closely.
 - **OCP only at real variation points.** The `WorkoutPlannerEngine` strategy is the textbook win;
   elsewhere prefer idiomatic Kotlin (`sealed` + `when` + data classes) over open inheritance —
   Kotlin classes are closed by default, so interfaces/extension functions are the seams.
-- **LSP matters only when several implementations share one contract** (the three engines), and is
+- **LSP matters only when several implementations share one contract** (the engine interface), and is
   about subtyping/contracts, not class hierarchies.
 - **SRP with judgment** — reason-to-change/actor, not "one method per class". North's critique is
   real; splitting code that always changes together adds indirection. This project's own "no style
@@ -1682,7 +1692,7 @@ real, and keep the SOLID tags as review optics (as §3 does) rather than refacto
 | `interface` + multiple impls | `interface` + DI | Same idea; implementations are bound in Koin, not `new`ed inline. |
 | `sealed interface` / `sealed class` | discriminated union (`abstract record` + subtypes) | Used here heavily via enums instead (see next row). |
 | `enum class` with constructor params | `enum` with fields | e.g. `TrainingGoal(defaultSets, …)`, `MovementPattern(isCompound)`. |
-| `expect`/`actual` | partial classes / conditional compilation | HydraFit uses it once (`OnDeviceModelSection`); platform selection is otherwise source sets + DI. |
+| `expect`/`actual` | partial classes / conditional compilation | HydraFit uses it for a few platform seams (`AndroidDatabaseDriverFactory`/`NativeDatabaseDriverFactory`, `rememberRestAlertPermission`); platform selection is otherwise source sets + DI. |
 | Extension function | extension method | e.g. `WeightUnit.kilogramsToDisplay`, `AcceptedPlan.toWeeklyPlan`. |
 | `suspend fun` + coroutines | `async`/`await` + `Task` | Cancellation is cooperative via `CancellationException`. |
 | `Flow` / `StateFlow` | `IObservable<T>` / `BehaviorSubject<T>` | `StateFlow` is a hot, always-valued observable; `Flow` is a cold stream. |

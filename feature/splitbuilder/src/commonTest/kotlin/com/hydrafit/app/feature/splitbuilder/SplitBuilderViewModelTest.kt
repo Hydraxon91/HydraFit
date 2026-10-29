@@ -856,20 +856,41 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
-    fun flagsAnInvalidResponseWhenGeminiFallsBack() = runTest(dispatcher) {
-        val viewModel = viewModel(
-            availableEquipment = setOf(EquipmentTag.DUMBBELL),
-            engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
-            preference = FakeEnginePreferenceRepository(PlannerEngineId.GEMINI_API)
+    fun reportsAMissingKeyWhenGroqIsSelectedWithoutOne() = runTest(dispatcher) {
+        val preference = FakeEnginePreferenceRepository(PlannerEngineId.GROQ_API)
+        val sources = FakeWorkoutPlanSourcesRepository(
+            FakeEquipmentSelectionRepository(emptySet()),
+            preference,
+            FakeWorkoutLogRepository()
+        )
+        val viewModel = SplitBuilderViewModel(
+            observeWorkoutPlanInputs = observeInputs(sources = sources),
+            generateWeeklySplit = GenerateWeeklySplitUseCase(
+                WorkoutPlannerEngineProvider {
+                    throw PlanGenerationException(
+                        transient = false,
+                        reason = PlanFailureReason.MISSING_API_KEY,
+                        message = "No Groq API key is saved on this device"
+                    )
+                }
+            ),
+            planBuilderActions = planBuilderActions(
+                history = FakePlanHistoryRepository(),
+                catalog = FakeExerciseCatalog()
+            ),
+            planHistory = EmptyPlanHistoryRepository,
+            exerciseCatalog = FakeExerciseCatalog(),
+            enginePreference = preference
         )
         advanceUntilIdle()
 
-        assertTrue(viewModel.state.value.usedFallbackEngine)
-        assertEquals(PlanFailureReason.INVALID_RESPONSE, viewModel.state.value.fallbackReason)
+        assertTrue(viewModel.state.value.hasError)
+        assertNull(viewModel.state.value.plan)
+        assertEquals(PlanFailureReason.MISSING_API_KEY, viewModel.state.value.failureReason)
     }
 
     @Test
-    fun doesNotFlagAnInvalidResponseForAnOnDeviceFallback() = runTest(dispatcher) {
+    fun flagsTheGenericFallbackNoteForARetiredEngineSelection() = runTest(dispatcher) {
         val viewModel = viewModel(
             availableEquipment = setOf(EquipmentTag.DUMBBELL),
             engine = DeterministicWorkoutPlannerEngine(FakeExerciseCatalog()),
@@ -878,7 +899,6 @@ class SplitBuilderViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.usedFallbackEngine)
-        assertNull(viewModel.state.value.fallbackReason)
     }
 
     @Test

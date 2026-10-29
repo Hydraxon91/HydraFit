@@ -17,11 +17,8 @@ import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
-import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
-import com.hydrafit.app.core.llm.OnDevicePlannerLogger
-import com.hydrafit.app.core.llm.OnDeviceTextGenerator
-import com.hydrafit.app.core.llm.UnsupportedOnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
@@ -57,6 +54,7 @@ fun iosDatabaseModule(): Module = module {
     single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
     single<WorkoutReminderScheduler> { UnsupportedWorkoutReminderScheduler() }
     single<ApiKeyStore> { NoopApiKeyStore() }
+    single<GroqApiKeyProvider> { GroqApiKeyProvider { "" } }
     single<AppVersionProvider> { IosAppVersionProvider() }
     single<ApiKeyProvider> {
         val store = get<ApiKeyStore>()
@@ -64,8 +62,6 @@ fun iosDatabaseModule(): Module = module {
             NSProcessInfo.processInfo.environment["GEMINI_API_KEY"] as? String ?: ""
         ApiKeyProvider { store.load()?.takeIf { it.isNotBlank() } ?: environmentKey }
     }
-    single<OnDeviceTextGenerator> { UnsupportedOnDeviceTextGenerator() }
-    single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
     single<BackupFileStore> { UnsupportedBackupFileStore() }
     single<BackupFolderStore> { UnsupportedBackupFolderStore() }
     single<StorageUsagePort> { UnsupportedStorageUsagePort() }

@@ -42,7 +42,6 @@ import com.hydrafit.app.core.domain.engine.EngineAvailability
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.ObserveAcceptedPlanUseCase
 import com.hydrafit.app.core.domain.engine.ObserveWorkoutPlanInputsUseCase
-import com.hydrafit.app.core.domain.engine.OnDevicePlanProgress
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
@@ -165,11 +164,9 @@ import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
-import com.hydrafit.app.core.llm.NoopOnDevicePlannerLogger
-import com.hydrafit.app.core.llm.OnDevicePlannerLogger
-import com.hydrafit.app.core.llm.OnDeviceTextGenerator
 import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
+import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
@@ -290,8 +287,7 @@ class KoinModulesVerificationTest {
         single<ApiKeyStore> { FakeApiKeyStore }
         single<AppVersionProvider> { FakeAppVersionProvider }
         single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
-        single<OnDeviceTextGenerator> { FakeOnDeviceTextGenerator }
-        single<OnDevicePlannerLogger> { NoopOnDevicePlannerLogger }
+        single<GroqApiKeyProvider> { GroqApiKeyProvider { "test-key" } }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
         single<BackupFolderStore> { UnsupportedBackupFolderStore() }
         single<StorageUsagePort> { UnsupportedStorageUsagePort() }
@@ -1278,16 +1274,6 @@ class KoinModulesVerificationTest {
         override suspend fun setShortRestCoachingEnabled(enabled: Boolean) = Unit
         override suspend fun setRestCountdownEnabled(enabled: Boolean) = Unit
         override suspend fun setRestCompletionSignalEnabled(enabled: Boolean) = Unit
-    }
-
-    private object FakeOnDeviceTextGenerator : OnDeviceTextGenerator {
-        override fun isAvailable(): Boolean = false
-
-        override fun generate(
-            prompt: String,
-            jsonSchema: String?,
-            onProgress: (OnDevicePlanProgress) -> Unit
-        ): String = error("Not used by graph verification")
     }
 
     private object FakeWorkoutPlanSourcesRepository : WorkoutPlanSourcesRepository {

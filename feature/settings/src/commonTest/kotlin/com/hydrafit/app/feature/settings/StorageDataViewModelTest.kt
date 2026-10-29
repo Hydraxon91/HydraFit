@@ -28,8 +28,6 @@ import com.hydrafit.app.core.domain.storage.DataManagementRepository
 import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.storage.StorageUsageUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
-import com.hydrafit.app.core.userdata.llm.ModelUpdateResult
-import com.hydrafit.app.core.userdata.llm.OnDeviceModelManager
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -63,7 +61,7 @@ class StorageDataViewModelTest {
     }
 
     @Test
-    fun loadsUsageAndModelStateOnInit() = runTest(dispatcher) {
+    fun loadsUsageOnInit() = runTest(dispatcher) {
         val viewModel = viewModel()
 
         advanceUntilIdle()
@@ -72,7 +70,6 @@ class StorageDataViewModelTest {
         assertEquals(4096L, usage.databaseBytes)
         assertEquals(2048L, usage.automaticBackupBytes)
         assertEquals(2, usage.automaticBackupFileCount)
-        assertTrue(viewModel.state.value.modelInstalled)
     }
 
     @Test
@@ -119,24 +116,6 @@ class StorageDataViewModelTest {
         assertEquals(listOf("a", "b"), folderStore.deleted)
         assertTrue(stateStore.state.documents.isEmpty())
         assertEquals(StorageDataStatus.BackupFilesRemoved(2), viewModel.state.value.status)
-    }
-
-    @Test
-    fun routesTheModelRemovalToTheModelManager() = runTest(dispatcher) {
-        val modelManager = StorageTestModelManager(installed = true)
-        val viewModel = viewModel(modelManager = modelManager)
-        advanceUntilIdle()
-
-        viewModel.removeModel()
-        assertEquals(DataCategory.ON_DEVICE_MODEL, viewModel.state.value.pending)
-        assertFalse(modelManager.removed)
-
-        viewModel.confirm()
-        advanceUntilIdle()
-
-        assertTrue(modelManager.removed)
-        assertFalse(viewModel.state.value.modelInstalled)
-        assertEquals(StorageDataStatus.ModelRemoved, viewModel.state.value.status)
     }
 
     @Test
@@ -192,22 +171,6 @@ class StorageDataViewModelTest {
     }
 
     @Test
-    fun modelRemovalFailureIsSurfaced() = runTest(dispatcher) {
-        val modelManager = StorageTestModelManager(
-            installed = true,
-            removeResult = ModelUpdateResult.FAILED
-        )
-        val viewModel = viewModel(modelManager = modelManager)
-        advanceUntilIdle()
-
-        viewModel.removeModel()
-        viewModel.confirm()
-        advanceUntilIdle()
-
-        assertEquals(StorageDataStatus.ModelRemovalFailed, viewModel.state.value.status)
-    }
-
-    @Test
     fun cancelClearsThePendingRequest() = runTest(dispatcher) {
         val viewModel = viewModel()
         advanceUntilIdle()
@@ -223,13 +186,11 @@ class StorageDataViewModelTest {
         repository: StorageTestDataRepository = StorageTestDataRepository(),
         usagePort: StorageTestUsagePort = StorageTestUsagePort(),
         folderStore: StorageTestFolderStore = StorageTestFolderStore(),
-        stateStore: StorageTestBackupStateStore = StorageTestBackupStateStore(),
-        modelManager: OnDeviceModelManager = StorageTestModelManager()
+        stateStore: StorageTestBackupStateStore = StorageTestBackupStateStore()
     ): StorageDataViewModel = StorageDataViewModel(
         storageUsage = StorageUsageUseCase(repository, usagePort),
         clearCategory = ClearDataCategoryUseCase(repository),
         clearBackupFiles = ClearAutomaticBackupFilesUseCase(folderStore, stateStore),
-        modelHandle = OnDeviceModelHandle(modelManager),
         runBackup = runBackupUseCase(folderStore, stateStore),
         appVersionProvider = object : AppVersionProvider {
             override val versionName: String = "t"
@@ -300,25 +261,6 @@ private class StorageTestUsagePort(
     override suspend fun automaticBackupBytes(): Long? = automaticBackupBytes
 
     override suspend fun automaticBackupFileCount(): Int? = automaticBackupFileCount
-}
-
-private class StorageTestModelManager(
-    var installed: Boolean = true,
-    private val removeResult: ModelUpdateResult = ModelUpdateResult.SUCCESS
-) : OnDeviceModelManager {
-    var removed: Boolean = false
-
-    override fun isInstalled(): Boolean = installed
-
-    override fun installFrom(source: String): ModelUpdateResult = ModelUpdateResult.SUCCESS
-
-    override fun remove(): ModelUpdateResult {
-        removed = true
-        if (removeResult == ModelUpdateResult.SUCCESS) {
-            installed = false
-        }
-        return removeResult
-    }
 }
 
 private class StorageTestFolderStore : BackupFolderStore {
