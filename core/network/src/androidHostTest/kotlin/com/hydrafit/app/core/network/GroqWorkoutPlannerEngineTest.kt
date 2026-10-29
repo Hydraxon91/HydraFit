@@ -198,6 +198,69 @@ class GroqWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun anAmbiguousNameIsDroppedBySanitization() = runTest {
+        val collidingCatalog = object : ExerciseCatalog {
+            override suspend fun all() = listOf(
+                exercise("press-a", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press"),
+                exercise("press-b", MovementPattern.HORIZONTAL_PUSH, name = "Bench Press"),
+                exercise("row", MovementPattern.HORIZONTAL_PULL),
+                exercise("squat", MovementPattern.SQUAT)
+            )
+        }
+        val singleDay = PlanRequest(1, setOf(EquipmentTag.BARBELL), emptyMap(), nowMillis = 0L)
+        val candidates = PlannerCandidateEligibility.candidates(collidingCatalog.all(), singleDay)
+        val content = """{"days":[{"focus":"FULL_BODY","exercises":[""" +
+            """{"exerciseId":"Bench Press","sets":3,"reps":8},""" +
+            """{"exerciseId":"row","sets":3,"reps":8},""" +
+            """{"exerciseId":"squat","sets":3,"reps":8}]}]}"""
+        val resolved = resolveExerciseIds(
+            parseWeeklyPlan(content, PlannerEngineId.GROQ_API),
+            candidates
+        )
+
+        val sanitized = requireNotNull(
+            WeeklyPlanSanitizer(collidingCatalog).sanitize(resolved, singleDay)
+        )
+
+        // Neither collision row may appear: the ambiguous slot is removed, the rest survives.
+        assertEquals(
+            listOf("row", "squat"),
+            sanitized.days.single().exercises.map { it.exerciseId }
+        )
+    }
+
+    @Test
+    fun aSeededAndCustomNameCollisionResolvesOnlyWhenOneRemainsEligible() = runTest {
+        val collidingRows = listOf(
+            exercise("barbell-row", MovementPattern.HORIZONTAL_PULL, name = "Barbell Row"),
+            exercise(
+                "barbell-row-custom",
+                MovementPattern.HORIZONTAL_PULL,
+                name = "Barbell Row",
+                isCustom = true
+            )
+        )
+        val content = """{"days":[{"focus":"FULL_BODY","exercises":[""" +
+            """{"exerciseId":"Barbell Row","sets":3,"reps":8}]}]}"""
+        val plan = parseWeeklyPlan(content, PlannerEngineId.GROQ_API)
+
+        val bothEligible = PlannerCandidateEligibility.candidates(collidingRows, request)
+        assertEquals(
+            "Barbell Row",
+            resolveExerciseIds(plan, bothEligible)
+                .days.single().exercises.single().exerciseId
+        )
+
+        val customExcluded = request.copy(excludedExerciseIds = setOf("barbell-row-custom"))
+        val seededOnly = PlannerCandidateEligibility.candidates(collidingRows, customExcluded)
+        assertEquals(
+            "barbell-row",
+            resolveExerciseIds(plan, seededOnly)
+                .days.single().exercises.single().exerciseId
+        )
+    }
+
+    @Test
     fun keepsTheServiceUnavailableReasonForALongRetryHintOnA5xx() = runTest {
         var calls = 0
         val mock = MockEngine {
@@ -220,7 +283,9 @@ class GroqWorkoutPlannerEngineTest {
 
     @Test
     fun keepsTheRateLimitReasonForALongRetryHint() = runTest {
+        var calls = 0
         val mock = MockEngine {
+            calls++
             respond(
                 """{"error":{"code":"rate_limit_exceeded","message":"tokens per minute"}}""",
                 HttpStatusCode.TooManyRequests,
@@ -234,6 +299,7 @@ class GroqWorkoutPlannerEngineTest {
             engineFor(mock).generatePlan(request)
         }
         assertEquals(PlanFailureReason.RATE_LIMITED, failure.reason)
+        assertEquals(1, calls)
     }
 
     @Test
@@ -341,12 +407,14 @@ class GroqWorkoutPlannerEngineTest {
         id: String,
         pattern: MovementPattern,
         name: String = id,
-        equipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL)
+        equipment: Set<EquipmentTag> = setOf(EquipmentTag.BARBELL),
+        isCustom: Boolean = false
     ) = Exercise(
         id = id,
         name = name,
         requiredEquipment = equipment,
         primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
-        movementPattern = pattern
+        movementPattern = pattern,
+        isCustom = isCustom
     )
 }
