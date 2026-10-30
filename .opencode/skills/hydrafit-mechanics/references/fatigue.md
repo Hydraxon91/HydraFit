@@ -24,8 +24,9 @@ constant or formula changes.
 Sources: domain `fatigue/FatigueCalculator.kt`, `FatigueConfig.kt`, `LoggedSet.kt`,
 and `MuscleTarget.kt`. Tests: `fatigue/FatigueCalculatorTest.kt` and
 `FatigueReplayTest.kt` under `core/domain/src/commonTest/kotlin/com/hydrafit/app/core/domain/`.
-`docs/fatigue-formula.md` explains the bounded response, but its inferred-session
-description predates explicit session ids; use the current source for segmentation.
+`docs/fatigue-formula.md` explains the bounded response and the explicit `sessionId`
+segmentation rule, including its legacy all-null gap fallback; read the current source
+for implementation and floating-point detail.
 
 The implementation is not a decayed set count divided by a reference volume:
 

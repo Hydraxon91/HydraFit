@@ -108,7 +108,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * The Settings surface for inspecting and removing stored data: the database size, the recorded
- * automatic snapshots, the on-device model and one row per data category with its exact counts.
+ * automatic snapshots and one row per data category with its exact counts.
  * Every removal first opens a confirmation dialog, so a single tap never deletes anything.
  */
 @Composable

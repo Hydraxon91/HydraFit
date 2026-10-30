@@ -118,7 +118,8 @@ Formats 5–10 carry one global rest duration and optional per-exercise override
 default to a 120-second global duration with no overrides. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
-provenance to `UNKNOWN` and elapsed fields to null. Exports use version 21.
+provenance to `UNKNOWN` and elapsed fields to null. At that point exports used version 21; the
+current export version is 30, as stated at the top of this reference.
 Format 10 requires its session-note section. Unknown fields remain rejected.
 Domain `backup/` owns the payload records, the kotlinx-serialization codec, the
 validator, the limits and the export/preview/stage/apply use cases (bound in

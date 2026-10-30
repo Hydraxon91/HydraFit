@@ -91,15 +91,15 @@ One optional AI engine uses the same planning interface:
 
 - **Groq API:** needs your own API key and a network connection. It sends equipment, fatigue and goals to Groq; sharing logged workout history requires a separate consent toggle, off by default. Groq's rate limits, charges and data policies apply. Generated plans are validated but may still need your review.
 
-Some older plans also contain loads whose meaning was never established. The Logger labels these as “recorded, unconfirmed” rather than rewriting them. Generated bodyweight prescriptions do not suggest external loads; added kilograms are treated as added load, not total resistance. Added-load e1RM/progression and assisted or negative-load support remain outside the current contract.
+Some older plans also contain loads whose meaning was never established. The Logger labels these as “recorded, unconfirmed” rather than rewriting them. Generated bodyweight prescriptions do not suggest external loads; added kilograms are treated as added load, not total resistance. Recorded added load continues by the same success/miss rule as other baseline loads, but added-load e1RM and assisted or negative-load support remain outside the current contract.
 
 ## Development
 
-HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection and Ktor for the optional Groq planner. Android is the shipping platform; iOS compilation is checked, but an iOS app isn't shipped yet.
+HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection and Ktor for the optional Groq planner. Android is the shipping platform; iOS remains a compile target for local release checks, but an iOS app isn't shipped yet.
 
 Domain logic lives in `core/domain`, storage and engine integrations have their own core modules, and each feature owns its UI and navigation. `shared` connects them; `androidApp` is the Android entry point. See the [architecture guide](docs/architecture.md) for the boundaries.
 
-I develop this project with substantial help from an AI coding agent, [OpenCode](https://opencode.ai). The project rules in [AGENTS.md](AGENTS.md) cover scope, testing, approvals and code review. CI checks lint, host tests, migrations, iOS compilation and Android builds; release tags produce signed APKs.
+I develop this project with substantial help from an AI coding agent, [OpenCode](https://opencode.ai). The project rules in [AGENTS.md](AGENTS.md) cover scope, testing, approvals and code review. CI checks lint, host tests, migrations and Android builds; iOS compilation runs locally at the release integration gate. Release tags produce signed APKs.
 
 ## Credits
 

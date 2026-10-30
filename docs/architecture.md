@@ -895,7 +895,7 @@ versioned JSON** snapshot, and restore replaces that data wholesale.
   `:core:database`, `StorageUsageUseCase`/`ClearDataCategoryUseCase`/
   `ClearAutomaticBackupFilesUseCase` in `:core:domain`, and the platform usage
   port in `:core:userdata`).
-- **Rules:** the file is logical (`format` + `formatVersion` 13), independent of the
+- **Rules:** the file is logical (`format` + `formatVersion` 30), independent of the
   SQLite schema and the app version. Every envelope field is required, so a file
   that omits one is rejected as malformed rather than read as an empty snapshot;
   nullable fields are present as explicit `null`, not omitted. The manifest carries
@@ -1615,8 +1615,6 @@ maintainer; RA does not answer them.
    `:core:database`", but not which mechanism to adopt.
 7. **Unused version-catalog entries** (`junit`, `androidx-appcompat`, etc., S6-006) — whether these
    are intended future test scaffolding or leftovers is unrecorded.
-8. **Four unused native-library declarations / on-device pack choice** are recorded (PLANS.md 292-293),
-   so they are *not* unrecorded; listed here only as an example of a decision that *is* documented.
 
 ---
 
