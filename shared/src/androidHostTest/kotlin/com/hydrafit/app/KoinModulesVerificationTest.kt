@@ -53,6 +53,7 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
+import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -165,8 +166,10 @@ import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.network.ApiKeyProvider
+import com.hydrafit.app.core.network.GeminiConfig
 import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import com.hydrafit.app.core.network.GroqApiKeyProvider
+import com.hydrafit.app.core.network.networkModule
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
@@ -193,6 +196,7 @@ import com.hydrafit.app.core.userdata.transfer.PrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.PrescriptionPdfRenderer
 import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionDocumentStore
 import com.hydrafit.app.core.userdata.transfer.UnsupportedPrescriptionPdfRenderer
+import com.hydrafit.app.feature.cardio.cardioModule
 import com.hydrafit.app.feature.equipment.EquipmentProfilerViewModel
 import com.hydrafit.app.feature.equipment.ExercisePlanningSettingsViewModel
 import com.hydrafit.app.feature.equipment.equipmentModule
@@ -222,6 +226,7 @@ import com.hydrafit.app.feature.settings.WorkoutReminderSettingsViewModel
 import com.hydrafit.app.feature.settings.settingsModule
 import com.hydrafit.app.feature.splitbuilder.PlanExportViewModel
 import com.hydrafit.app.feature.splitbuilder.splitBuilderModule
+import kotlin.reflect.KClass
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -281,6 +286,15 @@ class KoinModulesVerificationTest {
         Dispatchers.resetMain()
     }
 
+    /**
+     * `networkModule`'s HttpClient factory makes Koin's `verify` reflect `HttpClient.engine`.
+     * Ktor reaches `:shared` as an implementation dependency of `:core:network`, so the engine type
+     * is on the host-test runtime classpath but not the compile classpath; load it reflectively
+     * rather than adding a dependency.
+     */
+    private val httpClientEngineType: KClass<*> =
+        Class.forName("io.ktor.client.engine.HttpClientEngine").kotlin
+
     private val testPlatformModule = module {
         single<TimeProvider> { TimeProvider { 0L } }
         single<BootIdentityProvider> { BootIdentityProvider { null } }
@@ -315,6 +329,7 @@ class KoinModulesVerificationTest {
         includes(
             domainModule,
             databaseModule,
+            networkModule,
             equipmentModule,
             fatigueHeatmapModule,
             splitBuilderModule,
@@ -323,6 +338,7 @@ class KoinModulesVerificationTest {
             routinesModule,
             onboardingModule,
             progressModule,
+            cardioModule,
             testPlatformModule
         )
     }
@@ -333,6 +349,11 @@ class KoinModulesVerificationTest {
             extraTypes = listOf(
                 DatabaseDriverFactory::class,
                 GeminiWorkoutPlannerEngine::class,
+                // networkModule's class definitions expose these as constructor fields.
+                GeminiConfig::class,
+                WorkoutPlannerEngine::class,
+                // networkModule's HttpClient factory reflects its Ktor engine dependency.
+                httpClientEngineType,
                 // Automatic-backup ports are bound by the platform modules.
                 AutomaticBackupScheduler::class,
                 AutomaticBackupStateStore::class,
@@ -351,8 +372,9 @@ class KoinModulesVerificationTest {
      * real container over the domain graph (with fakes for the database-backed repositories) and
      * resolve the `singleOf` use cases, so a missing binding fails here instead.
      *
-     * `GenerateWeeklySplitUseCase` is omitted because its provider resolves the Gemini engine, which
-     * lives in `networkModule` and is not on `:shared`'s test classpath.
+     * `GenerateWeeklySplitUseCase` is omitted because its provider resolves the cloud engine from
+     * `networkModule`, which this focused runtime graph does not include; `allModulesResolve`
+     * covers that module instead.
      */
     @Test
     fun theDomainUseCaseGraphResolvesAtRuntime() {
