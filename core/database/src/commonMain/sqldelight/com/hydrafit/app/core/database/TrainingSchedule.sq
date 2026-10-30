@@ -329,6 +329,47 @@ DELETE FROM activationWorkout;
 deleteAllActivations:
 DELETE FROM trainingActivation;
 
+-- Derived slot identity: an occurrence entry's frozen template/plan slot. No columns are added;
+-- the key is derived from the existing attribution chain at read time.
+-- Every occurrence entry with its derived slot identity. LEFT JOINs keep unattributed legacy rows,
+-- which then carry no key and therefore no evidence.
+selectOccurrenceTracksForOccurrence:
+SELECT occurrenceEntry.id AS occurrenceEntryId,
+       activation.templateId AS templateId,
+       activation.sourcePlanId AS sourcePlanId,
+       activationWorkout.position AS workoutPosition,
+       activationEntry.position AS entryPosition
+FROM occurrenceEntry
+LEFT JOIN activationEntry ON activationEntry.id = occurrenceEntry.sourceActivationEntryId
+LEFT JOIN activationWorkout ON activationWorkout.id = activationEntry.workoutId
+LEFT JOIN trainingActivation AS activation ON activation.id = activationWorkout.activationId
+WHERE occurrenceEntry.occurrenceId = ?
+ORDER BY occurrenceEntry.position;
+
+-- Recorded set ids whose occurrence entry derives the same template slot key.
+selectTemplateTrackSetIds:
+SELECT workoutSet.id
+FROM workoutSet
+JOIN occurrenceEntry ON occurrenceEntry.id = workoutSet.occurrenceEntryId
+JOIN activationEntry ON activationEntry.id = occurrenceEntry.sourceActivationEntryId
+JOIN activationWorkout ON activationWorkout.id = activationEntry.workoutId
+JOIN trainingActivation AS activation ON activation.id = activationWorkout.activationId
+WHERE activation.templateId = ?
+  AND activationWorkout.position = ?
+  AND activationEntry.position = ?;
+
+-- Recorded set ids whose occurrence entry derives the same accepted-plan slot key.
+selectPlanTrackSetIds:
+SELECT workoutSet.id
+FROM workoutSet
+JOIN occurrenceEntry ON occurrenceEntry.id = workoutSet.occurrenceEntryId
+JOIN activationEntry ON activationEntry.id = occurrenceEntry.sourceActivationEntryId
+JOIN activationWorkout ON activationWorkout.id = activationEntry.workoutId
+JOIN trainingActivation AS activation ON activation.id = activationWorkout.activationId
+WHERE activation.sourcePlanId = ?
+  AND activationWorkout.position = ?
+  AND activationEntry.position = ?;
+
 CREATE INDEX activationWorkout_activationId ON activationWorkout(activationId);
 CREATE INDEX activationEntry_workoutId ON activationEntry(workoutId);
 CREATE INDEX workoutOccurrence_activationId ON workoutOccurrence(activationId);

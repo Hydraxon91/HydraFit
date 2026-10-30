@@ -123,6 +123,17 @@ the save mapping, so a saved `RoutineEntry` keeps the approved rule.
 `RoutinesViewModel` deliberately gains no constructor dependency for this: authoring needs no
 history, and the resolver's next-target suggestion has no UI surface in 0.10.1.
 
+The policy's suggestion/apply flow is a domain seam only so far:
+`SuggestSlotProgressionUseCase.decisionsFor` decides every policy-bearing entry of an occurrence
+from one batched, off-main slot-context read (one history read per occurrence) and holds with a
+recorded reason when a slot has no stable identity, a cluster, an ineligible metric/load, mixed
+targets, a deload week or an unresolved equipment identity. Ordered progression accepts only
+external load; scalar progression also accepts added load. Plan-backed slots carry
+`P<sourcePlanId>` keys, so a newly accepted plan starts a new lineage and holds until it has its
+own history. `ApplySlotProgressionSuggestionUseCase` writes only the next unstarted occurrence's
+guided working targets and never edits the template, activation or recorded history. No Logger or
+Routines card renders or invokes either use case yet.
+
 ## Timed prescription authoring
 
 Routines provides a repetitions/seconds choice per slot; only the selected measure is saved.

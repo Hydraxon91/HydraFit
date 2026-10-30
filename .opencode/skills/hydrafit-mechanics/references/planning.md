@@ -488,6 +488,39 @@ surplus set can never substitute for a missed one. `ResolveSlotProgressionUseCas
 advances every set by one rep while the whole prescription stays inside the policy's range,
 then takes the policy's load step with reps back at the floor; misses ask for review.
 
+**Slot-attributed evidence and explicit apply (AUD-14).** A suggestion is not drawn from the
+exercise-level replay above. `SlotProgressionContextRepository.inputsFor(occurrenceId)` makes one
+coherent, off-main read per occurrence: each entry's slot key is derived from the existing
+attribution chain — occurrence entry → source activation entry → activation workout → activation —
+and the single `readProgressionHistory()` snapshot is filtered to those keys, together with the
+active loading inventory and max weights the load step is bounded by. A template-backed activation
+keys as `T<templateId>:<workoutPosition>:<entryPosition>`; a plan-backed one keys as
+`P<sourcePlanId>:<workoutPosition>:<entryPosition>`. Nothing is stored, so a newly accepted plan
+starts a new plan lineage and its slots hold until they have their own recorded work. That is a
+deliberate conservative choice, not instability: there is no plan-series identity to carry
+evidence across accepted plans. Within one lineage two activations of the same slot share a key, a
+second slot with the same exercise does not, and legacy or unattributed rows have no key and
+therefore no evidence.
+
+`SuggestSlotProgressionUseCase.decisionsFor(occurrenceId)` validates the occurrence and active
+selection once, then returns a decision for every policy-bearing entry; the single-entry `invoke`
+is a thin wrapper over the batch call for the apply path, not a second evidence read. An entry with
+no policy gets no decision. The gate requires the occurrence to be the active selected, unresolved
+guided occurrence and resolves each entry's effective (guided, else frozen) targets. It holds with
+an explicit reason for a missing key (`INSUFFICIENT_COMPARABLE_WORK`), a cluster, a timed, distance
+or force slot, mixed hand-edited scalar targets, a deload week (`PAUSED_DELOAD`) or an equipment
+identity absent from the active inventory (`EQUIPMENT_UNRESOLVED`). Load-kind eligibility differs
+by recipe: scalar progression accepts `EXTERNAL` and `ADDED` weighted rep targets, while ordered
+progression accepts only `EXTERNAL` and holds `NOT_ELIGIBLE` otherwise, so an added-load ordered
+slot is never scored or sent to review. `canApply` is true only for a real
+`ADVANCE_REPS`/`ADVANCE_LOAD` change, compared against the current target values.
+`ApplySlotProgressionSuggestionUseCase` recomputes that decision, refuses when any set of the slot
+is already recorded, and writes one `GuidedTargetPatch` per set position through
+`ApplyGuidedWorkoutTargetsUseCase`: the next unstarted occurrence's working targets change, never
+the routine template, activation baseline or recorded history. Scalar and ordered targets use the
+same policy-owned rule; the planner's exercise-level replay is never stacked on top and nothing
+applies automatically.
+
 ### Selection, schedule, and periodization
 
 Deterministic candidate ordering: explicit user preference (`PlanRequest.exercisePreferences`,

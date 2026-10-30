@@ -6,6 +6,7 @@ import com.hydrafit.app.core.domain.backup.BackupStagingRepository
 import com.hydrafit.app.core.domain.cardio.CardioRepository
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
+import com.hydrafit.app.core.domain.engine.SlotProgressionContextRepository
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
 import com.hydrafit.app.core.domain.fatigue.TrainingCoverageRepository
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
@@ -124,5 +125,8 @@ val databaseModule: Module = module {
             get(),
             get()
         )
+    }
+    single<SlotProgressionContextRepository> {
+        SqlDelightSlotProgressionContextRepository(get())
     }
 }

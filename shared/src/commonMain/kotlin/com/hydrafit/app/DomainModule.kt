@@ -16,6 +16,7 @@ import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
 import com.hydrafit.app.core.domain.backup.SetAutomaticBackupsEnabledUseCase
 import com.hydrafit.app.core.domain.backup.VerifyBackupSnapshotUseCase
 import com.hydrafit.app.core.domain.engine.AcceptWeeklyPlanUseCase
+import com.hydrafit.app.core.domain.engine.ApplySlotProgressionSuggestionUseCase
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DefaultOnDevicePlanProgressReporter
@@ -28,8 +29,10 @@ import com.hydrafit.app.core.domain.engine.OnDevicePlanProgressReporter
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
+import com.hydrafit.app.core.domain.engine.ResolveSlotProgressionUseCase
 import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
+import com.hydrafit.app.core.domain.engine.SuggestSlotProgressionUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
@@ -125,6 +128,9 @@ val domainModule: Module = module {
     singleOf(::SuggestWeightsUseCase)
     single { BuildRecentWeightsUseCase() }
     single { ProgressWeightsUseCase() }
+    single { ResolveSlotProgressionUseCase() }
+    singleOf(::SuggestSlotProgressionUseCase)
+    singleOf(::ApplySlotProgressionSuggestionUseCase)
     singleOf(::BuildPlannerLoadInputsUseCase)
     singleOf(::ObserveWorkoutPlanInputsUseCase)
     singleOf(::AcceptWeeklyPlanUseCase)
