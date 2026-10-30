@@ -318,6 +318,21 @@ class DeterministicWorkoutPlannerEngine(
         }
         val sets = (deloadedSets - if (soreness >= fatigueConfig.reduceThreshold) 1 else 0)
             .coerceAtLeast(1)
+        val setCount = SetCountExplanation(
+            baseSets = baseSets,
+            deloadApplied = isDeload,
+            deloadVolumeScale = periodization.deloadVolumeScale,
+            fatigueEffect = if (sets < deloadedSets) {
+                FatigueSetEffect.REDUCED
+            } else {
+                FatigueSetEffect.NONE
+            },
+            finalSets = sets
+        )
+        val preferredMeasure = ExerciseMeasureDefaults.preferredMeasure(candidate.id)
+        if (preferredMeasure is ExerciseMeasure.Timed) {
+            return timedExercise(candidate, sets, setCount, preferredMeasure.durationSeconds)
+        }
         val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
         val capability = candidate.loadCapability
         val scale = intensityScale(isDeload)
@@ -439,17 +454,7 @@ class DeterministicWorkoutPlannerEngine(
                         equipmentCeilingBinds = ceiling != null && it > ceiling
                     )
                 },
-                setCount = SetCountExplanation(
-                    baseSets = baseSets,
-                    deloadApplied = isDeload,
-                    deloadVolumeScale = periodization.deloadVolumeScale,
-                    fatigueEffect = if (sets < deloadedSets) {
-                        FatigueSetEffect.REDUCED
-                    } else {
-                        FatigueSetEffect.NONE
-                    },
-                    finalSets = sets
-                ),
+                setCount = setCount,
                 unavailableReason = when {
                     !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
                     oneRepMax == null -> LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
@@ -458,6 +463,27 @@ class DeterministicWorkoutPlannerEngine(
             )
         )
     }
+
+    /**
+     * A preferred-timed slot carries its seconds in place of reps and never a load target. Its set
+     * count keeps the same deload/fatigue treatment as counted work; ordered rep targets are not
+     * fabricated for a timed slot.
+     */
+    private fun timedExercise(
+        candidate: Exercise,
+        sets: Int,
+        setCount: SetCountExplanation,
+        durationSeconds: Int
+    ): PlannedExercise = PlannedExercise(
+        exerciseId = candidate.id,
+        sets = sets,
+        durationSeconds = durationSeconds,
+        loadKind = WorkoutLoadPolicy.defaultKind(candidate.loadCapability),
+        loadCapability = candidate.loadCapability,
+        // A timed slot has no load suggestion, so no unavailable-load reason is recorded; the
+        // duration is the whole prescription.
+        explanation = ExerciseTargetExplanation(setCount = setCount)
+    )
 
     /**
      * Involvements that drive weekly-volume deficit targeting. TRAPS is excluded: the trapezius

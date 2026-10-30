@@ -22,6 +22,7 @@ import com.hydrafit.app.core.domain.storage.DataCategory
 import com.hydrafit.app.core.domain.storage.DataCategoryUsage
 import com.hydrafit.app.core.domain.storage.DataCount
 import com.hydrafit.app.core.domain.storage.DataCountKind
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearFailure
 import com.hydrafit.app.core.domain.storage.StorageUsage
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_automatic_backup_failed_encryption
@@ -71,6 +72,7 @@ import hydrafit.feature.settings.generated.resources.settings_storage_confirm_wo
 import hydrafit.feature.settings.generated.resources.settings_storage_count_accepted_plans
 import hydrafit.feature.settings.generated.resources.settings_storage_count_activations
 import hydrafit.feature.settings.generated.resources.settings_storage_count_body_weight
+import hydrafit.feature.settings.generated.resources.settings_storage_count_cardio
 import hydrafit.feature.settings.generated.resources.settings_storage_count_custom_exercises
 import hydrafit.feature.settings.generated.resources.settings_storage_count_equipment_profiles
 import hydrafit.feature.settings.generated.resources.settings_storage_count_line
@@ -82,6 +84,7 @@ import hydrafit.feature.settings.generated.resources.settings_storage_count_sess
 import hydrafit.feature.settings.generated.resources.settings_storage_count_sets
 import hydrafit.feature.settings.generated.resources.settings_storage_database_size
 import hydrafit.feature.settings.generated.resources.settings_storage_description
+import hydrafit.feature.settings.generated.resources.settings_storage_exercise_data_referenced
 import hydrafit.feature.settings.generated.resources.settings_storage_no_data
 import hydrafit.feature.settings.generated.resources.settings_storage_remove
 import hydrafit.feature.settings.generated.resources.settings_storage_remove_all
@@ -105,7 +108,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * The Settings surface for inspecting and removing stored data: the database size, the recorded
- * automatic snapshots, the on-device model and one row per data category with its exact counts.
+ * automatic snapshots and one row per data category with its exact counts.
  * Every removal first opens a confirmation dialog, so a single tap never deletes anything.
  */
 @Composable
@@ -447,6 +450,9 @@ private fun statusMessage(status: StorageDataStatus): String = when (status) {
     is StorageDataStatus.BackupFilesRemoved ->
         stringResource(Res.string.settings_storage_removed_snapshots, status.count)
 
+    is StorageDataStatus.CategoryBlocked ->
+        stringResource(status.failure.messageResource())
+
     is StorageDataStatus.Failed -> status.failure?.messageResource()?.let {
         stringResource(it)
     } ?: stringResource(Res.string.settings_storage_remove_failed)
@@ -508,6 +514,11 @@ private fun BackupFailure.messageResource(): StringResource = when (this) {
     BackupFailure.IO -> Res.string.settings_backup_error_io
 }
 
+private fun ExerciseDataClearFailure.messageResource(): StringResource = when (this) {
+    ExerciseDataClearFailure.CUSTOM_EXERCISES_REFERENCED ->
+        Res.string.settings_storage_exercise_data_referenced
+}
+
 private fun DataCategory.labelResource(): StringResource = when (this) {
     DataCategory.WORKOUT_HISTORY -> Res.string.settings_storage_category_workout_history
     DataCategory.PLANNING -> Res.string.settings_storage_category_planning
@@ -530,4 +541,5 @@ private fun DataCountKind.labelResource(): StringResource = when (this) {
     DataCountKind.PERSONAL_RECORDS -> Res.string.settings_storage_count_personal_records
     DataCountKind.EQUIPMENT_PROFILES -> Res.string.settings_storage_count_equipment_profiles
     DataCountKind.CUSTOM_EXERCISES -> Res.string.settings_storage_count_custom_exercises
+    DataCountKind.CARDIO_ACTIVITIES -> Res.string.settings_storage_count_cardio
 }

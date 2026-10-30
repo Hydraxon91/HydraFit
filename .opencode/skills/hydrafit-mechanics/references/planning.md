@@ -1,18 +1,24 @@
 # Planning mechanics
 
 User-authored routines, frozen activation/occurrence slots and accepted-plan slots support
-exclusive reps, whole seconds or whole metres. The engines themselves still prescribe reps only and
-never invent a duration or a distance: an accepted-plan slot's seconds or metres are always the
-user's own measure edit, made in SplitBuilder's per-slot measure action (Reps/Seconds/Distance plus a
-value; a distance is entered in the selected display unit and stored as whole metres; invalid input
-writes nothing). A draft edit is state-only and carries into acceptance; an accepted-plan edit
-persists in place like a swap and keeps the plan's id and acceptance time. Swap preserves the
-replaced slot's measure, plan-to-routine conversion carries it, and Regenerate produces a fresh
-rep-based plan, so a user-set duration or distance is not preserved across regeneration. A timed or
-distance slot is skipped by rep-based load progression rather than counted as zero reps, and
-performed timed/distance sets do not enter rep-derived fatigue or load inputs; a distance slot keeps
-its own load separate from the distance. Informational soreness/exhaustion storage is deferred; do
-not infer that the existing fatigue-based skip/reduce behavior consumes user reports.
+exclusive reps, whole seconds or whole metres. Generation otherwise prescribes the engine's own rep
+scheme, with one app-owned exception: `ExerciseMeasureDefaults` maps built-in exercise ids to a
+preferred measure, and Plank is generated as 30 seconds — an approved product default, not a
+physiological claim. Both the deterministic engine and the model sanitizer replace reps with that
+duration, keep no load and fabricate no ordered rep targets; every other exercise stays rep-based.
+The preference is domain metadata, not a schema column, backup field or user setting, and stored rep
+values are never converted. Apart from that generated measurement, an accepted-plan slot's seconds or metres
+are the user's own measure edit, made in SplitBuilder's per-slot measure action (Reps/Seconds/
+Distance plus a value; a distance is entered in the selected display unit and stored as whole metres;
+invalid input writes nothing). A draft edit is state-only and carries into acceptance; an
+accepted-plan edit persists in place like a swap and keeps the plan's id and acceptance time. Swap
+preserves the replaced slot's measure, plan-to-routine conversion carries it, and Regenerate produces
+a fresh plan applying the current preferred measure, so a user-set duration or distance is not
+preserved across regeneration. A timed or distance slot is skipped by rep-based load progression
+rather than counted as zero reps, and performed timed/distance sets do not enter rep-derived fatigue
+or load inputs; a distance slot keeps its own load separate from the distance. Informational
+soreness/exhaustion storage is deferred; do not infer that the existing fatigue-based skip/reduce
+behavior consumes user reports.
 
 Editing an unstarted occurrence matches existing prescription metadata by exercise id only when that
 id occurs once. If an occurrence contains duplicate exercise entries, the editor rejects the request
@@ -487,6 +493,39 @@ success requires **every** prescribed slot to have reached its own reps and load
 surplus set can never substitute for a missed one. `ResolveSlotProgressionUseCase.resolveOrdered`
 advances every set by one rep while the whole prescription stays inside the policy's range,
 then takes the policy's load step with reps back at the floor; misses ask for review.
+
+**Slot-attributed evidence and explicit apply (AUD-14).** A suggestion is not drawn from the
+exercise-level replay above. `SlotProgressionContextRepository.inputsFor(occurrenceId)` makes one
+coherent, off-main read per occurrence: each entry's slot key is derived from the existing
+attribution chain — occurrence entry → source activation entry → activation workout → activation —
+and the single `readProgressionHistory()` snapshot is filtered to those keys, together with the
+active loading inventory and max weights the load step is bounded by. A template-backed activation
+keys as `T<templateId>:<workoutPosition>:<entryPosition>`; a plan-backed one keys as
+`P<sourcePlanId>:<workoutPosition>:<entryPosition>`. Nothing is stored, so a newly accepted plan
+starts a new plan lineage and its slots hold until they have their own recorded work. That is a
+deliberate conservative choice, not instability: there is no plan-series identity to carry
+evidence across accepted plans. Within one lineage two activations of the same slot share a key, a
+second slot with the same exercise does not, and legacy or unattributed rows have no key and
+therefore no evidence.
+
+`SuggestSlotProgressionUseCase.decisionsFor(occurrenceId)` validates the occurrence and active
+selection once, then returns a decision for every policy-bearing entry; the single-entry `invoke`
+is a thin wrapper over the batch call for the apply path, not a second evidence read. An entry with
+no policy gets no decision. The gate requires the occurrence to be the active selected, unresolved
+guided occurrence and resolves each entry's effective (guided, else frozen) targets. It holds with
+an explicit reason for a missing key (`INSUFFICIENT_COMPARABLE_WORK`), a cluster, a timed, distance
+or force slot, mixed hand-edited scalar targets, a deload week (`PAUSED_DELOAD`) or an equipment
+identity absent from the active inventory (`EQUIPMENT_UNRESOLVED`). Load-kind eligibility differs
+by recipe: scalar progression accepts `EXTERNAL` and `ADDED` weighted rep targets, while ordered
+progression accepts only `EXTERNAL` and holds `NOT_ELIGIBLE` otherwise, so an added-load ordered
+slot is never scored or sent to review. `canApply` is true only for a real
+`ADVANCE_REPS`/`ADVANCE_LOAD` change, compared against the current target values.
+`ApplySlotProgressionSuggestionUseCase` recomputes that decision, refuses when any set of the slot
+is already recorded, and writes one `GuidedTargetPatch` per set position through
+`ApplyGuidedWorkoutTargetsUseCase`: the next unstarted occurrence's working targets change, never
+the routine template, activation baseline or recorded history. Scalar and ordered targets use the
+same policy-owned rule; the planner's exercise-level replay is never stacked on top and nothing
+applies automatically.
 
 ### Selection, schedule, and periodization
 

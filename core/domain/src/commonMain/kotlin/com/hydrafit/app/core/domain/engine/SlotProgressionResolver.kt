@@ -153,6 +153,8 @@ class ResolveSlotProgressionUseCase(
      * satisfied its own target, so a surplus set can never substitute for a missed one. The advance
      * mirrors the scalar rule — one more repetition on every set while the whole prescription stays
      * inside the policy's range, then the chosen load step with reps back at the range floor.
+     * Only external-load slots are scoreable; an ordered added-load or timed prescription holds
+     * [SlotProgressionReason.NOT_ELIGIBLE] rather than being judged as repeated misses.
      */
     fun resolveOrdered(
         request: OrderedSlotProgressionRequest,
@@ -162,6 +164,12 @@ class ResolveSlotProgressionUseCase(
         if (request.isDeload) return orderedHold(request, SlotProgressionReason.PAUSED_DELOAD)
         if (request.targets.targets.any { it.reps == null }) {
             // Timed or duration-only ordered work has no rep-derived target to advance.
+            return orderedHold(request, SlotProgressionReason.NOT_ELIGIBLE)
+        }
+        if (request.targets.targets.any { it.loadKind != LoadKind.EXTERNAL }) {
+            // An ordered prescription is a fixed set of external-load slots. Added-load work is
+            // scalar progression's business; scored here it could only ever register as a miss and
+            // ask for review, so it is ineligible instead.
             return orderedHold(request, SlotProgressionReason.NOT_ELIGIBLE)
         }
         val run = trailingOrderedRun(request, history, nowMillis)

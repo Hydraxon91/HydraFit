@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.settings
 import com.hydrafit.app.core.domain.backup.AutomaticBackupFailureKind
 import com.hydrafit.app.core.domain.backup.BackupFailure
 import com.hydrafit.app.core.domain.storage.DataCategory
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearFailure
 import com.hydrafit.app.core.domain.storage.StorageUsage
 
 /** The outcome of the last removal, shown as one line under the storage section. */
@@ -12,6 +13,9 @@ sealed interface StorageDataStatus {
 
     /** The recorded automatic snapshots were deleted; [count] were removed. */
     data class BackupFilesRemoved(val count: Int) : StorageDataStatus
+
+    /** The domain refused the removal; nothing was removed and [failure] explains why. */
+    data class CategoryBlocked(val failure: ExerciseDataClearFailure) : StorageDataStatus
 
     /** A removal failed; [failure] is the typed reason when the throw was a BackupException. */
     data class Failed(val failure: BackupFailure?) : StorageDataStatus

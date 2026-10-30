@@ -33,6 +33,7 @@ import com.hydrafit.app.core.domain.schedule.GuidedTargetPatch
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntryDraft
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryMeasureRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
@@ -589,6 +590,162 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         }
         assertEquals(OccurrenceReplacementFailure.RECORDED_SLOT, error.reason)
         assertEquals(occurrence, repository.getOccurrence(occurrence.id))
+    }
+
+    @Test
+    fun changingAnUnstartedEntryMeasureUpdatesOnlyThatEntryAndClearsGuidedOverrides() = runTest {
+        val activationId = repository.acceptAndActivate(
+            null,
+            activation(),
+            listOf(null, null),
+            false
+        )
+        val occurrence = repository.occurrences(activationId).first()
+        val entry = occurrence.entries.single()
+        repository.applyTargets(
+            GuidedWorkoutTargetsRequest(
+                occurrenceId = occurrence.id,
+                occurrenceRevision = occurrence.revision,
+                entryId = entry.id,
+                exerciseId = entry.exerciseId,
+                entrySets = entry.sets,
+                completedSetCount = 0,
+                resetRemaining = false,
+                patches = mapOf(
+                    0 to GuidedTargetPatch(
+                        SetTarget(reps = 10, weightKg = 70.0),
+                        setOf(GuidedTargetField.REPS, GuidedTargetField.LOAD)
+                    )
+                )
+            )
+        )
+        val overridden = repository.getOccurrence(occurrence.id)!!
+        assertNotNull(overridden.entries.single().guidedTargets)
+
+        repository.changeEntryMeasure(
+            OccurrenceEntryMeasureRequest(
+                occurrenceId = overridden.id,
+                occurrenceRevision = overridden.revision,
+                entryId = entry.id,
+                target = SetTarget(durationSeconds = 45, loadKind = LoadKind.EXTERNAL)
+            )
+        )
+
+        val edited = repository.getOccurrence(occurrence.id)!!
+        val slot = edited.entries.single()
+        assertEquals(overridden.revision + 1, edited.revision)
+        assertNull(slot.reps)
+        assertEquals(45, slot.durationSeconds)
+        assertNull(slot.weightKg)
+        assertNull(slot.guidedTargets)
+        val frozen = repository.getActivation(activationId)!!.workouts.first().entries.single()
+        assertEquals(8, frozen.reps)
+        assertEquals(82.5, frozen.weightKg)
+        val other = repository.occurrences(activationId).first { it.id != occurrence.id }
+        assertEquals(10, other.entries.single().reps)
+        assertEquals(60.0, other.entries.single().weightKg)
+        assertTrue(SqlDelightWorkoutLogRepository(database).all().isEmpty())
+    }
+
+    @Test
+    fun changingAnEntryMeasureRefusesARecordedWarmup() = runTest {
+        val activationId = repository.acceptAndActivate(
+            null,
+            activation(),
+            listOf(null, null),
+            false
+        )
+        val occurrence = repository.occurrences(activationId).first()
+        val entry = occurrence.entries.single()
+        SqlDelightWorkoutLogRepository(database).add(
+            WorkoutSet(
+                exerciseId = entry.exerciseId,
+                reps = 5,
+                weightKg = null,
+                performedAtMillis = 1L,
+                isWarmup = true,
+                occurrenceId = occurrence.id,
+                occurrenceEntryId = entry.id
+            )
+        )
+
+        assertFailsWith<ScheduleException> {
+            repository.changeEntryMeasure(
+                OccurrenceEntryMeasureRequest(
+                    occurrenceId = occurrence.id,
+                    occurrenceRevision = occurrence.revision,
+                    entryId = entry.id,
+                    target = SetTarget(durationSeconds = 45, loadKind = LoadKind.EXTERNAL)
+                )
+            )
+        }
+        assertEquals(8, repository.getOccurrence(occurrence.id)?.entries?.single()?.reps)
+    }
+
+    @Test
+    fun changingAnEntryMeasureRefusesOrderedTargets() = runTest {
+        val orderedTargets = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = 82.5),
+                SetTarget(reps = 7, loadKind = LoadKind.EXTERNAL, weightKg = 80.0),
+                SetTarget(reps = 6, loadKind = LoadKind.EXTERNAL, weightKg = 77.5)
+            )
+        )
+        val activationId = repository.acceptAndActivate(
+            null,
+            activation(setTargets = orderedTargets),
+            listOf(null, null),
+            false
+        )
+        val occurrence = repository.occurrences(activationId).first()
+        val entry = occurrence.entries.single()
+
+        assertFailsWith<ScheduleException> {
+            repository.changeEntryMeasure(
+                OccurrenceEntryMeasureRequest(
+                    occurrenceId = occurrence.id,
+                    occurrenceRevision = occurrence.revision,
+                    entryId = entry.id,
+                    target = SetTarget(durationSeconds = 45, loadKind = LoadKind.EXTERNAL)
+                )
+            )
+        }
+        assertEquals(8, repository.getOccurrence(occurrence.id)?.entries?.single()?.reps)
+    }
+
+    @Test
+    fun changingAnEntryMeasureRefusesAStaleRevisionAndAnInvalidLoadShape() = runTest {
+        val activationId = repository.acceptAndActivate(
+            null,
+            activation(),
+            listOf(null, null),
+            false
+        )
+        val occurrence = repository.occurrences(activationId).first()
+        val entry = occurrence.entries.single()
+
+        assertFailsWith<ScheduleException> {
+            repository.changeEntryMeasure(
+                OccurrenceEntryMeasureRequest(
+                    occurrenceId = occurrence.id,
+                    occurrenceRevision = occurrence.revision + 1,
+                    entryId = entry.id,
+                    target = SetTarget(durationSeconds = 45, loadKind = LoadKind.EXTERNAL)
+                )
+            )
+        }
+        assertFailsWith<ScheduleException> {
+            repository.changeEntryMeasure(
+                OccurrenceEntryMeasureRequest(
+                    occurrenceId = occurrence.id,
+                    occurrenceRevision = occurrence.revision,
+                    entryId = entry.id,
+                    target = SetTarget(reps = 8, loadKind = LoadKind.EXTERNAL, weightKg = -1.0)
+                )
+            )
+        }
+        assertEquals(8, repository.getOccurrence(occurrence.id)?.entries?.single()?.reps)
+        assertEquals(82.5, repository.getOccurrence(occurrence.id)?.entries?.single()?.weightKg)
     }
 
     private lateinit var driver: SqlDriver

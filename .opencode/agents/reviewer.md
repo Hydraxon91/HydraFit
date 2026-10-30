@@ -62,6 +62,11 @@ permissions:
   - action: shell
     resource: "git describe *"
     effect: allow
+  # Read-only stash inspection. The literal `list` keeps every mutating stash subcommand out of
+  # this rule, and `list` accepts only display options.
+  - action: shell
+    resource: "git stash list *"
+    effect: allow
   - action: shell
     resource: "diff *"
     effect: allow

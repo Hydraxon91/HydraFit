@@ -9,7 +9,10 @@ keeps its row and recorded attribution. The Logger offers only active stations c
 selected exercise's required equipment, prefills from that station's latest set, and writes the
 frozen station attribution with the manual set. Draft/guided logging remains unattributed in this
 slice. History details show the frozen station name; Exercise Progress can filter All, unattributed
-or one station. UI copy lives in each feature's `strings.xml`.
+or one station. Deleting a profile or a custom equipment row also deletes its station rows, while a
+recorded set keeps its frozen station label and load basis; the training-setup reset deletes station
+rows but keeps custom equipment, like the custom exercises it is catalog data for. UI copy lives in
+each feature's `strings.xml`.
 
 ## SplitBuilder plan-slot measure
 
@@ -120,6 +123,35 @@ the save mapping, so a saved `RoutineEntry` keeps the approved rule.
 `RoutinesViewModel` deliberately gains no constructor dependency for this: authoring needs no
 history, and the resolver's next-target suggestion has no UI surface in 0.10.1.
 
+The policy's suggestion/apply flow is a domain seam only so far:
+`SuggestSlotProgressionUseCase.decisionsFor` decides every policy-bearing entry of an occurrence
+from one batched, off-main slot-context read (one history read per occurrence) and holds with a
+recorded reason when a slot has no stable identity, a cluster, an ineligible metric/load, mixed
+targets, a deload week or an unresolved equipment identity. Ordered progression accepts only
+external load; scalar progression also accepts added load. Plan-backed slots carry
+`P<sourcePlanId>` keys, so a newly accepted plan starts a new lineage and holds until it has its
+own history. `ApplySlotProgressionSuggestionUseCase` writes only the next unstarted occurrence's
+guided working targets and never edits the template, activation or recorded history. The Logger's
+planned-draft list shows an applicable suggestion ("Suggested: sets × reps · load"; an ordered slot
+shows its per-set proposal, e.g. "Suggested: 3 sets · 9/9/9 · 100/100/102.5 kg") with an explicit
+**Apply** button, but only while the occurrence has no recorded set at all: once any set is recorded
+for it — a working set, a warm-up or a partial cluster — no suggestion is published, since the
+apply step writes only an unstarted slot. Holds and reviews stay silent, nothing auto-applies, and
+the row refreshes to the written target afterwards.
+
+## Unstarted slot measurement correction
+
+A guided draft for the active occurrence offers **Change measurement** while the occurrence has no
+recorded set (warm-ups included) and the slot has neither ordered per-set targets nor a cluster.
+The dialog picks reps, seconds, distance or force explicitly and requires a typed value; no stored
+number is converted into another measure. `ChangeOccurrenceEntryMeasureUseCase` validates the active
+selected occurrence and delegates to `GuidedWorkoutTargetsRepository.changeEntryMeasure`, a
+revision-gated `occurrenceEntry` update that rewrites only that row's measure, load and
+`guidedTargets` (cleared). The frozen activation, accepted plan, routine, other occurrences and
+recorded history are untouched. Seconds and force are load-free; reps and distance keep the existing
+load only when `WorkoutLoadPolicy` permits it. The store re-checks the same guards and rejects
+recorded work, ordered targets, clusters and invalid load shapes. No schema change is involved.
+
 ## Timed prescription authoring
 
 Routines provides a repetitions/seconds choice per slot; only the selected measure is saved.
@@ -133,6 +165,31 @@ A preparation edit persists as one global override per action in the additive
 `warmupPreparationOverride` table (reps XOR seconds, cleared by Reset to default), applied by
 `buildWarmupGuidance` so a later occurrence renders the persisted measure; a row showing a persisted
 override carries the same "(edited)" marker as a transient edit.
+
+## Timed-set Logger timer
+
+A seconds-based pending draft offers **Start timer** on its planned-draft row, and the
+matching guided row offers the same control for the current guided timed draft. The guided
+section and the planned-draft list never render together, so only one timer surface is
+visible at a time. The Logger's `WorkoutLoggerUiState.setTimer` holds one transient
+`SetTimerState`: a five-second cancellable preparation countdown, then the prescribed work
+countdown, then a confirmation showing the measured work seconds with **Log set** and
+**Discard**. Only one timer exists and it never records by itself; reaching zero and
+**Stop early** both only open the confirmation, and a stop during the first work second is
+floored to one second. **Log set** writes exactly the one measured set through the same
+pre-write gates as Confirm (legacy-load resolution, missing external load, cluster
+refusal) with the measured seconds, leaving the frozen prescribed target unchanged and the
+remaining sets pending; a guided draft writes through the guided confirmation path, a
+planned draft through the draft path, and an ordered slot still logs its measured
+performance rather than following the target. A failed write keeps the confirmation and
+its measured value for an explicit retry, and an insert that already landed is never
+written again. A gate's own dialog resolves from the unmodified draft, so the measured
+value cannot be carried into it: the confirmation closes and an explicit notice says the
+measured seconds were discarded. The timer is foreground-only
+(`WorkoutLoggerViewModel` ticker in `viewModelScope`, cancelled by `onPause`, ViewModel
+clear, another timer/set start, a draft/edit context change, dismissal, Discard and a
+guided-preference change) with no notification, service, alarm or persisted state.
+The existing rest timer is untouched and still follows only a live guided completion.
 
 Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable

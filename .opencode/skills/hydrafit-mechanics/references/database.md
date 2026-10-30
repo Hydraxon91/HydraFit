@@ -6,6 +6,10 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
+**Current schema version: 66** — schema v1 plus migrations `1.sqm` through `65.sqm`. Version
+numbers named inside the migration narratives below describe the chain *at that point in its
+history*, not the current version; the current value is the one stated here.
+
 `DefaultExercisesCatalogManual` seeds six manual-only shrug/neck profiles additively through
 the existing seed transaction. The new isolation patterns are enum strings in existing columns,
 not a schema change. `CustomExerciseDedupe`, `SqlDelightBackupCatalog.dedupeSeedKeys` and
@@ -175,7 +179,7 @@ databases upgraded from an earlier version as well as any drift. `43.sqm` adds
 and group by `sessionId` and order one session's sets by `performedAt`, and without it each of those
 shapes planned a full table scan plus a temporary B-tree. `44.sqm` adds the singleton `setupState`
 and nullable `preferredWeekdays` rows. Fresh creation starts PENDING/WELCOME; migration starts
-RETURNING/WELCOME regardless of workout count. Current schema version is 50.
+RETURNING/WELCOME regardless of workout count. At that point the schema version was 50.
 Migration `49.sqm` adds profile identity/configuration, per-profile equipment entries and active-profile
 state. It copies global selection and every ceiling into one active profile; fresh creation starts
 empty. `SqlDelightEquipmentProfileRepository` returns coherent snapshots off-main and validates a
@@ -217,7 +221,7 @@ just-written history (`SESSION_OVERLAP`), refuses a preview that still carries p
 (`NOT_IMPORTABLE`) instead of throwing a bare `require`, and still falls back to the legacy provenance
 rows for a bucket imported before this table existed.
 `SqlDelightBackupRepository` exports and whole-replaces both ledgers with the rest of the user-owned
-data. `51.sqm` creates the two tables; current schema version is 52.
+data. `51.sqm` creates the two tables; at that point the schema version was 52.
 
 `SqlDelightPrescriptionImportRepository` (0.9.2-S2) appends an approved prescription import in one
 transaction with **no schema change**: each routine is inserted as new `routineTemplate`/`routineWorkout`/

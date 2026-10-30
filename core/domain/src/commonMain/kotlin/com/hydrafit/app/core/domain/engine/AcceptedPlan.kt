@@ -72,8 +72,9 @@ data class AcceptedExercise(
     /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
     val reps: Int? = null,
     /**
-     * Elapsed whole seconds for a timed slot, or null for counted work. Only ever set by the user's
-     * measure edit; the planner never invents a duration.
+     * Elapsed whole seconds for a timed slot, or null for counted work. Set by the user's measure
+     * edit or by the app's preferred measure for a timed exercise (for example a generated plank);
+     * a model-supplied duration is never trusted.
      */
     val durationSeconds: Int? = null,
     val name: String,

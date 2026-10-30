@@ -67,7 +67,7 @@ C3 adds the effort factor `E` from reps in reserve. Missing effort uses `default
 the calculator only — the assumed value is never written to the database — and `E = 1.0` at the
 neutral 2 RIR. The stored value is a nullable `rir` (0..10); nothing is backfilled for old rows.
 
-`V` is cumulative pre-discount stimulus for this muscle in the inferred session, shared across
+`V` is cumulative pre-discount stimulus for this muscle in the current session, shared across
 both types. It discounts later sets; `(1 - F)` independently bounds the response to remaining
 headroom. Recovery starts immediately after training, including after extreme volume: there is no
 overflow plateau. After the last working timestamp, decay each component to `nowMillis`.
@@ -78,12 +78,20 @@ below one if floating-point rounding reaches one.
 
 ## Sessions and input
 
-- Infer sessions across **all working sets**, irrespective of exercise or muscle. A gap
-  **greater than or equal to two hours** between consecutive working timestamps resets every
-  muscle's `V`, but never resets recovered `F`. Calendar midnight does not split a session.
-- Warm-ups contribute nothing and do not bridge a working-set gap.
-- At equal timestamps, sum each muscle's stimulus in canonical order and apply one dose.
-  Logarithmic doses telescope, so batching preserves the formula and is insertion-order independent.
+- Sessions are identified by the explicit `sessionId` on each working set across **all
+  exercises and muscles**. A change from one non-null id to another resets every muscle's `V`,
+  and a boundary between a null (legacy) and a non-null id always resets, because a residual
+  null row must never join an identified session. Neither behaviour resets recovered `F`, and
+  calendar midnight does not split a session.
+- Legacy rows without a `sessionId` fall back to the timestamp gap: **greater than or equal to
+  two hours** between consecutive all-null working timestamps resets `V`. That gap rule applies
+  only when both consecutive sets lack an id; it is a compatibility path for older data, not the
+  general session rule.
+- Warm-ups contribute nothing and do not bridge a session boundary.
+- At equal timestamps and equal session identity, sum each muscle's stimulus in canonical order
+  and apply one dose. Equal timestamps carrying different session ids form separate batches, so a
+  session boundary still resets. Logarithmic doses telescope, so batching preserves the formula
+  and is insertion-order independent.
 - Use the set's stored involvement snapshot, summing matching target weights. Catalog edits
   do not rewrite historical snapshots.
 - `LoggedSet.reps` defaults to `FatigueConfig.DEFAULT_REFERENCE_REPS` (8) for synthetic callers.
@@ -148,7 +156,7 @@ is deferred to VOL-01.
 | Default / neutral RIR (C3) | 2 |
 | Effort divisor (C3) | 4 |
 | RIR range (C3) | 0–10 |
-| Inferred session gap | 2 h |
+| Legacy session gap (all-null rows) | 2 h |
 | Planner reduce / skip | 0.65 / 0.80 |
 | Targeted involvement cutoff | 0.7 |
 

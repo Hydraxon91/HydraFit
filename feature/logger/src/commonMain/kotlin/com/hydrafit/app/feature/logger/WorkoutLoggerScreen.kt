@@ -53,8 +53,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -233,6 +236,10 @@ import hydrafit.feature.logger.generated.resources.logger_loading_calculator_ope
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_log_failed
 import hydrafit.feature.logger.generated.resources.logger_log_refresh_failed
+import hydrafit.feature.logger.generated.resources.logger_measure_change_action
+import hydrafit.feature.logger.generated.resources.logger_measure_change_explanation
+import hydrafit.feature.logger.generated.resources.logger_measure_change_for
+import hydrafit.feature.logger.generated.resources.logger_measure_change_invalid
 import hydrafit.feature.logger.generated.resources.logger_new_session
 import hydrafit.feature.logger.generated.resources.logger_no_load_history
 import hydrafit.feature.logger.generated.resources.logger_no_load_inventory
@@ -247,6 +254,12 @@ import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_progress_open
+import hydrafit.feature.logger.generated.resources.logger_progression_apply
+import hydrafit.feature.logger.generated.resources.logger_progression_apply_failed
+import hydrafit.feature.logger.generated.resources.logger_progression_apply_for
+import hydrafit.feature.logger.generated.resources.logger_progression_suggested
+import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered
+import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered_load
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_replace
 import hydrafit.feature.logger.generated.resources.logger_reps_label
@@ -274,6 +287,19 @@ import hydrafit.feature.logger.generated.resources.logger_session_note_open
 import hydrafit.feature.logger.generated.resources.logger_session_note_saved
 import hydrafit.feature.logger.generated.resources.logger_session_recorded
 import hydrafit.feature.logger.generated.resources.logger_set_time
+import hydrafit.feature.logger.generated.resources.logger_set_timer_cancel
+import hydrafit.feature.logger.generated.resources.logger_set_timer_confirm_measured
+import hydrafit.feature.logger.generated.resources.logger_set_timer_confirm_note
+import hydrafit.feature.logger.generated.resources.logger_set_timer_confirm_prescribed
+import hydrafit.feature.logger.generated.resources.logger_set_timer_confirm_title
+import hydrafit.feature.logger.generated.resources.logger_set_timer_discard
+import hydrafit.feature.logger.generated.resources.logger_set_timer_failed
+import hydrafit.feature.logger.generated.resources.logger_set_timer_gate_took_over
+import hydrafit.feature.logger.generated.resources.logger_set_timer_log_set
+import hydrafit.feature.logger.generated.resources.logger_set_timer_preparing
+import hydrafit.feature.logger.generated.resources.logger_set_timer_remaining
+import hydrafit.feature.logger.generated.resources.logger_set_timer_start
+import hydrafit.feature.logger.generated.resources.logger_set_timer_stop_early
 import hydrafit.feature.logger.generated.resources.logger_set_week_day
 import hydrafit.feature.logger.generated.resources.logger_short_rest_coaching
 import hydrafit.feature.logger.generated.resources.logger_short_rest_dismiss
@@ -511,6 +537,8 @@ fun WorkoutLoggerRoute(
     val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
     val loadingCalculator by loadingCalculatorViewModel.state.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
+    // The timed-set timer is foreground-only: leaving the screen cancels it with nothing recorded.
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
     // The helper's own Logger context: a moved exercise/session, occurrence or draft/guided source
     // closes it instead of reinterpreting the target it captured.
     val loadingSourceIds = buildSet {
@@ -598,6 +626,12 @@ fun WorkoutLoggerRoute(
         onLogMissingLoadWithoutWeight = viewModel::logMissingLoadWithoutWeight,
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
         onDismissDraft = viewModel::dismissDraft,
+        onApplyProgressionSuggestion = viewModel::applyProgressionSuggestion,
+        onChangeMeasure = viewModel::openMeasureChange,
+        onMeasureMetricSelected = viewModel::onMeasureChangeMetricSelected,
+        onMeasureValueChanged = viewModel::onMeasureChangeValueChanged,
+        onApplyMeasureChange = viewModel::applyMeasureChange,
+        onDismissMeasureChange = viewModel::dismissMeasureChange,
         onResolveLegacyAsBodyweight = viewModel::resolveLegacyAsBodyweight,
         onResolveLegacyAsExternal = viewModel::resolveLegacyAsExternal,
         onDismissLegacyResolution = viewModel::dismissLegacyResolution,
@@ -620,6 +654,11 @@ fun WorkoutLoggerRoute(
         onRestDurationChanged = viewModel::onRestDurationChanged,
         onResetRestDuration = viewModel::resetExerciseRestDuration,
         onCancelRestTimer = viewModel::cancelRestTimer,
+        onStartSetTimer = viewModel::startSetTimer,
+        onStopSetTimer = viewModel::stopSetTimerEarly,
+        onCancelSetTimer = viewModel::cancelSetTimer,
+        onLogSetFromTimer = viewModel::logSetFromTimer,
+        onDismissSetTimerNotice = viewModel::dismissSetTimerNotice,
         onDismissShortRestCoaching = viewModel::dismissShortRestCoaching,
         onWarmupPreparationToggled = viewModel::onWarmupPreparationToggled,
         onToggleWarmupGuidance = viewModel::onToggleWarmupGuidance,
@@ -785,6 +824,12 @@ fun WorkoutLoggerScreen(
     onLogMissingLoadWithoutWeight: () -> Unit,
     onConfirmAllDrafts: () -> Unit,
     onDismissDraft: (DraftSet) -> Unit,
+    onApplyProgressionSuggestion: (Long) -> Unit,
+    onChangeMeasure: (Long) -> Unit,
+    onMeasureMetricSelected: (SetMetric) -> Unit,
+    onMeasureValueChanged: (String) -> Unit,
+    onApplyMeasureChange: () -> Unit,
+    onDismissMeasureChange: () -> Unit,
     onResolveLegacyAsBodyweight: () -> Unit,
     onResolveLegacyAsExternal: () -> Unit,
     onDismissLegacyResolution: () -> Unit,
@@ -807,6 +852,11 @@ fun WorkoutLoggerScreen(
     onRestDurationChanged: (String) -> Unit,
     onResetRestDuration: () -> Unit,
     onCancelRestTimer: () -> Unit,
+    onStartSetTimer: (DraftSet) -> Unit,
+    onStopSetTimer: () -> Unit,
+    onCancelSetTimer: () -> Unit,
+    onLogSetFromTimer: () -> Unit,
+    onDismissSetTimerNotice: () -> Unit,
     onDismissShortRestCoaching: () -> Unit,
     onWarmupPreparationToggled: (WarmupAction) -> Unit,
     onToggleWarmupGuidance: () -> Unit,
@@ -865,6 +915,53 @@ fun WorkoutLoggerScreen(
             exerciseName = instructions.exerciseName,
             exerciseId = instructions.exerciseId,
             onDismiss = onDismissInstructions
+        )
+    }
+
+    state.setTimer?.takeIf { it.phase == SetTimerPhase.CONFIRMING }?.let { timer ->
+        val prescribed = timer.draft.durationSeconds ?: timer.measuredSeconds
+        AlertDialog(
+            onDismissRequest = onCancelSetTimer,
+            title = { Text(stringResource(Res.string.logger_set_timer_confirm_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        stringResource(
+                            Res.string.logger_set_timer_confirm_measured,
+                            timer.measuredSeconds
+                        )
+                    )
+                    Text(
+                        stringResource(
+                            Res.string.logger_set_timer_confirm_prescribed,
+                            prescribed
+                        )
+                    )
+                    Text(stringResource(Res.string.logger_set_timer_confirm_note))
+                    if (timer.writeFailed) {
+                        Text(
+                            text = stringResource(Res.string.logger_set_timer_failed),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = onLogSetFromTimer,
+                    enabled = !timer.logInProgress
+                ) {
+                    Text(stringResource(Res.string.logger_set_timer_log_set))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onCancelSetTimer,
+                    enabled = !timer.logInProgress
+                ) {
+                    Text(stringResource(Res.string.logger_set_timer_discard))
+                }
+            }
         )
     }
 
@@ -1501,6 +1598,20 @@ fun WorkoutLoggerScreen(
                         clusterDraftError = state.clusterDraftError,
                         writeInProgress = state.draftWriteInProgress,
                         restTimer = state.restTimer,
+                        setTimer = state.setTimer,
+                        setTimerNotice = state.setTimerNotice,
+                        timedEntryIds = state.draftSets
+                            .filter { it.durationSeconds != null }
+                            .mapNotNull { it.occurrenceEntryId }
+                            .toSet(),
+                        onStartSetTimer = { entryId ->
+                            state.draftSets
+                                .firstOrNull { it.occurrenceEntryId == entryId }
+                                ?.let(onStartSetTimer)
+                        },
+                        onStopSetTimer = onStopSetTimer,
+                        onCancelSetTimer = onCancelSetTimer,
+                        onDismissSetTimerNotice = onDismissSetTimerNotice,
                         restDurationSeconds = state.restDurationSeconds,
                         restDurationIsOverride = state.restDurationIsOverride,
                         restDurationIsPairRest = state.restDurationIsPairRest,
@@ -1516,6 +1627,8 @@ fun WorkoutLoggerScreen(
                         onEditSet = onEditGuidedSet,
                         onReplace = onReplaceOccurrenceEntry,
                         onInstructions = onGuidedInstructions,
+                        onChangeMeasure = onChangeMeasure,
+                        measureChangeEntryIds = state.measureChangeEntryIds,
                         onLoadingCalculator = onGuidedLoadingCalculator,
                         expandedEntryIds = guided.exercises
                             .filter(state::isGuidedEntryExpanded)
@@ -1555,6 +1668,16 @@ fun WorkoutLoggerScreen(
                     ) {
                         Text(stringResource(Res.string.logger_confirm_all))
                     }
+                }
+                if (state.progressionApplyFailed) {
+                    Text(
+                        text = stringResource(Res.string.logger_progression_apply_failed),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                state.setTimerNotice?.let {
+                    SetTimerNoticeRow(onDismiss = onDismissSetTimerNotice)
                 }
             }
             items(state.draftSets) { draft ->
@@ -1637,6 +1760,70 @@ fun WorkoutLoggerScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
+                        val progression = draft.occurrenceEntryId?.let { entryId ->
+                            state.progressionSuggestions[entryId]
+                        }
+                        if (progression?.canApply == true) {
+                            val ordered = progression.ordered
+                            val suggestionText = if (ordered != null) {
+                                val copy = orderedProgressionCopy(
+                                    suggested = ordered.suggested,
+                                    current = progression.currentOrdered,
+                                    unit = state.weightUnit
+                                )
+                                val loads = copy.loads
+                                if (loads == null) {
+                                    stringResource(
+                                        Res.string.logger_progression_suggested_ordered,
+                                        copy.sets,
+                                        copy.reps
+                                    )
+                                } else {
+                                    stringResource(
+                                        Res.string.logger_progression_suggested_ordered_load,
+                                        copy.sets,
+                                        copy.reps,
+                                        loads
+                                    )
+                                }
+                            } else {
+                                stringResource(
+                                    Res.string.logger_progression_suggested,
+                                    draft.sets,
+                                    progression.suggestedReps ?: draft.reps ?: 0,
+                                    loadWeightText(
+                                        draft.loadKind,
+                                        progression.suggestedLoadKg ?: draft.weightKg,
+                                        state.weightUnit,
+                                        state.exerciseLoadBasis[draft.exerciseId]
+                                    )
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = suggestionText,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                val entryId = draft.occurrenceEntryId
+                                if (entryId != null) {
+                                    val applyFor = stringResource(
+                                        Res.string.logger_progression_apply_for,
+                                        draft.name
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            onApplyProgressionSuggestion(entryId)
+                                        },
+                                        enabled = state.progressionApplyEntryId == null,
+                                        modifier = Modifier.semantics {
+                                            contentDescription = applyFor
+                                        }
+                                    ) {
+                                        Text(stringResource(Res.string.logger_progression_apply))
+                                    }
+                                }
+                            }
+                        }
                         TargetExplanationDisclosure(
                             key = draft.occurrenceEntryId ?: draft.exerciseId,
                             explanation = draft.explanation,
@@ -1658,6 +1845,18 @@ fun WorkoutLoggerScreen(
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
+                    state.setTimer
+                        ?.takeIf { timer ->
+                            timer.phase != SetTimerPhase.CONFIRMING &&
+                                timer.draft.sameSlotAs(draft)
+                        }
+                        ?.let { timer ->
+                            SetTimerControls(
+                                timer = timer,
+                                onStop = onStopSetTimer,
+                                onCancel = onCancelSetTimer
+                            )
+                        }
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1668,6 +1867,16 @@ fun WorkoutLoggerScreen(
                             enabled = !state.draftWriteInProgress
                         ) {
                             Text(stringResource(Res.string.logger_confirm))
+                        }
+                        if (draft.durationSeconds != null &&
+                            state.setTimer?.draft?.sameSlotAs(draft) != true
+                        ) {
+                            TextButton(
+                                onClick = { onStartSetTimer(draft) },
+                                enabled = !state.draftWriteInProgress
+                            ) {
+                                Text(stringResource(Res.string.logger_set_timer_start))
+                            }
                         }
                         TextButton(onClick = { onDismissDraft(draft) }) {
                             Text(stringResource(Res.string.logger_dismiss))
@@ -1719,6 +1928,24 @@ fun WorkoutLoggerScreen(
                                         onEditDraft(draft)
                                     }
                                 )
+                                draft.occurrenceEntryId?.let { entryId ->
+                                    if (entryId in state.measureChangeEntryIds) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        Res.string.logger_measure_change_action
+                                                    )
+                                                )
+                                            },
+                                            enabled = !state.draftWriteInProgress,
+                                            onClick = {
+                                                expanded = false
+                                                onChangeMeasure(entryId)
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1954,6 +2181,89 @@ fun WorkoutLoggerScreen(
             onReset = onResetWarmupEditor,
             onCancel = onCancelWarmupEditor,
             onSave = onSaveWarmupEditor
+        )
+    }
+    state.measureChange?.let { dialog ->
+        AlertDialog(
+            onDismissRequest = onDismissMeasureChange,
+            title = {
+                Text(
+                    stringResource(
+                        Res.string.logger_measure_change_for,
+                        dialog.exerciseName
+                    )
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(Res.string.logger_measure_change_explanation))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.REPETITIONS,
+                            onClick = { onMeasureMetricSelected(SetMetric.REPETITIONS) },
+                            label = { Text(stringResource(Res.string.logger_reps_label)) },
+                            enabled = !dialog.applying
+                        )
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.DURATION,
+                            onClick = { onMeasureMetricSelected(SetMetric.DURATION) },
+                            label = { Text(stringResource(Res.string.logger_seconds_label)) },
+                            enabled = !dialog.applying
+                        )
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.DISTANCE,
+                            onClick = { onMeasureMetricSelected(SetMetric.DISTANCE) },
+                            label = { Text(stringResource(Res.string.logger_distance_label)) },
+                            enabled = !dialog.applying
+                        )
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.FORCE,
+                            onClick = { onMeasureMetricSelected(SetMetric.FORCE) },
+                            label = { Text(stringResource(Res.string.logger_force_label)) },
+                            enabled = !dialog.applying
+                        )
+                    }
+                    OutlinedTextField(
+                        value = dialog.value,
+                        onValueChange = onMeasureValueChanged,
+                        label = { Text(stringResource(dialog.metric.measureLabel())) },
+                        singleLine = true,
+                        enabled = !dialog.applying,
+                        isError = dialog.invalidValue || dialog.error != null,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = if (dialog.metric == SetMetric.FORCE) {
+                                KeyboardType.Decimal
+                            } else {
+                                KeyboardType.Number
+                            }
+                        )
+                    )
+                    if (dialog.invalidValue) {
+                        Text(
+                            text = stringResource(Res.string.logger_measure_change_invalid),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    dialog.error?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onApplyMeasureChange, enabled = !dialog.applying) {
+                    Text(stringResource(Res.string.logger_progression_apply))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissMeasureChange, enabled = !dialog.applying) {
+                    Text(stringResource(Res.string.logger_cancel))
+                }
+            }
         )
     }
     state.legacyResolution?.let { resolution ->
@@ -2520,6 +2830,33 @@ private fun TargetExplanationReason.labelResource(): StringResource = when (this
 }
 
 /**
+ * An ordered slot's proposal as shown: the proposed set count, each set's reps joined by "/", and —
+ * only when at least one proposed load differs from the current one — every proposed load joined by
+ * "/" with the display unit appended once. [loads] is null when the loads are unchanged.
+ */
+internal data class OrderedProgressionCopy(val sets: Int, val reps: String, val loads: String?)
+
+/** Builds the ordered proposal copy from the proposed and current targets; pure, so it is testable. */
+internal fun orderedProgressionCopy(
+    suggested: SlotSetTargets?,
+    current: SlotSetTargets?,
+    unit: WeightUnit
+): OrderedProgressionCopy {
+    val targets = suggested?.targets.orEmpty()
+    val reps = targets.joinToString("/") { (it.reps ?: 0).toString() }
+    val suggestedLoads = targets.map { it.weightKg }
+    val currentLoads = current?.targets.orEmpty().map { it.weightKg }
+    val loads = if (suggestedLoads == currentLoads) {
+        null
+    } else {
+        suggestedLoads.joinToString("/") { load ->
+            load?.let { formatWeight(unit.kilogramsToDisplay(it)) } ?: "-"
+        } + " " + unit.label
+    }
+    return OrderedProgressionCopy(sets = targets.size, reps = reps, loads = loads)
+}
+
+/**
  * A compact read-only summary of a draft's frozen ordered targets, one entry per set. It only reads
  * the draft the screen already renders; a prescribed target is never written back as actual effort.
  */
@@ -2705,6 +3042,14 @@ private fun BackdatedTimeControl(
             )
         }
     }
+}
+
+/** The input label for the metric the measurement dialog records. */
+private fun SetMetric.measureLabel(): StringResource = when (this) {
+    SetMetric.REPETITIONS -> Res.string.logger_reps_label
+    SetMetric.DURATION -> Res.string.logger_seconds_label
+    SetMetric.DISTANCE -> Res.string.logger_distance_label
+    SetMetric.FORCE -> Res.string.logger_force_label
 }
 
 internal fun localDateLabel(parts: LocalDateTimeParts): String =
@@ -3121,6 +3466,13 @@ private fun GuidedWorkoutSection(
     clusterDraftError: ClusterDraftError?,
     writeInProgress: Boolean,
     restTimer: RestTimerState?,
+    setTimer: SetTimerState?,
+    setTimerNotice: SetTimerNotice?,
+    timedEntryIds: Set<Long>,
+    onStartSetTimer: (Long) -> Unit,
+    onStopSetTimer: () -> Unit,
+    onCancelSetTimer: () -> Unit,
+    onDismissSetTimerNotice: () -> Unit,
     restDurationSeconds: String,
     restDurationIsOverride: Boolean,
     restDurationIsPairRest: Boolean,
@@ -3136,6 +3488,8 @@ private fun GuidedWorkoutSection(
     onEditSet: (Long) -> Unit,
     onReplace: (Long) -> Unit,
     onInstructions: (Long) -> Unit,
+    onChangeMeasure: (Long) -> Unit,
+    measureChangeEntryIds: Set<Long>,
     onLoadingCalculator: (GuidedExerciseProgress) -> Unit,
     expandedEntryIds: Set<Long>,
     actionEntryIds: Set<Long>,
@@ -3186,6 +3540,7 @@ private fun GuidedWorkoutSection(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
+            setTimerNotice?.let { SetTimerNoticeRow(onDismiss = onDismissSetTimerNotice) }
             restTimer?.let { timer ->
                 Text(
                     text = if (timer.isFinished) {
@@ -3455,6 +3810,26 @@ private fun GuidedWorkoutSection(
                     if (exercise.occurrenceEntryId in actionEntryIds) {
                         Column {
                             val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
+                            val timer = setTimer?.takeIf { current ->
+                                current.draft.occurrenceEntryId == exercise.occurrenceEntryId
+                            }
+                            if (timer != null && timer.phase != SetTimerPhase.CONFIRMING) {
+                                SetTimerControls(
+                                    timer = timer,
+                                    onStop = onStopSetTimer,
+                                    onCancel = onCancelSetTimer
+                                )
+                            } else if (setTimer == null &&
+                                exercise.occurrenceEntryId in timedEntryIds &&
+                                startedSetEntryId == null
+                            ) {
+                                TextButton(
+                                    onClick = { onStartSetTimer(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress
+                                ) {
+                                    Text(stringResource(Res.string.logger_set_timer_start))
+                                }
+                            }
                             TextButton(
                                 onClick = { onStartSet(exercise.occurrenceEntryId) },
                                 enabled = !writeInProgress && !isStartedSlot
@@ -3481,9 +3856,72 @@ private fun GuidedWorkoutSection(
                             ) {
                                 Text(stringResource(Res.string.logger_draft_edit))
                             }
+                            if (exercise.occurrenceEntryId in measureChangeEntryIds) {
+                                val changeFor = stringResource(
+                                    Res.string.logger_measure_change_for,
+                                    exercise.exerciseName
+                                )
+                                TextButton(
+                                    onClick = { onChangeMeasure(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = changeFor
+                                    }
+                                ) {
+                                    Text(stringResource(Res.string.logger_measure_change_action))
+                                }
+                            }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetTimerNoticeRow(onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = stringResource(Res.string.logger_set_timer_gate_took_over),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onDismiss) {
+            Text(stringResource(Res.string.logger_dismiss))
+        }
+    }
+}
+
+@Composable
+private fun SetTimerControls(timer: SetTimerState, onStop: () -> Unit, onCancel: () -> Unit) {
+    // Only the preparation and work phases render controls; the confirmation is a dialog.
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = if (timer.phase == SetTimerPhase.PREPARING) {
+                stringResource(Res.string.logger_set_timer_preparing, timer.remainingSeconds)
+            } else {
+                stringResource(Res.string.logger_set_timer_remaining, timer.remainingSeconds)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+        )
+        if (timer.phase == SetTimerPhase.WORKING) {
+            TextButton(onClick = onStop) {
+                Text(stringResource(Res.string.logger_set_timer_stop_early))
+            }
+        } else {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(Res.string.logger_set_timer_cancel))
             }
         }
     }

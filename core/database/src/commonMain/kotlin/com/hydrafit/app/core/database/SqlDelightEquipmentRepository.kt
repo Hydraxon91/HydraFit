@@ -51,6 +51,10 @@ class SqlDelightEquipmentRepository(private val database: HydraFitDatabase) : Eq
             require(references.none { it != state.activeProfileId })
             require(!queries.hasProtectedReference(id.id).executeAsOne())
             database.equipmentProfileQueries.deleteEquipmentEntry(state.activeProfileId, id.id)
+            // Stations are global to the catalog row even when they are profile-scoped, so clear
+            // every profile's station for this equipment. Recorded sets keep their frozen station
+            // label and load basis; only the station/equipment identity goes away.
+            database.equipmentStationQueries.deleteStationsForEquipment(id.id)
             queries.deleteById(id.id)
             database.equipmentProfileQueries.bumpRevision()
         }

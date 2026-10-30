@@ -4,6 +4,8 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.storage.DataCategory
 import com.hydrafit.app.core.domain.storage.DataCountKind
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearException
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearFailure
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -73,6 +75,16 @@ class SqlDelightDataManagementRepositoryTest {
     @Test
     fun clearingExerciseDataKeepsTheSeededCatalog() = runTest {
         seedAllCategories()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO restPreference(preferenceKey, exerciseId, durationSeconds) " +
+                "VALUES ('GLOBAL', NULL, 90)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO restPreference(preferenceKey, exerciseId, durationSeconds) " +
+                "VALUES ('EXERCISE:hf-storage-custom', 'hf-storage-custom', 60)"
+        )
         val exercisesBefore = HistoricalDatabaseFixtures.count(driver, "exercise")
 
         repository.clear(DataCategory.EXERCISE_DATA)
@@ -81,6 +93,18 @@ class SqlDelightDataManagementRepositoryTest {
         assertEquals(0, repository.counts()[DataCountKind.CUSTOM_EXERCISES])
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "exerciseOverride"))
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "exerciseNote"))
+        // The removed custom's per-exercise override goes with it; the global default stays.
+        assertEquals(
+            0L,
+            HistoricalDatabaseFixtures.count(driver, "restPreference WHERE exerciseId IS NOT NULL")
+        )
+        assertEquals(
+            1L,
+            HistoricalDatabaseFixtures.long(
+                driver,
+                "SELECT COUNT(*) FROM restPreference WHERE preferenceKey = 'GLOBAL'"
+            )
+        )
         assertEquals(1, repository.counts()[DataCountKind.SESSIONS])
     }
 
@@ -89,6 +113,7 @@ class SqlDelightDataManagementRepositoryTest {
         seedAllCategories()
         database.plannerEngineQueries.updateEngine("GEMINI_API")
         database.plannerEngineQueries.updateWeightUnit("LB")
+        database.plannerEngineQueries.updateDistanceUnit("FEET")
         database.plannerEngineQueries.updateDaysPerWeek(6L)
         database.plannerEngineQueries.updateGuidedWorkoutEnabled(1L)
 
@@ -96,6 +121,7 @@ class SqlDelightDataManagementRepositoryTest {
 
         assertEquals("GEMINI_API", database.plannerEngineQueries.selectEngine().executeAsOne())
         assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
+        assertEquals("METERS", database.plannerEngineQueries.selectDistanceUnit().executeAsOne())
         assertEquals(4L, database.plannerEngineQueries.selectDaysPerWeek().executeAsOne())
         assertEquals(0L, database.plannerEngineQueries.selectGuidedWorkoutEnabled().executeAsOne())
         // The reset re-creates the schema's seeded profile singleton instead of leaving it empty.
@@ -115,6 +141,7 @@ class SqlDelightDataManagementRepositoryTest {
         seedAllCategories()
         database.setupQueries.updateState(1L, "COMPLETED", "FIRST_WORKOUT", 3L)
         database.setupQueries.updateWeekdays("MONDAY")
+        database.plannerEngineQueries.updateDistanceUnit("FEET")
         HistoricalDatabaseFixtures.exec(
             driver,
             "INSERT OR REPLACE INTO stagedBackup(id, payload, appVersion, stagedAtMillis) " +
@@ -137,6 +164,7 @@ class SqlDelightDataManagementRepositoryTest {
         assertNull(database.setupQueries.selectWeekdays().executeAsOne().weekdays)
         assertEquals("DETERMINISTIC", database.plannerEngineQueries.selectEngine().executeAsOne())
         assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
+        assertEquals("METERS", database.plannerEngineQueries.selectDistanceUnit().executeAsOne())
         assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "workoutImportProvenance"))
         // The seeded catalog and the built-in equipment rows survive; only the custom row is gone.
         assertTrue(HistoricalDatabaseFixtures.count(driver, "exercise") >= exercisesBefore - 1)
@@ -160,6 +188,269 @@ class SqlDelightDataManagementRepositoryTest {
             repository.clear(DataCategory.BACKUP_FILES)
         }
         assertEquals(1, repository.counts()[DataCountKind.SESSIONS])
+    }
+
+    @Test
+    fun clearingWorkoutHistoryRemovesClusterSegmentsAndCardio() = runTest {
+        enableForeignKeys()
+        seedRecordedClusterAndCardio()
+        assertEquals(2L, HistoricalDatabaseFixtures.count(driver, "workoutClusterSegment"))
+        assertEquals(1, repository.counts()[DataCountKind.CARDIO_ACTIVITIES])
+
+        repository.clear(DataCategory.WORKOUT_HISTORY)
+
+        val counts = repository.counts()
+        assertEquals(0, counts[DataCountKind.SESSIONS])
+        assertEquals(0, counts[DataCountKind.SETS])
+        assertEquals(0, counts[DataCountKind.SESSION_NOTES])
+        assertEquals(0, counts[DataCountKind.CARDIO_ACTIVITIES])
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "workoutClusterSegment"))
+        assertEquals(0L, foreignKeyViolations())
+    }
+
+    @Test
+    fun clearingTrainingSetupRemovesStationsAndKeepsCustomEquipment() = runTest {
+        enableForeignKeys()
+        database.plannerEngineQueries.updateEngine("GEMINI_API")
+        database.plannerEngineQueries.updateWeightUnit("LB")
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO equipment(id, name, isBuiltIn) VALUES ('CUSTOM_RACK', 'Rack', 0)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO equipmentStation(profileId, equipmentId, name, loadBasis) " +
+                "VALUES (1, 'CUSTOM_RACK', 'Half rack', 'TOTAL')"
+        )
+
+        repository.clear(DataCategory.TRAINING_SETUP)
+
+        // The reseeded profile 1 cannot inherit a station from the deleted profile rows.
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "equipmentStation"))
+        assertEquals(
+            1L,
+            HistoricalDatabaseFixtures.long(
+                driver,
+                "SELECT COUNT(*) FROM equipment WHERE id = 'CUSTOM_RACK' AND isBuiltIn = 0"
+            )
+        )
+        assertEquals("GEMINI_API", database.plannerEngineQueries.selectEngine().executeAsOne())
+        assertEquals("KG", database.plannerEngineQueries.selectWeightUnit().executeAsOne())
+        assertEquals(
+            1L,
+            database.equipmentProfileQueries.selectState().executeAsOne().activeProfileId
+        )
+        assertEquals(0L, foreignKeyViolations())
+    }
+
+    @Test
+    fun clearingAllDataRemovesClustersStationsAndCardioWithoutForeignKeyViolations() = runTest {
+        enableForeignKeys()
+        seedRecordedClusterAndCardio()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO equipment(id, name, isBuiltIn) VALUES ('CUSTOM_RACK', 'Rack', 0)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO equipmentStation(profileId, equipmentId, name, loadBasis) " +
+                "VALUES (1, 'CUSTOM_RACK', 'Half rack', 'TOTAL')"
+        )
+
+        repository.clear(DataCategory.ALL_DATA)
+
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "workoutClusterSegment"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "equipmentStation"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "cardioActivity"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "equipment WHERE isBuiltIn = 0"))
+        assertEquals(0L, foreignKeyViolations())
+    }
+
+    @Test
+    fun clearingExerciseDataRefusesWhileACustomExerciseIsReferenced() = runTest {
+        enableForeignKeys()
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO exercise(" +
+                "id, name, requiredEquipment, movementPattern, isCustom, isUnilateral, " +
+                "loadCapability, searchName" +
+                ") VALUES ('custom-ref', 'Custom', 'BARBELL', 'SQUAT', 1, 0, 'EXTERNAL', '')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(exerciseId, reps, weightKg, performedAt, isWarmup, loadKind) " +
+                "VALUES ('custom-ref', 5, 50.0, 1, 0, 'EXTERNAL')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO restPreference(preferenceKey, exerciseId, durationSeconds) VALUES " +
+                "('GLOBAL', NULL, 90), ('EXERCISE:custom-ref', 'custom-ref', 60)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO exerciseOverride(exerciseId, name) VALUES ('custom-ref', 'Edited')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO exerciseNote(exerciseId, note) VALUES ('custom-ref', 'n')"
+        )
+
+        val refusal = assertFailsWith<ExerciseDataClearException> {
+            repository.clear(DataCategory.EXERCISE_DATA)
+        }
+
+        assertEquals(ExerciseDataClearFailure.CUSTOM_EXERCISES_REFERENCED, refusal.failure)
+        assertEquals(
+            1L,
+            HistoricalDatabaseFixtures.count(driver, "exercise WHERE id = 'custom-ref'")
+        )
+        assertEquals(1L, HistoricalDatabaseFixtures.count(driver, "workoutSet"))
+        assertEquals(2L, HistoricalDatabaseFixtures.count(driver, "restPreference"))
+        assertEquals(1L, HistoricalDatabaseFixtures.count(driver, "exerciseOverride"))
+        assertEquals(1L, HistoricalDatabaseFixtures.count(driver, "exerciseNote"))
+        assertEquals(0L, foreignKeyViolations())
+    }
+
+    @Test
+    fun clearingPlanningRemovesRoutinesAndScheduleButKeepsHistory() = runTest {
+        enableForeignKeys()
+        seedCoherentPlanningAndHistory()
+
+        repository.clear(DataCategory.PLANNING)
+
+        val counts = repository.counts()
+        assertEquals(0, counts[DataCountKind.ACCEPTED_PLANS])
+        assertEquals(0, counts[DataCountKind.ROUTINES])
+        assertEquals(0, counts[DataCountKind.ACTIVATIONS])
+        assertEquals(0, counts[DataCountKind.SCHEDULED_WORKOUTS])
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "routineEntry"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "routineWorkout"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "routineTemplate"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planHistoryEntry"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planHistoryDay"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "planHistory"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "occurrenceEntry"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "workoutOccurrence"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "activationEntry"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "activationWorkout"))
+        assertEquals(0L, HistoricalDatabaseFixtures.count(driver, "trainingActivation"))
+        // Recorded workouts are history, not planning, so they survive the removal untouched.
+        assertEquals(1, counts[DataCountKind.SESSIONS])
+        assertEquals(1, counts[DataCountKind.SETS])
+        assertEquals(0L, foreignKeyViolations())
+    }
+
+    private fun enableForeignKeys() {
+        HistoricalDatabaseFixtures.exec(driver, "PRAGMA foreign_keys = ON")
+    }
+
+    private fun foreignKeyViolations(): Long =
+        HistoricalDatabaseFixtures.long(driver, "SELECT COUNT(*) FROM pragma_foreign_key_check")
+
+    /** A coherent history fixture: one session, one clustered set and one cardio record. */
+    private fun seedRecordedClusterAndCardio() {
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay) " +
+                "VALUES ('s1', 1, 2, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(" +
+                "exerciseId, reps, weightKg, performedAt, isWarmup, sessionId, loadKind" +
+                ") VALUES ('back-squat', 5, 100.0, 1, 0, 's1', 'EXTERNAL')"
+        )
+        val setId = HistoricalDatabaseFixtures.long(driver, "SELECT id FROM workoutSet LIMIT 1")
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutClusterSegment(setId, position, reps, weightKg, rir) " +
+                "VALUES ($setId, 1, 5, 90.0, NULL), ($setId, 2, 5, 80.0, NULL)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO sessionNote(sessionId, note) VALUES ('s1', 'note')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO cardioActivity(identity, type, startedAt, durationSeconds) " +
+                "VALUES ('c1', 'RUN', 1, 60)"
+        )
+    }
+
+    /** A coherent planning fixture with FK-referenced routine, plan and schedule children. */
+    private fun seedCoherentPlanningAndHistory() {
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay) " +
+                "VALUES ('s1', 1, 2, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(" +
+                "exerciseId, reps, weightKg, performedAt, isWarmup, sessionId, loadKind" +
+                ") VALUES ('back-squat', 5, 100.0, 1, 0, 's1', 'EXTERNAL')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistory(engineId, acceptedAt, weekNumber, cycleNumber) " +
+                "VALUES ('DETERMINISTIC', 1, 1, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistoryDay(planId, dayIndex, focus) VALUES (1, 0, 'SQUAT')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO planHistoryEntry(" +
+                "dayId, position, exerciseId, sets, exerciseName, movementPattern" +
+                ") VALUES (1, 0, 'back-squat', 3, 'Back Squat', 'SQUAT')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO routineTemplate(" +
+                "name, revision, createdAtMillis, updatedAtMillis, archivedAtMillis" +
+                ") VALUES ('Block', 1, 1, 1, NULL)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO routineWorkout(templateId, position, name) VALUES (1, 0, 'Day A')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO routineEntry(workoutId, position, exerciseId, sets) " +
+                "VALUES (1, 0, 'back-squat', 3)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO trainingActivation(" +
+                "name, createdAtMillis, startEpochDay, mode, weekdayMask, status, revision" +
+                ") VALUES ('a', 1, 1, 'WEEKLY', 0, 'ACTIVE', 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO activationWorkout(activationId, position, name) " +
+                "VALUES (1, 0, 'Day A')"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO activationEntry(" +
+                "workoutId, position, exerciseId, exerciseName, movementPattern, " +
+                "requiredEquipment, sets" +
+                ") VALUES (1, 0, 'back-squat', 'Back Squat', 'SQUAT', 'BARBELL', 3)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutOccurrence(" +
+                "activationId, activationWorkoutId, queuePosition, status, revision" +
+                ") VALUES (1, 1, 0, 'QUEUED', 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO occurrenceEntry(" +
+                "occurrenceId, position, exerciseId, exerciseName, movementPattern, " +
+                "requiredEquipment, sets" +
+                ") VALUES (1, 0, 'back-squat', 'Back Squat', 'SQUAT', 'BARBELL', 3)"
+        )
     }
 
     private fun seedAllCategories() {

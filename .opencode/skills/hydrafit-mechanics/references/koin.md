@@ -15,8 +15,10 @@ Composition files:
 | Feature `SplitBuilderModule.kt` | `splitBuilderModule` |
 | Feature `WorkoutLoggerModule.kt` | `loggerModule` |
 | Feature `SettingsModule.kt` | `settingsModule` |
+| Feature `routines/RoutinesModule.kt` | `routinesModule`: eager, closeable `WorkoutReminderCoordinator`, `RoutinesViewModel` and `PrescriptionShareViewModel` |
 | Feature `OnboardingModule.kt` | `onboardingModule` (exported, aggregated by the shell; `OnboardingViewModel` + `OnboardingEntryViewModel`) |
 | Feature `progress/ProgressModule.kt` | `progressModule` (exported; one `ProgressViewModel`). Registered in the shell's aggregation separately from the six tab destinations; progress is a pushed, non-tab route. |
+| Feature `cardio/CardioModule.kt` | `cardioModule`: `CardioViewModel` bound to `CardioRepository`, `DistanceUnitRepository` and `TimeProvider` |
 | Platform `AndroidDatabaseModule.kt` / `IosDatabaseModule.kt` | Driver, clock, key store, backup and reminder adapters |
 
 Shell `Koin.kt` aggregates the modules and invokes catalog/equipment seeding
@@ -31,7 +33,8 @@ The verification files are:
 - `core/network/src/androidHostTest/kotlin/com/hydrafit/app/core/network/NetworkModuleVerificationTest.kt`
 - `shared/src/androidHostTest/kotlin/com/hydrafit/app/KoinModulesVerificationTest.kt`
 
-The shared test's `allModulesResolve` checks the aggregate graph.
+The shared test's `allModulesResolve` checks the aggregate graph, including `networkModule` and
+`cardioModule`, matching the shell's composition root.
 Onboarding's `OnboardingModuleVerificationTest` verifies its external ports and resolves its
 ViewModels/save actions at runtime, including an entry-ViewModel init read that must not write.
 The module owns the two setup use-case factories; databaseModule binds `SetupWriteRepository`,

@@ -1,7 +1,6 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.coroutines.asFlow
-import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.ProgressionHistory
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
@@ -10,7 +9,6 @@ import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.LoadingInventory
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
-import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
@@ -92,50 +90,7 @@ class SqlDelightWorkoutPlanSourcesRepository(
         }.distinctUntilChanged()
     }
 
-    private fun readProgressionHistory(): ProgressionHistory = database.transactionWithResult {
-        // Station-attributed work is excluded from the generic progression replay. Its own station
-        // history is a separate comparison population and must not seed this exercise-level rule.
-        val sets = database.workoutLogQueries.selectAllSets().executeAsList()
-            .map { it.toDomain() }
-            .filter { it.station == null && it.cluster == null }
-        val sessions = database.workoutSessionQueries.selectAllSessions().executeAsList()
-            .map { it.toDomain() }
-        val entries = database.trainingScheduleQueries.selectAllOccurrenceEntries().executeAsList()
-            .associateBy { it.id }
-        val occurrences = database.trainingScheduleQueries.selectAllOccurrences().executeAsList()
-            .associateBy { it.id }
-        val activations = database.trainingScheduleQueries.selectAllActivations().executeAsList()
-            .associateBy { it.id }
-        val sessionsById = sessions.associateBy { it.id }
-        val targets = sets.mapNotNull { set ->
-            if (set.prescriptionSnapshot != null) return@mapNotNull null
-            val entry = set.occurrenceEntryId?.let(entries::get) ?: return@mapNotNull null
-            if (set.occurrenceId != entry.occurrenceId || set.exerciseId != entry.exerciseId) {
-                return@mapNotNull null
-            }
-            val session = set.sessionId?.let(sessionsById::get) ?: return@mapNotNull null
-            if (session.occurrenceId != null && session.occurrenceId != entry.occurrenceId) {
-                return@mapNotNull null
-            }
-            val occurrence = occurrences[entry.occurrenceId] ?: return@mapNotNull null
-            val activation = activations[occurrence.activationId] ?: return@mapNotNull null
-            val week = activation.weekNumber?.toInt() ?: return@mapNotNull null
-            val target = WorkoutPrescriptionSnapshot(
-                exerciseId = entry.exerciseId,
-                sets = entry.sets.toInt(),
-                reps = entry.reps?.toInt(),
-                durationSeconds = entry.durationSeconds?.toInt(),
-                distanceMeters = entry.distanceMeters?.toInt(),
-                forceNewtons = entry.forceNewtons,
-                loadKind = decodeLoadKind(entry.loadKind),
-                weightKg = entry.weightKg,
-                isDeload = PeriodizationConfig().isDeload(week)
-            )
-            target.requireValid()
-            set.id to target
-        }.toMap()
-        ProgressionHistory(sets, sessions, targets)
-    }
+    private fun readProgressionHistory(): ProgressionHistory = database.readProgressionHistory()
 
     private data class LogContext(
         val loggedSets: List<LoggedSet>,

@@ -11,8 +11,9 @@ data class PlannedExercise(
     /** Repetitions for counted work, or null for a timed slot. Never a `0` sentinel. */
     val reps: Int? = null,
     /**
-     * Elapsed whole seconds for a timed slot, or null for counted work. The engine never invents a
-     * duration: it is only ever set by the user's own measure edit.
+     * Elapsed whole seconds for a timed slot, or null for counted work. The engine uses the app's
+     * preferred measure for a timed exercise (for example a generated plank) or the user's own
+     * measure edit; a model-supplied duration is never trusted.
      */
     val durationSeconds: Int? = null,
     val suggestedWeightKg: Double? = null,

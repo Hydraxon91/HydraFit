@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.schedule.ChangeOccurrenceEntryMeasureUseCase
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.onClose
 import org.koin.core.module.dsl.viewModel
@@ -40,6 +41,7 @@ val loggerModule: Module = module {
         )
     }
     factory { WorkoutLoggerEquipment(get()) }
+    single { ChangeOccurrenceEntryMeasureUseCase(get(), get(), get()) }
     viewModel {
         WorkoutLoggerViewModel(
             logMutations = get(),
@@ -53,7 +55,10 @@ val loggerModule: Module = module {
             sessionNoteRepository = get(),
             warmupOverrideRepository = get(),
             equipment = get(),
-            applyGuidedTargets = get()
+            applyGuidedTargets = get(),
+            changeEntryMeasure = get(),
+            suggestSlotProgression = get(),
+            applySlotProgressionSuggestion = get()
         )
     }
     viewModel { OccurrenceReplacementViewModel(get(), get()) }

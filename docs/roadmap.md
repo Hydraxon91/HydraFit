@@ -455,8 +455,8 @@ research candidates have explicit evidence-backed decisions before completion.
 ### 0.12 — Optional AI Reliability (0.12.0; 0.12.1 folded into 0.12.0, 1 publication)
 
 Former slice ids are recorded in parentheses. `0.12.1`'s on-device retirement is folded into the same
-0.12.0 publication rather than retagged. The work is implemented and committed on the release
-branch; publication remains pending explicit approval.
+0.12.0 publication rather than retagged. The work is published as `v0.12.0` at `e3e3ef5f`
+(2026-10-29, PR #46).
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |

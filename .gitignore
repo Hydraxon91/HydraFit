@@ -39,5 +39,5 @@ google-services.json
 *.task
 *.litertlm
 
-# Qualcomm QNN/AI-Runtime libraries for NPU acceleration (vendor binaries, provided locally)
-core/llm/src/androidMain/jniLibs/
+# Python bytecode caches
+__pycache__/

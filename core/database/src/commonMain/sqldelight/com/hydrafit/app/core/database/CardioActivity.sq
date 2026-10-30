@@ -31,3 +31,7 @@ WHERE id = ?;
 
 deleteActivity:
 DELETE FROM cardioActivity WHERE id = ?;
+
+-- Manual cardio records are part of workout history, so a history or full reset removes them.
+deleteAllActivities:
+DELETE FROM cardioActivity;

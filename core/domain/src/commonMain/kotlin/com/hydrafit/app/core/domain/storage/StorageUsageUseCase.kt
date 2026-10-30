@@ -40,7 +40,8 @@ class StorageUsageUseCase(
             DataCategory.WORKOUT_HISTORY to listOf(
                 DataCountKind.SESSIONS,
                 DataCountKind.SETS,
-                DataCountKind.SESSION_NOTES
+                DataCountKind.SESSION_NOTES,
+                DataCountKind.CARDIO_ACTIVITIES
             ),
             DataCategory.PLANNING to listOf(
                 DataCountKind.ACCEPTED_PLANS,

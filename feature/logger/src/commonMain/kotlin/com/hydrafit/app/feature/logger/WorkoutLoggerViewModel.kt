@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ApplySlotProgressionSuggestionUseCase
 import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SuggestSlotProgressionUseCase
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -15,6 +17,7 @@ import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
+import com.hydrafit.app.core.domain.schedule.ChangeOccurrenceEntryMeasureUseCase
 import com.hydrafit.app.core.domain.schedule.ClusterSegmentField
 import com.hydrafit.app.core.domain.schedule.ClusterSegmentPatch
 import com.hydrafit.app.core.domain.schedule.FinishMode
@@ -22,6 +25,8 @@ import com.hydrafit.app.core.domain.schedule.GuidedTargetField
 import com.hydrafit.app.core.domain.schedule.GuidedTargetPatch
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryMeasure
+import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
@@ -71,10 +76,20 @@ import kotlinx.coroutines.launch
 
 private data class GuidedSetIntent(val entryId: Long, val isWarmup: Boolean)
 
+/** Preparation countdown before a timed set's work timer starts. */
+private const val SET_TIMER_PREPARATION_SECONDS = 5
+
 private data class GuidedSetWriteResult(
     val succeeded: Boolean,
     val sessionId: String?,
     val isWarmup: Boolean
+)
+
+/** One snapshot of an occurrence's recorded work: working counts, frozen entries and presence. */
+private data class OccurrenceRecordedSets(
+    val performed: Map<Long, Int>,
+    val frozenEntryIds: Set<Long>,
+    val anyRecorded: Boolean
 )
 
 class WorkoutLoggerViewModel(
@@ -89,7 +104,10 @@ class WorkoutLoggerViewModel(
     private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository,
     private val warmupOverrideRepository: WarmupPreparationOverrideRepository,
     private val equipment: WorkoutLoggerEquipment,
-    private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase
+    private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase,
+    private val changeEntryMeasure: ChangeOccurrenceEntryMeasureUseCase,
+    private val suggestSlotProgression: SuggestSlotProgressionUseCase,
+    private val applySlotProgressionSuggestion: ApplySlotProgressionSuggestionUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -159,6 +177,9 @@ class WorkoutLoggerViewModel(
      */
     private var rampTargetsByEntry: Map<Long, SetTarget> = emptyMap()
     private val restTimer = runtime.restTimer(viewModelScope)
+    private var setTimerJob: Job? = null
+    private var setTimerGeneration = 0L
+    private var setTimerWorkStartedAtElapsedMillis: Long? = null
     private val shortRestCoach = ShortRestCoach()
     private var shortRestCoachingEnabled = false
     private var liveSetIntentEntryId: Long? = null
@@ -258,6 +279,7 @@ class WorkoutLoggerViewModel(
             loggingActions.observeActiveActivation().collect { activation ->
                 if (activeActivation != activation) {
                     draftContextRevision++
+                    cancelSetTimer()
                     dismissInstructions()
                     // A refresh still reading for the previous block must not publish after this
                     // change, so a superseded result can never resurrect its guidance or editor.
@@ -292,6 +314,9 @@ class WorkoutLoggerViewModel(
                             guidedProgress = null,
                             guidedExpandedEntries = emptyMap(),
                             appliedGuidedEdits = emptyMap(),
+                            progressionSuggestions = emptyMap(),
+                            progressionApplyEntryId = null,
+                            progressionApplyFailed = false,
                             frozenEntryIds = emptySet(),
                             guidedSetWriteFailed = false,
                             summary = null
@@ -352,6 +377,8 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             settings.guidedWorkoutFlow().collectLatest { enabled ->
                 if (_state.value.guidedEnabled != enabled) dismissInstructions()
+                // The timer is offered on the planned-draft row, which the guided section replaces.
+                cancelSetTimer()
                 _state.update { it.copy(guidedEnabled = enabled) }
                 guidedPreferenceObserved = true
                 if (!enabled) {
@@ -381,6 +408,7 @@ class WorkoutLoggerViewModel(
     }
 
     override fun onCleared() {
+        cancelSetTimer()
         invalidateRestTimer(clearPersisted = false)
         super.onCleared()
     }
@@ -1462,6 +1490,7 @@ class WorkoutLoggerViewModel(
         val rebuildDrafts = draftsKey != lastDraftsKey
         if (rebuildDrafts) {
             draftContextRevision++
+            cancelSetTimer()
             dismissInstructions()
         }
         val rebuiltDrafts = if (rebuildDrafts) {
@@ -1720,31 +1749,15 @@ class WorkoutLoggerViewModel(
 
     fun confirmDraft(draft: DraftSet) {
         if (draftSubmissionInProgress || draft !in _state.value.draftSets) return
-        val retry = retryFor(draft)
-        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
-        // A resolved retry already decided this draft's load; otherwise an unconfirmed legacy number
-        // always needs the explicit decision, even when an editor is open.
-        if (retry == null) {
-            legacyResolutionFor(listOf(draft))?.let { resolution ->
-                _state.update { it.copy(legacyResolution = resolution) }
-                return
-            }
-        }
-        val resolved = when {
-            edit != null -> editedDraft(edit)
-            retry != null -> retry.draft
-            else -> draft
-        }
-        if (retry == null &&
-            resolved.forceNewtons == null &&
-            resolved.loadKind == LoadKind.EXTERNAL &&
-            resolved.weightKg == null
-        ) {
-            setMissingLoadPrompt(draft)
-            return
-        }
+        cancelSetTimer()
+        val admitted = admitDraftWrite(draft) ?: return
         launchDraftWrite { contextRevision ->
-            val written = writeDraft(draft, resolved, edit ?: retry?.edit, contextRevision)
+            val written = writeDraft(
+                draft,
+                admitted.resolved,
+                admitted.edit,
+                contextRevision
+            )
             if (written) {
                 removeDraft(draft)
                 refreshRecentSets()
@@ -2449,6 +2462,7 @@ class WorkoutLoggerViewModel(
 
     /** Removes a cleared draft and any transient state that referenced it. */
     private fun removeDraft(draft: DraftSet) {
+        if (_state.value.setTimer?.draft?.sameSlotAs(draft) == true) cancelSetTimer()
         _state.update {
             it.copy(
                 draftSets = it.draftSets - draft,
@@ -2462,14 +2476,113 @@ class WorkoutLoggerViewModel(
                 appliedGuidedEdits = it.appliedGuidedEdits.filterKeys { key ->
                     key != draft.occurrenceEntryId
                 },
+                setTimer = it.setTimer?.takeIf { timer -> !timer.draft.sameSlotAs(draft) },
                 clusterDraftError = null
             )
         }
     }
 
+    /**
+     * Keeps a slot's draft after one of its prescribed sets was logged. The remaining count drops by
+     * one and the row keeps following its pending targets, so a planned draft (which has no
+     * occurrence to republish from) still shows the sets left. A spent slot is removed instead.
+     */
+    private fun consumeOnePendingSet(draft: DraftSet) {
+        val remainingSets = draft.sets - 1
+        if (remainingSets <= 0) {
+            removeDraft(draft)
+            return
+        }
+        val remaining = draft.copy(sets = remainingSets).followingNextTarget()
+        _state.update {
+            it.copy(
+                draftSets = it.draftSets.map { row -> if (row == draft) remaining else row },
+                draftEdit = it.draftEdit?.takeUnless { edit -> edit.draft == draft },
+                missingLoadPrompt = it.missingLoadPrompt?.takeUnless { pending ->
+                    pending == draft
+                },
+                draftWriteRetries = it.draftWriteRetries.filterNot { retry ->
+                    retry.source == draft || retry.draft == draft
+                },
+                appliedGuidedEdits = it.appliedGuidedEdits.filterKeys { key ->
+                    key != draft.occurrenceEntryId
+                },
+                setTimer = it.setTimer?.takeIf { timer -> !timer.draft.sameSlotAs(draft) },
+                clusterDraftError = null
+            )
+        }
+    }
+
+    /** Seeds a draft's scalar values from its next ordered target, matching [draftForEntry]. */
+    private fun DraftSet.followingNextTarget(): DraftSet {
+        val targets = setTargets ?: return this
+        val prefill = targets.targets.getOrNull(targets.sets - sets) ?: return this
+        return copy(
+            reps = prefill.reps,
+            durationSeconds = prefill.durationSeconds,
+            distanceMeters = prefill.distanceMeters,
+            forceNewtons = prefill.forceNewtons,
+            loadKind = prefill.loadKind,
+            weightKg = prefill.weightKg,
+            orderedPrefill = prefill
+        )
+    }
+
     /** The pending retry for [draft], if any, matched by its source row or its remaining row. */
     private fun retryFor(draft: DraftSet): DraftWriteRetry? =
         _state.value.draftWriteRetries.firstOrNull { it.source == draft || it.draft == draft }
+
+    /** The values one gated draft write submits, with the gate decisions already made. */
+    private data class AdmittedDraftWrite(val resolved: DraftSet, val edit: DraftEdit?)
+
+    /**
+     * Resolves what one confirmation writes and runs every pre-write gate the Confirm action and the
+     * timed-set timer share: an unconfirmed legacy load, a missing external load, and a refused
+     * cluster. Returns null when a gate took over the screen, so the caller must write nothing. The
+     * gates stay here, in one place, rather than in each caller.
+     */
+    private fun admitDraftWrite(
+        draft: DraftSet,
+        measuredSeconds: Int? = null,
+        guided: Boolean = false
+    ): AdmittedDraftWrite? {
+        val retry = retryFor(draft)
+        val edit = _state.value.draftEdit?.takeIf { it.draft == draft || editedDraft(it) == draft }
+        // A guided row's applied editor value is pending state that one confirmation consumes.
+        val appliedEdit = if (guided) {
+            draft.occurrenceEntryId?.let { _state.value.appliedGuidedEdits[it] }
+        } else {
+            null
+        }
+        // A resolved retry already decided this draft's load; otherwise an unconfirmed legacy number
+        // always needs the explicit decision, even when an editor is open.
+        if (retry == null) {
+            legacyResolutionFor(listOf(draft))?.let { resolution ->
+                _state.update { it.copy(legacyResolution = resolution) }
+                return null
+            }
+        }
+        val resolved = when {
+            edit != null -> editedDraft(edit)
+            appliedEdit != null -> appliedGuidedDraft(draft, appliedEdit)
+            retry != null -> retry.draft
+            else -> draft
+        }.let { values ->
+            // A timer measures the set it just performed; the prescribed target stays unchanged.
+            if (measuredSeconds == null) values else values.copy(durationSeconds = measuredSeconds)
+        }
+        if (retry == null &&
+            resolved.forceNewtons == null &&
+            resolved.loadKind == LoadKind.EXTERNAL &&
+            resolved.weightKg == null
+        ) {
+            setMissingLoadPrompt(draft)
+            return null
+        }
+        val writeEdit = edit ?: appliedEdit ?: retry?.edit
+        if (refuseClusterWrite(resolved, writeEdit)) return null
+        return AdmittedDraftWrite(resolved, writeEdit)
+    }
 
     /** The reason [draft]'s cluster cannot be logged exactly as entered, or null for ordinary work. */
     private fun clusterRefusal(draft: DraftSet, edit: DraftEdit?): ClusterDraftError? {
@@ -2619,6 +2732,7 @@ class WorkoutLoggerViewModel(
     /** Removes a draft without logging anything. */
     fun dismissDraft(draft: DraftSet) {
         if (draftSubmissionInProgress) return
+        if (_state.value.setTimer?.draft?.sameSlotAs(draft) == true) cancelSetTimer()
         _state.update {
             it.copy(
                 draftSets = it.draftSets - draft,
@@ -2632,6 +2746,155 @@ class WorkoutLoggerViewModel(
                 clusterDraftError = null
             )
         }
+    }
+
+    /**
+     * Applies the active occurrence's progression suggestion for [entryId], then refreshes the drafts
+     * so the row shows the target the write produced. The in-flight id is claimed synchronously, so a
+     * repeated tap cannot submit twice; nothing is applied automatically.
+     */
+    fun applyProgressionSuggestion(entryId: Long) {
+        if (_state.value.progressionApplyEntryId != null) return
+        val occurrenceId = currentOccurrence?.id ?: return
+        if (_state.value.progressionSuggestions[entryId]?.canApply != true) return
+        _state.update { it.copy(progressionApplyEntryId = entryId, progressionApplyFailed = false) }
+        viewModelScope.launch {
+            try {
+                applySlotProgressionSuggestion(occurrenceId, entryId)
+                _state.update { it.copy(progressionApplyEntryId = null) }
+                if (activeActivation != null && currentOccurrence?.id == occurrenceId) {
+                    refreshOccurrence()
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                if (currentOccurrence?.id == occurrenceId) {
+                    _state.update {
+                        it.copy(progressionApplyEntryId = null, progressionApplyFailed = true)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Opens the measurement dialog for one unstarted guided slot. The action is offered only while
+     * the occurrence has no recorded set and the slot has neither ordered targets nor a cluster.
+     */
+    fun openMeasureChange(entryId: Long) {
+        if (_state.value.measureChange != null) return
+        val occurrence = currentOccurrence ?: return
+        if (entryId !in _state.value.measureChangeEntryIds) return
+        val entry = occurrence.entries.firstOrNull { it.id == entryId } ?: return
+        _state.update {
+            it.copy(
+                measureChange = MeasureChangeDialog(
+                    occurrenceEntryId = entryId,
+                    exerciseName = entry.exerciseName,
+                    metric = entry.measureMetric(),
+                    value = entry.measureInput()
+                )
+            )
+        }
+    }
+
+    /** Picks the metric explicitly; the typed value is cleared so no old-measure digits carry over. */
+    fun onMeasureChangeMetricSelected(metric: SetMetric) {
+        _state.update { state ->
+            val dialog = state.measureChange ?: return@update state
+            if (dialog.metric == metric) {
+                state
+            } else {
+                state.copy(
+                    measureChange = dialog.copy(
+                        metric = metric,
+                        value = "",
+                        invalidValue = false,
+                        error = null
+                    )
+                )
+            }
+        }
+    }
+
+    fun onMeasureChangeValueChanged(value: String) {
+        _state.update { state ->
+            val dialog = state.measureChange ?: return@update state
+            state.copy(
+                measureChange = dialog.copy(value = value, invalidValue = false, error = null)
+            )
+        }
+    }
+
+    /** Closes the dialog without writing; a refused write keeps it open and retryable. */
+    fun dismissMeasureChange() {
+        if (_state.value.measureChange?.applying == true) return
+        _state.update { it.copy(measureChange = null) }
+    }
+
+    /**
+     * Applies the dialog's explicit metric and value to the occurrence entry, then refreshes the
+     * drafts so the row shows the measure the write produced. A repeated apply is ignored while one
+     * is in flight.
+     */
+    fun applyMeasureChange() {
+        val dialog = _state.value.measureChange ?: return
+        if (dialog.applying) return
+        val occurrenceId = currentOccurrence?.id ?: return
+        val value = dialog.value.trim().toDoubleOrNull()
+        if (value == null || !value.isFinite() || value <= 0.0) {
+            _state.update { state ->
+                state.copy(measureChange = state.measureChange?.copy(invalidValue = true))
+            }
+            return
+        }
+        val metric = dialog.metric.toMeasure()
+        _state.update { state ->
+            state.copy(measureChange = state.measureChange?.copy(applying = true, error = null))
+        }
+        viewModelScope.launch {
+            try {
+                changeEntryMeasure(occurrenceId, dialog.occurrenceEntryId, metric, value)
+                _state.update { it.copy(measureChange = null) }
+                if (activeActivation != null && currentOccurrence?.id == occurrenceId) {
+                    refreshOccurrence()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (currentOccurrence?.id == occurrenceId) {
+                    _state.update { state ->
+                        state.copy(
+                            measureChange = state.measureChange?.copy(
+                                applying = false,
+                                error = error.message
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun OccurrenceEntry.measureMetric(): SetMetric = when {
+        durationSeconds != null -> SetMetric.DURATION
+        distanceMeters != null -> SetMetric.DISTANCE
+        forceNewtons != null -> SetMetric.FORCE
+        else -> SetMetric.REPETITIONS
+    }
+
+    private fun OccurrenceEntry.measureInput(): String = when {
+        durationSeconds != null -> durationSeconds.toString()
+        distanceMeters != null -> distanceMeters.toString()
+        forceNewtons != null -> forceNewtons.toString()
+        else -> reps?.toString().orEmpty()
+    }
+
+    private fun SetMetric.toMeasure(): OccurrenceEntryMeasure = when (this) {
+        SetMetric.REPETITIONS -> OccurrenceEntryMeasure.REPETITIONS
+        SetMetric.DURATION -> OccurrenceEntryMeasure.SECONDS
+        SetMetric.DISTANCE -> OccurrenceEntryMeasure.DISTANCE_METERS
+        SetMetric.FORCE -> OccurrenceEntryMeasure.FORCE_NEWTONS
     }
 
     /** Logs the current legacy draft as bodyweight/no added load and advances the queue. */
@@ -2954,6 +3217,7 @@ class WorkoutLoggerViewModel(
         if (occurrence == null) {
             if (occurrenceContextChanged) {
                 draftContextRevision++
+                cancelSetTimer()
                 dismissInstructions()
                 invalidateRestTimer()
                 liveSetIntentEntryId = null
@@ -2970,6 +3234,11 @@ class WorkoutLoggerViewModel(
                     draftWriteRetries = emptyList(),
                     confirmingAllDrafts = false,
                     appliedGuidedEdits = emptyMap(),
+                    progressionSuggestions = emptyMap(),
+                    progressionApplyEntryId = null,
+                    progressionApplyFailed = false,
+                    measureChangeEntryIds = emptySet(),
+                    measureChange = null,
                     todayFocus = null,
                     guidedProgress = null,
                     guidedExpandedEntries = emptyMap(),
@@ -2987,6 +3256,7 @@ class WorkoutLoggerViewModel(
         }
         if (occurrenceContextChanged) {
             draftContextRevision++
+            cancelSetTimer()
             clusterLogGeneration++
             _state.update { it.copy(clusterLog = null) }
             dismissInstructions()
@@ -2996,6 +3266,11 @@ class WorkoutLoggerViewModel(
                 it.copy(
                     manualLogFailed = false,
                     manualLogRefreshFailed = false,
+                    // Progression suggestions belong to one occurrence's slots, and a failed apply
+                    // describes the occurrence it was started for; a new occurrence starts clean.
+                    progressionSuggestions = emptyMap(),
+                    progressionApplyEntryId = null,
+                    progressionApplyFailed = false,
                     // Applied one-off values belong to their workout; a different workout discards them.
                     appliedGuidedEdits = if (workoutIdentityChanged) {
                         emptyMap()
@@ -3009,7 +3284,9 @@ class WorkoutLoggerViewModel(
                 if (workoutIdentityChanged) invalidateRestTimer()
             }
         }
-        val (performed, frozenEntryIds) = occurrenceRecordedSets(occurrence)
+        val recorded = occurrenceRecordedSets(occurrence)
+        val performed = recorded.performed
+        val frozenEntryIds = recorded.frozenEntryIds
         // The read may suspend. If a newer refresh or a block change has started since, this result
         // is superseded: publishing it would republish a stale occurrence and guidance and would
         // leave the published generation behind the current one, refusing every later ramp tap.
@@ -3018,6 +3295,44 @@ class WorkoutLoggerViewModel(
             val remaining = entry.sets - (performed[entry.id] ?: 0)
             if (remaining <= 0) null else draftForEntry(entry, occurrence.id, remaining)
         }
+        // Applying a suggestion writes only while the occurrence has no recorded set at all. This is
+        // stricter than the per-slot apply guard, which refuses only the slot that has recorded work,
+        // so a warm-up or a partial cluster blocks the offer here: publishing one would show an Apply
+        // that must then fail.
+        val started = recorded.anyRecorded
+        // A measure correction is offered only before any work exists and only for slots whose
+        // structure a single scalar measure can replace; a live started set owns its own measure.
+        val measureChangeEntryIds = if (started ||
+            occurrence.status == OccurrenceStatus.IN_PROGRESS
+        ) {
+            emptySet()
+        } else {
+            occurrence.entries
+                .filter { entry ->
+                    entry.setTargets == null &&
+                        entry.cluster == null &&
+                        entry.id != _state.value.startedSetEntryId
+                }
+                .map { it.id }
+                .toSet()
+        }
+        // One batched read supplies every policy-bearing slot's decision for this occurrence. It is
+        // never per draft, and a hold/review is stored but stays silent in the Logger. The suggestion
+        // is optional UI: a failed read must not turn an ordinary logger refresh into a failure.
+        val progressionSuggestions = if (started) {
+            emptyMap()
+        } else {
+            try {
+                suggestSlotProgression.decisionsFor(occurrence.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                emptyMap()
+            }
+        }
+        // The suggestion read may suspend too; a superseded refresh must not publish its map against
+        // the newer occurrence and guidance.
+        if (generation != warmupGuidanceGeneration) return
         // Each partial-write retry keeps its own row and one-off values across a refresh.
         val retries = _state.value.draftWriteRetries.filter { retry ->
             drafts.any { it.sameSlotAs(retry.source) }
@@ -3062,6 +3377,12 @@ class WorkoutLoggerViewModel(
         }
         // Publish the occurrence only once its performed-set read has finished, so the guidance shown
         // and the occurrence a ramp write resolves against can never describe different prescriptions.
+        // A timer belongs to the pending slot it measures; a refresh that consumes or replaces that
+        // slot leaves nothing to confirm, so both the timer and its ticker end here.
+        val timerSlotStillPending = _state.value.setTimer?.draft?.let { timerDraft ->
+            displayDrafts.any { draft -> timerDraft.sameSlotAs(draft) }
+        } ?: true
+        if (!timerSlotStillPending) cancelSetTimer()
         currentOccurrence = occurrence
         val progress = buildGuidedWorkoutProgress(occurrence, performed)
         _state.update {
@@ -3073,6 +3394,11 @@ class WorkoutLoggerViewModel(
                     prescribedSets = prescribed
                 ),
                 draftSets = displayDrafts,
+                measureChangeEntryIds = measureChangeEntryIds,
+                measureChange = it.measureChange?.takeIf { dialog ->
+                    sameOccurrence && dialog.occurrenceEntryId in measureChangeEntryIds
+                },
+                progressionSuggestions = progressionSuggestions,
                 draftEdit = it.draftEdit?.takeIf { edit ->
                     edit.draft in displayDrafts ||
                         displayDrafts.any { draft -> edit.targetsPendingDraft(draft) }
@@ -3127,14 +3453,6 @@ class WorkoutLoggerViewModel(
         }
         warmupGuidancePublishedGeneration = generation
     }
-
-    /** True when both drafts describe the same frozen slot: the same occurrence entry, else exercise. */
-    private fun DraftSet.sameSlotAs(other: DraftSet): Boolean =
-        if (occurrenceEntryId != null || other.occurrenceEntryId != null) {
-            occurrenceEntryId == other.occurrenceEntryId
-        } else {
-            exerciseId == other.exerciseId
-        }
 
     /**
      * The occurrence + entry a set for [exerciseId] belongs to, when a block is active.
@@ -3306,18 +3624,19 @@ class WorkoutLoggerViewModel(
         weekNumber?.let(PeriodizationConfig()::isDeload) == true
 
     /**
-     * One read of the current occurrence's recorded sets, returning the working-set count by entry
-     * and the entry ids frozen by any recorded set (working or warm-up). Both come from one snapshot
-     * so the guidance and the replacement eligibility describe the same recorded work.
+     * One read of the current occurrence's recorded sets, returning the working-set count by entry,
+     * the entry ids frozen by any recorded set (working or warm-up), and whether the occurrence has
+     * any recorded set at all. All three come from one snapshot so the guidance, the replacement
+     * eligibility and the progression gate describe the same recorded work.
      */
     private suspend fun occurrenceRecordedSets(
         occurrence: WorkoutOccurrence
-    ): Pair<Map<Long, Int>, Set<Long>> {
+    ): OccurrenceRecordedSets {
         val sets = getWorkoutLog()
-        val performed = sets
+        val occurrenceSets = sets.filter { it.occurrenceId == occurrence.id }
+        val performed = occurrenceSets
             .filter { set ->
                 !set.isWarmup &&
-                    set.occurrenceId == occurrence.id &&
                     set.occurrenceEntryId != null &&
                     set.cluster?.isComplete != false
             }
@@ -3329,7 +3648,11 @@ class WorkoutLoggerViewModel(
             }
             .map { it.id }
             .toSet()
-        return performed to frozen
+        return OccurrenceRecordedSets(
+            performed = performed,
+            frozenEntryIds = frozen,
+            anyRecorded = occurrenceSets.isNotEmpty()
+        )
     }
 
     /**
@@ -3482,6 +3805,291 @@ class WorkoutLoggerViewModel(
         _state.update { it.withRestCleared() }
     }
 
+    // ── Timed-set timer ───────────────────────────────────────────────────
+
+    /**
+     * Starts the foreground timer for [draft]'s prescribed seconds: a five-second preparation
+     * countdown, then the work countdown. It records nothing by itself, and only one timer exists, so
+     * this replaces any running one.
+     */
+    fun startSetTimer(draft: DraftSet) {
+        val prescribed = draft.durationSeconds ?: return
+        if (prescribed <= 0) return
+        if (draft !in _state.value.draftSets) return
+        // A started guided set owns the timing of its own completion; its measured seconds win.
+        if (isGuidedActive && _state.value.startedSetEntryId != null) return
+        val current = _state.value.setTimer
+        if (current?.logInProgress == true || draftSubmissionInProgress) return
+        setTimerJob?.cancel()
+        val generation = ++setTimerGeneration
+        setTimerWorkStartedAtElapsedMillis = null
+        _state.update {
+            it.copy(
+                setTimer = SetTimerState(
+                    draft = draft,
+                    phase = SetTimerPhase.PREPARING,
+                    remainingSeconds = SET_TIMER_PREPARATION_SECONDS
+                ),
+                setTimerNotice = null
+            )
+        }
+        setTimerJob = viewModelScope.launch {
+            var preparationRemaining = SET_TIMER_PREPARATION_SECONDS
+            while (preparationRemaining > 0) {
+                kotlinx.coroutines.delay(1_000L)
+                if (generation != setTimerGeneration) return@launch
+                preparationRemaining--
+                if (preparationRemaining > 0) {
+                    _state.update { state ->
+                        state.setTimer?.let { timer ->
+                            state.copy(
+                                setTimer = timer.copy(remainingSeconds = preparationRemaining)
+                            )
+                        } ?: state
+                    }
+                }
+            }
+            val startedAt = runtime.elapsedRealtimeMillis()
+            if (generation != setTimerGeneration) return@launch
+            setTimerWorkStartedAtElapsedMillis = startedAt
+            publishSetTimerPhase(SetTimerPhase.WORKING, prescribed, 0)
+            while (true) {
+                kotlinx.coroutines.delay(1_000L)
+                if (generation != setTimerGeneration) return@launch
+                val elapsed = ((runtime.elapsedRealtimeMillis() - startedAt) / 1_000L)
+                    .toInt()
+                    .coerceIn(0, prescribed)
+                val remaining = prescribed - elapsed
+                if (remaining <= 0) {
+                    setTimerWorkStartedAtElapsedMillis = null
+                    publishSetTimerPhase(SetTimerPhase.CONFIRMING, 0, prescribed)
+                    return@launch
+                }
+                _state.update { state ->
+                    state.setTimer?.let { timer ->
+                        state.copy(
+                            setTimer = timer.copy(
+                                remainingSeconds = remaining,
+                                measuredSeconds = elapsed
+                            )
+                        )
+                    } ?: state
+                }
+            }
+        }
+    }
+
+    /** Ends the work countdown early and opens the confirmation with the measured work seconds. */
+    fun stopSetTimerEarly() {
+        val timer = _state.value.setTimer ?: return
+        if (timer.phase != SetTimerPhase.WORKING) return
+        val prescribed = timer.draft.durationSeconds ?: return
+        val startedAt = setTimerWorkStartedAtElapsedMillis
+        // Whole seconds, floored at one: a stop during the first second still records that the set
+        // was performed, and a zero-second performance would be rejected downstream.
+        val measured = if (startedAt == null) {
+            timer.measuredSeconds.coerceIn(1, prescribed)
+        } else {
+            ((runtime.elapsedRealtimeMillis() - startedAt) / 1_000L)
+                .toInt()
+                .coerceIn(1, prescribed)
+        }
+        setTimerJob?.cancel()
+        setTimerJob = null
+        setTimerWorkStartedAtElapsedMillis = null
+        publishSetTimerPhase(
+            phase = SetTimerPhase.CONFIRMING,
+            remainingSeconds = (prescribed - measured).coerceAtLeast(0),
+            measuredSeconds = measured
+        )
+    }
+
+    /**
+     * Cancels the timer and its confirmation, recording nothing. Preparation cancel, confirmation
+     * discard, a context change and leaving the screen all use this one path.
+     */
+    fun cancelSetTimer() {
+        setTimerJob?.cancel()
+        setTimerJob = null
+        setTimerWorkStartedAtElapsedMillis = null
+        setTimerGeneration++
+        _state.update { state ->
+            if (state.setTimer == null) state else state.copy(setTimer = null)
+        }
+    }
+
+    /**
+     * Writes exactly the one measured set through the same gated submission the Confirm action uses,
+     * with the prescribed target left untouched. The confirmation cannot log twice, an insert that
+     * already landed is never retried, and a failed write keeps the confirmation and the measured
+     * value for an explicit retry.
+     */
+    fun logSetFromTimer() {
+        val timer = _state.value.setTimer ?: return
+        if (timer.phase != SetTimerPhase.CONFIRMING || timer.logInProgress) return
+        if (draftSubmissionInProgress) return
+        val draft = _state.value.draftSets.firstOrNull { timer.draft.sameSlotAs(it) }
+        val prescribed = draft?.durationSeconds
+        if (draft == null || prescribed == null) {
+            cancelSetTimer()
+            return
+        }
+        val measured = timer.measuredSeconds.coerceIn(1, prescribed)
+        val guided = isGuidedActive && draft.occurrenceEntryId != null
+        val admitted = admitDraftWrite(draft, measuredSeconds = measured, guided = guided)
+        if (admitted == null) {
+            // A pre-write gate now owns this slot (legacy load decision, missing load, refused
+            // cluster). Its own dialog resolves and writes the set from the unmodified draft, so the
+            // measured seconds cannot be carried through it; close the confirmation and say so
+            // rather than leaving a stale value that looks saved.
+            cancelSetTimer()
+            _state.update { it.copy(setTimerNotice = SetTimerNotice.GATE_TOOK_OVER) }
+            return
+        }
+        if (guided) {
+            launchGuidedTimerWrite(admitted.resolved, admitted.edit)
+            return
+        }
+        val contextRevision = draftContextRevision
+        if (!beginDraftSubmission()) return
+        _state.update { state ->
+            state.setTimer?.let { current ->
+                state.copy(setTimer = current.copy(logInProgress = true, writeFailed = false))
+            } ?: state
+        }
+        viewModelScope.launch {
+            // A single insert either lands or does not. The callback fires only after it landed, so a
+            // later failure (a context check or a refresh) can never make a retry log it twice.
+            var inserted = false
+            try {
+                val orderedOffset = draft.setTargets
+                    ?.takeIf { !draft.isWarmup }
+                    ?.let { (it.sets - draft.sets).coerceAtLeast(0) }
+                logDraft(
+                    admitted.resolved.copy(sets = 1),
+                    admitted.edit,
+                    contextRevision,
+                    onSetLogged = { inserted = true },
+                    orderedOffsetOverride = orderedOffset
+                )
+                ensureDraftContext(contextRevision)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The draft and its measured value stay pending below for an explicit retry.
+            } finally {
+                endDraftSubmission()
+            }
+            if (inserted) {
+                // One measured set is consumed, so the slot keeps its remaining prescribed sets and
+                // their targets. Only a spent slot is removed; the activated path republishes the
+                // remaining rows from the occurrence below, and a planned row has none to rebuild
+                // from.
+                consumeOnePendingSet(draft)
+                refreshRecentSets()
+                if (activeActivation != null && contextRevision == draftContextRevision) {
+                    refreshOccurrence()
+                }
+            } else {
+                _state.update { state ->
+                    state.setTimer?.let { current ->
+                        state.copy(
+                            setTimer = current.copy(logInProgress = false, writeFailed = true)
+                        )
+                    } ?: state
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes the measured guided set through the guided confirmation path, so a timed set gets the
+     * same success bookkeeping as a logged guided set: applied edits are consumed, the occurrence and
+     * recent sets refresh, and a landed insert is never retried. A failure keeps the confirmation and
+     * its measured value for an explicit retry.
+     */
+    private fun launchGuidedTimerWrite(resolved: DraftSet, edit: DraftEdit?) {
+        if (!beginDraftSubmission()) return
+        val contextRevision = draftContextRevision
+        val timerGeneration = liveTimerGeneration
+        _state.update { state ->
+            state.setTimer?.let { current ->
+                state.copy(setTimer = current.copy(logInProgress = true, writeFailed = false))
+            } ?: state
+        }
+        viewModelScope.launch {
+            var inserted = false
+            try {
+                val result = writeGuidedSet(
+                    resolved,
+                    edit,
+                    contextRevision,
+                    liveCompletion = false,
+                    onSetLogged = { inserted = true }
+                )
+                if (result.succeeded) {
+                    applyGuidedWriteResult(
+                        resolved,
+                        result,
+                        contextRevision,
+                        timerGeneration,
+                        liveCompletion = false
+                    )
+                    cancelSetTimer()
+                } else if (!inserted) {
+                    _state.update { state ->
+                        state.setTimer?.let { current ->
+                            state.copy(
+                                setTimer = current.copy(logInProgress = false, writeFailed = true)
+                            )
+                        } ?: state
+                    }
+                } else {
+                    // The set landed; a later context failure must not offer a duplicate retry.
+                    cancelSetTimer()
+                }
+            } catch (cancelled: CancellationException) {
+                if (inserted) cancelSetTimer()
+                throw cancelled
+            } finally {
+                endDraftSubmission()
+            }
+        }
+    }
+
+    /** Dismisses the timed-confirmation explanation after the user has read it. */
+    fun dismissSetTimerNotice() {
+        if (_state.value.setTimerNotice == null) return
+        _state.update { it.copy(setTimerNotice = null) }
+    }
+
+    /**
+     * Publishes a phase change without touching [SetTimerState.draft], so the prescribed target the
+     * timer measures against is visibly never rewritten by the countdown.
+     */
+    private fun publishSetTimerPhase(
+        phase: SetTimerPhase,
+        remainingSeconds: Int,
+        measuredSeconds: Int
+    ) {
+        _state.update { state ->
+            state.setTimer?.let { timer ->
+                state.copy(
+                    setTimer = timer.copy(
+                        phase = phase,
+                        remainingSeconds = remainingSeconds,
+                        measuredSeconds = measuredSeconds
+                    )
+                )
+            } ?: state
+        }
+    }
+
+    /** Cancels a running timer when the screen pauses; foreground-only, nothing is recorded. */
+    fun onPause() {
+        cancelSetTimer()
+    }
+
     /** True when guided mode is on and a workout occurrence is active. */
     private val isGuidedActive: Boolean
         get() = _state.value.guidedEnabled && currentOccurrence != null
@@ -3560,6 +4168,7 @@ class WorkoutLoggerViewModel(
     fun startGuidedSet(occurrenceEntryId: Long) {
         if (draftSubmissionInProgress) return
         if (_state.value.draftSets.none { it.occurrenceEntryId == occurrenceEntryId }) return
+        cancelSetTimer()
         // A second Start on the already-started slot would only reset its timestamp, discarding the
         // elapsed time the live completion depends on. Starting a different untouched slot is allowed.
         if (_state.value.startedSetEntryId == occurrenceEntryId) return
@@ -3595,6 +4204,7 @@ class WorkoutLoggerViewModel(
         if (!liveCompletion && _state.value.startedSetEntryId != null) return
         val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
+        cancelSetTimer()
         // Load dialogs and failed writes retain the classification chosen for this confirmation.
         if (guidedSetIntent?.entryId != occurrenceEntryId) {
             guidedSetIntent = GuidedSetIntent(occurrenceEntryId, _state.value.isWarmup)
@@ -3742,7 +4352,8 @@ class WorkoutLoggerViewModel(
         edit: DraftEdit?,
         contextRevision: Long,
         liveCompletion: Boolean = false,
-        forcedWarmup: Boolean? = null
+        forcedWarmup: Boolean? = null,
+        onSetLogged: () -> Unit = {}
     ): GuidedSetWriteResult {
         val isWarmup = forcedWarmup
             ?: guidedSetIntent?.takeIf { it.entryId == resolved.occurrenceEntryId }?.isWarmup
@@ -3761,6 +4372,7 @@ class WorkoutLoggerViewModel(
                 edit,
                 contextRevision,
                 liveCompletion = liveCompletion,
+                onSetLogged = onSetLogged,
                 orderedOffsetOverride = orderedOffset
             )
             ensureDraftContext(contextRevision)

@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionDecision
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentStation
@@ -458,6 +459,22 @@ data class DraftEdit(
 }
 
 /**
+ * The open "Change measurement" dialog for one unstarted occurrence slot. The metric is chosen
+ * explicitly; the typed value is never derived from the previous measure.
+ */
+data class MeasureChangeDialog(
+    val occurrenceEntryId: Long,
+    val exerciseName: String,
+    val metric: SetMetric,
+    val value: String = "",
+    val applying: Boolean = false,
+    /** True when the typed value is not a positive number; the screen shows its localized hint. */
+    val invalidValue: Boolean = false,
+    /** Why the last apply was refused; the dialog stays open so a corrected value can be sent. */
+    val error: String? = null
+)
+
+/**
  * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work
  * is per hand, other dumbbell work per dumbbell. It is never doubled or halved for display.
  */
@@ -485,6 +502,43 @@ data class DraftWriteRetry(
     /** True when at least one set of [source] was recorded before any retry failure. */
     val anyRecorded: Boolean get() = savedSets > 0
 }
+
+/** True when both drafts describe the same frozen slot: the same occurrence entry, else exercise. */
+internal fun DraftSet.sameSlotAs(other: DraftSet): Boolean =
+    if (occurrenceEntryId != null || other.occurrenceEntryId != null) {
+        occurrenceEntryId == other.occurrenceEntryId
+    } else {
+        exerciseId == other.exerciseId
+    }
+
+/** Which stage a foreground timed-set timer is in. */
+enum class SetTimerPhase { PREPARING, WORKING, CONFIRMING }
+
+/** A one-shot explanation shown after a timed confirmation is closed without writing its value. */
+enum class SetTimerNotice {
+    /** A pre-write gate took over the slot, so the measured seconds could not be carried into it. */
+    GATE_TOOK_OVER
+}
+
+/**
+ * The foreground-only timer for one seconds-based draft. Preparation is a fixed countdown before the
+ * work countdown starts, and neither phase records anything: reaching zero or stopping early only
+ * opens [SetTimerPhase.CONFIRMING], whose measured work seconds Log set writes. The prescribed
+ * target in [draft] is never changed.
+ */
+data class SetTimerState(
+    /** The draft the timer was started for; it identifies the one target slot. */
+    val draft: DraftSet,
+    val phase: SetTimerPhase,
+    /** Whole seconds left in the current phase; zero while confirming. */
+    val remainingSeconds: Int,
+    /** Measured whole work seconds, excluding preparation; the value Log set writes. */
+    val measuredSeconds: Int = 0,
+    /** True while the measured set is being written, so a repeated Log tap cannot submit twice. */
+    val logInProgress: Boolean = false,
+    /** True when the last write failed; the confirmation stays open for an explicit retry. */
+    val writeFailed: Boolean = false
+)
 
 /** One draft whose stored prescription has no established load meaning and needs a decision. */
 data class LegacyResolutionItem(val draft: DraftSet, val capability: ExerciseLoadCapability) {
@@ -575,6 +629,24 @@ data class WorkoutLoggerUiState(
      */
     val manualLogRefreshFailed: Boolean = false,
     val draftSets: List<DraftSet> = emptyList(),
+    /**
+     * The active occurrence's progression decisions, keyed by occurrence entry id. Only slots that
+     * carry an approved policy appear; the Logger shows one only when it also passes
+     * [SlotProgressionDecision.canApply]. Computed once per occurrence refresh, never per draft, and
+     * cleared when the workout context changes.
+     */
+    val progressionSuggestions: Map<Long, SlotProgressionDecision> = emptyMap(),
+    /** The entry whose suggestion Apply is writing, or null when no apply is in flight. */
+    val progressionApplyEntryId: Long? = null,
+    /** True when the last suggestion apply failed; the suggestion stays available to retry. */
+    val progressionApplyFailed: Boolean = false,
+    /**
+     * Unstarted, structurally simple occurrence slots whose measurement can still be corrected.
+     * Empty once the occurrence has any recorded set or its slot carries ordered targets or a cluster.
+     */
+    val measureChangeEntryIds: Set<Long> = emptySet(),
+    /** The open measurement dialog, or null when none is open. */
+    val measureChange: MeasureChangeDialog? = null,
     val draftEdit: DraftEdit? = null,
     /**
      * Why the last cluster draft submission was refused, or null when none was. Nothing is written
@@ -670,6 +742,13 @@ data class WorkoutLoggerUiState(
     val frozenEntryIds: Set<Long> = emptySet(),
     /** In-memory rest prompt started only by an explicitly live guided completion. */
     val restTimer: RestTimerState? = null,
+    /**
+     * The foreground timed-set timer for one seconds-based draft, or null when none is running. It is
+     * transient and never persisted: leaving the screen cancels it with nothing recorded.
+     */
+    val setTimer: SetTimerState? = null,
+    /** A transient explanation about a timed confirmation that ended without logging. */
+    val setTimerNotice: SetTimerNotice? = null,
     val shortRestCoachingExerciseName: String? = null,
     /** Current effective duration in seconds for the active rest timer. */
     val restDurationSeconds: String = "120",

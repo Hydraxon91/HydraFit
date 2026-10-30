@@ -14,6 +14,7 @@ class StorageUsageUseCaseTest {
                 DataCountKind.SESSIONS to 8,
                 DataCountKind.SETS to 25,
                 DataCountKind.SESSION_NOTES to 1,
+                DataCountKind.CARDIO_ACTIVITIES to 4,
                 DataCountKind.ACCEPTED_PLANS to 3,
                 DataCountKind.CUSTOM_EXERCISES to 2
             )
@@ -32,7 +33,8 @@ class StorageUsageUseCaseTest {
             listOf(
                 DataCount(DataCountKind.SESSIONS, 8),
                 DataCount(DataCountKind.SETS, 25),
-                DataCount(DataCountKind.SESSION_NOTES, 1)
+                DataCount(DataCountKind.SESSION_NOTES, 1),
+                DataCount(DataCountKind.CARDIO_ACTIVITIES, 4)
             ),
             usage.categories.single { it.category == DataCategory.WORKOUT_HISTORY }.counts
         )

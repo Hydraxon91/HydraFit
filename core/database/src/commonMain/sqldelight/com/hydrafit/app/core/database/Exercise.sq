@@ -70,6 +70,19 @@ DELETE FROM exercise WHERE isCustom = 1;
 countSetsForExercise:
 SELECT COUNT(*) FROM workoutSet WHERE exerciseId = ?;
 
+-- Custom exercises still named by recorded history or authored planning. Removing their definitions
+-- would leave those rows pointing at a missing exercise, which the backup validator rejects.
+countReferencedCustomExercises:
+SELECT COUNT(*) FROM exercise
+WHERE isCustom = 1 AND (
+    id IN (SELECT exerciseId FROM workoutSet)
+    OR id IN (SELECT exerciseId FROM personalRecord)
+    OR id IN (SELECT exerciseId FROM planHistoryEntry)
+    OR id IN (SELECT exerciseId FROM routineEntry)
+    OR id IN (SELECT exerciseId FROM activationEntry)
+    OR id IN (SELECT exerciseId FROM occurrenceEntry)
+);
+
 updateMovementPattern:
 UPDATE exercise SET movementPattern = ? WHERE id = ?;
 

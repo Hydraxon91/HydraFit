@@ -283,6 +283,7 @@
     <string name="settings_storage_count_personal_records">Personal records</string>
     <string name="settings_storage_count_equipment_profiles">Equipment profiles</string>
     <string name="settings_storage_count_custom_exercises">Custom exercises</string>
+    <string name="settings_storage_count_cardio">Cardio activities</string>
     <string name="settings_storage_count_line">%1$s: %2$d</string>
     <string name="settings_storage_no_data">No recorded data</string>
     <string name="settings_storage_remove">Remove</string>
@@ -301,4 +302,5 @@
     <string name="settings_storage_removed_category">%1$s removed.</string>
     <string name="settings_storage_removed_snapshots">Removed %1$d automatic snapshots.</string>
     <string name="settings_storage_remove_failed">Couldn’t remove that data. Please try again.</string>
+    <string name="settings_storage_exercise_data_referenced">Some custom exercises are used by your workout history, records or plans. Remove that data first, then try again.</string>
 </resources>

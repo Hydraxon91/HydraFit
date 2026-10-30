@@ -28,7 +28,8 @@ class SqlDelightDistanceUnitRepository(database: HydraFitDatabase) : DistanceUni
     private fun String.toDistanceUnit(): DistanceUnit =
         DistanceUnit.entries.firstOrNull { it.name == this } ?: DEFAULT_UNIT
 
-    private companion object {
+    internal companion object {
+        /** The unit a fresh install uses, and the unit every reset restores. */
         val DEFAULT_UNIT = DistanceUnit.METERS
     }
 }

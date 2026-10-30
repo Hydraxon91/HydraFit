@@ -634,7 +634,7 @@ authorization. Its value is as a measured pilot, not as protection.
 ### `core/domain/`
 - **Use cases** — normally one class per user action/query (e.g., `GenerateWeeklySplitUseCase`, `CalculateMuscleFatigueUseCase`), with a public `invoke`/`execute` entry point. This convention is not proof of single responsibility: assess independent reasons to change, and do not split cohesive operations merely to achieve one public method per class.
 - **Multiplatform, commonMain-only:** all code lives in `commonMain`; do not add platform-specific APIs (no Android/iOS imports).
-- **`WorkoutPlannerEngine` interface** — the contract all three planning strategies implement. Never add engine-specific logic outside an implementation of this interface.
+- **`WorkoutPlannerEngine` interface** — the contract shared by the two selectable planning strategies: `DeterministicWorkoutPlannerEngine` (the default, offline) and `GroqWorkoutPlannerEngine` (optional cloud). The retired `GEMINI_API` and `LOCAL_LLM` engine identities resolve to the deterministic engine, and `GeminiWorkoutPlannerEngine` survives only as the Groq prompt builder. Never add engine-specific logic outside an implementation of this interface.
 - **Repository interfaces** — prefixed with `I` or suffixed with `Repository` consistently (pick one convention on first use and stick to it); implementations live in `core/database` or `core/network`.
 
 ### `core/userdata/`

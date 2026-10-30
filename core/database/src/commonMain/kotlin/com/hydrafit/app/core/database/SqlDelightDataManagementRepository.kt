@@ -6,12 +6,18 @@ import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.storage.DataCategory
 import com.hydrafit.app.core.domain.storage.DataCountKind
 import com.hydrafit.app.core.domain.storage.DataManagementRepository
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearException
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearFailure
 
 /**
  * Counts and removes the scoped data categories over SQLDelight. Counts read inside one transaction;
  * a removal runs inside [WorkoutReminderDeliveryGate.mutate] and one transaction, so the reminder
  * posting path never acts on a half-cleared schedule and a failure leaves the current data intact.
- * The seeded catalog, credentials, model files and automatic snapshots are never touched.
+ * History and full resets include cluster segments and cardio activities, and profile resets delete
+ * their station rows; custom equipment is catalog-like and survives a setup reset but not a full
+ * reset. Planning removal includes routine templates, their workouts and entries alongside the
+ * plan history and schedule. Setup and full resets restore the weight and distance units to their
+ * defaults. The seeded catalog, credentials, model files and automatic snapshots are never touched.
  */
 class SqlDelightDataManagementRepository(
     private val database: HydraFitDatabase,
@@ -33,7 +39,9 @@ class SqlDelightDataManagementRepository(
             DataCountKind.PERSONAL_RECORDS to queries.countPersonalRecords().executeAsOne().toInt(),
             DataCountKind.EQUIPMENT_PROFILES to
                 queries.countEquipmentProfiles().executeAsOne().toInt(),
-            DataCountKind.CUSTOM_EXERCISES to queries.countCustomExercises().executeAsOne().toInt()
+            DataCountKind.CUSTOM_EXERCISES to queries.countCustomExercises().executeAsOne().toInt(),
+            DataCountKind.CARDIO_ACTIVITIES to
+                queries.countCardioActivities().executeAsOne().toInt()
         )
     }
 
@@ -56,8 +64,10 @@ class SqlDelightDataManagementRepository(
 
     private fun clearWorkoutHistory() {
         database.sessionNoteQueries.deleteAll()
+        database.workoutClusterQueries.deleteAllSegments()
         database.workoutLogQueries.deleteAllSets()
         database.workoutSessionQueries.deleteAllSessions()
+        database.cardioActivityQueries.deleteAllActivities()
     }
 
     private fun clearPlanning() {
@@ -76,6 +86,11 @@ class SqlDelightDataManagementRepository(
         database.trainingScheduleQueries.deleteAllActivations()
         database.trainingScheduleQueries.deleteScheduleState()
         database.reminderDeliveryQueries.deleteAll()
+        // Routine children go before their parents; nothing outside these tables references a
+        // routine id once the activations above are gone.
+        database.routineTemplateQueries.deleteAllEntries()
+        database.routineTemplateQueries.deleteAllWorkouts()
+        database.routineTemplateQueries.deleteAllTemplates()
     }
 
     private fun clearBodyAndRecords() {
@@ -86,10 +101,14 @@ class SqlDelightDataManagementRepository(
 
     private fun clearTrainingSetup() {
         resetPlannerPreferences(keepEngine = true)
+        // Station rows reference their profile, so they go first. Custom equipment is catalog-like,
+        // like a custom exercise, and survives this reset: frozen prescriptions and custom exercises
+        // may still name a custom tag, so removing it here would make an exported backup fail
+        // validation. Only a full reset removes it, after history and planning are gone.
+        database.equipmentStationQueries.deleteAllStations()
         database.equipmentProfileQueries.deleteState()
         database.equipmentProfileQueries.deleteAllEntries()
         database.equipmentProfileQueries.deleteAllProfiles()
-        database.equipmentQueries.deleteCustomEquipment()
         database.userEquipmentQueries.deleteAllSelected()
         database.trainingGuidancePreferenceQueries.deleteAll()
         database.restPreferenceQueries.deleteAll()
@@ -100,14 +119,27 @@ class SqlDelightDataManagementRepository(
     }
 
     private fun clearExerciseData() {
-        database.exerciseQueries.deleteAllCustom()
+        val referenced = database.exerciseQueries.countReferencedCustomExercises().executeAsOne()
+        if (referenced > 0) {
+            throw ExerciseDataClearException(
+                ExerciseDataClearFailure.CUSTOM_EXERCISES_REFERENCED
+            )
+        }
         database.exerciseOverrideQueries.deleteAll()
         database.exerciseNoteQueries.deleteAll()
         database.exercisePreferenceQueries.deleteAll()
         database.exerciseExclusionQueries.deleteAll()
+        // Overrides are keyed by exercise id, so they must go before their custom definitions;
+        // the global rest default has no exercise key and is left in place.
+        database.restPreferenceQueries.deleteAllCustomExerciseOverrides()
+        database.exerciseQueries.deleteAllCustom()
     }
 
-    /** Every user-owned row, mirroring a replace-restore's delete phase, then a fresh setup state. */
+    /**
+     * Every user-owned row, mirroring a replace-restore's delete phase, then a fresh setup state.
+     * Cluster segments, station rows and cardio activities are included, and custom equipment is
+     * removed after the history/planning rows that may still reference it.
+     */
     private fun clearAllData() {
         database.exerciseOverrideQueries.deleteAll()
         database.exercisePreferenceQueries.deleteAll()
@@ -123,8 +155,10 @@ class SqlDelightDataManagementRepository(
         database.sessionNoteQueries.deleteAll()
         database.warmupPreparationOverrideQueries.deleteAll()
         database.personalRecordQueries.deleteAll()
+        database.workoutClusterQueries.deleteAllSegments()
         database.workoutLogQueries.deleteAllSets()
         database.workoutSessionQueries.deleteAllSessions()
+        database.cardioActivityQueries.deleteAllActivities()
         database.workoutImportQueries.deleteAllProvenance()
         database.workoutImportBucketQueries.deleteBucketLinks()
         database.workoutImportBucketQueries.deleteBuckets()
@@ -146,6 +180,7 @@ class SqlDelightDataManagementRepository(
         database.routineTemplateQueries.deleteAllWorkouts()
         database.routineTemplateQueries.deleteAllTemplates()
         database.exerciseQueries.deleteAllCustom()
+        database.equipmentStationQueries.deleteAllStations()
         database.equipmentProfileQueries.deleteState()
         database.equipmentProfileQueries.deleteAllEntries()
         database.equipmentProfileQueries.deleteAllProfiles()
@@ -176,7 +211,7 @@ class SqlDelightDataManagementRepository(
         database.equipmentProfileQueries.restoreState(1L)
     }
 
-    /** Restores the planner/unit defaults; the engine choice is kept unless a full reset asks. */
+    /** Restores the planner and unit defaults; the engine choice is kept unless a full reset asks. */
     private fun resetPlannerPreferences(keepEngine: Boolean) {
         database.plannerEngineQueries.insertIgnoreRow("DETERMINISTIC")
         if (!keepEngine) {
@@ -186,6 +221,9 @@ class SqlDelightDataManagementRepository(
         database.plannerEngineQueries.updateTrainingGoal("BALANCED")
         database.plannerEngineQueries.updateShareWorkoutData(0L)
         database.plannerEngineQueries.updateWeightUnit("KG")
+        database.plannerEngineQueries.updateDistanceUnit(
+            SqlDelightDistanceUnitRepository.DEFAULT_UNIT.name
+        )
         database.plannerEngineQueries.updateGuidedWorkoutEnabled(0L)
     }
 }

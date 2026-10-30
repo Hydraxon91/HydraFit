@@ -14,6 +14,28 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## Pre-0.13 audit fixes — user manual acceptance (2026-10-30)
+
+User-executed checks on `emulator-5554` with debug build `0.12.0-dev-61f11803` (subsequently
+`54c90f5d`). These are user-reported results, not automated assertions or screenshots I inspected.
+
+- **Timer: passed.** Start on a seconds draft, five-second preparation, early stop, measured-seconds
+  confirmation, Log set, discard, cancel and leaving the screen all behaved as specified. The
+  measured value was recorded with the prescribed target unchanged.
+- **Change measurement: passed after a wiring fix.** The action was initially reachable only in the
+  guided section; it is now also in the planned-draft **More options** menu (`54c90f5d`). The user
+  confirmed it works: a plank draft could switch to seconds, Edit draft then showed seconds, the
+  routine stayed authored as reps, and the action disappeared after a set.
+- **Progression suggestion: partially observed; no defect confirmed.** On that workout sequence the
+  **fourth** comparable session showed a suggestion and Apply; the **fifth** did not. The cause was
+  not established: an applied advance is currently scoped to one occurrence, so the next occurrence
+  returns to the authored prescription and the comparable run resets. That makes progression
+  one-shot in practice and the reason is invisible because holds render nothing. This is recorded as
+  an open product/behavior decision, not as a verified bug: no log, database inspection or repeat
+  sequence was captured.
+- Not exercised in this pass: ordered-slot suggestion copy, cluster/ordered measurement refusals,
+  TalkBack, larger fonts, tablet/foldable layout.
+
 ## Groq planner — user-reported manual check (2026-10-29)
 
 - The user reported that the supplied emulator checklist worked without error: key entry and
