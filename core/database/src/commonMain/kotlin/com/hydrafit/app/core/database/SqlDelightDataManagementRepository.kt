@@ -15,7 +15,9 @@ import com.hydrafit.app.core.domain.storage.ExerciseDataClearFailure
  * posting path never acts on a half-cleared schedule and a failure leaves the current data intact.
  * History and full resets include cluster segments and cardio activities, and profile resets delete
  * their station rows; custom equipment is catalog-like and survives a setup reset but not a full
- * reset. The seeded catalog, credentials, model files and automatic snapshots are never touched.
+ * reset. Planning removal includes routine templates, their workouts and entries alongside the
+ * plan history and schedule. Setup and full resets restore the weight and distance units to their
+ * defaults. The seeded catalog, credentials, model files and automatic snapshots are never touched.
  */
 class SqlDelightDataManagementRepository(
     private val database: HydraFitDatabase,
@@ -84,6 +86,11 @@ class SqlDelightDataManagementRepository(
         database.trainingScheduleQueries.deleteAllActivations()
         database.trainingScheduleQueries.deleteScheduleState()
         database.reminderDeliveryQueries.deleteAll()
+        // Routine children go before their parents; nothing outside these tables references a
+        // routine id once the activations above are gone.
+        database.routineTemplateQueries.deleteAllEntries()
+        database.routineTemplateQueries.deleteAllWorkouts()
+        database.routineTemplateQueries.deleteAllTemplates()
     }
 
     private fun clearBodyAndRecords() {
@@ -204,7 +211,7 @@ class SqlDelightDataManagementRepository(
         database.equipmentProfileQueries.restoreState(1L)
     }
 
-    /** Restores the planner/unit defaults; the engine choice is kept unless a full reset asks. */
+    /** Restores the planner and unit defaults; the engine choice is kept unless a full reset asks. */
     private fun resetPlannerPreferences(keepEngine: Boolean) {
         database.plannerEngineQueries.insertIgnoreRow("DETERMINISTIC")
         if (!keepEngine) {
@@ -214,6 +221,9 @@ class SqlDelightDataManagementRepository(
         database.plannerEngineQueries.updateTrainingGoal("BALANCED")
         database.plannerEngineQueries.updateShareWorkoutData(0L)
         database.plannerEngineQueries.updateWeightUnit("KG")
+        database.plannerEngineQueries.updateDistanceUnit(
+            SqlDelightDistanceUnitRepository.DEFAULT_UNIT.name
+        )
         database.plannerEngineQueries.updateGuidedWorkoutEnabled(0L)
     }
 }
