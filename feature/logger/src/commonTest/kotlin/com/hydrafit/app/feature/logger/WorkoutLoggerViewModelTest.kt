@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.AiLoadExplanation
+import com.hydrafit.app.core.domain.engine.ApplySlotProgressionSuggestionUseCase
 import com.hydrafit.app.core.domain.engine.BuildPlannerLoadInputsUseCase
 import com.hydrafit.app.core.domain.engine.BuildRecentWeightsUseCase
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
@@ -18,10 +19,17 @@ import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
+import com.hydrafit.app.core.domain.engine.ProgressionHistory
+import com.hydrafit.app.core.domain.engine.ResolveSlotProgressionUseCase
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionContext
+import com.hydrafit.app.core.domain.engine.SlotProgressionContextRepository
+import com.hydrafit.app.core.domain.engine.SlotProgressionInputs
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
+import com.hydrafit.app.core.domain.engine.SuggestSlotProgressionUseCase
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -101,6 +109,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
+import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
@@ -144,6 +153,12 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+
+private val progressionPolicy = SlotProgressionPolicy(
+    minReps = 5,
+    maxReps = 10,
+    incrementKg = 2.5
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkoutLoggerViewModelTest {
@@ -3255,6 +3270,7 @@ class WorkoutLoggerViewModelTest {
             ),
             id = 1L
         )
+        val progression = progressionUseCases(FakeWorkoutScheduleRepository(), repository)
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
@@ -3272,7 +3288,9 @@ class WorkoutLoggerViewModelTest {
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
-            applyGuidedTargets = guidedTargetUseCase(repository)
+            applyGuidedTargets = guidedTargetUseCase(repository),
+            suggestSlotProgression = progression.suggest,
+            applySlotProgressionSuggestion = progression.apply
         )
         advanceUntilIdle()
 
@@ -3347,6 +3365,7 @@ class WorkoutLoggerViewModelTest {
         val history = FakePlanHistoryRepository(
             acceptedPlan(listOf("back-squat")).copy(id = 1L)
         )
+        val progression = progressionUseCases(FakeWorkoutScheduleRepository(), repository)
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
@@ -3364,7 +3383,9 @@ class WorkoutLoggerViewModelTest {
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
-            applyGuidedTargets = guidedTargetUseCase(repository)
+            applyGuidedTargets = guidedTargetUseCase(repository),
+            suggestSlotProgression = progression.suggest,
+            applySlotProgressionSuggestion = progression.apply
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -3381,6 +3402,7 @@ class WorkoutLoggerViewModelTest {
         val history = FakePlanHistoryRepository(
             acceptedPlan(listOf("back-squat")).copy(acceptedAtMillis = 1L)
         )
+        val progression = progressionUseCases(FakeWorkoutScheduleRepository(), repository)
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
@@ -3398,7 +3420,9 @@ class WorkoutLoggerViewModelTest {
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
-            applyGuidedTargets = guidedTargetUseCase(repository)
+            applyGuidedTargets = guidedTargetUseCase(repository),
+            suggestSlotProgression = progression.suggest,
+            applySlotProgressionSuggestion = progression.apply
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -3446,6 +3470,7 @@ class WorkoutLoggerViewModelTest {
             ),
             id = 1L
         )
+        val progression = progressionUseCases(FakeWorkoutScheduleRepository(), repository)
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
@@ -3463,7 +3488,9 @@ class WorkoutLoggerViewModelTest {
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
-            applyGuidedTargets = guidedTargetUseCase(repository)
+            applyGuidedTargets = guidedTargetUseCase(repository),
+            suggestSlotProgression = progression.suggest,
+            applySlotProgressionSuggestion = progression.apply
         )
         advanceUntilIdle()
         assertEquals("back-squat", viewModel.state.value.draftSets.single().exerciseId)
@@ -4474,6 +4501,7 @@ class WorkoutLoggerViewModelTest {
     fun reDerivesTodaysFocusOnResume() = runTest(dispatcher) {
         var now = 1_000L // Thursday: the plan's Monday day has no focus.
         val repository = FakeWorkoutLogRepository()
+        val progression = progressionUseCases(FakeWorkoutScheduleRepository(), repository)
         val viewModel = WorkoutLoggerViewModel(
             logMutations = logMutations(repository, FakeWorkoutSessionRepository()),
             logWorkoutSet = logWorkoutSet(repository, FakeWorkoutSessionRepository()),
@@ -4493,7 +4521,9 @@ class WorkoutLoggerViewModelTest {
             sessionNoteRepository = FakeSessionNoteRepository(),
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
-            applyGuidedTargets = guidedTargetUseCase(repository)
+            applyGuidedTargets = guidedTargetUseCase(repository),
+            suggestSlotProgression = progression.suggest,
+            applySlotProgressionSuggestion = progression.apply
         )
         advanceUntilIdle()
         assertEquals(null, viewModel.state.value.todayFocus)
@@ -6084,6 +6114,389 @@ class WorkoutLoggerViewModelTest {
         )
     }
 
+    @Test
+    fun aPolicyDraftGetsASuggestionAndAPolicyLessDraftDoesNot() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = progressionSchedule(
+            listOf(
+                progressionEntry(40L),
+                progressionEntry(41L, exerciseId = "bench-press", policy = null)
+            )
+        )
+        val contexts = FakeSlotProgressionContextRepository(
+            mapOf(40L to progressionHistory("back-squat"))
+        )
+        val progression = progressionUseCases(
+            schedule,
+            repository,
+            contexts = contexts
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            progressionContexts = contexts,
+            progression = progression
+        )
+        advanceUntilIdle()
+
+        val suggestions = viewModel.state.value.progressionSuggestions
+        assertEquals(setOf(40L), suggestions.keys)
+        val decision = suggestions.getValue(40L)
+        assertTrue(decision.canApply)
+        assertEquals(9, decision.suggestedReps)
+        assertEquals(100.0, decision.suggestedLoadKg)
+    }
+
+    @Test
+    fun suggestionsAreReadOncePerRefreshNotPerDraft() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = progressionSchedule(
+            listOf(
+                progressionEntry(40L),
+                progressionEntry(41L, exerciseId = "bench-press")
+            )
+        )
+        val contexts = FakeSlotProgressionContextRepository(
+            mapOf(
+                40L to progressionHistory("back-squat"),
+                41L to progressionHistory("bench-press")
+            )
+        )
+        val progression = progressionUseCases(
+            schedule,
+            repository,
+            contexts = contexts
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            progressionContexts = contexts,
+            progression = progression
+        )
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.state.value.draftSets.size)
+        assertEquals(2, viewModel.state.value.progressionSuggestions.size)
+        val readsAfterStartup = contexts.inputsCalls
+        assertTrue(readsAfterStartup >= 1)
+
+        viewModel.onResume()
+        advanceUntilIdle()
+
+        assertEquals(readsAfterStartup + 1, contexts.inputsCalls)
+    }
+
+    @Test
+    fun applyingASuggestionWritesOnceAndRefreshesTheDraft() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = progressionSchedule(listOf(progressionEntry(40L)))
+        val contexts = FakeSlotProgressionContextRepository(
+            mapOf(40L to progressionHistory("back-squat"))
+        )
+        val guidedTargets = FakeGuidedWorkoutTargetsRepository(schedule)
+        val progression = progressionUseCases(
+            schedule,
+            repository,
+            guidedTargets,
+            contexts
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guidedTargets = guidedTargets,
+            progressionContexts = contexts,
+            progression = progression
+        )
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value.progressionSuggestions.getValue(40L).canApply)
+
+        viewModel.applyProgressionSuggestion(40L)
+        // A second tap before the first write completes must be ignored by the in-flight guard.
+        viewModel.applyProgressionSuggestion(40L)
+        advanceUntilIdle()
+
+        assertEquals(1, schedule.guidedTargetRequests.size)
+        assertNull(viewModel.state.value.progressionApplyEntryId)
+        assertFalse(viewModel.state.value.progressionApplyFailed)
+        assertEquals(9, viewModel.state.value.draftSets.single().reps)
+        assertEquals(9, viewModel.state.value.progressionSuggestions.getValue(40L).currentReps)
+    }
+
+    @Test
+    fun aFailedApplySetsTheFailureFlagAndClearsTheInFlightEntry() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = progressionSchedule(listOf(progressionEntry(40L)))
+        val contexts = FakeSlotProgressionContextRepository(
+            mapOf(40L to progressionHistory("back-squat"))
+        )
+        val guidedTargets = FakeGuidedWorkoutTargetsRepository(schedule).apply {
+            failApply = true
+        }
+        val progression = progressionUseCases(
+            schedule,
+            repository,
+            guidedTargets,
+            contexts
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guidedTargets = guidedTargets,
+            progressionContexts = contexts,
+            progression = progression
+        )
+        advanceUntilIdle()
+
+        viewModel.applyProgressionSuggestion(40L)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.progressionApplyFailed)
+        assertNull(viewModel.state.value.progressionApplyEntryId)
+        assertTrue(schedule.guidedTargetRequests.isEmpty())
+        assertEquals(8, viewModel.state.value.draftSets.single().reps)
+    }
+
+    @Test
+    fun aHoldSuggestionNeverWritesAutomatically() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = progressionSchedule(listOf(progressionEntry(40L)))
+        val contexts = FakeSlotProgressionContextRepository(mapOf(40L to ProgressionHistory()))
+        val progression = progressionUseCases(
+            schedule,
+            repository,
+            contexts = contexts
+        )
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            progressionContexts = contexts,
+            progression = progression
+        )
+        advanceUntilIdle()
+
+        val decision = viewModel.state.value.progressionSuggestions.getValue(40L)
+        assertFalse(decision.canApply)
+        assertTrue(schedule.guidedTargetRequests.isEmpty())
+
+        viewModel.applyProgressionSuggestion(40L)
+        advanceUntilIdle()
+
+        assertTrue(schedule.guidedTargetRequests.isEmpty())
+        assertFalse(viewModel.state.value.progressionApplyFailed)
+        assertNull(viewModel.state.value.progressionApplyEntryId)
+    }
+
+    @Test
+    fun aStartedOccurrenceWithAPolicyPublishesNoSuggestionAndAnUnstartedOneStillDoes() =
+        runTest(dispatcher) {
+            // A recorded set makes the occurrence started, so the Logger must not offer an Apply
+            // that the next-unstarted-slot write would then refuse.
+            val startedLog = FakeWorkoutLogRepository(
+                listOf(
+                    WorkoutSet(
+                        id = 1L,
+                        exerciseId = "back-squat",
+                        reps = 8,
+                        weightKg = 100.0,
+                        performedAtMillis = MONDAY,
+                        sessionId = "recorded-session",
+                        occurrenceId = 30L,
+                        occurrenceEntryId = 40L
+                    )
+                )
+            )
+            val startedSchedule = progressionSchedule(listOf(progressionEntry(40L)))
+            val startedContexts = FakeSlotProgressionContextRepository(
+                mapOf(40L to progressionHistory("back-squat"))
+            )
+            val startedViewModel = occurrenceViewModel(
+                startedLog,
+                startedSchedule,
+                progressionContexts = startedContexts,
+                progression = progressionUseCases(
+                    startedSchedule,
+                    startedLog,
+                    contexts = startedContexts
+                )
+            )
+            advanceUntilIdle()
+
+            assertTrue(startedViewModel.state.value.progressionSuggestions.isEmpty())
+            val startedDraft = startedViewModel.state.value.draftSets.single()
+            val startedEntryId = requireNotNull(startedDraft.occurrenceEntryId)
+            val startedOffersApply =
+                startedViewModel.state.value.progressionSuggestions[startedEntryId]?.canApply ==
+                    true
+            assertFalse(startedOffersApply)
+
+            val unstartedLog = FakeWorkoutLogRepository()
+            val unstartedSchedule = progressionSchedule(listOf(progressionEntry(40L)))
+            val unstartedContexts = FakeSlotProgressionContextRepository(
+                mapOf(40L to progressionHistory("back-squat"))
+            )
+            val unstartedViewModel = occurrenceViewModel(
+                unstartedLog,
+                unstartedSchedule,
+                progressionContexts = unstartedContexts,
+                progression = progressionUseCases(
+                    unstartedSchedule,
+                    unstartedLog,
+                    contexts = unstartedContexts
+                )
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                setOf(40L),
+                unstartedViewModel.state.value.progressionSuggestions.keys
+            )
+            assertTrue(
+                unstartedViewModel.state.value.progressionSuggestions.getValue(40L).canApply
+            )
+        }
+
+    @Test
+    fun anOccurrenceWhoseOnlySetIsAWarmupPublishesNoSuggestion() = runTest(dispatcher) {
+        // A warm-up is still recorded work for the slot, so the apply path would refuse; the gate
+        // must count it even though it is excluded from the working-set progress.
+        val warmupOnlyLog = FakeWorkoutLogRepository(
+            listOf(
+                WorkoutSet(
+                    id = 2L,
+                    exerciseId = "back-squat",
+                    reps = 10,
+                    weightKg = 40.0,
+                    performedAtMillis = MONDAY,
+                    sessionId = "warmup-session",
+                    occurrenceId = 30L,
+                    occurrenceEntryId = 40L,
+                    isWarmup = true
+                )
+            )
+        )
+        val schedule = progressionSchedule(listOf(progressionEntry(40L)))
+        val contexts = FakeSlotProgressionContextRepository(
+            mapOf(40L to progressionHistory("back-squat"))
+        )
+        val viewModel = occurrenceViewModel(
+            warmupOnlyLog,
+            schedule,
+            progressionContexts = contexts,
+            progression = progressionUseCases(
+                schedule,
+                warmupOnlyLog,
+                contexts = contexts
+            )
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.progressionSuggestions.isEmpty())
+    }
+
+    @Test
+    fun anOrderedProposalCopyJoinsRepsAndShowsLoadsOnlyWhenTheyChange() {
+        val current = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 8, weightKg = 100.0),
+                SetTarget(reps = 8, weightKg = 100.0),
+                SetTarget(reps = 8, weightKg = 100.0)
+            )
+        )
+        val suggested = SlotSetTargets.of(
+            listOf(
+                SetTarget(reps = 9, weightKg = 100.0),
+                SetTarget(reps = 9, weightKg = 100.0),
+                SetTarget(reps = 9, weightKg = 102.5)
+            )
+        )
+
+        assertEquals(
+            OrderedProgressionCopy(sets = 3, reps = "9/9/9", loads = "100/100/102.5 kg"),
+            orderedProgressionCopy(suggested, current, WeightUnit.KG)
+        )
+        assertNull(orderedProgressionCopy(current, current, WeightUnit.KG).loads)
+    }
+
+    private fun progressionSchedule(
+        entries: List<OccurrenceEntry>
+    ): MutableWorkoutScheduleRepository = MutableWorkoutScheduleRepository().apply {
+        set(
+            blockActivation(),
+            listOf(
+                WorkoutOccurrence(
+                    id = 30L,
+                    activationId = 5L,
+                    activationWorkoutId = 9L,
+                    queuePosition = 0,
+                    status = OccurrenceStatus.PENDING,
+                    entries = entries
+                )
+            ),
+            selectedOccurrenceId = 30L
+        )
+    }
+
+    private fun progressionEntry(
+        id: Long,
+        exerciseId: String = "back-squat",
+        policy: SlotProgressionPolicy? = progressionPolicy
+    ) = OccurrenceEntry(
+        id = id,
+        sourceActivationEntryId = 20L,
+        position = 0,
+        exerciseId = exerciseId,
+        exerciseName = exerciseId,
+        movementPattern = MovementPattern.SQUAT,
+        requiredEquipment = setOf(EquipmentTag.BARBELL),
+        sets = 2,
+        reps = 8,
+        weightKg = 100.0,
+        progressionPolicy = policy
+    )
+
+    private fun progressionHistory(
+        exerciseId: String,
+        reps: Int = 8,
+        load: Double = 100.0,
+        sets: Int = 2,
+        sessions: Int = 3
+    ): ProgressionHistory {
+        val recordedSets = mutableListOf<WorkoutSet>()
+        val recordedSessions = mutableListOf<WorkoutSession>()
+        var setId = 1L
+        var time = 1_000L
+        repeat(sessions) { index ->
+            val sessionId = "progression-$exerciseId-$index"
+            recordedSessions += WorkoutSession(
+                id = sessionId,
+                startedAtMillis = time,
+                endedAtMillis = time + 100L,
+                localEpochDay = 0L
+            )
+            repeat(sets) { setIndex ->
+                recordedSets += WorkoutSet(
+                    id = setId++,
+                    exerciseId = exerciseId,
+                    reps = reps,
+                    weightKg = load,
+                    performedAtMillis = time + setIndex,
+                    sessionId = sessionId,
+                    prescriptionSnapshot = WorkoutPrescriptionSnapshot(
+                        exerciseId = exerciseId,
+                        sets = sets,
+                        reps = reps,
+                        loadKind = LoadKind.EXTERNAL,
+                        weightKg = load,
+                        isDeload = false,
+                        progressionPolicy = progressionPolicy
+                    )
+                )
+            }
+            time += 1_000L
+        }
+        return ProgressionHistory(sets = recordedSets, sessions = recordedSessions)
+    }
+
     private fun viewModel(
         repository: WorkoutLogRepository = FakeWorkoutLogRepository(),
         sessionRepository: WorkoutSessionRepository = FakeWorkoutSessionRepository(),
@@ -6096,7 +6509,11 @@ class WorkoutLoggerViewModelTest {
         distanceUnitFlow: MutableStateFlow<DistanceUnit>? = null,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
         sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
-        equipment: WorkoutLoggerEquipment = testEquipment()
+        equipment: WorkoutLoggerEquipment = testEquipment(),
+        progression: ProgressionUseCases = progressionUseCases(
+            FakeWorkoutScheduleRepository(),
+            repository
+        )
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         logWorkoutSet = logWorkoutSet(repository, sessionRepository),
@@ -6122,7 +6539,9 @@ class WorkoutLoggerViewModelTest {
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = equipment,
-        applyGuidedTargets = guidedTargetUseCase(repository)
+        applyGuidedTargets = guidedTargetUseCase(repository),
+        suggestSlotProgression = progression.suggest,
+        applySlotProgressionSuggestion = progression.apply
     )
 
     private fun sessionViewModel(
@@ -6130,6 +6549,10 @@ class WorkoutLoggerViewModelTest {
         sessionRepository: WorkoutSessionRepository,
         noteRepository: ExerciseNoteRepository = FakeExerciseNoteRepository(),
         sessionNoteRepository: SessionNoteRepository = FakeSessionNoteRepository(),
+        progression: ProgressionUseCases = progressionUseCases(
+            FakeWorkoutScheduleRepository(),
+            repository
+        ),
         now: () -> Long
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
@@ -6153,7 +6576,9 @@ class WorkoutLoggerViewModelTest {
         sessionNoteRepository = sessionNoteRepository,
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = testEquipment(),
-        applyGuidedTargets = guidedTargetUseCase(repository)
+        applyGuidedTargets = guidedTargetUseCase(repository),
+        suggestSlotProgression = progression.suggest,
+        applySlotProgressionSuggestion = progression.apply
     )
 
     private fun guidedTargetUseCase(
@@ -6165,6 +6590,55 @@ class WorkoutLoggerViewModelTest {
         log,
         guidedTargets ?: FakeGuidedWorkoutTargetsRepository(schedule)
     )
+
+    private class ProgressionUseCases(
+        val suggest: SuggestSlotProgressionUseCase,
+        val apply: ApplySlotProgressionSuggestionUseCase
+    )
+
+    /**
+     * One progression seam wired to the same schedule/log the ViewModel uses, so a test can observe
+     * both the suggestion read and the guided-target write it authorizes.
+     */
+    private fun progressionUseCases(
+        schedule: WorkoutScheduleRepository,
+        log: WorkoutLogRepository,
+        guidedTargets: GuidedWorkoutTargetsRepository? = null,
+        contexts: SlotProgressionContextRepository = FakeSlotProgressionContextRepository()
+    ): ProgressionUseCases {
+        val suggest = SuggestSlotProgressionUseCase(
+            schedule,
+            contexts,
+            TimeProvider { 10_000L },
+            ResolveSlotProgressionUseCase()
+        )
+        return ProgressionUseCases(
+            suggest,
+            ApplySlotProgressionSuggestionUseCase(
+                suggest,
+                schedule,
+                log,
+                guidedTargetUseCase(log, schedule, guidedTargets)
+            )
+        )
+    }
+
+    /** Supplies one track identity and history for every requested entry, and counts batch reads. */
+    private class FakeSlotProgressionContextRepository(
+        private val histories: Map<Long, ProgressionHistory> = emptyMap()
+    ) : SlotProgressionContextRepository {
+        var inputsCalls: Int = 0
+            private set
+
+        override suspend fun inputsFor(occurrenceId: Long): SlotProgressionInputs {
+            inputsCalls++
+            return SlotProgressionInputs(
+                contexts = histories.mapValues { (_, history) ->
+                    SlotProgressionContext(trackKey = "track-$occurrenceId", history = history)
+                }
+            )
+        }
+    }
 
     /** The shared guided-target write port, with the in-memory occurrence store it edits. */
     private class FakeGuidedWorkoutTargetsRepository(
@@ -10573,7 +11047,15 @@ class WorkoutLoggerViewModelTest {
         weightUnitFlow: MutableStateFlow<WeightUnit>? = null,
         warmupOverrides: FakeWarmupPreparationOverrideRepository =
             FakeWarmupPreparationOverrideRepository(),
-        guidedTargets: GuidedWorkoutTargetsRepository? = null
+        guidedTargets: GuidedWorkoutTargetsRepository? = null,
+        progressionContexts: SlotProgressionContextRepository =
+            FakeSlotProgressionContextRepository(),
+        progression: ProgressionUseCases = progressionUseCases(
+            schedule,
+            repository,
+            guidedTargets,
+            progressionContexts
+        )
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessions),
         logWorkoutSet = logWorkoutSet(repository, sessions),
@@ -10603,7 +11085,9 @@ class WorkoutLoggerViewModelTest {
         sessionNoteRepository = FakeSessionNoteRepository(),
         warmupOverrideRepository = warmupOverrides,
         equipment = equipment,
-        applyGuidedTargets = guidedTargetUseCase(repository, schedule, guidedTargets)
+        applyGuidedTargets = guidedTargetUseCase(repository, schedule, guidedTargets),
+        suggestSlotProgression = progression.suggest,
+        applySlotProgressionSuggestion = progression.apply
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(

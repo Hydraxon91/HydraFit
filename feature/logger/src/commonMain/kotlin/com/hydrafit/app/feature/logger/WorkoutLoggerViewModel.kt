@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptedDay
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
+import com.hydrafit.app.core.domain.engine.ApplySlotProgressionSuggestionUseCase
 import com.hydrafit.app.core.domain.engine.EquipmentWeightLimit
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SuggestSlotProgressionUseCase
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
@@ -77,6 +79,13 @@ private data class GuidedSetWriteResult(
     val isWarmup: Boolean
 )
 
+/** One snapshot of an occurrence's recorded work: working counts, frozen entries and presence. */
+private data class OccurrenceRecordedSets(
+    val performed: Map<Long, Int>,
+    val frozenEntryIds: Set<Long>,
+    val anyRecorded: Boolean
+)
+
 class WorkoutLoggerViewModel(
     private val logMutations: WorkoutLogMutations,
     private val logWorkoutSet: LogWorkoutSetUseCase,
@@ -89,7 +98,9 @@ class WorkoutLoggerViewModel(
     private val sessionNoteRepository: com.hydrafit.app.core.domain.workout.SessionNoteRepository,
     private val warmupOverrideRepository: WarmupPreparationOverrideRepository,
     private val equipment: WorkoutLoggerEquipment,
-    private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase
+    private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase,
+    private val suggestSlotProgression: SuggestSlotProgressionUseCase,
+    private val applySlotProgressionSuggestion: ApplySlotProgressionSuggestionUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutLoggerUiState())
@@ -292,6 +303,9 @@ class WorkoutLoggerViewModel(
                             guidedProgress = null,
                             guidedExpandedEntries = emptyMap(),
                             appliedGuidedEdits = emptyMap(),
+                            progressionSuggestions = emptyMap(),
+                            progressionApplyEntryId = null,
+                            progressionApplyFailed = false,
                             frozenEntryIds = emptySet(),
                             guidedSetWriteFailed = false,
                             summary = null
@@ -2634,6 +2648,35 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /**
+     * Applies the active occurrence's progression suggestion for [entryId], then refreshes the drafts
+     * so the row shows the target the write produced. The in-flight id is claimed synchronously, so a
+     * repeated tap cannot submit twice; nothing is applied automatically.
+     */
+    fun applyProgressionSuggestion(entryId: Long) {
+        if (_state.value.progressionApplyEntryId != null) return
+        val occurrenceId = currentOccurrence?.id ?: return
+        if (_state.value.progressionSuggestions[entryId]?.canApply != true) return
+        _state.update { it.copy(progressionApplyEntryId = entryId, progressionApplyFailed = false) }
+        viewModelScope.launch {
+            try {
+                applySlotProgressionSuggestion(occurrenceId, entryId)
+                _state.update { it.copy(progressionApplyEntryId = null) }
+                if (activeActivation != null && currentOccurrence?.id == occurrenceId) {
+                    refreshOccurrence()
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                if (currentOccurrence?.id == occurrenceId) {
+                    _state.update {
+                        it.copy(progressionApplyEntryId = null, progressionApplyFailed = true)
+                    }
+                }
+            }
+        }
+    }
+
     /** Logs the current legacy draft as bodyweight/no added load and advances the queue. */
     fun resolveLegacyAsBodyweight() = resolveLegacy(LoadKind.BODYWEIGHT, null)
 
@@ -2970,6 +3013,9 @@ class WorkoutLoggerViewModel(
                     draftWriteRetries = emptyList(),
                     confirmingAllDrafts = false,
                     appliedGuidedEdits = emptyMap(),
+                    progressionSuggestions = emptyMap(),
+                    progressionApplyEntryId = null,
+                    progressionApplyFailed = false,
                     todayFocus = null,
                     guidedProgress = null,
                     guidedExpandedEntries = emptyMap(),
@@ -2996,6 +3042,11 @@ class WorkoutLoggerViewModel(
                 it.copy(
                     manualLogFailed = false,
                     manualLogRefreshFailed = false,
+                    // Progression suggestions belong to one occurrence's slots, and a failed apply
+                    // describes the occurrence it was started for; a new occurrence starts clean.
+                    progressionSuggestions = emptyMap(),
+                    progressionApplyEntryId = null,
+                    progressionApplyFailed = false,
                     // Applied one-off values belong to their workout; a different workout discards them.
                     appliedGuidedEdits = if (workoutIdentityChanged) {
                         emptyMap()
@@ -3009,7 +3060,9 @@ class WorkoutLoggerViewModel(
                 if (workoutIdentityChanged) invalidateRestTimer()
             }
         }
-        val (performed, frozenEntryIds) = occurrenceRecordedSets(occurrence)
+        val recorded = occurrenceRecordedSets(occurrence)
+        val performed = recorded.performed
+        val frozenEntryIds = recorded.frozenEntryIds
         // The read may suspend. If a newer refresh or a block change has started since, this result
         // is superseded: publishing it would republish a stale occurrence and guidance and would
         // leave the published generation behind the current one, refusing every later ramp tap.
@@ -3018,6 +3071,28 @@ class WorkoutLoggerViewModel(
             val remaining = entry.sets - (performed[entry.id] ?: 0)
             if (remaining <= 0) null else draftForEntry(entry, occurrence.id, remaining)
         }
+        // Applying a suggestion writes only while the occurrence has no recorded set at all. This is
+        // stricter than the per-slot apply guard, which refuses only the slot that has recorded work,
+        // so a warm-up or a partial cluster blocks the offer here: publishing one would show an Apply
+        // that must then fail.
+        val started = recorded.anyRecorded
+        // One batched read supplies every policy-bearing slot's decision for this occurrence. It is
+        // never per draft, and a hold/review is stored but stays silent in the Logger. The suggestion
+        // is optional UI: a failed read must not turn an ordinary logger refresh into a failure.
+        val progressionSuggestions = if (started) {
+            emptyMap()
+        } else {
+            try {
+                suggestSlotProgression.decisionsFor(occurrence.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                emptyMap()
+            }
+        }
+        // The suggestion read may suspend too; a superseded refresh must not publish its map against
+        // the newer occurrence and guidance.
+        if (generation != warmupGuidanceGeneration) return
         // Each partial-write retry keeps its own row and one-off values across a refresh.
         val retries = _state.value.draftWriteRetries.filter { retry ->
             drafts.any { it.sameSlotAs(retry.source) }
@@ -3073,6 +3148,7 @@ class WorkoutLoggerViewModel(
                     prescribedSets = prescribed
                 ),
                 draftSets = displayDrafts,
+                progressionSuggestions = progressionSuggestions,
                 draftEdit = it.draftEdit?.takeIf { edit ->
                     edit.draft in displayDrafts ||
                         displayDrafts.any { draft -> edit.targetsPendingDraft(draft) }
@@ -3306,18 +3382,19 @@ class WorkoutLoggerViewModel(
         weekNumber?.let(PeriodizationConfig()::isDeload) == true
 
     /**
-     * One read of the current occurrence's recorded sets, returning the working-set count by entry
-     * and the entry ids frozen by any recorded set (working or warm-up). Both come from one snapshot
-     * so the guidance and the replacement eligibility describe the same recorded work.
+     * One read of the current occurrence's recorded sets, returning the working-set count by entry,
+     * the entry ids frozen by any recorded set (working or warm-up), and whether the occurrence has
+     * any recorded set at all. All three come from one snapshot so the guidance, the replacement
+     * eligibility and the progression gate describe the same recorded work.
      */
     private suspend fun occurrenceRecordedSets(
         occurrence: WorkoutOccurrence
-    ): Pair<Map<Long, Int>, Set<Long>> {
+    ): OccurrenceRecordedSets {
         val sets = getWorkoutLog()
-        val performed = sets
+        val occurrenceSets = sets.filter { it.occurrenceId == occurrence.id }
+        val performed = occurrenceSets
             .filter { set ->
                 !set.isWarmup &&
-                    set.occurrenceId == occurrence.id &&
                     set.occurrenceEntryId != null &&
                     set.cluster?.isComplete != false
             }
@@ -3329,7 +3406,11 @@ class WorkoutLoggerViewModel(
             }
             .map { it.id }
             .toSet()
-        return performed to frozen
+        return OccurrenceRecordedSets(
+            performed = performed,
+            frozenEntryIds = frozen,
+            anyRecorded = occurrenceSets.isNotEmpty()
+        )
     }
 
     /**

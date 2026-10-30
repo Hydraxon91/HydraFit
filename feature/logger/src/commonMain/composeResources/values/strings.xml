@@ -42,6 +42,12 @@
     <string name="logger_confirm">Confirm</string>
     <string name="logger_set_week_day">Week %1$d · Day %2$d</string>
     <string name="logger_confirm_all">Confirm all</string>
+    <string name="logger_progression_suggested">Suggested: %1$d × %2$d · %3$s</string>
+    <string name="logger_progression_suggested_ordered">Suggested: %1$d sets · %2$s</string>
+    <string name="logger_progression_suggested_ordered_load">Suggested: %1$d sets · %2$s · %3$s</string>
+    <string name="logger_progression_apply">Apply</string>
+    <string name="logger_progression_apply_for">Apply for %1$s</string>
+    <string name="logger_progression_apply_failed">Couldn\'t apply the suggestion. Try again.</string>
     <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>

@@ -53,7 +53,9 @@ val loggerModule: Module = module {
             sessionNoteRepository = get(),
             warmupOverrideRepository = get(),
             equipment = get(),
-            applyGuidedTargets = get()
+            applyGuidedTargets = get(),
+            suggestSlotProgression = get(),
+            applySlotProgressionSuggestion = get()
         )
     }
     viewModel { OccurrenceReplacementViewModel(get(), get()) }

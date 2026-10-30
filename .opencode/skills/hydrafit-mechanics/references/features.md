@@ -131,8 +131,13 @@ targets, a deload week or an unresolved equipment identity. Ordered progression 
 external load; scalar progression also accepts added load. Plan-backed slots carry
 `P<sourcePlanId>` keys, so a newly accepted plan starts a new lineage and holds until it has its
 own history. `ApplySlotProgressionSuggestionUseCase` writes only the next unstarted occurrence's
-guided working targets and never edits the template, activation or recorded history. No Logger or
-Routines card renders or invokes either use case yet.
+guided working targets and never edits the template, activation or recorded history. The Logger's
+planned-draft list shows an applicable suggestion ("Suggested: sets × reps · load"; an ordered slot
+shows its per-set proposal, e.g. "Suggested: 3 sets · 9/9/9 · 100/100/102.5 kg") with an explicit
+**Apply** button, but only while the occurrence has no recorded set at all: once any set is recorded
+for it — a working set, a warm-up or a partial cluster — no suggestion is published, since the
+apply step writes only an unstarted slot. Holds and reviews stay silent, nothing auto-applies, and
+the row refreshes to the written target afterwards.
 
 ## Timed prescription authoring
 

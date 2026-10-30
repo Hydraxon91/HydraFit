@@ -54,6 +54,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -247,6 +248,12 @@ import hydrafit.feature.logger.generated.resources.logger_per_hand
 import hydrafit.feature.logger.generated.resources.logger_pick_time_title
 import hydrafit.feature.logger.generated.resources.logger_planned_today
 import hydrafit.feature.logger.generated.resources.logger_progress_open
+import hydrafit.feature.logger.generated.resources.logger_progression_apply
+import hydrafit.feature.logger.generated.resources.logger_progression_apply_failed
+import hydrafit.feature.logger.generated.resources.logger_progression_apply_for
+import hydrafit.feature.logger.generated.resources.logger_progression_suggested
+import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered
+import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered_load
 import hydrafit.feature.logger.generated.resources.logger_recent
 import hydrafit.feature.logger.generated.resources.logger_replace
 import hydrafit.feature.logger.generated.resources.logger_reps_label
@@ -598,6 +605,7 @@ fun WorkoutLoggerRoute(
         onLogMissingLoadWithoutWeight = viewModel::logMissingLoadWithoutWeight,
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
         onDismissDraft = viewModel::dismissDraft,
+        onApplyProgressionSuggestion = viewModel::applyProgressionSuggestion,
         onResolveLegacyAsBodyweight = viewModel::resolveLegacyAsBodyweight,
         onResolveLegacyAsExternal = viewModel::resolveLegacyAsExternal,
         onDismissLegacyResolution = viewModel::dismissLegacyResolution,
@@ -785,6 +793,7 @@ fun WorkoutLoggerScreen(
     onLogMissingLoadWithoutWeight: () -> Unit,
     onConfirmAllDrafts: () -> Unit,
     onDismissDraft: (DraftSet) -> Unit,
+    onApplyProgressionSuggestion: (Long) -> Unit,
     onResolveLegacyAsBodyweight: () -> Unit,
     onResolveLegacyAsExternal: () -> Unit,
     onDismissLegacyResolution: () -> Unit,
@@ -1556,6 +1565,13 @@ fun WorkoutLoggerScreen(
                         Text(stringResource(Res.string.logger_confirm_all))
                     }
                 }
+                if (state.progressionApplyFailed) {
+                    Text(
+                        text = stringResource(Res.string.logger_progression_apply_failed),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
             items(state.draftSets) { draft ->
                 val weight = loadWeightText(
@@ -1636,6 +1652,70 @@ fun WorkoutLoggerScreen(
                                 ),
                                 style = MaterialTheme.typography.bodySmall
                             )
+                        }
+                        val progression = draft.occurrenceEntryId?.let { entryId ->
+                            state.progressionSuggestions[entryId]
+                        }
+                        if (progression?.canApply == true) {
+                            val ordered = progression.ordered
+                            val suggestionText = if (ordered != null) {
+                                val copy = orderedProgressionCopy(
+                                    suggested = ordered.suggested,
+                                    current = progression.currentOrdered,
+                                    unit = state.weightUnit
+                                )
+                                val loads = copy.loads
+                                if (loads == null) {
+                                    stringResource(
+                                        Res.string.logger_progression_suggested_ordered,
+                                        copy.sets,
+                                        copy.reps
+                                    )
+                                } else {
+                                    stringResource(
+                                        Res.string.logger_progression_suggested_ordered_load,
+                                        copy.sets,
+                                        copy.reps,
+                                        loads
+                                    )
+                                }
+                            } else {
+                                stringResource(
+                                    Res.string.logger_progression_suggested,
+                                    draft.sets,
+                                    progression.suggestedReps ?: draft.reps ?: 0,
+                                    loadWeightText(
+                                        draft.loadKind,
+                                        progression.suggestedLoadKg ?: draft.weightKg,
+                                        state.weightUnit,
+                                        state.exerciseLoadBasis[draft.exerciseId]
+                                    )
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = suggestionText,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                val entryId = draft.occurrenceEntryId
+                                if (entryId != null) {
+                                    val applyFor = stringResource(
+                                        Res.string.logger_progression_apply_for,
+                                        draft.name
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            onApplyProgressionSuggestion(entryId)
+                                        },
+                                        enabled = state.progressionApplyEntryId == null,
+                                        modifier = Modifier.semantics {
+                                            contentDescription = applyFor
+                                        }
+                                    ) {
+                                        Text(stringResource(Res.string.logger_progression_apply))
+                                    }
+                                }
+                            }
                         }
                         TargetExplanationDisclosure(
                             key = draft.occurrenceEntryId ?: draft.exerciseId,
@@ -2517,6 +2597,33 @@ private fun TargetExplanationReason.labelResource(): StringResource = when (this
     TargetExplanationReason.SETS_REDUCED_FOR_FATIGUE ->
         Res.string.logger_explanation_sets_reduced_for_fatigue
     TargetExplanationReason.SETS_FINAL -> Res.string.logger_explanation_sets_final
+}
+
+/**
+ * An ordered slot's proposal as shown: the proposed set count, each set's reps joined by "/", and —
+ * only when at least one proposed load differs from the current one — every proposed load joined by
+ * "/" with the display unit appended once. [loads] is null when the loads are unchanged.
+ */
+internal data class OrderedProgressionCopy(val sets: Int, val reps: String, val loads: String?)
+
+/** Builds the ordered proposal copy from the proposed and current targets; pure, so it is testable. */
+internal fun orderedProgressionCopy(
+    suggested: SlotSetTargets?,
+    current: SlotSetTargets?,
+    unit: WeightUnit
+): OrderedProgressionCopy {
+    val targets = suggested?.targets.orEmpty()
+    val reps = targets.joinToString("/") { (it.reps ?: 0).toString() }
+    val suggestedLoads = targets.map { it.weightKg }
+    val currentLoads = current?.targets.orEmpty().map { it.weightKg }
+    val loads = if (suggestedLoads == currentLoads) {
+        null
+    } else {
+        suggestedLoads.joinToString("/") { load ->
+            load?.let { formatWeight(unit.kilogramsToDisplay(it)) } ?: "-"
+        } + " " + unit.label
+    }
+    return OrderedProgressionCopy(sets = targets.size, reps = reps, loads = loads)
 }
 
 /**

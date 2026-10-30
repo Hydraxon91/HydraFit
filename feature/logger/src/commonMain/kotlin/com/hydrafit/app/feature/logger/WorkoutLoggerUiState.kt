@@ -2,6 +2,7 @@ package com.hydrafit.app.feature.logger
 
 import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionDecision
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentStation
@@ -575,6 +576,17 @@ data class WorkoutLoggerUiState(
      */
     val manualLogRefreshFailed: Boolean = false,
     val draftSets: List<DraftSet> = emptyList(),
+    /**
+     * The active occurrence's progression decisions, keyed by occurrence entry id. Only slots that
+     * carry an approved policy appear; the Logger shows one only when it also passes
+     * [SlotProgressionDecision.canApply]. Computed once per occurrence refresh, never per draft, and
+     * cleared when the workout context changes.
+     */
+    val progressionSuggestions: Map<Long, SlotProgressionDecision> = emptyMap(),
+    /** The entry whose suggestion Apply is writing, or null when no apply is in flight. */
+    val progressionApplyEntryId: Long? = null,
+    /** True when the last suggestion apply failed; the suggestion stays available to retry. */
+    val progressionApplyFailed: Boolean = false,
     val draftEdit: DraftEdit? = null,
     /**
      * Why the last cluster draft submission was refused, or null when none was. Nothing is written
