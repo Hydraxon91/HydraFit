@@ -1928,6 +1928,24 @@ fun WorkoutLoggerScreen(
                                         onEditDraft(draft)
                                     }
                                 )
+                                draft.occurrenceEntryId?.let { entryId ->
+                                    if (entryId in state.measureChangeEntryIds) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        Res.string.logger_measure_change_action
+                                                    )
+                                                )
+                                            },
+                                            enabled = !state.draftWriteInProgress,
+                                            onClick = {
+                                                expanded = false
+                                                onChangeMeasure(entryId)
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
