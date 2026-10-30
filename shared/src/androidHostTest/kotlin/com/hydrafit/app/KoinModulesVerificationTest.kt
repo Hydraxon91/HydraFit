@@ -47,6 +47,8 @@ import com.hydrafit.app.core.domain.engine.PlanBuilderActions
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
+import com.hydrafit.app.core.domain.engine.SlotProgressionContextRepository
+import com.hydrafit.app.core.domain.engine.SlotProgressionInputs
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestWeightsUseCase
 import com.hydrafit.app.core.domain.engine.TrainingGoal
@@ -1059,6 +1061,12 @@ class KoinModulesVerificationTest {
                     }
                     single<WorkoutHistoryRepository> { FakeWorkoutHistoryRepository }
                     single<ExerciseProgressRepository> { FakeExerciseProgressRepository }
+                    single<SlotProgressionContextRepository> {
+                        object : SlotProgressionContextRepository {
+                            override suspend fun inputsFor(occurrenceId: Long) =
+                                SlotProgressionInputs(contexts = emptyMap())
+                        }
+                    }
                     single<WorkoutSessionRepository> { FakeWorkoutSessionRepository }
                     single<SessionResegmenter> { FakeSessionResegmenter }
                     single<RoutineTemplateRepository> { FakeRoutineTemplateRepository }
