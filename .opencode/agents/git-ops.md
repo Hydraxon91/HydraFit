@@ -39,6 +39,17 @@ permissions:
   - action: shell
     resource: "git cat-file *"
     effect: allow
+  # Index-only removal for approved untracking tasks. The required `-r --cached` spelling keeps
+  # worktree-deleting forms (`git rm`, `git rm -f`) out of this allow rule.
+  - action: shell
+    resource: "git rm -r --cached *"
+    effect: allow
+  - action: shell
+    resource: "git ls-tree *"
+    effect: allow
+  - action: shell
+    resource: "git stash list *"
+    effect: allow
   - action: shell
     resource: "git merge-base *"
     effect: allow
