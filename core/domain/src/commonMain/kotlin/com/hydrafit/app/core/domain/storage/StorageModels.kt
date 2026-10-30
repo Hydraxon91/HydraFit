@@ -23,8 +23,22 @@ enum class DataCountKind {
     BODY_WEIGHT_MEASUREMENTS,
     PERSONAL_RECORDS,
     EQUIPMENT_PROFILES,
-    CUSTOM_EXERCISES
+    CUSTOM_EXERCISES,
+    CARDIO_ACTIVITIES
 }
+
+/** Why a [DataCategory.EXERCISE_DATA] removal was refused. The display copy belongs to the UI. */
+enum class ExerciseDataClearFailure {
+    /** At least one custom exercise is still named by history, records or authored planning. */
+    CUSTOM_EXERCISES_REFERENCED
+}
+
+/**
+ * Raised when removing exercise data would orphan a reference to a custom exercise. Nothing is
+ * removed when this is thrown; the user must delete the referring data first.
+ */
+class ExerciseDataClearException(val failure: ExerciseDataClearFailure) :
+    Exception("Exercise data removal refused: $failure")
 
 /** One record kind's current count. */
 data class DataCount(val kind: DataCountKind, val count: Int)

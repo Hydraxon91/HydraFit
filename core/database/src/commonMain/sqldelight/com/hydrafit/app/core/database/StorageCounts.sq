@@ -31,3 +31,6 @@ SELECT COUNT(*) FROM equipmentProfile;
 
 countCustomExercises:
 SELECT COUNT(*) FROM exercise WHERE isCustom = 1;
+
+countCardioActivities:
+SELECT COUNT(*) FROM cardioActivity;

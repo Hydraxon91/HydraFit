@@ -9,7 +9,10 @@ keeps its row and recorded attribution. The Logger offers only active stations c
 selected exercise's required equipment, prefills from that station's latest set, and writes the
 frozen station attribution with the manual set. Draft/guided logging remains unattributed in this
 slice. History details show the frozen station name; Exercise Progress can filter All, unattributed
-or one station. UI copy lives in each feature's `strings.xml`.
+or one station. Deleting a profile or a custom equipment row also deletes its station rows, while a
+recorded set keeps its frozen station label and load basis; the training-setup reset deletes station
+rows but keeps custom equipment, like the custom exercises it is catalog data for. UI copy lives in
+each feature's `strings.xml`.
 
 ## SplitBuilder plan-slot measure
 

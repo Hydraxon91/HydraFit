@@ -26,6 +26,10 @@ ORDER BY setId, position;
 deleteSegmentsForSet:
 DELETE FROM workoutClusterSegment WHERE setId = ?;
 
+-- Child-before-parent cleanup for a scoped history or full reset; segments reference their set.
+deleteAllSegments:
+DELETE FROM workoutClusterSegment;
+
 -- Cluster identity lives on the parent set so completion can decide without reading extra rows.
 -- The performed count is denormalised here and rewritten in the same transaction as any segment
 -- change, so a reader never has to join the segment table to know whether a cluster is complete.

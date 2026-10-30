@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.backup.ClearAutomaticBackupFilesUseCase
 import com.hydrafit.app.core.domain.backup.RunAutomaticBackupUseCase
 import com.hydrafit.app.core.domain.storage.ClearDataCategoryUseCase
 import com.hydrafit.app.core.domain.storage.DataCategory
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearException
 import com.hydrafit.app.core.domain.storage.StorageUsage
 import com.hydrafit.app.core.domain.storage.StorageUsageUseCase
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
@@ -99,6 +100,15 @@ class StorageDataViewModel(
                 loadUsage()
             } catch (cancellation: CancellationException) {
                 throw cancellation
+            } catch (refusal: ExerciseDataClearException) {
+                _state.update {
+                    it.copy(
+                        pending = null,
+                        typedConfirmation = "",
+                        inProgress = false,
+                        status = StorageDataStatus.CategoryBlocked(refusal.failure)
+                    )
+                }
             } catch (throwable: Throwable) {
                 _state.update {
                     it.copy(

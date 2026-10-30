@@ -1564,6 +1564,44 @@ class SqlDelightBackupRepositoryTest {
         )
     }
 
+    @Test
+    fun aRecordedSetFromADeletedProfileExportsAsMergeOnlyAndStaysValid() = runTest {
+        driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+        val profiles = SqlDelightEquipmentProfileRepository(database)
+        val deletedProfile = profiles.create("Old gym", copyFrom = null)
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO equipmentStation(profileId, equipmentId, name, loadBasis) " +
+                "VALUES ($deletedProfile, 'BARBELL', 'Old rack', 'TOTAL')"
+        )
+        val stationId = HistoricalDatabaseFixtures.long(
+            driver,
+            "SELECT id FROM equipmentStation"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSession(id, startedAtMillis, endedAtMillis, localEpochDay) " +
+                "VALUES ('s1', 1, 2, 1)"
+        )
+        HistoricalDatabaseFixtures.exec(
+            driver,
+            "INSERT INTO workoutSet(" +
+                "exerciseId, reps, weightKg, performedAt, isWarmup, loadKind, sessionId, " +
+                "stationId, stationName, stationLoadBasis" +
+                ") VALUES ('back-squat', 5, 100.0, 1, 0, 'EXTERNAL', 's1', $stationId, " +
+                "'Old rack', 'TOTAL')"
+        )
+
+        profiles.delete(profiles.current().context, profileId = deletedProfile)
+
+        val exported = repository.export(appVersion = "dev", exportedAtMillis = 1L)
+
+        val set = exported.workoutSets.single()
+        assertEquals(0L, set.stationId)
+        assertEquals("Old rack", set.stationName)
+        BackupValidator(SqlDelightBackupCatalog()).validate(exported)
+    }
+
     private fun mergedSelection(): BackupMergeSelection = BackupMergeSelection(
         customExercisesToInsert = listOf(
             BackupExerciseRecord(

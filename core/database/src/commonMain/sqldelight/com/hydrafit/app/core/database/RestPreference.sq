@@ -24,5 +24,10 @@ VALUES ('EXERCISE:' || ?, ?, ?);
 deleteExerciseOverride:
 DELETE FROM restPreference WHERE preferenceKey = 'EXERCISE:' || ?;
 
+-- Per-exercise overrides keyed to a custom exercise, deleted when those definitions are removed.
+-- The global default is not exercise-keyed and must survive this cleanup.
+deleteAllCustomExerciseOverrides:
+DELETE FROM restPreference WHERE exerciseId IN (SELECT id FROM exercise WHERE isCustom = 1);
+
 deleteAll:
 DELETE FROM restPreference;

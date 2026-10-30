@@ -25,6 +25,8 @@ import com.hydrafit.app.core.domain.storage.ClearDataCategoryUseCase
 import com.hydrafit.app.core.domain.storage.DataCategory
 import com.hydrafit.app.core.domain.storage.DataCountKind
 import com.hydrafit.app.core.domain.storage.DataManagementRepository
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearException
+import com.hydrafit.app.core.domain.storage.ExerciseDataClearFailure
 import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.storage.StorageUsageUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
@@ -152,6 +154,44 @@ class StorageDataViewModelTest {
     }
 
     @Test
+    fun aReferencedExerciseRemovalIsReportedAsBlockedAndRemovesNothing() = runTest(dispatcher) {
+        val repository = StorageTestDataRepository(
+            failure = ExerciseDataClearException(
+                ExerciseDataClearFailure.CUSTOM_EXERCISES_REFERENCED
+            )
+        )
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+        val usageBefore = assertNotNull(viewModel.state.value.usage)
+
+        viewModel.request(DataCategory.EXERCISE_DATA)
+        viewModel.confirm()
+        advanceUntilIdle()
+
+        assertEquals(
+            StorageDataStatus.CategoryBlocked(ExerciseDataClearFailure.CUSTOM_EXERCISES_REFERENCED),
+            viewModel.state.value.status
+        )
+        assertNull(viewModel.state.value.pending)
+        assertFalse(viewModel.state.value.inProgress)
+        assertEquals(listOf(DataCategory.EXERCISE_DATA), repository.cleared)
+        assertEquals(usageBefore, viewModel.state.value.usage)
+    }
+
+    @Test
+    fun aGenericRemovalFailureIsStillReportedAsFailed() = runTest(dispatcher) {
+        val repository = StorageTestDataRepository(failure = IllegalStateException("boom"))
+        val viewModel = viewModel(repository = repository)
+        advanceUntilIdle()
+
+        viewModel.request(DataCategory.WORKOUT_HISTORY)
+        viewModel.confirm()
+        advanceUntilIdle()
+
+        assertEquals(StorageDataStatus.Failed(null), viewModel.state.value.status)
+    }
+
+    @Test
     fun backUpNowFailureIsSurfacedAndTheDialogStaysOpen() = runTest(dispatcher) {
         val stateStore = StorageTestBackupStateStore(
             AutomaticBackupState(enabled = true, folderHandle = null)
@@ -224,6 +264,7 @@ private fun storageTestCounts(): MutableMap<DataCountKind, Int> = mutableMapOf(
     DataCountKind.SESSIONS to 3,
     DataCountKind.SETS to 10,
     DataCountKind.SESSION_NOTES to 1,
+    DataCountKind.CARDIO_ACTIVITIES to 4,
     DataCountKind.ACCEPTED_PLANS to 1,
     DataCountKind.ROUTINES to 2,
     DataCountKind.ACTIVATIONS to 1,
@@ -235,7 +276,8 @@ private fun storageTestCounts(): MutableMap<DataCountKind, Int> = mutableMapOf(
 )
 
 private class StorageTestDataRepository(
-    var counts: MutableMap<DataCountKind, Int> = storageTestCounts()
+    var counts: MutableMap<DataCountKind, Int> = storageTestCounts(),
+    var failure: Throwable? = null
 ) : DataManagementRepository {
     val cleared = mutableListOf<DataCategory>()
 
@@ -243,6 +285,7 @@ private class StorageTestDataRepository(
 
     override suspend fun clear(category: DataCategory) {
         cleared += category
+        failure?.let { throw it }
         if (category == DataCategory.ALL_DATA) {
             counts.keys.forEach { counts[it] = 0 }
         } else {

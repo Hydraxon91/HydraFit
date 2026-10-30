@@ -47,3 +47,9 @@ DELETE FROM equipmentStation WHERE profileId = ?;
 
 deleteAllStations:
 DELETE FROM equipmentStation;
+
+-- Stations belong to the catalog equipment row even when they are profile-scoped, so deleting the
+-- equipment row must clear its stations across every profile. Recorded sets keep their frozen
+-- station label and load basis; only the equipment identity goes away.
+deleteStationsForEquipment:
+DELETE FROM equipmentStation WHERE equipmentId = ?;
