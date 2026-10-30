@@ -166,6 +166,31 @@ A preparation edit persists as one global override per action in the additive
 `buildWarmupGuidance` so a later occurrence renders the persisted measure; a row showing a persisted
 override carries the same "(edited)" marker as a transient edit.
 
+## Timed-set Logger timer
+
+A seconds-based pending draft offers **Start timer** on its planned-draft row, and the
+matching guided row offers the same control for the current guided timed draft. The guided
+section and the planned-draft list never render together, so only one timer surface is
+visible at a time. The Logger's `WorkoutLoggerUiState.setTimer` holds one transient
+`SetTimerState`: a five-second cancellable preparation countdown, then the prescribed work
+countdown, then a confirmation showing the measured work seconds with **Log set** and
+**Discard**. Only one timer exists and it never records by itself; reaching zero and
+**Stop early** both only open the confirmation, and a stop during the first work second is
+floored to one second. **Log set** writes exactly the one measured set through the same
+pre-write gates as Confirm (legacy-load resolution, missing external load, cluster
+refusal) with the measured seconds, leaving the frozen prescribed target unchanged and the
+remaining sets pending; a guided draft writes through the guided confirmation path, a
+planned draft through the draft path, and an ordered slot still logs its measured
+performance rather than following the target. A failed write keeps the confirmation and
+its measured value for an explicit retry, and an insert that already landed is never
+written again. A gate's own dialog resolves from the unmodified draft, so the measured
+value cannot be carried into it: the confirmation closes and an explicit notice says the
+measured seconds were discarded. The timer is foreground-only
+(`WorkoutLoggerViewModel` ticker in `viewModelScope`, cancelled by `onPause`, ViewModel
+clear, another timer/set start, a draft/edit context change, dismissal, Discard and a
+guided-preference change) with no notification, service, alarm or persisted state.
+The existing rest timer is untouched and still follows only a live guided completion.
+
 Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the
 existing non-compound pattern selector. All six manual shrug/neck seeds remain selectable
 for manual logging/routines; the full catalog is not filtered by planner eligibility.
