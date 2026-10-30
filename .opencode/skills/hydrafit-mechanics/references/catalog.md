@@ -127,6 +127,15 @@ SQUAT, preserving all weights and their compound fatigue classification. The adv
 recognizes front/side deltoids and TRAPS for vertical pulls and ADDUCTORS for leg
 isolation. Existing overrides, snapshots and frozen prescriptions are not rewritten.
 
+## Preferred prescription measure
+
+`ExerciseMeasureDefaults` (`:core:domain`, engine package) is app-owned metadata that decides the
+measure a generated slot uses, keyed by built-in exercise id; the default is reps. Plank is the only
+timed entry in this slice (30 seconds, an approved product default rather than a physiological
+claim). It is not a catalog row, schema column, backup field or user setting: seeding, overrides and
+stored history keep their values, and a custom or renamed id stays rep-based. Both planner paths
+apply it; see `planning.md` for the generation behavior.
+
 ## Equipment identities (0.7.6 C6)
 
 `EquipmentTag.BUILT_IN` owns reserved ids even when a canonical row is absent. Custom creation uses

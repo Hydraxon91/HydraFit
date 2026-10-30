@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -66,6 +67,85 @@ class WeeklyPlanSanitizerTest {
                 it.unmetReason == ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE
             }
         )
+    }
+
+    @Test
+    fun rewritesAPreferredTimedExerciseToTheAppDuration() = runTest {
+        val timedCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(
+                Exercise(
+                    id = "bench-press",
+                    name = "Barbell Bench Press",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                    movementPattern = MovementPattern.HORIZONTAL_PUSH
+                ),
+                Exercise(
+                    id = "plank",
+                    name = "Plank",
+                    requiredEquipment = emptySet(),
+                    primaryMuscles = setOf(MuscleGroup.ABS),
+                    movementPattern = MovementPattern.CORE,
+                    loadCapability = ExerciseLoadCapability.BODYWEIGHT_ONLY
+                )
+            )
+        }
+        val modelPlan = WeeklyPlan(
+            engine = PlannerEngineId.GEMINI_API,
+            days = listOf(
+                dayOf(0, listOf("bench-press", "plank")).copy(
+                    exercises = listOf(
+                        PlannedExercise(
+                            exerciseId = "bench-press",
+                            sets = 3,
+                            reps = 8,
+                            suggestedWeightKg = 60.0
+                        ),
+                        PlannedExercise(
+                            exerciseId = "plank",
+                            sets = 3,
+                            reps = 20,
+                            suggestedWeightKg = 10.0
+                        )
+                    )
+                )
+            )
+        )
+
+        val sanitized = WeeklyPlanSanitizer(timedCatalog).sanitize(
+            modelPlan,
+            request(includeWorkoutData = true).copy(
+                recentWeightCaps = mapOf("bench-press" to 100.0),
+                automaticSetPrescription = AutomaticSetPrescription(
+                    shape = SetPrescriptionShape.STRAIGHT,
+                    minReps = 8,
+                    maxReps = 10
+                )
+            )
+        )!!
+
+        val exercises = sanitized.days.single().exercises.associateBy { it.exerciseId }
+        val plank = exercises.getValue("plank")
+        assertEquals(TrainingGoal.BALANCED.accessorySets, plank.sets)
+        assertEquals(30, plank.durationSeconds)
+        assertNull(plank.reps)
+        assertNull(plank.suggestedWeightKg)
+        assertEquals(LoadKind.BODYWEIGHT, plank.loadKind)
+        assertNull(plank.setTargets)
+        PrescriptionBounds.validate(
+            sets = plank.sets,
+            reps = plank.reps,
+            durationSeconds = plank.durationSeconds,
+            weightKg = plank.suggestedWeightKg
+        )
+
+        // A counted exercise keeps the app's own sets and rep scheme, and still receives its
+        // ordered targets from the app's recipe.
+        val benchPress = exercises.getValue("bench-press")
+        assertEquals(TrainingGoal.BALANCED.defaultSets, benchPress.sets)
+        assertEquals(TrainingGoal.BALANCED.compoundReps, benchPress.reps)
+        assertNull(benchPress.durationSeconds)
+        assertEquals(benchPress.sets, benchPress.setTargets?.sets)
     }
 
     @Test

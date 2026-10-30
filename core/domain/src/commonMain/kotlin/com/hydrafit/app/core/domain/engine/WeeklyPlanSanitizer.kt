@@ -8,8 +8,9 @@ import kotlin.math.roundToInt
 
 /**
  * Shared guard for model-backed plans. It drops exercises that are unknown or need unselected
- * equipment, applies the requested set count and the compound/isolation rep scheme, and rejects
- * a plan that is not a complete week. Returns null when the plan should be discarded.
+ * equipment, applies the requested set count and the compound/isolation rep scheme (or the app's
+ * preferred timed measure for a timed exercise), and rejects a plan that is not a complete week.
+ * Returns null when the plan should be discarded.
  */
 class WeeklyPlanSanitizer(
     private val catalog: ExerciseCatalog,
@@ -39,6 +40,18 @@ class WeeklyPlanSanitizer(
                 exercises = day.exercises.mapNotNull { planned ->
                     val exercise = usable[planned.exerciseId] ?: return@mapNotNull null
                     val sets = setsFor(exercise, request, isDeload)
+                    val preferredMeasure =
+                        ExerciseMeasureDefaults.preferredMeasure(exercise.id)
+                    if (preferredMeasure is ExerciseMeasure.Timed) {
+                        return@mapNotNull timedExercise(
+                            planned = planned,
+                            exercise = exercise,
+                            sets = sets,
+                            durationSeconds = preferredMeasure.durationSeconds,
+                            request = request,
+                            isDeload = isDeload
+                        )
+                    }
                     val reps = volumeAwareReps.repsFor(
                         request.goal,
                         exercise.movementPattern.isCompound,
@@ -263,6 +276,53 @@ class WeeklyPlanSanitizer(
                 isDeload = isDeload,
                 deloadVolumeScale = periodization.deloadVolumeScale,
                 deloadIntensityScale = periodization.deloadIntensityScale
+            )
+        )
+    }
+
+    /**
+     * Applies the app's preferred measure to a model slot. The model's reps and load are discarded:
+     * the duration is the app's product default, never the model's number, and ordered rep targets
+     * are not fabricated for a timed slot. Sets keep the same rule as counted work.
+     */
+    private fun timedExercise(
+        planned: PlannedExercise,
+        exercise: Exercise,
+        sets: Int,
+        durationSeconds: Int,
+        request: PlanRequest,
+        isDeload: Boolean
+    ): PlannedExercise {
+        val baseSets = if (exercise.movementPattern.isCompound) {
+            request.setsPerExercise
+        } else {
+            request.accessorySetsPerExercise
+        }
+        val intensityScale = if (isDeload) periodization.deloadIntensityScale else 1.0
+        return PlannedExercise(
+            exerciseId = exercise.id,
+            sets = sets,
+            durationSeconds = durationSeconds,
+            loadKind = WorkoutLoadPolicy.defaultKind(exercise.loadCapability),
+            loadCapability = exercise.loadCapability,
+            explanation = ExerciseTargetExplanation(
+                aiAdjustment = AiLoadExplanation(
+                    proposedKg = planned.suggestedWeightKg,
+                    proposedAccepted = false,
+                    deloadScaled = false,
+                    deloadIntensityScale = intensityScale,
+                    progressionBoundKg = null,
+                    boundedByProgression = false,
+                    equipmentCeilingKg = null,
+                    cappedByEquipment = false
+                ),
+                setCount = SetCountExplanation(
+                    baseSets = baseSets,
+                    deloadApplied = isDeload,
+                    deloadVolumeScale = periodization.deloadVolumeScale,
+                    fatigueEffect = FatigueSetEffect.NONE,
+                    finalSets = sets
+                )
             )
         )
     }

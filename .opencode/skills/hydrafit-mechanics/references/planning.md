@@ -1,18 +1,24 @@
 # Planning mechanics
 
 User-authored routines, frozen activation/occurrence slots and accepted-plan slots support
-exclusive reps, whole seconds or whole metres. The engines themselves still prescribe reps only and
-never invent a duration or a distance: an accepted-plan slot's seconds or metres are always the
-user's own measure edit, made in SplitBuilder's per-slot measure action (Reps/Seconds/Distance plus a
-value; a distance is entered in the selected display unit and stored as whole metres; invalid input
-writes nothing). A draft edit is state-only and carries into acceptance; an accepted-plan edit
-persists in place like a swap and keeps the plan's id and acceptance time. Swap preserves the
-replaced slot's measure, plan-to-routine conversion carries it, and Regenerate produces a fresh
-rep-based plan, so a user-set duration or distance is not preserved across regeneration. A timed or
-distance slot is skipped by rep-based load progression rather than counted as zero reps, and
-performed timed/distance sets do not enter rep-derived fatigue or load inputs; a distance slot keeps
-its own load separate from the distance. Informational soreness/exhaustion storage is deferred; do
-not infer that the existing fatigue-based skip/reduce behavior consumes user reports.
+exclusive reps, whole seconds or whole metres. Generation otherwise prescribes the engine's own rep
+scheme, with one app-owned exception: `ExerciseMeasureDefaults` maps built-in exercise ids to a
+preferred measure, and Plank is generated as 30 seconds — an approved product default, not a
+physiological claim. Both the deterministic engine and the model sanitizer replace reps with that
+duration, keep no load and fabricate no ordered rep targets; every other exercise stays rep-based.
+The preference is domain metadata, not a schema column, backup field or user setting, and stored rep
+values are never converted. Apart from that generated measurement, an accepted-plan slot's seconds or metres
+are the user's own measure edit, made in SplitBuilder's per-slot measure action (Reps/Seconds/
+Distance plus a value; a distance is entered in the selected display unit and stored as whole metres;
+invalid input writes nothing). A draft edit is state-only and carries into acceptance; an
+accepted-plan edit persists in place like a swap and keeps the plan's id and acceptance time. Swap
+preserves the replaced slot's measure, plan-to-routine conversion carries it, and Regenerate produces
+a fresh plan applying the current preferred measure, so a user-set duration or distance is not
+preserved across regeneration. A timed or distance slot is skipped by rep-based load progression
+rather than counted as zero reps, and performed timed/distance sets do not enter rep-derived fatigue
+or load inputs; a distance slot keeps its own load separate from the distance. Informational
+soreness/exhaustion storage is deferred; do not infer that the existing fatigue-based skip/reduce
+behavior consumes user reports.
 
 Editing an unstarted occurrence matches existing prescription metadata by exercise id only when that
 id occurs once. If an occurrence contains duplicate exercise entries, the editor rejects the request

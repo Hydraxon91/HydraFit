@@ -10,6 +10,7 @@ import com.hydrafit.app.core.domain.fatigue.FatigueReplayFixture
 import com.hydrafit.app.core.domain.fatigue.LoggedSet
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.fatigue.MuscleTarget
+import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.workout.LoadKind
 import kotlin.math.nextDown
 import kotlin.math.nextUp
@@ -1072,6 +1073,50 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun prescribesAPreferredTimedExerciseInItsDefaultSeconds() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS).copy(
+                automaticSetPrescription = AutomaticSetPrescription(
+                    shape = SetPrescriptionShape.STRAIGHT,
+                    minReps = 8,
+                    maxReps = 10
+                ),
+                recentWeightCaps = mapOf("plank" to 50.0)
+            ),
+            listOf(exercise("plank", MovementPattern.CORE))
+        )
+
+        val plank = plan.days.flatMap { it.exercises }.single { it.exerciseId == "plank" }
+        assertEquals(30, plank.durationSeconds)
+        assertNull(plank.reps)
+        assertNull(plank.suggestedWeightKg)
+        assertNull(plank.setTargets)
+        // The timed slot still satisfies the shared prescription-shape rule.
+        PrescriptionBounds.validate(
+            sets = plank.sets,
+            reps = plank.reps,
+            durationSeconds = plank.durationSeconds,
+            weightKg = plank.suggestedWeightKg
+        )
+    }
+
+    @Test
+    fun keepsCountedExercisesOnTheRepScheme() {
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS),
+            listOf(
+                exercise("plank", MovementPattern.CORE),
+                exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
+            )
+        )
+
+        val benchPress = plan.days.flatMap { it.exercises }
+            .single { it.exerciseId == "bench-press" }
+        assertEquals(TrainingGoal.BALANCED.compoundReps, benchPress.reps)
+        assertNull(benchPress.durationSeconds)
+    }
+
+    @Test
     fun keepsEveryDayWithinTheTargetExerciseCountRange() {
         val plan = engine.plan(request(daysPerWeek = 3, equipment = everything), richCatalog())
 
@@ -1661,9 +1706,9 @@ class DeterministicWorkoutPlannerEngineTest {
 
         assertEquals(
             "FULL_BODY[back-squat:3:6:null,bench-press:3:6:null,pull-up:3:6:null," +
-                "curl:2:12:null,calf-raise:2:12:null,plank:2:12:null];" +
+                "curl:2:12:null,calf-raise:2:12:null,plank:2:null:null];" +
                 "FULL_BODY[rdl:3:6:null,ohp:3:6:null,barbell-row:3:6:null," +
-                "curl:2:12:null,calf-raise:2:12:null,plank:2:12:null]",
+                "curl:2:12:null,calf-raise:2:12:null,plank:2:null:null]",
             render(plan)
         )
     }
@@ -1677,10 +1722,10 @@ class DeterministicWorkoutPlannerEngineTest {
         assertEquals(
             "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
                 "curl:2:12:null];" +
-                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:12:null];" +
+                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:null:null];" +
                 "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
                 "curl:2:12:null];" +
-                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:12:null]",
+                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:null:null]",
             render(plan)
         )
     }
@@ -1714,7 +1759,11 @@ class DeterministicWorkoutPlannerEngineTest {
             val explanation = requireNotNull(exercise.explanation)
             assertEquals(exercise.sets, requireNotNull(explanation.setCount).finalSets)
             val conversion = explanation.conversion
-            if (exercise.suggestedWeightKg == null) {
+            if (exercise.durationSeconds != null) {
+                // A timed slot prescribes no load, so there is no load suggestion to explain.
+                assertNull(conversion)
+                assertNull(exercise.suggestedWeightKg)
+            } else if (exercise.suggestedWeightKg == null) {
                 assertNull(conversion)
                 assertTrue(explanation.unavailableReason != null)
             } else {
