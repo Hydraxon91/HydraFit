@@ -139,6 +139,19 @@ for it — a working set, a warm-up or a partial cluster — no suggestion is pu
 apply step writes only an unstarted slot. Holds and reviews stay silent, nothing auto-applies, and
 the row refreshes to the written target afterwards.
 
+## Unstarted slot measurement correction
+
+A guided draft for the active occurrence offers **Change measurement** while the occurrence has no
+recorded set (warm-ups included) and the slot has neither ordered per-set targets nor a cluster.
+The dialog picks reps, seconds, distance or force explicitly and requires a typed value; no stored
+number is converted into another measure. `ChangeOccurrenceEntryMeasureUseCase` validates the active
+selected occurrence and delegates to `GuidedWorkoutTargetsRepository.changeEntryMeasure`, a
+revision-gated `occurrenceEntry` update that rewrites only that row's measure, load and
+`guidedTargets` (cleared). The frozen activation, accepted plan, routine, other occurrences and
+recorded history are untouched. Seconds and force are load-free; reps and distance keep the existing
+load only when `WorkoutLoadPolicy` permits it. The store re-checks the same guards and rejects
+recorded work, ordered targets, clusters and invalid load shapes. No schema change is involved.
+
 ## Timed prescription authoring
 
 Routines provides a repetitions/seconds choice per slot; only the selected measure is saved.

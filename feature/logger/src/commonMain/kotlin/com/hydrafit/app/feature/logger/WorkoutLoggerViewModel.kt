@@ -17,6 +17,7 @@ import com.hydrafit.app.core.domain.fatigue.FatigueConfig
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
+import com.hydrafit.app.core.domain.schedule.ChangeOccurrenceEntryMeasureUseCase
 import com.hydrafit.app.core.domain.schedule.ClusterSegmentField
 import com.hydrafit.app.core.domain.schedule.ClusterSegmentPatch
 import com.hydrafit.app.core.domain.schedule.FinishMode
@@ -24,6 +25,8 @@ import com.hydrafit.app.core.domain.schedule.GuidedTargetField
 import com.hydrafit.app.core.domain.schedule.GuidedTargetPatch
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryMeasure
+import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutLoggingActions
@@ -99,6 +102,7 @@ class WorkoutLoggerViewModel(
     private val warmupOverrideRepository: WarmupPreparationOverrideRepository,
     private val equipment: WorkoutLoggerEquipment,
     private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase,
+    private val changeEntryMeasure: ChangeOccurrenceEntryMeasureUseCase,
     private val suggestSlotProgression: SuggestSlotProgressionUseCase,
     private val applySlotProgressionSuggestion: ApplySlotProgressionSuggestionUseCase
 ) : ViewModel() {
@@ -2677,6 +2681,126 @@ class WorkoutLoggerViewModel(
         }
     }
 
+    /**
+     * Opens the measurement dialog for one unstarted guided slot. The action is offered only while
+     * the occurrence has no recorded set and the slot has neither ordered targets nor a cluster.
+     */
+    fun openMeasureChange(entryId: Long) {
+        if (_state.value.measureChange != null) return
+        val occurrence = currentOccurrence ?: return
+        if (entryId !in _state.value.measureChangeEntryIds) return
+        val entry = occurrence.entries.firstOrNull { it.id == entryId } ?: return
+        _state.update {
+            it.copy(
+                measureChange = MeasureChangeDialog(
+                    occurrenceEntryId = entryId,
+                    exerciseName = entry.exerciseName,
+                    metric = entry.measureMetric(),
+                    value = entry.measureInput()
+                )
+            )
+        }
+    }
+
+    /** Picks the metric explicitly; the typed value is cleared so no old-measure digits carry over. */
+    fun onMeasureChangeMetricSelected(metric: SetMetric) {
+        _state.update { state ->
+            val dialog = state.measureChange ?: return@update state
+            if (dialog.metric == metric) {
+                state
+            } else {
+                state.copy(
+                    measureChange = dialog.copy(
+                        metric = metric,
+                        value = "",
+                        invalidValue = false,
+                        error = null
+                    )
+                )
+            }
+        }
+    }
+
+    fun onMeasureChangeValueChanged(value: String) {
+        _state.update { state ->
+            val dialog = state.measureChange ?: return@update state
+            state.copy(
+                measureChange = dialog.copy(value = value, invalidValue = false, error = null)
+            )
+        }
+    }
+
+    /** Closes the dialog without writing; a refused write keeps it open and retryable. */
+    fun dismissMeasureChange() {
+        if (_state.value.measureChange?.applying == true) return
+        _state.update { it.copy(measureChange = null) }
+    }
+
+    /**
+     * Applies the dialog's explicit metric and value to the occurrence entry, then refreshes the
+     * drafts so the row shows the measure the write produced. A repeated apply is ignored while one
+     * is in flight.
+     */
+    fun applyMeasureChange() {
+        val dialog = _state.value.measureChange ?: return
+        if (dialog.applying) return
+        val occurrenceId = currentOccurrence?.id ?: return
+        val value = dialog.value.trim().toDoubleOrNull()
+        if (value == null || !value.isFinite() || value <= 0.0) {
+            _state.update { state ->
+                state.copy(measureChange = state.measureChange?.copy(invalidValue = true))
+            }
+            return
+        }
+        val metric = dialog.metric.toMeasure()
+        _state.update { state ->
+            state.copy(measureChange = state.measureChange?.copy(applying = true, error = null))
+        }
+        viewModelScope.launch {
+            try {
+                changeEntryMeasure(occurrenceId, dialog.occurrenceEntryId, metric, value)
+                _state.update { it.copy(measureChange = null) }
+                if (activeActivation != null && currentOccurrence?.id == occurrenceId) {
+                    refreshOccurrence()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (currentOccurrence?.id == occurrenceId) {
+                    _state.update { state ->
+                        state.copy(
+                            measureChange = state.measureChange?.copy(
+                                applying = false,
+                                error = error.message
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun OccurrenceEntry.measureMetric(): SetMetric = when {
+        durationSeconds != null -> SetMetric.DURATION
+        distanceMeters != null -> SetMetric.DISTANCE
+        forceNewtons != null -> SetMetric.FORCE
+        else -> SetMetric.REPETITIONS
+    }
+
+    private fun OccurrenceEntry.measureInput(): String = when {
+        durationSeconds != null -> durationSeconds.toString()
+        distanceMeters != null -> distanceMeters.toString()
+        forceNewtons != null -> forceNewtons.toString()
+        else -> reps?.toString().orEmpty()
+    }
+
+    private fun SetMetric.toMeasure(): OccurrenceEntryMeasure = when (this) {
+        SetMetric.REPETITIONS -> OccurrenceEntryMeasure.REPETITIONS
+        SetMetric.DURATION -> OccurrenceEntryMeasure.SECONDS
+        SetMetric.DISTANCE -> OccurrenceEntryMeasure.DISTANCE_METERS
+        SetMetric.FORCE -> OccurrenceEntryMeasure.FORCE_NEWTONS
+    }
+
     /** Logs the current legacy draft as bodyweight/no added load and advances the queue. */
     fun resolveLegacyAsBodyweight() = resolveLegacy(LoadKind.BODYWEIGHT, null)
 
@@ -3016,6 +3140,8 @@ class WorkoutLoggerViewModel(
                     progressionSuggestions = emptyMap(),
                     progressionApplyEntryId = null,
                     progressionApplyFailed = false,
+                    measureChangeEntryIds = emptySet(),
+                    measureChange = null,
                     todayFocus = null,
                     guidedProgress = null,
                     guidedExpandedEntries = emptyMap(),
@@ -3076,6 +3202,22 @@ class WorkoutLoggerViewModel(
         // so a warm-up or a partial cluster blocks the offer here: publishing one would show an Apply
         // that must then fail.
         val started = recorded.anyRecorded
+        // A measure correction is offered only before any work exists and only for slots whose
+        // structure a single scalar measure can replace; a live started set owns its own measure.
+        val measureChangeEntryIds = if (started ||
+            occurrence.status == OccurrenceStatus.IN_PROGRESS
+        ) {
+            emptySet()
+        } else {
+            occurrence.entries
+                .filter { entry ->
+                    entry.setTargets == null &&
+                        entry.cluster == null &&
+                        entry.id != _state.value.startedSetEntryId
+                }
+                .map { it.id }
+                .toSet()
+        }
         // One batched read supplies every policy-bearing slot's decision for this occurrence. It is
         // never per draft, and a hold/review is stored but stays silent in the Logger. The suggestion
         // is optional UI: a failed read must not turn an ordinary logger refresh into a failure.
@@ -3148,6 +3290,10 @@ class WorkoutLoggerViewModel(
                     prescribedSets = prescribed
                 ),
                 draftSets = displayDrafts,
+                measureChangeEntryIds = measureChangeEntryIds,
+                measureChange = it.measureChange?.takeIf { dialog ->
+                    sameOccurrence && dialog.occurrenceEntryId in measureChangeEntryIds
+                },
                 progressionSuggestions = progressionSuggestions,
                 draftEdit = it.draftEdit?.takeIf { edit ->
                     edit.draft in displayDrafts ||

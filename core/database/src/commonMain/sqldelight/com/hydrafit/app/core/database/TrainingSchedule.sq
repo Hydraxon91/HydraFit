@@ -290,6 +290,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 applyGuidedTargets:
 UPDATE occurrenceEntry SET guidedTargets = ? WHERE id = ?;
 
+setOccurrenceEntryMeasure:
+UPDATE occurrenceEntry
+SET reps = ?, durationSeconds = ?, distanceMeters = ?, forceNewtons = ?, weightKg = ?, loadKind = ?, guidedTargets = NULL
+WHERE id = ?;
+
 advanceOccurrenceRevision:
 UPDATE workoutOccurrence SET revision = revision + 1 WHERE id = ?;
 

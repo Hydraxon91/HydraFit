@@ -15,6 +15,7 @@ import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRepository
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry as DomainOccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryMeasureRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
@@ -504,6 +505,78 @@ class SqlDelightWorkoutScheduleRepository(
                 ).value == 0L
             ) {
                 queries.applyGuidedTargets(priorPayload, request.entryId)
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+        }
+    }
+
+    override suspend fun changeEntryMeasure(request: OccurrenceEntryMeasureRequest) = gate.mutate {
+        database.transaction {
+            val context = queries.selectGuidedOccurrenceContext(
+                request.occurrenceId,
+                request.entryId
+            ).executeAsOneOrNull()
+                ?: throw ScheduleException("That occurrence entry no longer exists")
+            val entryRow = queries.selectOccurrenceEntryById(request.entryId).executeAsOneOrNull()
+                ?: throw ScheduleException("That occurrence entry no longer exists")
+            if (context.entryId != entryRow.id ||
+                context.exerciseId != entryRow.exerciseId ||
+                entryRow.occurrenceId != request.occurrenceId
+            ) {
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+            if (context.legacyFallbackEnabled != 0L ||
+                context.activeActivationId != context.activationId ||
+                context.selectedOccurrenceId != request.occurrenceId ||
+                context.status in RESOLVED_STATUS_NAMES ||
+                context.status == OccurrenceStatus.IN_PROGRESS.name ||
+                context.revision != request.occurrenceRevision.toLong()
+            ) {
+                throw ScheduleException("That workout changed; refresh and try again")
+            }
+            val entry = entryRow.toDomain()
+            if (entry.setTargets != null) {
+                throw ScheduleException(
+                    "This slot has ordered per-set targets, so its measurement stays as prescribed"
+                )
+            }
+            if (entry.cluster != null) {
+                throw ScheduleException(
+                    "This slot's cluster shape cannot be kept with another measurement"
+                )
+            }
+            val recorded = database.workoutLogQueries
+                .selectSetsForOccurrence(request.occurrenceId)
+                .executeAsList()
+                .isNotEmpty() ||
+                database.workoutLogQueries
+                    .selectSetsForOccurrenceEntry(request.entryId)
+                    .executeAsList()
+                    .isNotEmpty()
+            if (recorded) throw ScheduleException("This workout has recorded sets")
+            val target = request.target
+            try {
+                target.requireValid()
+                WorkoutLoadPolicy.validate(entry.loadCapability, target.loadKind, target.weightKg)
+            } catch (error: IllegalArgumentException) {
+                throw ScheduleException(
+                    error.message ?: "That measurement is not valid for this slot"
+                )
+            }
+            queries.setOccurrenceEntryMeasure(
+                reps = target.reps?.toLong(),
+                durationSeconds = target.durationSeconds?.toLong(),
+                distanceMeters = target.distanceMeters?.toLong(),
+                forceNewtons = target.forceNewtons,
+                weightKg = target.weightKg,
+                loadKind = target.loadKind.name,
+                id = request.entryId
+            )
+            if (queries.advanceOccurrenceRevisionIfCurrent(
+                    request.occurrenceId,
+                    request.occurrenceRevision.toLong()
+                ).value == 0L
+            ) {
                 throw ScheduleException("That workout changed; refresh and try again")
             }
         }

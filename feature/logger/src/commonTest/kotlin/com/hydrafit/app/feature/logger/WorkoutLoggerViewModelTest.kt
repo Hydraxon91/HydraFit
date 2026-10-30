@@ -53,6 +53,7 @@ import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ActivationStatus
 import com.hydrafit.app.core.domain.schedule.ActivationWorkout
 import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
+import com.hydrafit.app.core.domain.schedule.ChangeOccurrenceEntryMeasureUseCase
 import com.hydrafit.app.core.domain.schedule.FinishWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.GuidedTargetField
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
@@ -60,6 +61,7 @@ import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargets
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRepository
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.OccurrenceEntryMeasureRequest
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
@@ -1245,6 +1247,87 @@ class WorkoutLoggerViewModelTest {
         // The retry refreshed the pending rows from the persisted edit.
         assertEquals(6, viewModel.state.value.draftSets.single().reps)
         assertEquals(90.0, viewModel.state.value.draftSets.single().weightKg)
+    }
+
+    @Test
+    fun changingAnUnstartedSlotsMeasurementAppliesOnceAndRefreshesTheDraft() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val guidedTargets = FakeGuidedWorkoutTargetsRepository(schedule)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            guidedTargets = guidedTargets
+        )
+        runCurrent()
+
+        assertEquals(setOf(40L), viewModel.state.value.measureChangeEntryIds)
+        viewModel.openMeasureChange(40L)
+        viewModel.onMeasureChangeMetricSelected(SetMetric.DURATION)
+        viewModel.onMeasureChangeValueChanged("30")
+        // A repeated tap before the first write resolves must not submit twice.
+        viewModel.applyMeasureChange()
+        viewModel.applyMeasureChange()
+        runCurrent()
+
+        assertEquals(1, guidedTargets.measureRequests.size)
+        assertNull(viewModel.state.value.measureChange)
+        assertEquals(30, viewModel.state.value.draftSets.single().durationSeconds)
+        assertNull(viewModel.state.value.draftSets.single().reps)
+    }
+
+    @Test
+    fun aRefusedMeasurementChangeKeepsTheDialogAndSurfacesTheReason() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val guidedTargets = FakeGuidedWorkoutTargetsRepository(schedule)
+        guidedTargets.failApply = true
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            guidedTargets = guidedTargets
+        )
+        runCurrent()
+
+        viewModel.openMeasureChange(40L)
+        viewModel.onMeasureChangeMetricSelected(SetMetric.DURATION)
+        viewModel.onMeasureChangeValueChanged("30")
+        viewModel.applyMeasureChange()
+        runCurrent()
+
+        val dialog = assertNotNull(viewModel.state.value.measureChange)
+        assertNotNull(dialog.error)
+        assertFalse(dialog.applying)
+        assertEquals(8, viewModel.state.value.draftSets.single().reps)
+    }
+
+    @Test
+    fun aRecordedWarmupHidesTheMeasurementAction() = runTimerTest {
+        val repository = FakeWorkoutLogRepository(
+            mutableListOf(
+                WorkoutSet(
+                    exerciseId = "back-squat",
+                    reps = 3,
+                    weightKg = null,
+                    performedAtMillis = 0L,
+                    isWarmup = true,
+                    occurrenceId = 30L,
+                    occurrenceEntryId = 40L
+                )
+            )
+        )
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        runCurrent()
+
+        assertTrue(viewModel.state.value.measureChangeEntryIds.isEmpty())
+        viewModel.openMeasureChange(40L)
+        assertNull(viewModel.state.value.measureChange)
     }
 
     @Test
@@ -3289,6 +3372,7 @@ class WorkoutLoggerViewModelTest {
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
             applyGuidedTargets = guidedTargetUseCase(repository),
+            changeEntryMeasure = changeMeasureUseCase(repository),
             suggestSlotProgression = progression.suggest,
             applySlotProgressionSuggestion = progression.apply
         )
@@ -3384,6 +3468,7 @@ class WorkoutLoggerViewModelTest {
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
             applyGuidedTargets = guidedTargetUseCase(repository),
+            changeEntryMeasure = changeMeasureUseCase(repository),
             suggestSlotProgression = progression.suggest,
             applySlotProgressionSuggestion = progression.apply
         )
@@ -3421,6 +3506,7 @@ class WorkoutLoggerViewModelTest {
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
             applyGuidedTargets = guidedTargetUseCase(repository),
+            changeEntryMeasure = changeMeasureUseCase(repository),
             suggestSlotProgression = progression.suggest,
             applySlotProgressionSuggestion = progression.apply
         )
@@ -3489,6 +3575,7 @@ class WorkoutLoggerViewModelTest {
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
             applyGuidedTargets = guidedTargetUseCase(repository),
+            changeEntryMeasure = changeMeasureUseCase(repository),
             suggestSlotProgression = progression.suggest,
             applySlotProgressionSuggestion = progression.apply
         )
@@ -4522,6 +4609,7 @@ class WorkoutLoggerViewModelTest {
             warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
             equipment = testEquipment(),
             applyGuidedTargets = guidedTargetUseCase(repository),
+            changeEntryMeasure = changeMeasureUseCase(repository),
             suggestSlotProgression = progression.suggest,
             applySlotProgressionSuggestion = progression.apply
         )
@@ -6540,6 +6628,7 @@ class WorkoutLoggerViewModelTest {
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = equipment,
         applyGuidedTargets = guidedTargetUseCase(repository),
+        changeEntryMeasure = changeMeasureUseCase(repository),
         suggestSlotProgression = progression.suggest,
         applySlotProgressionSuggestion = progression.apply
     )
@@ -6577,6 +6666,7 @@ class WorkoutLoggerViewModelTest {
         warmupOverrideRepository = FakeWarmupPreparationOverrideRepository(),
         equipment = testEquipment(),
         applyGuidedTargets = guidedTargetUseCase(repository),
+        changeEntryMeasure = changeMeasureUseCase(repository),
         suggestSlotProgression = progression.suggest,
         applySlotProgressionSuggestion = progression.apply
     )
@@ -6586,6 +6676,16 @@ class WorkoutLoggerViewModelTest {
         schedule: WorkoutScheduleRepository = FakeWorkoutScheduleRepository(),
         guidedTargets: GuidedWorkoutTargetsRepository? = null
     ) = ApplyGuidedWorkoutTargetsUseCase(
+        schedule,
+        log,
+        guidedTargets ?: FakeGuidedWorkoutTargetsRepository(schedule)
+    )
+
+    private fun changeMeasureUseCase(
+        log: WorkoutLogRepository,
+        schedule: WorkoutScheduleRepository = FakeWorkoutScheduleRepository(),
+        guidedTargets: GuidedWorkoutTargetsRepository? = null
+    ) = ChangeOccurrenceEntryMeasureUseCase(
         schedule,
         log,
         guidedTargets ?: FakeGuidedWorkoutTargetsRepository(schedule)
@@ -6646,6 +6746,33 @@ class WorkoutLoggerViewModelTest {
     ) : GuidedWorkoutTargetsRepository {
         /** When true, the store refuses the write as a storage failure would. */
         var failApply: Boolean = false
+        val measureRequests = mutableListOf<OccurrenceEntryMeasureRequest>()
+
+        override suspend fun changeEntryMeasure(request: OccurrenceEntryMeasureRequest) {
+            if (failApply) error("Injected guided target write failure")
+            measureRequests.add(request)
+            val occurrence = requireNotNull(schedule.getOccurrence(request.occurrenceId))
+            schedule.updateOccurrence(
+                occurrence.copy(
+                    revision = occurrence.revision + 1,
+                    entries = occurrence.entries.map { entry ->
+                        if (entry.id != request.entryId) {
+                            entry
+                        } else {
+                            entry.copy(
+                                reps = request.target.reps,
+                                durationSeconds = request.target.durationSeconds,
+                                distanceMeters = request.target.distanceMeters,
+                                forceNewtons = request.target.forceNewtons,
+                                weightKg = request.target.weightKg,
+                                loadKind = request.target.loadKind,
+                                guidedTargets = null
+                            )
+                        }
+                    }
+                )
+            )
+        }
 
         override suspend fun applyTargets(request: GuidedWorkoutTargetsRequest) {
             if (failApply) error("Injected guided target write failure")
@@ -11086,6 +11213,7 @@ class WorkoutLoggerViewModelTest {
         warmupOverrideRepository = warmupOverrides,
         equipment = equipment,
         applyGuidedTargets = guidedTargetUseCase(repository, schedule, guidedTargets),
+        changeEntryMeasure = changeMeasureUseCase(repository, schedule, guidedTargets),
         suggestSlotProgression = progression.suggest,
         applySlotProgressionSuggestion = progression.apply
     ).also { timerViewModels.add(it) }

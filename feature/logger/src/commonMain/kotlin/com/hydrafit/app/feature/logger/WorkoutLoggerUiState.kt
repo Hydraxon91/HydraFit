@@ -459,6 +459,22 @@ data class DraftEdit(
 }
 
 /**
+ * The open "Change measurement" dialog for one unstarted occurrence slot. The metric is chosen
+ * explicitly; the typed value is never derived from the previous measure.
+ */
+data class MeasureChangeDialog(
+    val occurrenceEntryId: Long,
+    val exerciseName: String,
+    val metric: SetMetric,
+    val value: String = "",
+    val applying: Boolean = false,
+    /** True when the typed value is not a positive number; the screen shows its localized hint. */
+    val invalidValue: Boolean = false,
+    /** Why the last apply was refused; the dialog stays open so a corrected value can be sent. */
+    val error: String? = null
+)
+
+/**
  * How a numeric dumbbell load is stated. A stored value is always per implement: unilateral work
  * is per hand, other dumbbell work per dumbbell. It is never doubled or halved for display.
  */
@@ -587,6 +603,13 @@ data class WorkoutLoggerUiState(
     val progressionApplyEntryId: Long? = null,
     /** True when the last suggestion apply failed; the suggestion stays available to retry. */
     val progressionApplyFailed: Boolean = false,
+    /**
+     * Unstarted, structurally simple occurrence slots whose measurement can still be corrected.
+     * Empty once the occurrence has any recorded set or its slot carries ordered targets or a cluster.
+     */
+    val measureChangeEntryIds: Set<Long> = emptySet(),
+    /** The open measurement dialog, or null when none is open. */
+    val measureChange: MeasureChangeDialog? = null,
     val draftEdit: DraftEdit? = null,
     /**
      * Why the last cluster draft submission was refused, or null when none was. Nothing is written

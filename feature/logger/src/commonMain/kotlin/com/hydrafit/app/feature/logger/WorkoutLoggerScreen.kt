@@ -234,6 +234,10 @@ import hydrafit.feature.logger.generated.resources.logger_loading_calculator_ope
 import hydrafit.feature.logger.generated.resources.logger_log_button
 import hydrafit.feature.logger.generated.resources.logger_log_failed
 import hydrafit.feature.logger.generated.resources.logger_log_refresh_failed
+import hydrafit.feature.logger.generated.resources.logger_measure_change_action
+import hydrafit.feature.logger.generated.resources.logger_measure_change_explanation
+import hydrafit.feature.logger.generated.resources.logger_measure_change_for
+import hydrafit.feature.logger.generated.resources.logger_measure_change_invalid
 import hydrafit.feature.logger.generated.resources.logger_new_session
 import hydrafit.feature.logger.generated.resources.logger_no_load_history
 import hydrafit.feature.logger.generated.resources.logger_no_load_inventory
@@ -606,6 +610,11 @@ fun WorkoutLoggerRoute(
         onConfirmAllDrafts = viewModel::confirmAllDrafts,
         onDismissDraft = viewModel::dismissDraft,
         onApplyProgressionSuggestion = viewModel::applyProgressionSuggestion,
+        onChangeMeasure = viewModel::openMeasureChange,
+        onMeasureMetricSelected = viewModel::onMeasureChangeMetricSelected,
+        onMeasureValueChanged = viewModel::onMeasureChangeValueChanged,
+        onApplyMeasureChange = viewModel::applyMeasureChange,
+        onDismissMeasureChange = viewModel::dismissMeasureChange,
         onResolveLegacyAsBodyweight = viewModel::resolveLegacyAsBodyweight,
         onResolveLegacyAsExternal = viewModel::resolveLegacyAsExternal,
         onDismissLegacyResolution = viewModel::dismissLegacyResolution,
@@ -794,6 +803,11 @@ fun WorkoutLoggerScreen(
     onConfirmAllDrafts: () -> Unit,
     onDismissDraft: (DraftSet) -> Unit,
     onApplyProgressionSuggestion: (Long) -> Unit,
+    onChangeMeasure: (Long) -> Unit,
+    onMeasureMetricSelected: (SetMetric) -> Unit,
+    onMeasureValueChanged: (String) -> Unit,
+    onApplyMeasureChange: () -> Unit,
+    onDismissMeasureChange: () -> Unit,
     onResolveLegacyAsBodyweight: () -> Unit,
     onResolveLegacyAsExternal: () -> Unit,
     onDismissLegacyResolution: () -> Unit,
@@ -1525,6 +1539,8 @@ fun WorkoutLoggerScreen(
                         onEditSet = onEditGuidedSet,
                         onReplace = onReplaceOccurrenceEntry,
                         onInstructions = onGuidedInstructions,
+                        onChangeMeasure = onChangeMeasure,
+                        measureChangeEntryIds = state.measureChangeEntryIds,
                         onLoadingCalculator = onGuidedLoadingCalculator,
                         expandedEntryIds = guided.exercises
                             .filter(state::isGuidedEntryExpanded)
@@ -2034,6 +2050,89 @@ fun WorkoutLoggerScreen(
             onReset = onResetWarmupEditor,
             onCancel = onCancelWarmupEditor,
             onSave = onSaveWarmupEditor
+        )
+    }
+    state.measureChange?.let { dialog ->
+        AlertDialog(
+            onDismissRequest = onDismissMeasureChange,
+            title = {
+                Text(
+                    stringResource(
+                        Res.string.logger_measure_change_for,
+                        dialog.exerciseName
+                    )
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(Res.string.logger_measure_change_explanation))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.REPETITIONS,
+                            onClick = { onMeasureMetricSelected(SetMetric.REPETITIONS) },
+                            label = { Text(stringResource(Res.string.logger_reps_label)) },
+                            enabled = !dialog.applying
+                        )
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.DURATION,
+                            onClick = { onMeasureMetricSelected(SetMetric.DURATION) },
+                            label = { Text(stringResource(Res.string.logger_seconds_label)) },
+                            enabled = !dialog.applying
+                        )
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.DISTANCE,
+                            onClick = { onMeasureMetricSelected(SetMetric.DISTANCE) },
+                            label = { Text(stringResource(Res.string.logger_distance_label)) },
+                            enabled = !dialog.applying
+                        )
+                        FilterChip(
+                            selected = dialog.metric == SetMetric.FORCE,
+                            onClick = { onMeasureMetricSelected(SetMetric.FORCE) },
+                            label = { Text(stringResource(Res.string.logger_force_label)) },
+                            enabled = !dialog.applying
+                        )
+                    }
+                    OutlinedTextField(
+                        value = dialog.value,
+                        onValueChange = onMeasureValueChanged,
+                        label = { Text(stringResource(dialog.metric.measureLabel())) },
+                        singleLine = true,
+                        enabled = !dialog.applying,
+                        isError = dialog.invalidValue || dialog.error != null,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = if (dialog.metric == SetMetric.FORCE) {
+                                KeyboardType.Decimal
+                            } else {
+                                KeyboardType.Number
+                            }
+                        )
+                    )
+                    if (dialog.invalidValue) {
+                        Text(
+                            text = stringResource(Res.string.logger_measure_change_invalid),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    dialog.error?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onApplyMeasureChange, enabled = !dialog.applying) {
+                    Text(stringResource(Res.string.logger_progression_apply))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissMeasureChange, enabled = !dialog.applying) {
+                    Text(stringResource(Res.string.logger_cancel))
+                }
+            }
         )
     }
     state.legacyResolution?.let { resolution ->
@@ -2814,6 +2913,14 @@ private fun BackdatedTimeControl(
     }
 }
 
+/** The input label for the metric the measurement dialog records. */
+private fun SetMetric.measureLabel(): StringResource = when (this) {
+    SetMetric.REPETITIONS -> Res.string.logger_reps_label
+    SetMetric.DURATION -> Res.string.logger_seconds_label
+    SetMetric.DISTANCE -> Res.string.logger_distance_label
+    SetMetric.FORCE -> Res.string.logger_force_label
+}
+
 internal fun localDateLabel(parts: LocalDateTimeParts): String =
     "${parts.year}-${twoDigits(parts.month)}-${twoDigits(parts.day)}"
 
@@ -3243,6 +3350,8 @@ private fun GuidedWorkoutSection(
     onEditSet: (Long) -> Unit,
     onReplace: (Long) -> Unit,
     onInstructions: (Long) -> Unit,
+    onChangeMeasure: (Long) -> Unit,
+    measureChangeEntryIds: Set<Long>,
     onLoadingCalculator: (GuidedExerciseProgress) -> Unit,
     expandedEntryIds: Set<Long>,
     actionEntryIds: Set<Long>,
@@ -3587,6 +3696,21 @@ private fun GuidedWorkoutSection(
                                 enabled = !writeInProgress
                             ) {
                                 Text(stringResource(Res.string.logger_draft_edit))
+                            }
+                            if (exercise.occurrenceEntryId in measureChangeEntryIds) {
+                                val changeFor = stringResource(
+                                    Res.string.logger_measure_change_for,
+                                    exercise.exerciseName
+                                )
+                                TextButton(
+                                    onClick = { onChangeMeasure(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = changeFor
+                                    }
+                                ) {
+                                    Text(stringResource(Res.string.logger_measure_change_action))
+                                }
                             }
                         }
                     }
