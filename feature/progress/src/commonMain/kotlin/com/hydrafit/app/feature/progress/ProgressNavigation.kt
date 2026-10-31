@@ -3,6 +3,8 @@ package com.hydrafit.app.feature.progress
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 
 /**
  * Exercise Progress is a standalone, pushed destination registered by the app shell. It is not a
@@ -16,9 +18,13 @@ val bodyWeightRoute: String = "progress/bodyweight"
 
 fun NavGraphBuilder.progressGraph(navController: NavController, onClose: () -> Unit) {
     composable(progressRoute) {
+        // Fatigue is its own feature with its own route; the shell's tab navigator opens it without
+        // this feature depending on it.
+        val openTab = LocalAppTabNavigator.current
         ProgressRoute(
             onBack = onClose,
-            onOpenBodyWeight = { navController.navigate(bodyWeightRoute) }
+            onOpenBodyWeight = { navController.navigate(bodyWeightRoute) },
+            onOpenFatigue = { openTab(AppTab.FATIGUE) }
         )
     }
     composable(bodyWeightRoute) {

@@ -4463,3 +4463,90 @@ rather than unit-tested because it is Compose-only.
   paths are documented above as user-verified, not flow-asserted.
 - **Still unverified.** A device backup restore or merge carrying force/device, the added-load
   planner suggestion on device, and the station/distance surfaces (not re-accepted in this round).
+
+## 0.13.0 — workout-first Logger, rest expiry and three-destination navigation (2026-10-31)
+
+Scope: the active-workout overview/training stage, the rest prompt's finished state
+and the shell's Train/Progress/Library bar with a toolbar Settings entry. Branch
+`feature/0.13.0`; debug build on `emulator-5554` (Android 16k, 1080×2400).
+
+- **Automated pass.** `./gradlew testAndroidHostTest --rerun-tasks` executed 431
+  tasks and reported 3,134 tests in 330 classes with 0 failures and 0 skips;
+  `./gradlew ktlintCheck --rerun-tasks` executed 307 tasks cleanly; debug assembly
+  succeeded. `:core:database:verifySqlDelightMigration` was UP-TO-DATE with no
+  executed task, and this change contains no schema or migration edit;
+  `:shared` and `:core:network` iOS simulator compiles succeeded. New coverage:
+  `NavTabTest` (group selection, nested sub-graph, Settings selecting no group) and
+  `WorkoutStageTest` (overview default, training stage, rest/timed timer forcing
+  training, and no active workout means no stage) plus the existing
+  `RestTimerControllerTest` case for editing and dismissing a finished countdown.
+- **Navigation on device** (`navigation-smoke.yaml`, 17 steps, passed): Train
+  selected at launch; Progress selects the Progress group and shows Exercise
+  progress; Library shows Routines; the toolbar Settings entry opens Planning
+  engine and system Back returns to Library; Train re-selects. The previous
+  two-row, six-destination bar and its keyboard-free Equipment start are gone.
+- **Overview on device.** Starting the fixture routine `HF 013 overview` created a
+  block for Day 1. Train showed `Current workout: Day 1`, `0 of 3 sets`, Start
+  workout, Finish/Finish partially/Skip, Other training, and one `Back Squat`
+  row reading `3 × 8 reps` with Replace. Screenshots of the Train screen and the
+  overview were captured and viewed in-session; they were not persisted to the
+  repository.
+- **Training stage on device.** Start workout switched the header action to
+  Workout overview and revealed the warm-up card and the guided card
+  (`0 of 3 sets`). Switching to the Progress tab and back kept the training stage
+  and `1 of 3 sets`, so the tab switch does not reset the presentation or drafts.
+- **Rest expiry on device.** Guided mode was enabled for the test only. Start set
+  → Set completed now wrote one synthetic bodyweight set after the
+  "No recommended weight" gate. The rest prompt then rendered
+  `Rest prompt: 1 min 42 sec` with `Dismiss prompt` beside it, the duration field
+  and its note below. Editing the duration to `3` restarted the countdown; when it
+  expired the prompt stayed as `Rest prompt finished` with `Dismiss prompt`
+  beside it and the field still focused on `3`, so expiry neither discarded the
+  typed value nor moved focus. Dismissing removed the prompt. The expired-state
+  screenshot was viewed in-session and was not persisted to the repository.
+- **Finish path on device.** Finish partially opened the summary
+  (`Finished partially`, `1 recorded sets · 3 prescribed`, one recorded set) with
+  the shell chrome still present; Done returned to Train.
+- **Cleanup.** Guided workouts restored to off (baseline), the fixture block was
+  cancelled and `HF 013 overview` archived. The synthetic Back Squat set remains
+  in history by design.
+- **Known test-side effect.** Editing the rest duration during the prompt saved a
+  per-exercise override of 3 seconds for Back Squat; the prompt was dismissed
+  before it could be reset with "Use global default", so the override is still
+  stored on this emulator.
+- **Observations not changed in this scope.** A recent-set row for a logged set
+  with no numeric load renders a trailing `· -` (for example `Back Squat 8 reps
+  · -`), and the guided draft card still renders `Target: 8 × -` for the same
+  case; both predate this change and were left for a separate fix. While Settings
+  is open no bottom-bar destination is selected.
+- **Still unverified.** Dark theme and larger text on the new surfaces (system
+  theme change was outside the approved device mutations), TalkBack traversal of
+  the new header and overview rows, tablet/foldable layouts (0.13.1), and the
+  accepted-plan-without-a-block flow, which intentionally keeps its previous
+  layout.
+
+### 0.13.0 correction — group entry points and Settings exit (2026-10-31)
+
+The first cut grouped the old destinations but left three of them unreachable
+from the bar and gave Settings no visible way out. Corrected in the same branch:
+
+- **Members restored.** Train's header carries **Manage plan** → Weekly plan;
+  Progress carries **Fatigue map** → the fatigue screen; Library carries
+  **Equipment** → Equipment profiles. Each uses `LocalAppTabNavigator`, so no
+  feature imports another feature's route.
+- **Settings exit.** Settings opens as a pushed destination (so system Back
+  returns to the opening screen), now renders its own **Back** action, and the
+  shell hides the toolbar Settings entry while Settings is the current screen.
+- **Re-verified on `emulator-5554`.** `navigation-smoke.yaml` passed its expanded
+  23-step version, asserting each group's member, each destination's selected
+  state and heading, and Settings' Back returning to Library. A separate CLI flow
+  passed 13 steps: Manage plan opened Weekly plan with Train still selected,
+  Fatigue map opened the fatigue screen under Progress, Equipment opened
+  Equipment profiles under Library, and Settings' Back returned to Equipment
+  profiles.
+- **Automated.** `ktlintCheck --rerun-tasks` executed 307 tasks cleanly and
+  `testAndroidHostTest --rerun-tasks` executed 431 tasks reporting the same 3,134
+  tests in 330 classes with 0 failures. Debug assembly succeeded.
+- **Still unverified.** The same limits as above; no active-workout draft
+  round-trip through **Manage plan** was re-run after the correction (the earlier
+  tab round-trip covered the same save/restore path).

@@ -14,6 +14,30 @@ recorded set keeps its frozen station label and load basis; the training-setup r
 rows but keeps custom equipment, like the custom exercises it is catalog data for. UI copy lives in
 each feature's `strings.xml`.
 
+## Workout overview and training stage (0.13.0)
+
+An active-block workout has two presentations of one Logger state, chosen by
+`WorkoutLoggerUiState.workoutStage`. `OVERVIEW` shows `WorkoutHeaderSection`
+(workout name, `performed of prescribed` sets, Start/Resume workout, Finish,
+Finish partially, Skip, Other training) and `WorkoutOverviewSection`, whose rows
+carry the remaining prescription and a **Replace** action. `TRAINING` shows the
+warm-up and guided/planned-draft sections instead of the overview rows.
+
+Switching stages calls `showWorkoutTraining`/`showWorkoutOverview` and writes
+nothing: no set, no finish, no queue advance, and drafts, editors and timers are
+untouched. The stage is derived on a workout change (nothing recorded opens the
+overview, recorded work resumes training) and kept on an ordinary refresh of the
+same occurrence. `showsTrainingStage` also forces training while `restTimer` or
+`setTimer` is live, so a running timer is never collapsed away.
+
+Replace is hidden for a slot in `frozenEntryIds`, because
+`ReplaceOccurrenceExerciseUseCase` refuses a slot that already holds recorded
+work; an untouched slot still replaces for this occurrence only. With an active
+workout the manual entry block (history/progress/cardio entries, session controls
+and note, exercise picker and the manual form) renders only when
+`manualEntryExpanded` is set, through the **Other training** action in the header.
+The form is the same state, so opening it never clears entered values.
+
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog

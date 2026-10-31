@@ -488,6 +488,21 @@ Former slice ids are recorded in parentheses.
 | 0.13.2 | Final accessibility remediation; final localization and instruction-coverage remediation (former `0.13.5`–`0.13.6`) | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access; locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
 | 0.13.3 | Final UI-state and recovery remediation; final integration and 1.0-readiness closure (former `0.13.7`–`0.13.8`) | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
 
+**0.13.0 design direction (approved, implementation pending):** Put the current workout first:
+an overview for reviewing targets and replacing an untouched exercise for this occurrence only,
+followed by a focused, one-set-at-a-time training view. The first slice covers active training-block
+workouts; accepted plans without a block retain their existing logging flow, with access to explicit
+block setup. Do not create a block automatically or change a saved routine through a workout swap.
+Keep manual and batch logging available. Preserve existing users' guided-workout preference and make
+focused training the default for new setups; the initialization and restore contract must be settled
+before changing that default. Rest expiry should leave a compact, explicitly dismissible finished
+state without interrupting an active duration edit. Preserve drafts, targets, sessions, timed-set and
+rest lifecycles, superset context, and failed-write recovery.
+
+The intended later navigation groups are Train, Progress and Library in one bottom row, with Settings
+in the toolbar. Navigation regrouping and subsequent screen polish are separate implementation chunks;
+this direction does not authorize a full rewrite or complete 0.13.0 by itself.
+
 Earlier releases already need usable, accessible, localized UI and verified
 failure states. These targets close residual findings, not postpone those duties.
 Verification-only closure does not require an otherwise empty APK release.

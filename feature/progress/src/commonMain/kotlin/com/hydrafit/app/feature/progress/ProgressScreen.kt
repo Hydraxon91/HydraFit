@@ -49,6 +49,7 @@ import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
 import hydrafit.feature.progress.generated.resources.progress_exercise_search_label
+import hydrafit.feature.progress.generated.resources.progress_fatigue
 import hydrafit.feature.progress.generated.resources.progress_history_distance_line
 import hydrafit.feature.progress.generated.resources.progress_history_duration_line
 import hydrafit.feature.progress.generated.resources.progress_history_empty
@@ -99,6 +100,7 @@ internal object ProgressTestTags {
     const val HISTORY_LIST = "progress_history_list"
     const val HISTORY_LOAD_MORE = "progress_history_load_more"
     const val BODY_WEIGHT_ENTRY = "progress_body_weight_entry"
+    const val FATIGUE_ENTRY = "progress_fatigue_entry"
     fun exercise(exerciseId: String) = "progress_exercise_$exerciseId"
     fun range(range: ProgressRange) = "progress_range_${range.days}"
     fun record(index: Int) = "progress_record_$index"
@@ -108,7 +110,8 @@ internal object ProgressTestTags {
 fun ProgressRoute(
     viewModel: ProgressViewModel = koinViewModel(),
     onBack: () -> Unit,
-    onOpenBodyWeight: () -> Unit
+    onOpenBodyWeight: () -> Unit,
+    onOpenFatigue: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Re-sample the clock and offset when the destination returns to the foreground, so a charting
@@ -126,7 +129,8 @@ fun ProgressRoute(
         onShowSupportingSet = viewModel::onShowSupportingSet,
         onCloseSupportingSet = viewModel::onSupportingSetClosed,
         onBack = onBack,
-        onOpenBodyWeight = onOpenBodyWeight
+        onOpenBodyWeight = onOpenBodyWeight,
+        onOpenFatigue = onOpenFatigue
     )
 }
 
@@ -144,6 +148,7 @@ fun ProgressScreen(
     onCloseSupportingSet: () -> Unit,
     onBack: () -> Unit,
     onOpenBodyWeight: () -> Unit,
+    onOpenFatigue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -166,6 +171,12 @@ fun ProgressScreen(
             modifier = Modifier.testTag(ProgressTestTags.BODY_WEIGHT_ENTRY)
         ) {
             Text(stringResource(Res.string.progress_body_weight))
+        }
+        OutlinedButton(
+            onClick = onOpenFatigue,
+            modifier = Modifier.testTag(ProgressTestTags.FATIGUE_ENTRY)
+        ) {
+            Text(stringResource(Res.string.progress_fatigue))
         }
         ExerciseSelector(state, onExerciseQueryChanged, onExerciseSelected)
         if (state.hasSelectedExercise) {

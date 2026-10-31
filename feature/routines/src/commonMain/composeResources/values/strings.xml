@@ -4,6 +4,7 @@
     <string name="routines_title">Routines</string>
     <string name="routines_empty">No routines yet. Create one to reuse it offline.</string>
     <string name="routines_new">New routine</string>
+    <string name="routines_equipment">Equipment</string>
     <string name="routines_edit">Edit</string>
     <string name="routines_duplicate">Duplicate</string>
     <string name="routines_archive">Archive</string>

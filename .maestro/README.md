@@ -18,7 +18,7 @@ do not cancel someone else's draft or restart the app to establish them.
 | `equipment-exercise-cautions.yaml` | Equipment filtered to exactly Conventional Deadlift, row visible, no keyboard/editor/dialog | Read-only instruction open/Close | Same filtered row and Edit action; no catalog, preference or record write |
 | `logger-exercise-cautions.yaml` | Manual Conventional Deadlift selected; Instructions visible, no keyboard/dialog | Read-only instruction open/Close, no input editing or logging | Indication and Instructions action still present; no set/progress/rest/note write |
 | `logger-slot-exercise-cautions.yaml` | Approved Conventional Deadlift fixture slot visible in planned-draft or guided mode; pass its freshly inspected instruction id as `ACTION_ID` | Read-only instruction open/Close; fixture writes and restoration are outside the flow | Same slot action visible; compare progress, draft and form snapshots outside the flow |
-| `navigation-smoke.yaml` | Equipment tab selected, no dialog/editor | Tab navigation only | Equipment tab selected; scroll position is not asserted |
+| `navigation-smoke.yaml` | Train selected, no dialog/editor | Tab navigation only: Progress, Library, the toolbar Settings entry and Settings' own Back | Each group asserts the member it absorbed from the old bar (Train shows Manage plan, Progress shows Fatigue map, Library shows Equipment), every destination asserts its selected state and a screen heading, and Settings returns through its own Back button. Equipment is still reached through Library, not the bar. Scroll position is not asserted |
 | `routine-editor-cancel.yaml` | Equipment tab selected, no dialog/editor | Navigate to Routines, new unsaved name, semantic Cancel, return | Editor closed before returning to Equipment; Save is never tapped |
 | `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
 | `settings-guidance-denial.yaml` | Settings selected, both guidance switches OFF, English permission prompt available | Coaching ON, notification request denied, reopen Settings, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required |
@@ -45,14 +45,25 @@ do not cancel someone else's draft or restart the app to establish them.
 | `logger-force-set-cleanup.yaml` | The synthetic force set is visible in Recent sets | Delete only the row carrying the `Grip meter` device line | Device line gone. The row proved unreachable with centre-screen `scrollUntilVisible` because the nested exercise picker absorbs the swipe; use `scripts/maestro-scroll.sh --container-id logger_list --direction up` first, or the edit/delete flow below. |
 | `logger-force-set-verify.yaml` / `logger-force-set-edit-delete.yaml` | Resume flows for the same synthetic set (verify assumes the row is scrolled into view) | Verify asserts the history detail and corrects only RIR; edit/delete corrects RIR in the Recent-sets row and deletes that row | One-decimal display and device identity survive the correction, then the set is removed. Written during the 2026-10-26 acceptance attempt; the RIR correction and deletion were completed manually and are **user-verified**, not flow-asserted. |
 
-The navigation flow visits all six tabs and asserts the selected tab after each
+The navigation flow visits the three top-level destinations (Train, Progress,
+Library) and the toolbar Settings entry, asserting the selected state after each
 tap; visible navigation labels alone are not a success oracle. It is also the
-regression flow for the two-row, fully labeled navigation layout.
+regression flow for the single-row, fully labeled navigation layout and for
+Settings returning to the screen it was opened from.
 
-`logger-progress-browser.yaml` opens Exercise Progress from the Log tab. Progress
-is a standalone pushed destination with the six-tab bar hidden, and the compact
-hierarchy only contains on-screen content, so the deeper records and history
-sections are reached with `scrollUntilVisible`. The trend title embeds the
+**Active-workout flows (0.13.0).** A workout with an active block now opens on
+its overview. `logger-prescribed-effort.yaml`, `logger-warmup-checkbox.yaml`,
+`logger-warmup-editor-cancel.yaml` and any flow that needs a planned-draft or
+guided row must first reach the training stage — a recorded workout resumes
+there, otherwise tap **Start workout** in the workout header — and the manual
+entry block is only visible when a workout is absent or **Other training** is
+expanded.
+
+`logger-progress-browser.yaml` opens Exercise Progress from the Train screen.
+Progress is its own bottom-bar destination, so entering it from Train selects the
+Progress tab and leaving returns to Train; the compact hierarchy only contains
+on-screen content, so the deeper records and history sections are reached with
+`scrollUntilVisible`. The trend title embeds the
 selected day count (`Trend (last 28)`), asserted for the default and the 365-day
 chip. The flow types the strict prefix `SEARCH_TERM` and then taps the exact
 `EXERCISE` name: after typing, the search field itself echoes the text, so only

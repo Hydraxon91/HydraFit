@@ -564,6 +564,14 @@ data class ActiveOccurrence(
 )
 
 /**
+ * The two presentations of the active workout.
+ *
+ * Both render the same Logger state; only the arrangement differs. Overview is for reviewing the
+ * workout and replacing an untouched exercise, training for recording the current set.
+ */
+enum class WorkoutStage { OVERVIEW, TRAINING }
+
+/**
  * What the post-finish summary route shows. The route is open only after a successful Finish
  * workout or Finish partially; `null` in [WorkoutLoggerUiState.summary] means it is closed.
  */
@@ -674,6 +682,17 @@ data class WorkoutLoggerUiState(
     val guidedExpandedEntries: Map<Long, Int> = emptyMap(),
     /** The current workout of the active block, or null when no block is active. */
     val activeOccurrence: ActiveOccurrence? = null,
+    /**
+     * Which presentation of the active workout is on screen. Ignored without an active occurrence.
+     * Overview reviews the workout and offers today-only swaps; training gives the current set the
+     * screen. Switching never writes anything: both stages read the same Logger state.
+     */
+    val workoutStage: WorkoutStage = WorkoutStage.OVERVIEW,
+    /**
+     * Whether the manual entry block is expanded while a workout is active. It stays one tap away
+     * rather than competing with the workout for the screen.
+     */
+    val manualEntryExpanded: Boolean = false,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
     /**
@@ -808,6 +827,18 @@ data class WorkoutLoggerUiState(
     /** True when guided mode is on and an active occurrence is available to guide. */
     val isGuidedActive: Boolean
         get() = guidedEnabled && guidedProgress != null
+
+    /** True when an active block workout owns the screen's top-level arrangement. */
+    val hasActiveWorkout: Boolean
+        get() = activeOccurrence != null
+
+    /**
+     * True when the training presentation should be shown. A live rest prompt or timed-set countdown
+     * forces it, so collapsing the workout can never hide a running timer.
+     */
+    val showsTrainingStage: Boolean
+        get() = hasActiveWorkout &&
+            (workoutStage == WorkoutStage.TRAINING || restTimer != null || setTimer != null)
 
     /**
      * The entry the guided workflow recommends next, alternating paired members by recorded working

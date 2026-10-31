@@ -1,21 +1,24 @@
 package com.hydrafit.app
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -29,7 +32,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph
@@ -43,25 +48,38 @@ import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import com.hydrafit.app.core.navigation.LocalCardioNavigator
 import com.hydrafit.app.core.navigation.LocalProgressNavigator
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
+import com.hydrafit.app.core.navigation.NavTab
 import com.hydrafit.app.core.navigation.appTabForRequest
 import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
+import com.hydrafit.app.core.navigation.selectedNavTab
 import com.hydrafit.app.feature.cardio.cardioGraph
 import com.hydrafit.app.feature.cardio.cardioRoute
 import com.hydrafit.app.feature.equipment.equipmentDestination
 import com.hydrafit.app.feature.equipment.equipmentRoute
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapDestination
+import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapRoute
 import com.hydrafit.app.feature.logger.RestCompletionPresenter
 import com.hydrafit.app.feature.logger.loggerDestination
+import com.hydrafit.app.feature.logger.loggerRoute
 import com.hydrafit.app.feature.onboarding.OnboardingStartupEntry
 import com.hydrafit.app.feature.onboarding.OnboardingStartupGate
 import com.hydrafit.app.feature.onboarding.onboardingGraph
 import com.hydrafit.app.feature.onboarding.onboardingRevisitRoute
+import com.hydrafit.app.feature.progress.bodyWeightRoute
 import com.hydrafit.app.feature.progress.progressGraph
 import com.hydrafit.app.feature.progress.progressRoute
 import com.hydrafit.app.feature.routines.routinesDestination
+import com.hydrafit.app.feature.routines.routinesRoute
 import com.hydrafit.app.feature.settings.settingsDestination
+import com.hydrafit.app.feature.settings.settingsRoute
 import com.hydrafit.app.feature.splitbuilder.splitBuilderDestination
+import com.hydrafit.app.feature.splitbuilder.splitBuilderRoute
+import hydrafit.shared.generated.resources.Res
+import hydrafit.shared.generated.resources.nav_library
+import hydrafit.shared.generated.resources.nav_progress
+import hydrafit.shared.generated.resources.nav_train
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 
@@ -93,6 +111,36 @@ fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {})
 internal fun appColorScheme(darkTheme: Boolean): ColorScheme =
     if (darkTheme) darkColorScheme() else lightColorScheme()
 
+/**
+ * Which existing feature routes belong to each bottom-bar group. The groups are a shell navigation
+ * decision: every feature keeps its own graph, bindings and route, and none of them knows which tab
+ * it appears under.
+ *
+ * History stays inside the Logger graph (it shares the Logger ViewModel), so it selects Train.
+ */
+private val NAV_TAB_ROUTES: Map<NavTab, List<String>> = mapOf(
+    NavTab.TRAIN to listOf(loggerRoute, splitBuilderRoute, cardioRoute),
+    NavTab.PROGRESS to listOf(progressRoute, bodyWeightRoute, fatigueHeatmapRoute),
+    NavTab.LIBRARY to listOf(routinesRoute, equipmentRoute)
+)
+
+/** Top-level destinations that keep the shell toolbar and bottom bar on screen. */
+private val chromeRoutes: Set<String> =
+    NAV_TAB_ROUTES.values.flatten().toSet() + settingsRoute
+
+/** The route a tab returns to when it is selected from the bar. */
+private fun NavTab.startRoute(): String = when (this) {
+    NavTab.TRAIN -> loggerRoute
+    NavTab.PROGRESS -> progressRoute
+    NavTab.LIBRARY -> routinesRoute
+}
+
+private fun NavTab.labelResource(): StringResource = when (this) {
+    NavTab.TRAIN -> Res.string.nav_train
+    NavTab.PROGRESS -> Res.string.nav_progress
+    NavTab.LIBRARY -> Res.string.nav_library
+}
+
 @Composable
 private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Unit) {
     val navController = rememberNavController()
@@ -123,9 +171,9 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
             restoreState = false
         }
     }
-    // Leaving the setup entry returns to the tab beneath it, or Equipment if there is none.
+    // Leaving the setup entry returns to the tab beneath it, or Train if there is none.
     val closeSetup: () -> Unit = {
-        if (!navController.popBackStack()) openTab(AppTab.EQUIPMENT)
+        if (!navController.popBackStack()) openTab(AppTab.LOG)
     }
     // Progress is a standalone, pushed destination: the shell owns its route, so the Logger offers
     // the entry without importing the feature. Entering pushes over the Log graph (drafts survive);
@@ -163,43 +211,62 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
         consumeTabRequest()
     }
 
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = backStackEntry?.destination
+    val hierarchyRoutes = currentDestination?.hierarchy?.mapNotNull { it.route }?.toList()
+        .orEmpty()
+    // Shell chrome rule: the toolbar and bar belong to the top-level destinations, never to a
+    // feature's pushed route (history, cardio, onboarding, ...).
+    val onAppTab = currentDestination == null ||
+        hierarchyRoutes.any { route -> route in chromeRoutes }
+    val selectedTab = selectedNavTab(hierarchyRoutes, NAV_TAB_ROUTES)
+    // The toolbar entry is only useful when Settings is not already the current screen; Settings
+    // itself carries the way back.
+    val onSettings = settingsRoute in hierarchyRoutes
+
     Scaffold(
         snackbarHost = { RestCompletionPresenter() },
-        bottomBar = {
-            val backStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = backStackEntry?.destination
-            // Shell chrome rule: the bar belongs to the six tabs, never to a feature route.
-            val onAppTab = currentDestination == null ||
-                currentDestination.hierarchy.any { destination ->
-                    destinations.any { it.route == destination.route }
-                }
-            if (onAppTab) {
-                Column {
-                    val rows = destinations.chunked(3)
-                    rows.forEachIndexed { rowIndex, rowDestinations ->
-                        NavigationBar(
-                            windowInsets = if (rowIndex == rows.lastIndex) {
-                                NavigationBarDefaults.windowInsets
-                            } else {
-                                NavigationBarDefaults.windowInsets.only(
-                                    WindowInsetsSides.Horizontal
-                                )
-                            }
-                        ) {
-                            rowDestinations.forEach { destination ->
-                                NavigationBarItem(
-                                    selected =
-                                    currentDestination?.hierarchy?.any {
-                                        it.route == destination.route
-                                    } == true,
-                                    onClick = {
-                                        navigateToAppTab(navController, destination.route)
-                                    },
-                                    icon = {},
-                                    label = { Text(stringResource(destination.label)) }
-                                )
+        topBar = {
+            if (onAppTab && !onSettings) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = {
+                            // Settings is a toolbar destination, not a tab: pushing it keeps the
+                            // screen it was opened from underneath, so system Back returns there.
+                            navController.navigate(settingsDestination.route) {
+                                launchSingleTop = true
+                                restoreState = false
                             }
                         }
+                    ) {
+                        Text(stringResource(settingsDestination.label))
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            if (onAppTab) {
+                NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
+                    NavTab.entries.forEach { tab ->
+                        NavigationBarItem(
+                            selected = selectedTab == tab,
+                            onClick = { navigateToAppTab(navController, tab.startRoute()) },
+                            icon = {},
+                            // Text-only tabs: the default pill would render an empty indicator
+                            // around the missing icon, so selection is carried by the label colour.
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = Color.Transparent
+                            ),
+                            label = { Text(stringResource(tab.labelResource())) }
+                        )
                     }
                 }
             }
@@ -213,7 +280,7 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
         ) {
             NavHost(
                 navController = navController,
-                startDestination = equipmentRoute,
+                startDestination = loggerRoute,
                 modifier = Modifier.padding(innerPadding)
             ) {
                 destinations.forEach { destination -> destination.graph(navController)(this) }

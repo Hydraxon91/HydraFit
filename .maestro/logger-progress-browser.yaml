@@ -1,7 +1,8 @@
-# Read-only Exercise Progress browser smoke: the Log entry, exercise search/selection, the range
+# Read-only Exercise Progress browser smoke: the Train entry, exercise search/selection, the range
 # chips, the per-range trend title, records with one inline supporting-set open/close, and recorded
 # history. The first entry leaves through the screen Back; a second entry re-selects the exercise
-# and leaves through the system back. Progress hides the six-tab chrome and the compact hierarchy
+# and leaves through the system back. Progress is its own bottom-bar destination now, so entering it
+# selects Progress and leaving through its own Back returns to Train; the compact hierarchy
 # only contains on-screen content, so the deeper sections are reached with scrollUntilVisible.
 # Contract and verification status: see README.md.
 appId: com.hydrafit.app
@@ -21,7 +22,7 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Log$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible: '^Log workout$'
 - assertVisible:
@@ -62,7 +63,7 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Log$'
+      - text: '^Train$'
 # Second entry: the deep read-only sections, leaving through the system back.
 - tapOn:
     text: '^Exercise progress$'
@@ -115,5 +116,5 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Log$'
+      - text: '^Train$'
 - assertVisible: '^Exercise progress$'

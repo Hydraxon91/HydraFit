@@ -97,6 +97,14 @@
     <string name="logger_future_time_error">That time is in the future</string>
     <string name="logger_active_workout">Current workout: %1$s</string>
     <string name="logger_active_progress">%1$d of %2$d sets</string>
+    <string name="logger_workout_start">Start workout</string>
+    <string name="logger_workout_resume">Resume workout</string>
+    <string name="logger_workout_overview_open">Workout overview</string>
+    <string name="logger_workout_replace">Replace</string>
+    <string name="logger_workout_overview_complete">Every prescribed set is recorded. Finish the workout below.</string>
+    <string name="logger_other_training_show">Other training</string>
+    <string name="logger_other_training_hide">Hide other training</string>
+    <string name="logger_plan_open">Manage plan</string>
     <string name="logger_finish">Finish</string>
     <string name="logger_finish_partial">Finish partially</string>
     <string name="logger_skip">Skip</string>

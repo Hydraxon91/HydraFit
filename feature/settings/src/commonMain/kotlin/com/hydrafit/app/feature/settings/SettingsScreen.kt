@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -45,6 +46,7 @@ import hydrafit.feature.settings.generated.resources.settings_api_key_configured
 import hydrafit.feature.settings.generated.resources.settings_api_key_label
 import hydrafit.feature.settings.generated.resources.settings_api_key_save
 import hydrafit.feature.settings.generated.resources.settings_api_key_section
+import hydrafit.feature.settings.generated.resources.settings_back
 import hydrafit.feature.settings.generated.resources.settings_cloud_unavailable
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_feet
 import hydrafit.feature.settings.generated.resources.settings_distance_unit_meters
@@ -91,7 +93,10 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
     // destinations by graph hierarchy), so Acknowledgments is a child of Settings, not a sibling.
     navigation(startDestination = settingsHomeRoute, route = settingsRoute) {
         composable(settingsHomeRoute) {
-            SettingsRoute(onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) })
+            SettingsRoute(
+                onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) },
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(acknowledgmentsRoute) {
             AcknowledgmentsRoute(onBack = { navController.popBackStack() })
@@ -102,6 +107,7 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
 @Composable
 fun SettingsRoute(
     onOpenAcknowledgments: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
     restDurationViewModel: RestDurationSettingsViewModel = koinViewModel()
@@ -125,6 +131,7 @@ fun SettingsRoute(
         onClearApiKey = viewModel::clearApiKey,
         onOpenAcknowledgments = onOpenAcknowledgments,
         onOpenSetup = openSetup,
+        onBack = onBack,
         modifier = modifier
     )
 }
@@ -146,6 +153,7 @@ fun SettingsScreen(
     onClearApiKey: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -155,10 +163,22 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = stringResource(Res.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(Res.string.settings_title),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
+            )
+            // Settings opens over a tab, so it owns its own way out rather than relying on the
+            // system Back gesture alone.
+            TextButton(onClick = onBack) {
+                Text(stringResource(Res.string.settings_back))
+            }
+        }
         Button(onClick = onOpenSetup) {
             Text(stringResource(Res.string.settings_setup))
         }

@@ -110,6 +110,7 @@ import hydrafit.feature.routines.generated.resources.routines_editor_edit_title
 import hydrafit.feature.routines.generated.resources.routines_editor_new_title
 import hydrafit.feature.routines.generated.resources.routines_empty
 import hydrafit.feature.routines.generated.resources.routines_entry_excluded
+import hydrafit.feature.routines.generated.resources.routines_equipment
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_force_label
@@ -250,7 +251,8 @@ private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 @Composable
 fun RoutinesRoute(
     viewModel: RoutinesViewModel = koinViewModel(),
-    shareViewModel: PrescriptionShareViewModel = koinViewModel()
+    shareViewModel: PrescriptionShareViewModel = koinViewModel(),
+    onOpenEquipment: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shareState by shareViewModel.state.collectAsStateWithLifecycle()
@@ -265,7 +267,8 @@ fun RoutinesRoute(
         state = state,
         viewModel = viewModel,
         shareState = shareState,
-        shareViewModel = shareViewModel
+        shareViewModel = shareViewModel,
+        onOpenEquipment = onOpenEquipment
     )
 }
 
@@ -274,7 +277,8 @@ fun RoutinesScreen(
     state: RoutinesUiState,
     viewModel: RoutinesViewModel,
     shareState: PrescriptionShareUiState,
-    shareViewModel: PrescriptionShareViewModel
+    shareViewModel: PrescriptionShareViewModel,
+    onOpenEquipment: () -> Unit = {}
 ) {
     if (state.editor != null) {
         RoutineEditor(
@@ -295,6 +299,11 @@ fun RoutinesScreen(
                 text = stringResource(Res.string.routines_title),
                 style = MaterialTheme.typography.headlineSmall
             )
+            // Library groups routines and equipment. Equipment is its own feature and route, so this
+            // screen asks the shell to open that group member instead of depending on it.
+            TextButton(onClick = onOpenEquipment) {
+                Text(stringResource(Res.string.routines_equipment))
+            }
             state.message?.let { message ->
                 MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
             }

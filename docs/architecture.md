@@ -25,8 +25,24 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
 
 - **Examples:** `settings.gradle.kts` (module list), `core/domain/build.gradle.kts` (no Android-only
   deps), `feature/logger/build.gradle.kts` (depends on `:core:domain`, `:core:userdata`,
-  `:core:navigation` only). `feature/progress` is a standalone, pushed destination registered by the
-  shell — deliberately not one of the six bottom-bar tabs.
+  `:core:navigation` only). `feature/progress` is registered by the shell and is the
+  Progress group's start destination.
+- **Navigation groups (0.13.0):** the shell's bottom bar has three destinations —
+  Train (`log`, `plan`, `cardio`), Progress (`progress`, `progress/bodyweight`,
+  `fatigue`) and Library (`routines`, `equipment`) — and Settings is a pushed
+  toolbar destination. `core/navigation/NavTab.kt` maps a destination hierarchy to
+  its group; features keep their own routes, graphs and bindings and none of them
+  knows which group it belongs to. `AppTab` remains the per-feature identity used
+  by external tab requests, onboarding handoffs and `LocalAppTabNavigator`, so a
+  notification still names a concrete screen. History stays inside the Logger
+  graph because it shares the Logger ViewModel, so it selects Train.
+- **Group members (0.13.0):** because the bar has only three destinations, the
+  absorbed screens are reachable from inside their group: Train's header offers
+  **Manage plan** (`AppTab.PLAN`), Progress offers **Fatigue map**
+  (`AppTab.FATIGUE`) and Library's routines screen offers **Equipment**
+  (`AppTab.EQUIPMENT`). Each feature asks the shell through
+  `LocalAppTabNavigator`, so no feature imports another feature's route. A
+  group's own start screen is unchanged.
 - **Consistency:** high. No `feature/*` depends on another feature, or on `:core:database` /
   `:core:network`. `:shared` depends on everything but imports `:core:database`/`:core:network` only
   in DI wiring (`AndroidDatabaseModule.kt`, `IosDatabaseModule.kt`, `Koin.kt`, `DomainModule.kt`).
@@ -218,7 +234,8 @@ and take the state plus callbacks.
   loading; context revisions prevent old completions from updating a replaced journey. The constructor
   collaborators all serve this one setup journey (step reads, two save actions and readiness), not
   independent feature responsibilities; no dependency bag is introduced solely to reduce its count.
-  The six-tab shell is unchanged. A root-owned `OnboardingEntryViewModel` reads the saved disposition
+  The shell's navigation groups are unchanged by setup. A root-owned `OnboardingEntryViewModel`
+  reads the saved disposition
   once, after readiness and restore, and only the feature's own PENDING check makes the shell force the
   first-run route (Settings opens the revisit route through `LocalSetupNavigator` in
   `:core:navigation`). Step control groups, the action bar and the three handoffs carry stable
@@ -1288,6 +1305,25 @@ completion notification; otherwise the receiver retains the existing background-
 exact/inexact scheduling path. Returning or enabling after expiry does not replay the foreground
 signal. Presentation bookkeeping is in memory only, not a backup or timer write. OS rendering,
 haptic delivery and lifecycle integration remain C6 acceptance, not host-test guarantees.
+
+### 1.20a Workout overview and training stage (0.13.0)
+
+The Logger's active-block workout has two presentations of the same state.
+`WorkoutLoggerUiState.workoutStage` is `OVERVIEW` or `TRAINING`; switching only
+changes arrangement, so it writes nothing, starts no set and cannot finish a
+workout. `WorkoutHeaderSection` carries the workout identity, progress and the
+stage action; `WorkoutOverviewSection` lists the remaining prescriptions with a
+**Replace** action per untouched slot.
+
+The stage is derived rather than stored: a newly current workout opens on its
+overview, one that already holds recorded work resumes on training, and an
+ordinary refresh of the same occurrence keeps the user's choice. A live rest
+prompt or timed-set countdown forces the training presentation
+(`showsTrainingStage`), so collapsing the workout can never hide a running timer.
+`frozenEntryIds` hides Replace for a slot that already holds recorded work, since
+`ReplaceOccurrenceExerciseUseCase` would refuse it. With an active workout, the
+manual entry block sits behind `manualEntryExpanded` instead of competing with the
+workout; it is the same Logger form, so its state is preserved.
 
 ### 1.21 Local workout-CSV imports (0.9.1)
 

@@ -1,6 +1,8 @@
 # Contract and verification status: see README.md. No persistent writes.
+# The shell owns one bottom row (Train, Progress, Library) and a toolbar Settings entry. Library
+# groups Routines and Equipment, so Equipment is reached through it rather than from the bar.
 appId: com.hydrafit.app
-name: All six navigation tabs
+name: Three top-level destinations and the Settings toolbar entry
 tags:
   - smoke
   - read-only
@@ -13,49 +15,43 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Equipment$'
+      - text: '^Train$'
 - assertNotVisible: '^Routine name$'
+# Each group exposes the members it absorbed from the old bar.
+- assertVisible: '^Manage plan$'
 - tapOn:
-    text: '^Fatigue$'
+    text: '^Progress$'
     retryTapIfNoChange: false
+- assertVisible: '^Exercise progress$'
+- assertVisible: '^Fatigue map$'
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Fatigue$'
+      - text: '^Progress$'
 - tapOn:
-    text: '^Plan$'
-    retryTapIfNoChange: false
-- assertVisible:
-    selected: true
-    containsDescendants:
-      - text: '^Plan$'
-- tapOn:
-    text: '^Log$'
-    retryTapIfNoChange: false
-- assertVisible:
-    selected: true
-    containsDescendants:
-      - text: '^Log$'
-- tapOn:
-    text: '^Routines$'
+    text: '^Library$'
     retryTapIfNoChange: false
 - assertVisible: '^New routine$'
+- assertVisible: '^Equipment$'
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Routines$'
+      - text: '^Library$'
 - assertNotVisible: '^Routine name$'
 - tapOn:
     text: '^Settings$'
     retryTapIfNoChange: false
-- assertVisible:
-    selected: true
-    containsDescendants:
-      - text: '^Settings$'
+- assertVisible: '^Planning engine$'
+# Settings carries its own way back, so the toolbar entry cannot become a dead end.
+- assertVisible: '^Back$'
 - tapOn:
-    text: '^Equipment$'
+    text: '^Back$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- tapOn:
+    text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Equipment$'
+      - text: '^Train$'

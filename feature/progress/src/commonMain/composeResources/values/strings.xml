@@ -55,6 +55,7 @@
     <string name="progress_table_duration">Recorded duration: %1$d s</string>
     <string name="progress_table_distance">Recorded distance: %1$s</string>
     <string name="progress_body_weight">Body weight</string>
+    <string name="progress_fatigue">Fatigue map</string>
     <string name="bodyweight_add">Add measurement</string>
     <string name="bodyweight_loading">Loading body weight…</string>
     <string name="bodyweight_load_failed">Could not load body weight.</string>
