@@ -4758,3 +4758,42 @@ it does not change routine authoring, activation or persistence.
   reachability.
 - **Not verified:** TalkBack traversal, locale variants and rotation for this
   screen.
+
+### 0.13.0 screen pass — Manage plan (2026-11-02)
+
+The Weekly plan screen now leads with plan status and contents and puts generation
+settings behind Plan configuration. Planning behavior, acceptance, block creation,
+dates and substitution rules are unchanged.
+
+- **Structure:** status, provenance and the volume explanation come first; the
+  primary action block follows; then the day and exercise rows; then Plan
+  configuration; then Regenerate, Save as routine, export and plan history. Loading,
+  errors with Retry, the review-equipment action and the stale-context warning stay
+  directly under the title.
+- **Configuration:** days, sets, accessory sets, automatic per-set targets, planner
+  supersets and plan dates are collapsed when a plan exists and expanded when no
+  plan is present. During a regeneration the group stays closed instead of flashing
+  open.
+- **Actions:** a draft keeps `Use this plan` filled with an outlined `Start block`;
+  an accepted plan shows the accepted notice with `Start block` filled. Accepted-plan
+  substitution is now an explicit `Change in plan` action with the dialog title
+  `Change <exercise> in the plan`, distinct from the Logger's occurrence-only
+  `Replace for this workout`.
+- **Row layout:** verification at 1.0× showed the new text button squeezing a
+  prescription onto two lines (`3 x` / `6`). The exercise line now takes the full
+  width and the measure control and `Change in plan` sit on a compact wrapping row
+  beneath it; re-checked at 1.0× and at 1.3× in dark mode.
+- **Fixture writes:** the offline planner could not generate while the stored engine
+  was Groq with a rejected key, so the engine was switched to Deterministic, a
+  draft was generated, accepted, inspected and deleted, and the engine was restored
+  to Groq. The screen is back to its previous "Groq rejected the API key" state with
+  Retry, and no accepted plan remains.
+- **Checks:** splitbuilder ktlint and 83 host tests passed, debug assembly succeeded,
+  and `git diff --check` was clean. Error, loading, retry, expansion of the
+  configuration group, Regenerate, Save as routine, export and print were not
+  exercised on device in this pass; TalkBack, locale and rotation remain unverified.
+- **Observed, not changed:** the Start-block dialog's current-block replacement
+  switch label clips at the right edge, recorded for the editors/dialogs pass.
+- **Doc drift:** `PLANS.md` P6c and the 2026-10-07 dependency note still describe a
+  per-row swap icon; the control is now a text action and the dependency remains in
+  use for the measure glyph. Those historical entries were left unrevised.

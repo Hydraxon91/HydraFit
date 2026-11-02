@@ -41,6 +41,29 @@ and note, exercise picker and the manual form) renders only when
 `manualEntryExpanded` is set, through the **Other training** action in the header.
 The form is the same state, so opening it never clears entered values.
 
+## Manage plan screen structure (0.13.0)
+
+`SplitBuilderScreen` leads with the plan itself when one exists: week/cycle, deload and engine
+provenance, the volume/target explanation, then the primary action block, then the day and
+exercise rows, and only then the collapsed **Plan configuration** group. That group holds
+days per week, set counts, automatic per-set targets, planner superset pairing and plan dates,
+and starts expanded when there is no plan and nothing is loading, so a first generation is
+configurable while a regeneration does not force it open. Loading, actionable errors with
+Retry, the review-equipment action and the stale-context warning stay directly under the title
+rather than inside the plan.
+
+For a draft, `Use this plan` is the filled primary action and `Start block` is an outlined
+secondary one; for an accepted plan the accepted notice stays and `Start block` becomes the
+filled primary action. The two never merge, because accepting and creating a block keep
+separate effects. Regenerate, Save as routine, export and plan history remain available but
+secondary.
+
+Each exercise row keeps its prescription on a full-width line, with the measure control and,
+for an accepted plan, a visible **Change in plan** action on a compact wrapping row beneath it.
+That wording distinguishes plan-level substitution from the Logger's occurrence-only
+**Replace for this workout**; the dialog is titled `Change <exercise> in the plan` and its
+candidates, empty states and cancellation are unchanged.
+
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
