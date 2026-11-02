@@ -4636,3 +4636,55 @@ width remain unverified. TalkBack is waived for this pass.
 
 The prior review's unverified checks remain unchanged; these corrections have not
 yet received a targeted post-fix review.
+
+### Train verification closure (2026-11-02)
+
+The gaps listed in the sections above were closed on `emulator-5554` against the
+debug build at commit `b2639352`, using the synthetic repeated Day 1 fixture:
+
+- **Rest expiry during an edit:** one guided set was completed to start the prompt,
+  then the duration was changed from 3 to 20 seconds. The restarted countdown ran,
+  expired while the field still held focus and the keyboard was open, and the
+  screenshot shows `Rest prompt finished` beside the focused `20`. The field was
+  set back to 3 and the prompt dismissed with progress unchanged.
+- **Planned-draft timer at larger text:** guided workouts were turned off, the draft
+  measurement was changed to 60 seconds through the draft's own `More options`
+  menu, and one timer was started, stopped and discarded at 1.3× text. The countdown
+  and `Stop early` were readable without clipping in both screenshots. Guided
+  workouts and the 1.0 font scale were restored and asserted.
+- **Finish and Skip:** an ordinary Log set does not start rest, so the first journey
+  stopped before its rest assertion; source confirms rest starts only for a live
+  guided completion (`WorkoutLoggerViewModel.kt:4347`). Finish is rejected until
+  every prescribed set is recorded (observed banner: `Not every prescribed set is
+  recorded yet`). After the third guided set, Finish produced a summary reading
+  `Finished` and `3 recorded sets · 3 prescribed`. The block was repeated and Skip
+  removed the occurrence from Train without recording work, leaving the manual
+  entry surface usable.
+
+Synthetic records retained on this emulator: the repeated block's three recorded
+60-second sets, the earlier finished block, and the partially finished block with
+one 9-rep set. Back Squat's per-exercise rest override is back at 3 seconds and the
+font scale at 1.0. TalkBack remains waived for this pass, and the target-review
+closure for R-01–R-03 was approved separately at the same commit.
+
+### Settings closes on a tab switch (2026-11-02)
+
+Opening Settings from Train and then switching tabs used to leave Settings in the
+tab's saved back stack, so returning to that tab showed Settings again. The shell
+now closes the pushed Settings overlay without saving it before a bottom-bar switch;
+the target tab restores its own last screen, and unsaved Settings field edits are
+discarded with the overlay.
+
+- **Helper and tests:** `core/navigation/NavTab.kt` gained
+  `overlayRouteToClose`, covered by three `NavTabTest` cases (overlay present,
+  absent or empty, unrelated route). `:core:navigation:testAndroidHostTest
+  --rerun-tasks` executed with 6 tests and no failures.
+- **Checks:** `:core:navigation` and `:shared` ktlint checks executed cleanly,
+  `:androidApp:assembleDebug` succeeded, and `:shared:compileKotlinIosSimulatorArm64`
+  executed successfully.
+- **Device:** a read-only journey opened Settings, switched to Progress, returned to
+  Train with Settings absent, repeated the path through Library, and confirmed
+  Settings' own Back still returns to the opener. The Train screenshot was viewed;
+  no record or preference changed. `navigation-smoke.yaml` now covers the same rule.
+- **Not verified:** system-back from Settings in this pass, and dismissed-unsaved-
+  edits behavior for Settings fields (no field was edited).
