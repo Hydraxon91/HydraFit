@@ -15,6 +15,9 @@
     <string name="equipment_exercise_section">Exercise catalog</string>
     <string name="equipment_custom_section">Custom exercises</string>
     <string name="equipment_add_exercise">New exercise</string>
+    <string name="equipment_manage_catalog_title">Manage catalog</string>
+    <string name="equipment_manage_catalog_show">Show catalog</string>
+    <string name="equipment_manage_catalog_hide">Hide catalog</string>
     <string name="equipment_edit">Edit</string>
     <string name="equipment_edit_save">Save</string>
     <string name="equipment_edit_reset">Reset</string>
@@ -63,6 +66,9 @@
     <string name="equipment_preference_neutral">Neutral</string>
     <string name="equipment_preference_less">Prefer less</string>
     <string name="equipment_exclusions_title">Excluded from planner</string>
+    <string name="equipment_manage_exclusions_title">Exercise exclusions</string>
+    <string name="equipment_manage_exclusions_show">Show exclusions</string>
+    <string name="equipment_manage_exclusions_hide">Hide exclusions</string>
     <string name="equipment_exclusion_section">Planner exclusion</string>
     <string name="equipment_exclude_window">Exclude for 12 weeks</string>
     <string name="equipment_exclude_indefinite">Exclude indefinitely</string>
@@ -71,6 +77,10 @@
     <string name="equipment_exclude_expired">Exclusion expired</string>
     <string name="equipment_include">Include in planner</string>
     <string name="equipment_personal_records">Personal records</string>
+    <string name="equipment_manage_baselines_title">Baseline records</string>
+    <string name="equipment_manage_baselines_show">Show baselines</string>
+    <string name="equipment_manage_baselines_hide">Hide baselines</string>
+    <string name="equipment_manage_baselines_note">Manually entered baselines used for planning, not performed workout sets.</string>
     <string name="equipment_delete_personal_record_blocked">This exercise has a personal record and cannot be deleted.</string>
     <string name="equipment_pr_exercise">Exercise</string>
     <string name="equipment_pr_weight">Best weight (kg)</string>

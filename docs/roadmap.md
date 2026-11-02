@@ -488,6 +488,96 @@ Former slice ids are recorded in parentheses.
 | 0.13.2 | Final accessibility remediation; final localization and instruction-coverage remediation (former `0.13.5`–`0.13.6`) | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access; locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
 | 0.13.3 | Final UI-state and recovery remediation; final integration and 1.0-readiness closure (former `0.13.7`–`0.13.8`) | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
 
+**0.13.0 design direction (approved, implementation pending):** Put the current workout first:
+an overview for reviewing targets and replacing an untouched exercise for this occurrence only,
+followed by a focused, one-set-at-a-time training view. The first slice covers active training-block
+workouts; accepted plans without a block retain their existing logging flow, with access to explicit
+block setup. Do not create a block automatically or change a saved routine through a workout swap.
+Keep manual and batch logging available. Preserve existing users' guided-workout preference and make
+focused training the default for new setups; the initialization and restore contract must be settled
+before changing that default. Rest expiry should leave a compact, explicitly dismissible finished
+state without interrupting an active duration edit. Preserve drafts, targets, sessions, timed-set and
+rest lifecycles, superset context, and failed-write recovery.
+
+The intended later navigation groups are Train, Progress and Library in one bottom row, with Settings
+in the toolbar. Navigation regrouping and subsequent screen polish are separate implementation chunks;
+this direction does not authorize a full rewrite or complete 0.13.0 by itself.
+
+#### Remaining 0.13.0 screen passes (approved 2026-11-02)
+
+The user approved the following scopes, recommendations and DeepSeek V4.1 Flash
+on OpenCode Go as coder for each settled feature-local chunk. Execute serially
+after Settings verification; these are presentation changes, not a rewrite of
+training, planning or storage. The Settings hub implementation is awaiting UI
+verification and review; it is not marked complete by this plan.
+
+1. **Library → Routines.** Separate Active block from Saved routines. Keep Start
+   routine and Edit visible; group Duplicate, Export, Archive and Delete in a
+   labeled overflow. Put archived routines behind an Archived filter. Show block
+   progress immediately, with its schedule initially collapsed behind View
+   schedule. In the editor, keep basic prescription fields visible and disclose
+   progression, per-set targets, clusters and supersets as advanced controls.
+   Preserve ordering/pairing restrictions, captured units, Save/Cancel behavior
+   and destructive confirmations. Primary targets: `feature/routines`'s
+   `RoutinesScreen.kt`, resources and relevant tests.
+2. **Train → Manage plan.** Lead with plan status and workout contents when a
+   plan exists. Group frequency, set counts, automatic targets, supersets and
+   dates under Plan configuration; show configuration initially when no plan
+   exists. Prioritize Accept plan for a generated draft and Start training block
+   for an accepted plan, without combining their effects. Keep Save as routine,
+   Export and accepted-plan history secondary. Keep actionable errors, fallback
+   notices and stale-context warnings visible. Retain accepted-plan substitution
+   with explicit Change in plan wording, distinct from Train's occurrence-only
+   Replace for this workout. Preserve existing regeneration, acceptance and
+   explicit block-creation behavior. Primary targets: `feature/splitbuilder`'s
+   `SplitBuilderScreen.kt`, resources and relevant tests.
+3. **Progress.** Retain the exercise-first screen rather than adding a hub. Show
+   the selected exercise with a Change exercise picker instead of a permanently
+   expanded exercise list; all results remain accessible, without automatic
+   selection. Keep Body weight and Fatigue accessible as secondary destinations.
+   Make filters wrap safely and distinguish range trends, all-time records and
+   recorded sets. On Body weight, prioritize adding a measurement and its trend;
+   disclose goal editing through Edit goal. Preserve numeric chart equivalents,
+   independent loading/error states, pagination and chart-range/history
+   independence. Do not move Logger-owned workout history. Primary targets:
+   `feature/progress`'s `ProgressScreen.kt`, `BodyWeightScreen.kt`, resources and
+   presentation/ViewModel tests.
+4. **Library → Equipment.** Lead with active profile and inventory; group stations
+   and loading configuration. Disclose catalog administration, exercise exclusions
+   and manually entered baseline records as separate management sections within
+   Equipment, not a new Library destination. Keep loading calculators near their
+   equipment and distinguish baseline records from performed-work records in
+   Progress. Preserve profile deletion/replacement safeguards, unit locking,
+   station attribution and loading calculations. Primary targets:
+   `feature/equipment`'s `EquipmentProfilerScreen.kt`, `EquipmentProfilesUi.kt`,
+   resources and relevant tests.
+5. **Editors and dialogs.** Apply a bounded consistency rubric to Logger's
+   recorded-set editor (both Recent sets and History consumers), draft editor,
+   occurrence replacement dialog, routine prescription/cluster editors, and
+   equipment profile/station/loading-inventory editors. Clarify scope in titles;
+   keep fields keyboard-safe and actions reachable, validation visible without
+   losing input, Save/Apply primary and Cancel secondary, and destructive actions
+   separate. Preserve existing dismissal, failed-save retry, captured units,
+   precision, cluster identity and occurrence-only replacement rules. No new
+   dirty-editor confirmation, generic editor framework, wholesale full-screen
+   conversions, persistence or process-death guarantees are included.
+
+**Execution and acceptance:** finish Settings first, then implement the passes in
+the order above. They are not independent parallel write sets; the editor pass
+overlaps earlier screen files. The coder owns each bounded implementation and
+its relevant tests and assigned feature docs; the parent owns Maestro authoring,
+`PLANS.md` status and QA consolidation, and `ui-runner` executes prepared journeys.
+Before each chunk, pin exact write paths and the preserved-work baseline from
+current source; return newly discovered behavior decisions to the user rather
+than silently expanding scope. Run scoped formatting, separate lint, fresh
+affected-feature host tests, debug assembly and bounded semantic emulator checks
+with viewed screenshots, including dark/large-text checks on changed surfaces.
+Check Equipment's Logger/planner consumers and Manage plan's Logger/Routines
+consumers where affected. Preserve dependencies, DI, schemas, save semantics and
+existing safeguards. New Compose test dependencies require separate approval.
+Reviews remain separately requested in Plan mode; commits and pushes follow their
+own authorization rules. Release integration still requires the full matrix.
+
 Earlier releases already need usable, accessible, localized UI and verified
 failure states. These targets close residual findings, not postpone those duties.
 Verification-only closure does not require an otherwise empty APK release.

@@ -15,6 +15,26 @@ import kotlinx.coroutines.test.runTest
 @OptIn(ExperimentalCoroutinesApi::class)
 class RestTimerControllerTest {
     @Test
+    fun finishedCountdownRemainsEditableUntilDismissed() = runTest {
+        var elapsed = 1_000L
+        val controller = RestTimerController(CoroutineScope(coroutineContext), { elapsed })
+        try {
+            controller.start(1_000L)
+            elapsed = 2_000L
+            advanceTimeBy(250L)
+            runCurrent()
+            assertTrue(controller.state.value?.isFinished == true)
+
+            controller.updateDuration(3_000L)
+            assertEquals(2_000L, controller.state.value?.remainingMillis)
+            controller.cancel()
+            assertNull(controller.state.value)
+        } finally {
+            controller.cancel()
+        }
+    }
+
+    @Test
     fun delayedTicksUseElapsedDeadlineAndDurationEditsKeepOriginalStart() = runTest {
         var elapsed = 10_000L
         val controller = RestTimerController(CoroutineScope(coroutineContext), { elapsed })

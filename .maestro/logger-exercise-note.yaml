@@ -18,7 +18,7 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Log$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible: '^Log workout$'
 # Select the exercise through a partial picker query, so the row is the only "Dips" on screen.

@@ -1,4 +1,4 @@
-# Debug build; Equipment selected, no dialog/editor/keyboard. No persistent writes.
+# Debug build; Progress group reachable, no dialog/editor/keyboard. No persistent writes.
 appId: com.hydrafit.app
 name: Anatomical body map models and views
 tags:
@@ -10,12 +10,11 @@ tags:
     clearState: false
     permissions:
       all: unset
-- assertVisible:
-    selected: true
-    containsDescendants:
-      - text: '^Equipment$'
 - tapOn:
-    text: '^Fatigue$'
+    text: '^Progress$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Fatigue map$'
     retryTapIfNoChange: false
 - assertVisible: '^Estimated muscle fatigue$'
 - assertVisible: '^Estimated from recorded working sets\. This is not a measurement of soreness, exhaustion or readiness\. Low values do not confirm recovery; recorded muscle mappings may be incomplete\.$'
@@ -49,10 +48,10 @@ tags:
     text: '^Close$'
     retryTapIfNoChange: false
 - assertVisible: '^Estimated muscle fatigue$'
-- tapOn:
-    text: '^Equipment$'
-    retryTapIfNoChange: false
+- back
+- waitForAnimationToEnd:
+    timeout: 2000
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Equipment$'
+      - text: '^Train$'

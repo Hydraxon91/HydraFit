@@ -1,6 +1,7 @@
-# Read-only history browser smoke: navigation, the Log tab staying selected, search states, clear
-# filters and Back. The soft keyboard is dismissed after typing so "Search" and "Back" cannot match
-# the IME's own search key and back control.
+# Read-only history browser smoke: navigation, the Train tab staying selected, search states, clear
+# filters and Back. The flow taps the next control directly instead of dismissing the keyboard, so
+# it does not depend on an input method; the Search tap can still match an IME search key when one
+# is shown.
 # Contract and verification status: see README.md.
 appId: com.hydrafit.app
 name: Logger history browser
@@ -14,7 +15,7 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Log$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible: '^Log workout$'
 - assertVisible:
@@ -31,12 +32,11 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Log$'
+      - text: '^Train$'
 # Searching a retained session-note phrase: a match must render the note state, and a session note
 # can only match when it is non-empty, so the two outcomes are exhaustive.
 - tapOn: '^Search notes and exercise names$'
 - inputText: 'c4r'
-- hideKeyboard
 - tapOn:
     text: '^Search$'
     retryTapIfNoChange: false
@@ -58,7 +58,6 @@ tags:
 # A term that cannot match anything pins the deterministic no-matches state used to scope Back.
 - tapOn: '^Search notes and exercise names$'
 - inputText: 'zzzzz'
-- hideKeyboard
 - tapOn:
     text: '^Search$'
     retryTapIfNoChange: false
@@ -71,4 +70,4 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Log$'
+      - text: '^Train$'

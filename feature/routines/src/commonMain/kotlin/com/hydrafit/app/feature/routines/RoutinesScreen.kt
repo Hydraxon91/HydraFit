@@ -91,8 +91,12 @@ import hydrafit.feature.routines.generated.resources.routines_active_progress
 import hydrafit.feature.routines.generated.resources.routines_active_title
 import hydrafit.feature.routines.generated.resources.routines_add_exercise
 import hydrafit.feature.routines.generated.resources.routines_add_workout
+import hydrafit.feature.routines.generated.resources.routines_advanced_hide
+import hydrafit.feature.routines.generated.resources.routines_advanced_show
 import hydrafit.feature.routines.generated.resources.routines_archive
 import hydrafit.feature.routines.generated.resources.routines_archived_badge
+import hydrafit.feature.routines.generated.resources.routines_archived_empty
+import hydrafit.feature.routines.generated.resources.routines_archived_filter
 import hydrafit.feature.routines.generated.resources.routines_cancel
 import hydrafit.feature.routines.generated.resources.routines_cancel_block
 import hydrafit.feature.routines.generated.resources.routines_cluster_action
@@ -110,10 +114,12 @@ import hydrafit.feature.routines.generated.resources.routines_editor_edit_title
 import hydrafit.feature.routines.generated.resources.routines_editor_new_title
 import hydrafit.feature.routines.generated.resources.routines_empty
 import hydrafit.feature.routines.generated.resources.routines_entry_excluded
+import hydrafit.feature.routines.generated.resources.routines_equipment
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_force_label
 import hydrafit.feature.routines.generated.resources.routines_force_unit
+import hydrafit.feature.routines.generated.resources.routines_more_actions
 import hydrafit.feature.routines.generated.resources.routines_move_down
 import hydrafit.feature.routines.generated.resources.routines_move_up
 import hydrafit.feature.routines.generated.resources.routines_name_label
@@ -186,6 +192,9 @@ import hydrafit.feature.routines.generated.resources.routines_remove
 import hydrafit.feature.routines.generated.resources.routines_repeat_block
 import hydrafit.feature.routines.generated.resources.routines_reps_label
 import hydrafit.feature.routines.generated.resources.routines_save
+import hydrafit.feature.routines.generated.resources.routines_saved_title
+import hydrafit.feature.routines.generated.resources.routines_schedule_hide
+import hydrafit.feature.routines.generated.resources.routines_schedule_show
 import hydrafit.feature.routines.generated.resources.routines_search_label
 import hydrafit.feature.routines.generated.resources.routines_seconds_label
 import hydrafit.feature.routines.generated.resources.routines_set_targets_action
@@ -250,7 +259,8 @@ private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 @Composable
 fun RoutinesRoute(
     viewModel: RoutinesViewModel = koinViewModel(),
-    shareViewModel: PrescriptionShareViewModel = koinViewModel()
+    shareViewModel: PrescriptionShareViewModel = koinViewModel(),
+    onOpenEquipment: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shareState by shareViewModel.state.collectAsStateWithLifecycle()
@@ -265,7 +275,8 @@ fun RoutinesRoute(
         state = state,
         viewModel = viewModel,
         shareState = shareState,
-        shareViewModel = shareViewModel
+        shareViewModel = shareViewModel,
+        onOpenEquipment = onOpenEquipment
     )
 }
 
@@ -274,7 +285,8 @@ fun RoutinesScreen(
     state: RoutinesUiState,
     viewModel: RoutinesViewModel,
     shareState: PrescriptionShareUiState,
-    shareViewModel: PrescriptionShareViewModel
+    shareViewModel: PrescriptionShareViewModel,
+    onOpenEquipment: () -> Unit = {}
 ) {
     if (state.editor != null) {
         RoutineEditor(
@@ -295,27 +307,47 @@ fun RoutinesScreen(
                 text = stringResource(Res.string.routines_title),
                 style = MaterialTheme.typography.headlineSmall
             )
+            // Library groups routines and equipment. Equipment is its own feature and route, so this
+            // screen asks the shell to open that group member instead of depending on it.
+            TextButton(onClick = onOpenEquipment) {
+                Text(stringResource(Res.string.routines_equipment))
+            }
             state.message?.let { message ->
                 MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
             }
             ActiveBlockSection(state = state, viewModel = viewModel)
+            var showArchived by remember { mutableStateOf(false) }
+            val listedTemplates = visibleRoutines(state.templates, showArchived)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = stringResource(Res.string.routines_title),
+                    text = stringResource(Res.string.routines_saved_title),
                     style = MaterialTheme.typography.titleMedium
                 )
                 TextButton(onClick = viewModel::onNewRoutine) {
                     Text(stringResource(Res.string.routines_new))
                 }
             }
+            FilterChip(
+                selected = showArchived,
+                onClick = { showArchived = !showArchived },
+                label = { Text(stringResource(Res.string.routines_archived_filter)) }
+            )
             when {
                 state.isLoading -> CircularProgressIndicator()
-                state.templates.isEmpty() -> Text(stringResource(Res.string.routines_empty))
-                else -> state.templates.forEach { template ->
+                listedTemplates.isEmpty() -> Text(
+                    stringResource(
+                        if (showArchived) {
+                            Res.string.routines_archived_empty
+                        } else {
+                            Res.string.routines_empty
+                        }
+                    )
+                )
+                else -> listedTemplates.forEach { template ->
                     TemplateRow(
                         template = template,
                         viewModel = viewModel,
@@ -457,6 +489,15 @@ private fun occurrenceNames(state: RoutinesUiState): Map<Long, String> {
     return state.occurrences.associate { it.id to workoutNames[it.activationWorkoutId].orEmpty() }
 }
 
+/**
+ * Selects the saved routines shown for the active filter. Archived routines are hidden by default
+ * and are never mixed into the ordinary list; input order is preserved.
+ */
+internal fun visibleRoutines(
+    templates: List<RoutineTemplate>,
+    showArchived: Boolean
+): List<RoutineTemplate> = templates.filter { it.isArchived == showArchived }
+
 @Composable
 private fun ScheduleChangeDialog(
     title: String,
@@ -514,6 +555,7 @@ private fun MessageBanner(message: String, onDismiss: () -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewModel) {
+    var showSchedule by remember { mutableStateOf(false) }
     Card {
         Column(
             modifier = Modifier
@@ -542,13 +584,26 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
                     state.occurrences.size
                 )
             )
-            val workoutNames = activation.workouts.associate { it.id to it.name }
-            state.occurrences.sortedBy { it.queuePosition }.forEach { occurrence ->
-                OccurrenceRow(
-                    occurrence = occurrence,
-                    workoutName = workoutNames[occurrence.activationWorkoutId].orEmpty(),
-                    onPostpone = viewModel::onPostpone
+            TextButton(onClick = { showSchedule = !showSchedule }) {
+                Text(
+                    stringResource(
+                        if (showSchedule) {
+                            Res.string.routines_schedule_hide
+                        } else {
+                            Res.string.routines_schedule_show
+                        }
+                    )
                 )
+            }
+            if (showSchedule) {
+                val workoutNames = activation.workouts.associate { it.id to it.name }
+                state.occurrences.sortedBy { it.queuePosition }.forEach { occurrence ->
+                    OccurrenceRow(
+                        occurrence = occurrence,
+                        workoutName = workoutNames[occurrence.activationWorkoutId].orEmpty(),
+                        onPostpone = viewModel::onPostpone
+                    )
+                }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = viewModel::onSwitchScheduleMode) {
@@ -643,6 +698,7 @@ private fun TemplateRow(
     onExportRequested: (RoutineTemplate) -> Unit
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
+    var showActions by remember { mutableStateOf(false) }
     Card {
         Column(
             modifier = Modifier
@@ -667,36 +723,68 @@ private fun TemplateRow(
                 text = stringResource(Res.string.routines_workout_count, template.workouts.size),
                 style = MaterialTheme.typography.bodySmall
             )
+            val archiveLabel = if (template.isArchived) {
+                Res.string.routines_unarchive
+            } else {
+                Res.string.routines_archive
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { viewModel.onEditRoutine(template) }) {
                     Text(stringResource(Res.string.routines_edit))
-                }
-                TextButton(onClick = { viewModel.onDuplicate(template) }) {
-                    Text(stringResource(Res.string.routines_duplicate))
-                }
-                if (canExport) {
-                    TextButton(
-                        onClick = { onExportRequested(template) },
-                        modifier = Modifier.testTag(PrescriptionShareTestTags.EXPORT_ROUTINE)
-                    ) {
-                        Text(stringResource(Res.string.routines_prescription_export_action))
-                    }
                 }
                 if (!template.isArchived) {
                     TextButton(onClick = { viewModel.onActivateRequested(template) }) {
                         Text(stringResource(Res.string.routines_activate))
                     }
                 }
-                TextButton(onClick = { viewModel.onToggleArchive(template) }) {
-                    val label = if (template.isArchived) {
-                        Res.string.routines_unarchive
-                    } else {
-                        Res.string.routines_archive
+                Box {
+                    TextButton(onClick = { showActions = true }) {
+                        Text(stringResource(Res.string.routines_more_actions))
                     }
-                    Text(stringResource(label))
-                }
-                TextButton(onClick = { confirmDelete = true }) {
-                    Text(stringResource(Res.string.routines_delete))
+                    DropdownMenu(
+                        expanded = showActions,
+                        onDismissRequest = { showActions = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.routines_duplicate)) },
+                            onClick = {
+                                showActions = false
+                                viewModel.onDuplicate(template)
+                            }
+                        )
+                        if (canExport) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            Res.string.routines_prescription_export_action
+                                        )
+                                    )
+                                },
+                                onClick = {
+                                    showActions = false
+                                    onExportRequested(template)
+                                },
+                                modifier = Modifier.testTag(
+                                    PrescriptionShareTestTags.EXPORT_ROUTINE
+                                )
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(archiveLabel)) },
+                            onClick = {
+                                showActions = false
+                                viewModel.onToggleArchive(template)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.routines_delete)) },
+                            onClick = {
+                                showActions = false
+                                confirmDelete = true
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -865,6 +953,7 @@ private fun EntryRow(
     canMoveDown: Boolean,
     viewModel: RoutinesViewModel
 ) {
+    var showAdvanced by remember(entry.id) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1008,57 +1097,75 @@ private fun EntryRow(
             ) {
                 Text(stringResource(Res.string.routines_move_down))
             }
-            // Progression applies to counted slots; a timed slot works to seconds, not reps.
-            if (entry.metric == EntryMetric.REPETITIONS) {
-                TextButton(
-                    onClick = { viewModel.onEditProgressionPolicy(workoutIndex, entryIndex) }
-                ) {
-                    Text(
-                        text = stringResource(Res.string.routines_progression_action),
-                        maxLines = 1,
-                        softWrap = false
+            TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                Text(
+                    stringResource(
+                        if (showAdvanced) {
+                            Res.string.routines_advanced_hide
+                        } else {
+                            Res.string.routines_advanced_show
+                        }
                     )
-                }
-                // Ordered per-set targets need a numeric load; bodyweight and added-load slots have
-                // no per-set numeric target to prescribe.
-                if (entry.loadKind == LoadKind.EXTERNAL) {
-                    TextButton(
-                        onClick = { viewModel.onEditSetTargets(workoutIndex, entryIndex) }
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.routines_set_targets_action),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                    // A cluster is rep-based external-load work, so only this slot can carry one.
-                    TextButton(
-                        onClick = { viewModel.onEditCluster(workoutIndex, entryIndex) }
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.routines_cluster_action),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
+                )
             }
-            // Pairing only groups the two slots' rest; a timed slot can be paired too.
-            if (entry.superset != null) {
-                TextButton(onClick = { viewModel.onRemoveSuperset(workoutIndex, entryIndex) }) {
-                    Text(
-                        text = stringResource(Res.string.routines_superset_remove),
-                        maxLines = 1,
-                        softWrap = false
-                    )
+        }
+        if (showAdvanced) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Progression applies to counted slots; a timed slot works to seconds, not reps.
+                if (entry.metric == EntryMetric.REPETITIONS) {
+                    TextButton(
+                        onClick = { viewModel.onEditProgressionPolicy(workoutIndex, entryIndex) }
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.routines_progression_action),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                    // Ordered per-set targets need a numeric load; bodyweight and added-load slots
+                    // have no per-set numeric target to prescribe.
+                    if (entry.loadKind == LoadKind.EXTERNAL) {
+                        TextButton(
+                            onClick = { viewModel.onEditSetTargets(workoutIndex, entryIndex) }
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.routines_set_targets_action),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        // A cluster is rep-based external-load work, so only this slot can carry one.
+                        TextButton(
+                            onClick = { viewModel.onEditCluster(workoutIndex, entryIndex) }
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.routines_cluster_action),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
                 }
-            } else if (canPairWithNext) {
-                TextButton(onClick = { viewModel.onEditSuperset(workoutIndex, entryIndex) }) {
-                    Text(
-                        text = stringResource(Res.string.routines_superset_action),
-                        maxLines = 1,
-                        softWrap = false
-                    )
+                // Pairing only groups the two slots' rest; a timed slot can be paired too.
+                if (entry.superset != null) {
+                    TextButton(onClick = { viewModel.onRemoveSuperset(workoutIndex, entryIndex) }) {
+                        Text(
+                            text = stringResource(Res.string.routines_superset_remove),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else if (canPairWithNext) {
+                    TextButton(onClick = { viewModel.onEditSuperset(workoutIndex, entryIndex) }) {
+                        Text(
+                            text = stringResource(Res.string.routines_superset_action),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             }
         }
@@ -1253,7 +1360,7 @@ private fun ProgressionPolicyDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onSave) {
+            Button(onClick = onSave) {
                 Text(stringResource(Res.string.routines_save))
             }
         },
@@ -1405,7 +1512,7 @@ private fun SetTargetsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onApply) {
+            Button(onClick = onApply) {
                 Text(stringResource(Res.string.routines_set_targets_apply))
             }
         },
@@ -1570,7 +1677,7 @@ private fun SupersetDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onApply) {
+            Button(onClick = onApply) {
                 Text(stringResource(Res.string.routines_set_targets_apply))
             }
         },
@@ -1680,10 +1787,14 @@ private fun ActivationDialog(
                 }
                 if (activation.hasActiveBlock) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(stringResource(Res.string.routines_activation_replace))
+                        Text(
+                            text = stringResource(Res.string.routines_activation_replace),
+                            modifier = Modifier.weight(1f)
+                        )
                         Switch(
                             checked = activation.replaceActive,
                             onCheckedChange = onReplaceActiveChanged

@@ -16,6 +16,9 @@ internal object LoggerTestTags {
     /** The fixed-height exercise picker nested inside [LIST]. */
     const val EXERCISE_PICKER = "logger_exercise_picker"
 
+    /** The active workout header's overflow trigger for finish, skip and other-training actions. */
+    const val WORKOUT_ACTIONS = "logger_workout_actions"
+
     const val MANUAL_INSTRUCTIONS = "logger_manual_instructions"
 
     /** The manual form's distance field, shown only while the distance metric is selected. */
@@ -25,6 +28,9 @@ internal object LoggerTestTags {
         "logger_draft_instructions_${draft.occurrenceEntryId ?: draft.exerciseId}"
 
     fun guidedInstructions(entryId: Long): String = "logger_guided_instructions_$entryId"
+
+    /** One guided exercise's overflow trigger for editing its pending draft and measure. */
+    fun guidedActions(entryId: Long): String = "logger_guided_actions_$entryId"
 
     /** The optional warm-up guidance card. */
     const val WARMUP_CARD = "logger_warmup_card"

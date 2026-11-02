@@ -2,6 +2,7 @@
 <resources>
     <string name="progress_title">Exercise progress</string>
     <string name="progress_exercise_search_label">Search exercises</string>
+    <string name="progress_exercise_change">Change exercise</string>
     <string name="progress_exercise_empty">No exercises are available yet.</string>
     <string name="progress_exercise_none_selected">Choose an exercise to see its progress.</string>
     <string name="progress_exercise_missing_name">Exercise no longer in the catalog</string>
@@ -55,6 +56,7 @@
     <string name="progress_table_duration">Recorded duration: %1$d s</string>
     <string name="progress_table_distance">Recorded distance: %1$s</string>
     <string name="progress_body_weight">Body weight</string>
+    <string name="progress_fatigue">Fatigue map</string>
     <string name="bodyweight_add">Add measurement</string>
     <string name="bodyweight_loading">Loading body weight…</string>
     <string name="bodyweight_load_failed">Could not load body weight.</string>
@@ -64,6 +66,8 @@
     <string name="bodyweight_goal_title">Goal</string>
     <string name="bodyweight_goal_none">No goal set</string>
     <string name="bodyweight_goal_current">Current goal: %1$s</string>
+    <string name="bodyweight_goal_edit">Edit goal</string>
+    <string name="bodyweight_goal_hide">Hide goal</string>
     <string name="bodyweight_goal_line">Goal: %1$s</string>
     <string name="bodyweight_goal_input_label">Goal weight (%1$s)</string>
     <string name="bodyweight_goal_save">Save goal</string>
@@ -90,6 +94,7 @@
     <string name="bodyweight_duplicate_message">A measurement for %1$s already exists. Replacing it overwrites the stored value.</string>
     <string name="bodyweight_duplicate_replace">Replace</string>
     <string name="progress_station_all">All stations</string>
+    <string name="progress_station_label">Station</string>
     <string name="progress_station_unattributed">No station</string>
     <string name="progress_station_station">Station: %1$s</string>
 </resources>

@@ -10,11 +10,9 @@ tags:
     clearState: false
     permissions:
       all: unset
-- assertVisible:
-    selected: true
-    containsDescendants:
-      - text: '^Equipment$'
-- assertNotVisible: '^Routine name$'
+- tapOn:
+    text: '^Library$'
+    retryTapIfNoChange: false
 - tapOn:
     text: '^Routines$'
     retryTapIfNoChange: false
@@ -45,4 +43,4 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Equipment$'
+      - text: '^Library$'

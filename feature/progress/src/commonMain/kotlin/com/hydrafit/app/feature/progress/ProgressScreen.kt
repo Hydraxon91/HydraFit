@@ -2,12 +2,15 @@ package com.hydrafit.app.feature.progress
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -17,7 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -36,6 +44,7 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import hydrafit.feature.progress.generated.resources.Res
+import hydrafit.feature.progress.generated.resources.bodyweight_cancel
 import hydrafit.feature.progress.generated.resources.progress_back
 import hydrafit.feature.progress.generated.resources.progress_body_weight
 import hydrafit.feature.progress.generated.resources.progress_chart_volume_legend
@@ -45,10 +54,12 @@ import hydrafit.feature.progress.generated.resources.progress_charts_retry
 import hydrafit.feature.progress.generated.resources.progress_charts_title
 import hydrafit.feature.progress.generated.resources.progress_device_attributed
 import hydrafit.feature.progress.generated.resources.progress_device_attributed_rated
+import hydrafit.feature.progress.generated.resources.progress_exercise_change
 import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
 import hydrafit.feature.progress.generated.resources.progress_exercise_search_label
+import hydrafit.feature.progress.generated.resources.progress_fatigue
 import hydrafit.feature.progress.generated.resources.progress_history_distance_line
 import hydrafit.feature.progress.generated.resources.progress_history_duration_line
 import hydrafit.feature.progress.generated.resources.progress_history_empty
@@ -84,6 +95,7 @@ import hydrafit.feature.progress.generated.resources.progress_records_all_time_n
 import hydrafit.feature.progress.generated.resources.progress_records_none
 import hydrafit.feature.progress.generated.resources.progress_records_title
 import hydrafit.feature.progress.generated.resources.progress_station_all
+import hydrafit.feature.progress.generated.resources.progress_station_label
 import hydrafit.feature.progress.generated.resources.progress_station_station
 import hydrafit.feature.progress.generated.resources.progress_station_unattributed
 import hydrafit.feature.progress.generated.resources.progress_title
@@ -99,6 +111,7 @@ internal object ProgressTestTags {
     const val HISTORY_LIST = "progress_history_list"
     const val HISTORY_LOAD_MORE = "progress_history_load_more"
     const val BODY_WEIGHT_ENTRY = "progress_body_weight_entry"
+    const val FATIGUE_ENTRY = "progress_fatigue_entry"
     fun exercise(exerciseId: String) = "progress_exercise_$exerciseId"
     fun range(range: ProgressRange) = "progress_range_${range.days}"
     fun record(index: Int) = "progress_record_$index"
@@ -108,7 +121,8 @@ internal object ProgressTestTags {
 fun ProgressRoute(
     viewModel: ProgressViewModel = koinViewModel(),
     onBack: () -> Unit,
-    onOpenBodyWeight: () -> Unit
+    onOpenBodyWeight: () -> Unit,
+    onOpenFatigue: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Re-sample the clock and offset when the destination returns to the foreground, so a charting
@@ -126,10 +140,12 @@ fun ProgressRoute(
         onShowSupportingSet = viewModel::onShowSupportingSet,
         onCloseSupportingSet = viewModel::onSupportingSetClosed,
         onBack = onBack,
-        onOpenBodyWeight = onOpenBodyWeight
+        onOpenBodyWeight = onOpenBodyWeight,
+        onOpenFatigue = onOpenFatigue
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProgressScreen(
     state: ProgressUiState,
@@ -144,8 +160,10 @@ fun ProgressScreen(
     onCloseSupportingSet: () -> Unit,
     onBack: () -> Unit,
     onOpenBodyWeight: () -> Unit,
+    onOpenFatigue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showExercisePicker by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -161,31 +179,88 @@ fun ProgressScreen(
         OutlinedButton(onClick = onBack) {
             Text(stringResource(Res.string.progress_back))
         }
-        OutlinedButton(
-            onClick = onOpenBodyWeight,
-            modifier = Modifier.testTag(ProgressTestTags.BODY_WEIGHT_ENTRY)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(stringResource(Res.string.progress_body_weight))
+            TextButton(
+                onClick = onOpenBodyWeight,
+                modifier = Modifier.testTag(ProgressTestTags.BODY_WEIGHT_ENTRY)
+            ) {
+                Text(stringResource(Res.string.progress_body_weight))
+            }
+            TextButton(
+                onClick = onOpenFatigue,
+                modifier = Modifier.testTag(ProgressTestTags.FATIGUE_ENTRY)
+            ) {
+                Text(stringResource(Res.string.progress_fatigue))
+            }
         }
-        ExerciseSelector(state, onExerciseQueryChanged, onExerciseSelected)
         if (state.hasSelectedExercise) {
+            SelectedExercise(state, onChangeExercise = { showExercisePicker = true })
             RangeSelector(state.range, onRangeSelected)
             StationFilterSelector(state, onStationFilterSelected)
             ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
             HistorySection(state, onRetryHistory, onLoadMoreHistory)
         } else {
+            ExerciseSearch(state, onExerciseQueryChanged, onExerciseSelected)
             Text(stringResource(Res.string.progress_exercise_none_selected))
+        }
+    }
+
+    if (showExercisePicker) {
+        AlertDialog(
+            onDismissRequest = { showExercisePicker = false },
+            title = { Text(stringResource(Res.string.progress_exercise_change)) },
+            text = {
+                ExerciseSearch(
+                    state = state,
+                    onQueryChanged = onExerciseQueryChanged,
+                    onSelected = { exerciseId ->
+                        onExerciseSelected(exerciseId)
+                        showExercisePicker = false
+                    },
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showExercisePicker = false }) {
+                    Text(stringResource(Res.string.bodyweight_cancel))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SelectedExercise(state: ProgressUiState, onChangeExercise: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        val name = state.selectedExerciseName
+        Text(
+            text = name ?: stringResource(Res.string.progress_exercise_missing_name),
+            style = MaterialTheme.typography.titleMedium,
+            color = if (name == null) MaterialTheme.colorScheme.error else Color.Unspecified,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onChangeExercise) {
+            Text(stringResource(Res.string.progress_exercise_change))
         }
     }
 }
 
 @Composable
-private fun ExerciseSelector(
+private fun ExerciseSearch(
     state: ProgressUiState,
     onQueryChanged: (String) -> Unit,
-    onSelected: (String) -> Unit
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedTextField(
             value = state.exerciseQuery,
             onValueChange = onQueryChanged,
@@ -207,18 +282,16 @@ private fun ExerciseSelector(
                 }
             }
         }
-        if (state.selectedExerciseNameMissing) {
-            Text(
-                text = stringResource(Res.string.progress_exercise_missing_name),
-                color = MaterialTheme.colorScheme.error
-            )
-        }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RangeSelector(range: ProgressRange, onRangeSelected: (ProgressRange) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         ProgressRange.entries.forEach { option ->
             FilterChip(
                 selected = option == range,
@@ -230,30 +303,40 @@ private fun RangeSelector(range: ProgressRange, onRangeSelected: (ProgressRange)
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StationFilterSelector(state: ProgressUiState, onSelected: (StationFilter) -> Unit) {
     if (!state.hasStationOptions) return
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(
-            selected = state.stationFilter == StationFilter.All,
-            onClick = { onSelected(StationFilter.All) },
-            label = { Text(stringResource(Res.string.progress_station_all)) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(Res.string.progress_station_label),
+            style = MaterialTheme.typography.labelLarge
         )
-        FilterChip(
-            selected = state.stationFilter == StationFilter.Unattributed,
-            onClick = { onSelected(StationFilter.Unattributed) },
-            label = { Text(stringResource(Res.string.progress_station_unattributed)) }
-        )
-        state.stationOptions.forEach { station ->
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             FilterChip(
-                selected = state.stationFilter == StationFilter.Station(station.id),
-                onClick = {
-                    if (station.id > 0L) onSelected(StationFilter.Station(station.id))
-                },
-                label = {
-                    Text(stringResource(Res.string.progress_station_station, station.name))
-                }
+                selected = state.stationFilter == StationFilter.All,
+                onClick = { onSelected(StationFilter.All) },
+                label = { Text(stringResource(Res.string.progress_station_all)) }
             )
+            FilterChip(
+                selected = state.stationFilter == StationFilter.Unattributed,
+                onClick = { onSelected(StationFilter.Unattributed) },
+                label = { Text(stringResource(Res.string.progress_station_unattributed)) }
+            )
+            state.stationOptions.forEach { station ->
+                FilterChip(
+                    selected = state.stationFilter == StationFilter.Station(station.id),
+                    onClick = {
+                        if (station.id > 0L) onSelected(StationFilter.Station(station.id))
+                    },
+                    label = {
+                        Text(stringResource(Res.string.progress_station_station, station.name))
+                    }
+                )
+            }
         }
     }
 }

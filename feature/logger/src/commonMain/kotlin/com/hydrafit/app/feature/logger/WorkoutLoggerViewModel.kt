@@ -3227,6 +3227,8 @@ class WorkoutLoggerViewModel(
             _state.update {
                 it.copy(
                     activeOccurrence = null,
+                    workoutStage = WorkoutStage.OVERVIEW,
+                    manualEntryExpanded = false,
                     draftSets = emptyList(),
                     draftEdit = null,
                     missingLoadPrompt = null,
@@ -3393,6 +3395,14 @@ class WorkoutLoggerViewModel(
                     performedSets = performedTotal,
                     prescribedSets = prescribed
                 ),
+                // A fresh workout starts on its overview; one that already holds recorded work
+                // resumes on the training presentation. An ordinary refresh keeps the user's choice.
+                workoutStage = when {
+                    sameOccurrence -> it.workoutStage
+                    started -> WorkoutStage.TRAINING
+                    else -> WorkoutStage.OVERVIEW
+                },
+                manualEntryExpanded = sameOccurrence && it.manualEntryExpanded,
                 draftSets = displayDrafts,
                 measureChangeEntryIds = measureChangeEntryIds,
                 measureChange = it.measureChange?.takeIf { dialog ->
@@ -3740,6 +3750,26 @@ class WorkoutLoggerViewModel(
     }
 
     fun onOccurrenceMessageShown() = _state.update { it.copy(occurrenceMessage = null) }
+
+    /**
+     * Moves the active workout to its training presentation. This writes nothing: it only changes
+     * which arrangement of the same Logger state is shown, so drafts, targets and timers are kept.
+     */
+    fun showWorkoutTraining() {
+        if (_state.value.activeOccurrence == null) return
+        _state.update { it.copy(workoutStage = WorkoutStage.TRAINING) }
+    }
+
+    /** Returns to the active workout's overview without disturbing the training state. */
+    fun showWorkoutOverview() {
+        if (_state.value.activeOccurrence == null) return
+        _state.update { it.copy(workoutStage = WorkoutStage.OVERVIEW) }
+    }
+
+    /** Expands or collapses the manual entry block while a workout is active. */
+    fun toggleManualEntry() = _state.update {
+        it.copy(manualEntryExpanded = !it.manualEntryExpanded)
+    }
 
     /**
      * Returns from the just-finished workout's summary without keeping it. The pending history key is

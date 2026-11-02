@@ -15,6 +15,9 @@ tags:
     permissions:
       all: unset
 - tapOn:
+    text: '^Library$'
+    retryTapIfNoChange: false
+- tapOn:
     text: '^Routines$'
     retryTapIfNoChange: false
 - assertVisible: '^HF UI accept per-set$'

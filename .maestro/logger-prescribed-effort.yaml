@@ -16,7 +16,7 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Log$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - swipe:
     start: '540,200'

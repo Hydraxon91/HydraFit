@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.toggleable
@@ -42,6 +44,7 @@ import hydrafit.feature.settings.generated.resources.settings_backup_password_mi
 import hydrafit.feature.settings.generated.resources.settings_backup_restore
 import org.jetbrains.compose.resources.stringResource
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 actual fun BackupSection(
     isSupported: Boolean,
@@ -80,28 +83,28 @@ actual fun BackupSection(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { onImportFrom(it.toString()) } }
 
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth().guidanceTestTagsAsResourceId(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Button(
             onClick = { showExportOptions = true },
-            enabled = isSupported && !busy,
-            modifier = Modifier.weight(1f)
+            enabled = isSupported && !busy
         ) {
             Text(stringResource(Res.string.settings_backup_export))
         }
         OutlinedButton(
             onClick = { csvPicker.launch("hydrafit-history.csv") },
             enabled = isSupported && !busy,
-            modifier = Modifier.weight(1f).testTag(BackupTestTags.EXPORT_CSV)
+            modifier = Modifier.testTag(BackupTestTags.EXPORT_CSV)
         ) {
             Text(stringResource(Res.string.settings_backup_export_history_csv))
         }
         OutlinedButton(
             onClick = { cardioCsvPicker.launch("hydrafit-cardio.csv") },
             enabled = isSupported && !busy,
-            modifier = Modifier.weight(1f).testTag(BackupTestTags.EXPORT_CARDIO_CSV)
+            modifier = Modifier.testTag(BackupTestTags.EXPORT_CARDIO_CSV)
         ) {
             Text(stringResource(Res.string.settings_backup_export_cardio_csv))
         }
@@ -111,8 +114,7 @@ actual fun BackupSection(
                     arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")
                 )
             },
-            enabled = isSupported && !busy,
-            modifier = Modifier.weight(1f)
+            enabled = isSupported && !busy
         ) {
             Text(stringResource(Res.string.settings_backup_restore))
         }

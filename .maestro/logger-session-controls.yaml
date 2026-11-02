@@ -11,7 +11,7 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Log$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible: '^Log workout$'
 - assertVisible: '^No active session$'

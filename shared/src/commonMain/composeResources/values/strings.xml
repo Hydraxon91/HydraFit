@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
     <string name="app_name">HydraFit</string>
+    <string name="nav_train">Train</string>
+    <string name="nav_progress">Progress</string>
+    <string name="nav_library">Library</string>
 </resources>

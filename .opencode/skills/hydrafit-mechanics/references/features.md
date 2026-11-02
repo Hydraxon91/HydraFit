@@ -14,6 +14,104 @@ recorded set keeps its frozen station label and load basis; the training-setup r
 rows but keeps custom equipment, like the custom exercises it is catalog data for. UI copy lives in
 each feature's `strings.xml`.
 
+## Workout overview and training stage (0.13.0)
+
+An active-block workout has two presentations of one Logger state, chosen by
+`WorkoutLoggerUiState.workoutStage`. `OVERVIEW` shows `WorkoutHeaderSection`
+(workout name, `performed of prescribed` sets, and Start workout/Resume workout or
+Workout overview as the primary action) and `WorkoutOverviewSection`, whose rows
+carry the remaining prescription and a **Replace** action. Finish, Finish
+partially, Skip and the Other training toggle share the header's labeled **Workout
+actions** menu, so the workout's start/review action stays visible.
+`TRAINING` shows the warm-up and guided/planned-draft sections instead of the
+overview rows.
+
+Switching stages calls `showWorkoutTraining`/`showWorkoutOverview` and writes
+nothing: no set, no finish, no queue advance, and drafts, editors and timers are
+untouched. The stage is derived on a workout change (nothing recorded opens the
+overview, recorded work resumes training) and kept on an ordinary refresh of the
+same occurrence. `showsTrainingStage` also forces training while `restTimer` or
+`setTimer` is live, so a running timer is never collapsed away.
+
+Replace is hidden for a slot in `frozenEntryIds`, because
+`ReplaceOccurrenceExerciseUseCase` refuses a slot that already holds recorded
+work; an untouched slot still replaces for this occurrence only. The overview target line names
+the slot's actual measure — reps, seconds, the display-unit distance or newtons — from
+resource templates, so a force slot reads its prescribed newtons rather than a null rep count. With
+an active
+workout the manual entry block (history/progress/cardio entries, session controls
+and note, exercise picker and the manual form) renders only when
+`manualEntryExpanded` is set, through the **Other training** action in the header.
+The form is the same state, so opening it never clears entered values.
+
+## Editor and dialog conventions (0.13.0)
+
+The changed editors follow one bounded rubric: the title states what is being edited and its
+scope (`Edit set: <exercise>`, `Edit <draft>`, `Replace for this workout` for occurrence-only
+replacement versus Manage plan's `Change in plan`); the saving action is a filled primary button
+(Save set, Apply edit, Save, Apply) while Cancel, Pause, Clear, Reset, Retire and Delete stay
+secondary or destructive text actions; the body scrolls inside the dialog so the action row stays
+reachable; validation and failed-save messages stay visible without clearing input. The
+Start-block dialog's replace-block row gives its label the remaining width so a long label wraps
+instead of clipping beside the switch.
+
+This rubric is presentation only. It does not add a dirty-editor confirmation, a shared editor
+framework, a full-screen conversion, or any persistence or process-death guarantee, and it does
+not change captured units, precision, cluster identity, station load basis or occurrence-only
+replacement rules.
+
+## Equipment screen structure (0.13.0)
+
+`EquipmentProfilerScreen` leads with the active profile and inventory: profiles with their
+create/copy/rename/activate/delete actions, then equipment chips each carrying its own Manage
+action on a line beneath the chip (a long chip must never squeeze that label), then **Loading
+configuration** and **Stations** as one group so the calculator stays with the equipment it
+describes. Catalog administration, planner exclusions and manual baseline records sit in three
+independent, collapsed-by-default disclosures (**Manage catalog**, **Exercise exclusions**,
+**Baseline records**); the baseline section states that those numbers are manually entered
+planning baselines, not performed sets. These are presentation states only: no profile, station,
+unit, ceiling, attribution or loading behavior changes.
+
+## Progress screen structure (0.13.0)
+
+`ProgressScreen` stays exercise-first. Body weight and the Fatigue map are secondary text
+actions under the title, not stacked primary buttons. With nothing selected, the search field
+and option list render inline; with a selection, the screen shows the exercise name and a
+**Change exercise** action whose dialog hosts the same search and list, applies the existing
+selection callback and closes. Nothing is auto-selected, and opening the dialog neither resets
+nor prefills the query. Range and station chips use wrapping flow rows, with a `Station` label
+above the station chips. Trend, all-time records and recorded history keep separate headings,
+notes and independent loading, error, empty and paging states, so changing the chart range
+never changes record scope or history paging.
+
+`BodyWeightScreen` leads with **Add measurement** and the trend. Goal editing sits behind a
+collapsed **Edit goal** disclosure that still shows the current goal line; the input,
+validation, Save goal and Clear goal inside it are unchanged. These are presentation states
+only: no selection, measurement, goal or paging behavior changes.
+
+## Manage plan screen structure (0.13.0)
+
+`SplitBuilderScreen` leads with the plan itself when one exists: week/cycle, deload and engine
+provenance, the volume/target explanation, then the primary action block, then the day and
+exercise rows, and only then the collapsed **Plan configuration** group. That group holds
+days per week, set counts, automatic per-set targets, planner superset pairing and plan dates,
+and starts expanded when there is no plan and nothing is loading, so a first generation is
+configurable while a regeneration does not force it open. Loading, actionable errors with
+Retry, the review-equipment action and the stale-context warning stay directly under the title
+rather than inside the plan.
+
+For a draft, `Use this plan` is the filled primary action and `Start block` is an outlined
+secondary one; for an accepted plan the accepted notice stays and `Start block` becomes the
+filled primary action. The two never merge, because accepting and creating a block keep
+separate effects. Regenerate, Save as routine, export and plan history remain available but
+secondary.
+
+Each exercise row keeps its prescription on a full-width line, with the measure control and,
+for an accepted plan, a visible **Change in plan** action on a compact wrapping row beneath it.
+That wording distinguishes plan-level substitution from the Logger's occurrence-only
+**Replace for this workout**; the dialog is titled `Change <exercise> in the plan` and its
+candidates, empty states and cancellation are unchanged.
+
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
@@ -90,6 +188,28 @@ and the existing submission guard still prevents a double log. Skipping the memb
 cancels that start and its elapsed timing without writing anything, so the partner's turn starts from
 its own fresh Start and the skipped member must Start again when its turn returns.
 
+## Routines screen structure (0.13.0)
+
+`RoutinesScreen` separates the active training block from saved routines. The block card
+always shows the activation name and its `resolved of total` progress; only the
+per-workout occurrence rows (and their Postpone action) sit behind a remembered
+`View schedule`/`Hide schedule` toggle, while Change scheduling, Repeat block, Finish
+block and Cancel block stay visible. Saved routines are listed under their own heading,
+hide archived templates by default behind an `Archived` filter chip, and each row keeps
+Edit and the start action visible with Duplicate, prescription Export, Archive/Restore
+and Delete inside a `More actions` menu. `visibleRoutines(templates, showArchived)` is
+the pure filter, covered in `RoutinesPresentationTest`.
+
+The routine editor keeps a slot's name, measure choice, sets, measure value, load and
+move controls visible, and discloses Progression, Per-set targets, Cluster and the
+superset action behind a per-slot `Advanced` toggle; configured summaries stay outside
+it so a collapsed slot still shows what is stored. The toggle state is keyed by the
+slot's id, so reordering rows resets the affected positions' disclosure state rather than
+transferring it between slots. New slots all share the default local id until saved, so on the
+new-routine path moving two unsaved slots can still reset or carry an open state; that residual is
+accepted rather than giving unsaved entries a new identity contract. These are presentation states only:
+no ViewModel field, persisted value, ordering rule, pairing rule or unit changes.
+
 ## Ordered per-set prescription surfaces (0.10.2)
 
 The routine editor's counted **external** slots carry a **Per-set targets** action opening a
@@ -141,8 +261,9 @@ the row refreshes to the written target afterwards.
 
 ## Unstarted slot measurement correction
 
-A guided draft for the active occurrence offers **Change measurement** while the occurrence has no
-recorded set (warm-ups included) and the slot has neither ordered per-set targets nor a cluster.
+A guided draft for the active occurrence offers **Change measurement** in the row's **Draft actions**
+menu while the occurrence has no recorded set (warm-ups included) and the slot has neither ordered
+per-set targets nor a cluster.
 The dialog picks reps, seconds, distance or force explicitly and requires a typed value; no stored
 number is converted into another measure. `ChangeOccurrenceEntryMeasureUseCase` validates the active
 selected occurrence and delegates to `GuidedWorkoutTargetsRepository.changeEntryMeasure`, a
@@ -171,7 +292,9 @@ override carries the same "(edited)" marker as a transient edit.
 A seconds-based pending draft offers **Start timer** on its planned-draft row, and the
 matching guided row offers the same control for the current guided timed draft. The guided
 section and the planned-draft list never render together, so only one timer surface is
-visible at a time. The Logger's `WorkoutLoggerUiState.setTimer` holds one transient
+visible at a time. In the guided row the exercise details and action columns share the
+available width; timer text and its action can wrap. The shared planned-draft timer
+also wraps its action when needed. The Logger's `WorkoutLoggerUiState.setTimer` holds one transient
 `SetTimerState`: a five-second cancellable preparation countdown, then the prescribed work
 countdown, then a confirmation showing the measured work seconds with **Log set** and
 **Discard**. Only one timer exists and it never records by itself; reaching zero and
@@ -451,9 +574,15 @@ portrait there; large screens may rotate. The read-only `.maestro/navigation-smo
 asserts selected-tab semantics after each navigation, not merely visible labels.
 The exported graph type is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
-can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`
-graph (`settings` → `settings/home` + `settings/acknowledgments`) so the bottom tab stays selected on
-its sub-screen. The live app version comes from `AppVersionProvider` (`:core:userdata`), bound in
+can register an internal sub-route without a shell change. Settings uses a short hub
+(`settings/home`) inside a nested `navigation(...)` graph: **Workout preferences**, **Notifications**,
+**Planner engine**, **Units**, **Backup & data** and **About** are child composable routes; no
+bottom-bar destination is selected while Settings is open, since Settings is reached from the
+toolbar rather than the bar. Back from a page returns to the hub; Back from the hub closes
+the overlay. Leaving a page discards its unsaved field edits (rest duration text, API key input)
+because its ViewModels are scoped to that page's back-stack entry; saved changes stay persisted. The
+hub re-reads planner/unit preferences when it is shown again so its summaries are not stale. The live
+app version comes from `AppVersionProvider` (`:core:userdata`), bound in
 `appVersionModule` (Android, from `BuildConfig.VERSION_NAME`) and `IosDatabaseModule` (returns
 `"dev"`).
 
@@ -474,7 +603,10 @@ all recorded renders collapsed to its name and completion summary until expanded
 belongs to that exact recorded completion, so removing a set reopens the rows, and unfinished or
 partially recorded work never collapses. While a set is started, ordinary guided "Log set" and
 edit-confirm for another slot are refused; a repeat "Start set" on the started slot is a no-op, and only
-that slot's explicit "Set completed now" consumes the live event. The Warm-up choice is frozen at
+that slot's explicit "Set completed now" consumes the live event. A guided row keeps its "Start set",
+"Log set", "Set completed now" and any live timer controls visible; "Edit draft" and "Change
+measurement" sit in that row's labeled **Draft actions** menu, with the same write-in-progress and
+available-measure gates. The Warm-up choice is frozen at
 confirmation, survives legacy/missing-load resolution and failed-write retries, and is discarded on
 cancellation or consumed on success. A warm-up is stored as a warm-up and stays out of the progress
 count. "Edit" opens the one-off draft editor; in guided mode Apply persists masked changes for every
@@ -1030,8 +1162,9 @@ by `chooseFile`/`reset`/`selectProvider` keeps a late read/parse result from ove
 (`MappingCandidateUi` id+label) so the picker can resolve unmatched names, and `RejectedImportRowUi`
 rows shown as an explicit-exclude list.
 
-`WorkoutImportRoute`/`WorkoutImportScreen` (`WorkoutImportScreen.kt`) mount beside `BackupRoute()` in
-`SettingsScreen` and render the provider chooser, the `WorkoutImportSection` expect/actual file
+`WorkoutImportRoute`/`WorkoutImportScreen` (`WorkoutImportScreen.kt`) mount on the Settings **Backup &
+data** page (`BackupAndDataSettingsScreen.kt`, beside `BackupRoute()`, `AutomaticBackupRoute()` and
+`StorageDataRoute()`) and render the provider chooser, the `WorkoutImportSection` expect/actual file
 button (Android `ActivityResultContracts.OpenDocument()` for `text/csv`,
 `text/comma-separated-values`, `text/plain`, `*/*`; iOS no picker), the review rows (each included
 row carries a session selector that moves it into another draft or a new one), mapping and

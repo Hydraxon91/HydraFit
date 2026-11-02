@@ -1,5 +1,5 @@
 # Preconditions (set up outside this flow): `Enable guided workouts` is on and an active training
-# block has a pending occurrence, so the Logger shows the warm-up card; the Logger tab is selected
+# block has a pending occurrence, so the Logger shows the warm-up card; Train is selected
 # and the preparation row is already on screen. Bring it into view with the container-aware helper
 # instead of a fixed swipe:
 #

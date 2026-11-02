@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -239,7 +240,7 @@ internal fun ClusterPrescriptionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onApply) {
+            Button(onClick = onApply) {
                 Text(stringResource(Res.string.routines_set_targets_apply))
             }
         },

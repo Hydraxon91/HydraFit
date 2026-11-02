@@ -4463,3 +4463,463 @@ rather than unit-tested because it is Compose-only.
   paths are documented above as user-verified, not flow-asserted.
 - **Still unverified.** A device backup restore or merge carrying force/device, the added-load
   planner suggestion on device, and the station/distance surfaces (not re-accepted in this round).
+
+## 0.13.0 — workout-first Logger, rest expiry and three-destination navigation (2026-10-31)
+
+Scope: the active-workout overview/training stage, the rest prompt's finished state
+and the shell's Train/Progress/Library bar with a toolbar Settings entry. Branch
+`feature/0.13.0`; debug build on `emulator-5554` (Android 16k, 1080×2400).
+
+- **Automated pass.** `./gradlew testAndroidHostTest --rerun-tasks` executed 431
+  tasks and reported 3,134 tests in 330 classes with 0 failures and 0 skips;
+  `./gradlew ktlintCheck --rerun-tasks` executed 307 tasks cleanly; debug assembly
+  succeeded. `:core:database:verifySqlDelightMigration` was UP-TO-DATE with no
+  executed task, and this change contains no schema or migration edit;
+  `:shared` and `:core:network` iOS simulator compiles succeeded. New coverage:
+  `NavTabTest` (group selection, nested sub-graph, Settings selecting no group) and
+  `WorkoutStageTest` (overview default, training stage, rest/timed timer forcing
+  training, and no active workout means no stage) plus the existing
+  `RestTimerControllerTest` case for editing and dismissing a finished countdown.
+- **Navigation on device** (`navigation-smoke.yaml`, 17 steps, passed): Train
+  selected at launch; Progress selects the Progress group and shows Exercise
+  progress; Library shows Routines; the toolbar Settings entry opens Planning
+  engine and system Back returns to Library; Train re-selects. The previous
+  two-row, six-destination bar and its keyboard-free Equipment start are gone.
+- **Overview on device.** Starting the fixture routine `HF 013 overview` created a
+  block for Day 1. Train showed `Current workout: Day 1`, `0 of 3 sets`, Start
+  workout, Finish/Finish partially/Skip, Other training, and one `Back Squat`
+  row reading `3 × 8 reps` with Replace. Screenshots of the Train screen and the
+  overview were captured and viewed in-session; they were not persisted to the
+  repository.
+- **Training stage on device.** Start workout switched the header action to
+  Workout overview and revealed the warm-up card and the guided card
+  (`0 of 3 sets`). Switching to the Progress tab and back kept the training stage
+  and `1 of 3 sets`, so the tab switch does not reset the presentation or drafts.
+- **Rest expiry on device.** Guided mode was enabled for the test only. Start set
+  → Set completed now wrote one synthetic bodyweight set after the
+  "No recommended weight" gate. The rest prompt then rendered
+  `Rest prompt: 1 min 42 sec` with `Dismiss prompt` beside it, the duration field
+  and its note below. Editing the duration to `3` restarted the countdown; when it
+  expired the prompt stayed as `Rest prompt finished` with `Dismiss prompt`
+  beside it and the field still focused on `3`, so expiry neither discarded the
+  typed value nor moved focus. Dismissing removed the prompt. The expired-state
+  screenshot was viewed in-session and was not persisted to the repository.
+- **Finish path on device.** Finish partially opened the summary
+  (`Finished partially`, `1 recorded sets · 3 prescribed`, one recorded set) with
+  the shell chrome still present; Done returned to Train.
+- **Cleanup.** Guided workouts restored to off (baseline), the fixture block was
+  cancelled and `HF 013 overview` archived. The synthetic Back Squat set remains
+  in history by design.
+- **Known test-side effect.** Editing the rest duration during the prompt saved a
+  per-exercise override of 3 seconds for Back Squat; the prompt was dismissed
+  before it could be reset with "Use global default", so the override is still
+  stored on this emulator.
+- **Observations not changed in this scope.** A recent-set row for a logged set
+  with no numeric load renders a trailing `· -` (for example `Back Squat 8 reps
+  · -`), and the guided draft card still renders `Target: 8 × -` for the same
+  case; both predate this change and were left for a separate fix. While Settings
+  is open no bottom-bar destination is selected.
+- **Still unverified.** Dark theme and larger text on the new surfaces (system
+  theme change was outside the approved device mutations), TalkBack traversal of
+  the new header and overview rows, tablet/foldable layouts (0.13.1), and the
+  accepted-plan-without-a-block flow, which intentionally keeps its previous
+  layout.
+
+### 0.13.0 correction — group entry points and Settings exit (2026-10-31)
+
+The first cut grouped the old destinations but left three of them unreachable
+from the bar and gave Settings no visible way out. Corrected in the same branch:
+
+- **Members restored.** Train's header carries **Manage plan** → Weekly plan;
+  Progress carries **Fatigue map** → the fatigue screen; Library carries
+  **Equipment** → Equipment profiles. Each uses `LocalAppTabNavigator`, so no
+  feature imports another feature's route.
+- **Settings exit.** Settings opens as a pushed destination (so system Back
+  returns to the opening screen), now renders its own **Back** action, and the
+  shell hides the toolbar Settings entry while Settings is the current screen.
+- **Re-verified on `emulator-5554`.** `navigation-smoke.yaml` passed its expanded
+  23-step version, asserting each group's member, each destination's selected
+  state and heading, and Settings' Back returning to Library. A separate CLI flow
+  passed 13 steps: Manage plan opened Weekly plan with Train still selected,
+  Fatigue map opened the fatigue screen under Progress, Equipment opened
+  Equipment profiles under Library, and Settings' Back returned to Equipment
+  profiles.
+- **Automated.** `ktlintCheck --rerun-tasks` executed 307 tasks cleanly and
+  `testAndroidHostTest --rerun-tasks` executed 431 tasks reporting the same 3,134
+  tests in 330 classes with 0 failures. Debug assembly succeeded.
+- **Still unverified.** The same limits as above; no active-workout draft
+  round-trip through **Manage plan** was re-run after the correction (the earlier
+  tab round-trip covered the same save/restore path).
+
+### Train action hierarchy pass (2026-11-02)
+
+- **Automated:** logger ktlint and 577 Android host tests ran successfully; debug
+  assembly succeeded, with logger compilation inherited from the preceding test run.
+- **Emulator:** with a user-created synthetic Day 1 block and guided workout on,
+  a read-only journey asserted the draft menu's Edit draft and Change measurement
+  actions, the visible Start set and Log set controls, and all four workout menu
+  entries. The workout remained at 0 of 3 sets; the training screenshot was viewed.
+- **Manage plan:** a separate navigation-only journey opened Weekly plan and
+  returned to the same training stage with Day 1, 0 of 3 sets and the guided
+  actions visible. No draft edit or database-level persistence comparison was made.
+- **Visual variants:** separate read-only journeys asserted the header and all four
+  workout menu items in dark mode and at 1.3× text. Both header and menu screenshots
+  were viewed; the worker reported no clipping. Emulator night mode and font scale
+  were restored and read back as `no` and `1.0`, respectively.
+- **TalkBack attempt:** the installed service was briefly enabled, but Android
+  reported `Bound services:{}` and `touchExplorationEnabled=false`, so traversal and
+  announcements remain blocked. The enabled-services setting was restored to its
+  original empty value and `accessibility_enabled` remained `1`. TalkBack verification
+  is waived for this Train pass at the user's direction; it was not verified.
+- **Limits and fixture:** menu item effects, started and timed set controls, rest
+  expiry and locale were not exercised in this pass. The visual-variant
+  checks did not cover the full guided card at larger text or dark-plus-large
+  together. The synthetic block and guided preference were left as the user supplied
+  them; no set was logged by the journeys. Formal review remains outstanding.
+
+### Train verification follow-up (2026-11-02)
+
+- **Edited draft:** a synthetic Back Squat draft changed from 8 to 9 reps and
+  remained at 9 after Manage plan → Train, with 0 of 3 sets. The initial flow
+  stopped before applying because the keyboard hid Apply; the continuation
+  dismissed the observed keyboard and applied the existing edit once.
+- **Started set and rest:** a synthetic 9-rep set was started and recorded without
+  weight; 1 of 3 sets and the finished rest prompt were observed. The duration
+  field remained focused at 3 while the already-finished prompt was displayed,
+  and dismissal removed it. This did not verify focus across the actual expiry
+  transition. One synthetic set was retained.
+- **Workout actions:** Other training opened and closed through the overflow with
+  the count unchanged. Finish partially was tapped once and its summary showed
+  `Finished partially` and `1 recorded sets · 3 prescribed`. The flow itself failed
+  because it expected a `Workout summary` heading; the result was established
+  from the post-failure hierarchy and screenshot, without repeating the write.
+- **Timed-set blocker:** after repeating the completed synthetic block and changing
+  the new occurrence's measurement to 60 seconds, Start timer was tapped once.
+  The exercise card collapsed to a near-zero-width text column, and the expected
+  Stop early control was not visible. The hierarchy still showed 0 of 3 sets, but
+  the timer's state could not be established; no discard or replay was attempted.
+  Evidence: `train-timed-controls-results/run.log`, `post-failure-hierarchy.csv`
+  and `post-failure.png` in the session's external OpenCode temporary directory.
+- **Remaining:** timed countdown/stop/discard, expiry while actively editing,
+  full Finish and Skip effects remain unverified. TalkBack is waived for this pass.
+
+### Guided timer layout correction (2026-11-02)
+
+The guided exercise row now shares width between details and actions, and timer
+controls can wrap. The previous hidden timer was reconciled at its 60-second
+confirmation and discarded without logging. On the fixed debug build,
+`logger-guided-timer-layout.yaml` passed: the Back Squat name, work countdown and
+Stop early were visible together; stopping and discarding left 0 of 3 sets. A
+separate 1.3× text journey passed the same live-control and discard checks, with
+the warm-up restored afterward. Both running-timer screenshots were viewed; font
+scale was restored and read back as `1.0`.
+
+Logger ktlint and 577 host tests executed successfully; debug assembly succeeded,
+using logger compilation from the preceding test run. The host tests do not test
+Compose layout. The timed attempt was discarded; the synthetic 60-second workout
+and the earlier partially finished synthetic set remain. Rest expiry during an
+active edit, full Finish and Skip effects, and the planned-draft timer at narrow
+width remain unverified. TalkBack is waived for this pass.
+
+### Train review corrections (2026-11-02)
+
+- **R-01:** the all-sets-recorded overview message now points to Workout actions.
+  Debug assembly packaged the updated resource; the all-complete screen itself was
+  not re-created on the emulator for this copy change.
+- **R-02:** `logger-workout-actions.yaml` passed on the synthetic guided Day 1
+  fixture. It opened both menus, asserted all four workout actions and both eligible
+  draft actions, and closed the menus with 0 of 3 sets. The screenshot was viewed;
+  no menu item or set was written. The workout remained in the training stage.
+- **R-03:** the timer flow now has its standard contract preamble, and its README
+  row records that it leaves the training stage open. Both flow files passed
+  Maestro syntax validation.
+
+The prior review's unverified checks remain unchanged; these corrections have not
+yet received a targeted post-fix review.
+
+### Train verification closure (2026-11-02)
+
+The gaps listed in the sections above were closed on `emulator-5554` against the
+debug build at commit `b2639352`, using the synthetic repeated Day 1 fixture:
+
+- **Rest expiry during an edit:** one guided set was completed to start the prompt,
+  then the duration was changed from 3 to 20 seconds. The restarted countdown ran,
+  expired while the field still held focus and the keyboard was open, and the
+  screenshot shows `Rest prompt finished` beside the focused `20`. The field was
+  set back to 3 and the prompt dismissed with progress unchanged.
+- **Planned-draft timer at larger text:** guided workouts were turned off, the draft
+  measurement was changed to 60 seconds through the draft's own `More options`
+  menu, and one timer was started, stopped and discarded at 1.3× text. The countdown
+  and `Stop early` were readable without clipping in both screenshots. Guided
+  workouts and the 1.0 font scale were restored and asserted.
+- **Finish and Skip:** an ordinary Log set does not start rest, so the first journey
+  stopped before its rest assertion; source confirms rest starts only for a live
+  guided completion (`WorkoutLoggerViewModel.kt:4347`). Finish is rejected until
+  every prescribed set is recorded (observed banner: `Not every prescribed set is
+  recorded yet`). After the third guided set, Finish produced a summary reading
+  `Finished` and `3 recorded sets · 3 prescribed`. The block was repeated and Skip
+  removed the occurrence from Train without recording work, leaving the manual
+  entry surface usable.
+
+Synthetic records retained on this emulator: the repeated block's three recorded
+60-second sets, the earlier finished block, and the partially finished block with
+one 9-rep set. Back Squat's per-exercise rest override is back at 3 seconds and the
+font scale at 1.0. TalkBack remains waived for this pass, and the target-review
+closure for R-01–R-03 was approved separately at the same commit.
+
+### Settings closes on a tab switch (2026-11-02)
+
+Opening Settings from Train and then switching tabs used to leave Settings in the
+tab's saved back stack, so returning to that tab showed Settings again. The shell
+now closes the pushed Settings overlay without saving it before a bottom-bar switch;
+the target tab restores its own last screen, and unsaved Settings field edits are
+discarded with the overlay.
+
+- **Helper and tests:** `core/navigation/NavTab.kt` gained
+  `overlayRouteToClose`, covered by three `NavTabTest` cases (overlay present,
+  absent or empty, unrelated route). `:core:navigation:testAndroidHostTest
+  --rerun-tasks` executed with 6 tests and no failures.
+- **Checks:** `:core:navigation` and `:shared` ktlint checks executed cleanly,
+  `:androidApp:assembleDebug` succeeded, and `:shared:compileKotlinIosSimulatorArm64`
+  executed successfully.
+- **Device:** a read-only journey opened Settings, switched to Progress, returned to
+  Train with Settings absent, repeated the path through Library, and confirmed
+  Settings' own Back still returns to the opener. The Train screenshot was viewed;
+  no record or preference changed. `navigation-smoke.yaml` now covers the same rule.
+- **Not verified:** system-back from Settings in this pass, and dismissed-unsaved-
+  edits behavior for Settings fields (no field was edited).
+
+### Settings hub and category pages (2026-11-02)
+
+Settings was reorganised from one long form into a hub with six category pages —
+Workout preferences, Notifications, Planner engine, Units, Backup & data, About —
+plus the separate `Set up HydraFit` entry. Every control moved without changing its
+save behavior, permission flow or safeguards.
+
+- **Pages and Back:** a read-only journey opened each category, asserted its
+  controls, and returned to the hub with Back; hub Back returned to Train. The
+  Workout preferences screenshot was viewed. No preference, radio, switch or backup
+  action was selected.
+- **Unsaved input:** a rest-duration edit of `999` was discarded by leaving the
+  page and reopening it, which restored the stored `120`. The earlier attempt to
+  type into the API-key field could not assert its text because that field is
+  masked; the numeric field replaced it as the probe.
+- **Saved values:** the weight unit was switched to pounds, the hub summary
+  refreshed to `Pounds (lb) · Metres (m)`, the reopened page showed pounds active,
+  and kilograms was restored in the same journey. The reopened radio exposes
+  `checked`, not `selected`, so the flow's `selected` assertion failed while the
+  hierarchy and summary both showed the saved value.
+- **Dark and larger text:** at 1.3× text in dark mode the hub and Workout
+  preferences were readable without clipping; that run's theme restoration needed
+  `cmd uimode night no`, because `settings put secure ui_night_mode` alone did not
+  change the rendered theme.
+- **Backup & data fix:** at 1.3× text the four export/restore actions previously
+  shared one row at a quarter width each, breaking labels into fragments
+  (“Exp ort back up”). The Android backup section now uses a wrapping group with
+  content-sized buttons. Re-checked on device: labels stay intact and the actions
+  stack one per line at 1.3×, and form a 2×2 group at 1.0×.
+- **Checks:** settings ktlint and 58 executed host-test tasks (111 tests, 0
+  failures) passed, debug assembly succeeded, and `git diff --check` was clean.
+  `settings-guidance-denial.yaml` and `settings-workout-import.yaml` were updated
+  for the new navigation but are syntax-checked only, not re-run. TalkBack remains
+  waived for this pass; system back from Settings was not exercised.
+
+### 0.13.0 screen pass — Routines (2026-11-02)
+
+The Routines screen now separates the active training block from saved routines;
+it does not change routine authoring, activation or persistence.
+
+- **Structure:** the active block shows its name and `1 of 1 done` progress
+  immediately, with the per-workout schedule behind `View schedule`/`Hide
+  schedule` and the four block actions still visible. Saved routines have their own
+  heading, keep `Edit` and `Start this routine` visible, and move Duplicate,
+  Export, Archive/Restore and Delete into a `More actions` menu.
+- **Archived filter:** the list defaults to non-archived routines and the
+  `Archived` filter switches to archived ones, which show the archived badge and no
+  start action. Both filters have distinct empty text.
+- **Advanced disclosure:** each editor slot keeps its name, measure chips, sets,
+  load and move controls visible; Progression, Per-set targets, Cluster and pair
+  actions sit behind a per-slot `Advanced` toggle while their summaries stay
+  readable.
+- **Device evidence:** read-only journeys covered the collapsed and expanded
+  schedule, the menu contents (Duplicate, Export, Archive, Delete), the archived
+  filter, the collapsed and expanded editor, the `Start training block` dialog
+  (opened and cancelled), and editor `Cancel` reachability after scrolling. Dark
+  mode at 1.3× was viewed for the list, expanded schedule, menu and expanded
+  editor; labels stayed intact and actions reachable. No routine, block or
+  preference changed.
+- **Checks:** routines ktlint and 58 executed host-test tasks passed, including four
+  new `visibleRoutines` presentation tests; debug assembly succeeded. A first dark
+  journey stopped before the menu because the expanded schedule pushed the action
+  row below the fold; the corrected flow scrolled first and passed.
+- **Observed, not changed:** the Start-block dialog's "Cancel the current block and
+  start this…" switch label is visually clipped at the right edge. That dialog was
+  not part of this pass; the dialog pass covers editor and dialog titles and
+  reachability.
+- **Not verified:** TalkBack traversal, locale variants and rotation for this
+  screen.
+
+### 0.13.0 screen pass — Manage plan (2026-11-02)
+
+The Weekly plan screen now leads with plan status and contents and puts generation
+settings behind Plan configuration. Planning behavior, acceptance, block creation,
+dates and substitution rules are unchanged.
+
+- **Structure:** status, provenance and the volume explanation come first; the
+  primary action block follows; then the day and exercise rows; then Plan
+  configuration; then Regenerate, Save as routine, export and plan history. Loading,
+  errors with Retry, the review-equipment action and the stale-context warning stay
+  directly under the title.
+- **Configuration:** days, sets, accessory sets, automatic per-set targets, planner
+  supersets and plan dates are collapsed when a plan exists and expanded when no
+  plan is present. During a regeneration the group stays closed instead of flashing
+  open.
+- **Actions:** a draft keeps `Use this plan` filled with an outlined `Start block`;
+  an accepted plan shows the accepted notice with `Start block` filled. Accepted-plan
+  substitution is now an explicit `Change in plan` action with the dialog title
+  `Change <exercise> in the plan`, distinct from the Logger's occurrence-only
+  `Replace for this workout`.
+- **Row layout:** verification at 1.0× showed the new text button squeezing a
+  prescription onto two lines (`3 x` / `6`). The exercise line now takes the full
+  width and the measure control and `Change in plan` sit on a compact wrapping row
+  beneath it; re-checked at 1.0× and at 1.3× in dark mode.
+- **Fixture writes:** the offline planner could not generate while the stored engine
+  was Groq with a rejected key, so the engine was switched to Deterministic, a
+  draft was generated, accepted, inspected and deleted, and the engine was restored
+  to Groq. The screen is back to its previous "Groq rejected the API key" state with
+  Retry, and no accepted plan remains.
+- **Checks:** splitbuilder ktlint and 83 host tests passed, debug assembly succeeded,
+  and `git diff --check` was clean. Error, loading, retry, expansion of the
+  configuration group, Regenerate, Save as routine, export and print were not
+  exercised on device in this pass; TalkBack, locale and rotation remain unverified.
+- **Observed, not changed:** the Start-block dialog's current-block replacement
+  switch label clips at the right edge, recorded for the editors/dialogs pass.
+- **Doc drift:** `PLANS.md` P6c and the 2026-10-07 dependency note still describe a
+  per-row swap icon; the control is now a text action and the dependency remains in
+  use for the measure glyph. Those historical entries were left unrevised.
+
+### 0.13.0 screen pass — Progress and Body weight (2026-11-02)
+
+Progress stays exercise-first; loading, chart math, record scope and history paging
+are unchanged.
+
+- **Header:** Body weight and Fatigue map moved from stacked primary buttons to a
+  wrapping row of secondary text actions under the title and Back.
+- **Exercise selection:** with no selection the search field and option list stay
+  inline. With a selection the screen shows the exercise name and a `Change exercise`
+  action that opens the same search and option list in a dialog; choosing one applies
+  the existing callback and closes the dialog, and Cancel changes nothing. Nothing is
+  preselected and the query is not reset when the dialog opens.
+- **Filters and sections:** range and station chips now use wrapping flow rows, and
+  the station chips gained a `Station` label. Trend (last N days), all-time records and
+  recorded history keep their separate headings, notes and independent
+  loading/error/empty/pagination behavior.
+- **Body weight:** `Add measurement` and the trend lead; goal editing sits behind a
+  collapsed `Edit goal` disclosure while the current goal line stays visible, and the
+  input, validation, Save goal and Clear goal are unchanged when expanded.
+- **Device evidence:** a selected exercise showed the compact row, Change exercise
+  dialog and option switch; Body weight showed the collapsed goal value and expanded
+  Save/Clear controls, then collapsed again. Dark mode at 1.3× was viewed for the
+  progress header, range chips, picker dialog and Body weight screen with no clipped
+  labels; the chips still fit on one row, so the wrapping fallback was not exercised.
+- **Checks:** progress ktlint and 55 host tests passed, debug assembly succeeded, and
+  `git diff --check` was clean. Selection state was not persisted across process
+  death; TalkBack, locale, rotation and long station-filter lists remain unverified.
+
+### 0.13.0 screen pass — Equipment (2026-11-02)
+
+Equipment now leads with the active profile and inventory and hides management
+administration behind separate disclosures. Profile, station, loading and exclusion
+behavior is unchanged.
+
+- **Structure:** title, Equipment profiles with the active profile and its
+  New profile/Copy active/Rename actions, the equipment inventory chips with their
+  Manage actions, then Loading configuration and Stations as one group, then three
+  collapsed disclosures: Manage catalog (search, custom and built-in exercise lists,
+  New exercise), Exercise exclusions, and Baseline records with a note that these are
+  manually entered planning baselines rather than performed sets.
+- **Layout fix:** at 1.3× a long inventory chip starved its adjacent action, which
+  broke the label mid-word ("Man"/"age"). Each inventory entry now stacks its Manage
+  action under the chip, so labels stay whole.
+- **Device evidence:** light-mode checks expanded each disclosure independently and
+  confirmed the grouped loading configuration and stations. Dark mode at 1.3× was
+  viewed for the profile/inventory top, the loading and stations group, the three
+  disclosure headings and the expanded Baseline records note; no label split and no
+  unreachable control.
+- **Checks:** equipment ktlint and 102 host tests passed, debug assembly succeeded, and
+  `git diff --check` was clean. Three dark-mode journeys failed only on flow scroll
+  assumptions; the corrected flow centred each section and passed. No profile,
+  equipment, station, record or exclusion was changed. TalkBack, locale, rotation and
+  every editor dialog remain unverified for this pass.
+
+### 0.13.0 screen pass — Editors and dialogs (2026-11-02)
+
+A bounded consistency rubric applied to the changed editors only; no validation,
+persistence, precision, unit or identity rule changed.
+
+- **Scope in titles:** the recorded-set editor keeps `Edit set: <exercise>` and the
+  draft editor `Edit <draft>`. The occurrence replacement dialog now reads `Replace
+  for this workout`, the occurrence-only counterpart to Manage plan's `Change in
+  plan`, with its note unchanged.
+- **Action hierarchy:** Save set, Apply edit, Progression Save, per-set targets Apply,
+  superset Apply, cluster Apply and the Routines kind prompts use filled primary
+  buttons, with Cancel, Pause, Clear, Reset, Retire and Delete kept as secondary or
+  destructive text actions. Equipment's profile, station, loading-inventory,
+  equipment, exercise and baseline editors already conformed and were left unchanged.
+- **Layout fix:** the Start training block dialog's "Cancel the current block and
+  start this one" label was clipped at the right edge; the label now takes the row's
+  remaining width and wraps while the switch keeps its own width. Verified at 1.0× and
+  at 1.3× in dark mode.
+- **Device evidence:** from Workout history, the recorded-set editor showed the scoped
+  title, filled `Save changes` and secondary Cancel at 1.0× and dark 1.3×, and was
+  cancelled without saving. The progression dialog showed a filled Save in light mode.
+  The Start-block dialog was opened and cancelled at both sizes; no block was started.
+- **Checks:** logger ktlint and 577 host tests, routines 110 and equipment 102 host
+  tests all passed; debug assembly succeeded and `git diff --check` was clean.
+- **Not verified:** the draft editor and the occurrence replacement dialog were not
+  reachable with the current fixtures, so their runtime layout was not exercised. The
+  soft keyboard did not appear in the captured editor frames, so keyboard-open
+  reachability is unverified. TalkBack, locale and rotation remain unverified.
+
+### 0.13.0 review corrections (2026-11-02)
+
+The independent review of the 0.13.0 candidate returned REJECTED on documentation and
+tooling drift, with no product-behaviour blocker or data risk. Mechanical corrections
+were applied; one design question is open.
+
+- **R13-01 (major, mechanical):** the `.maestro/README.md` contract table and 19
+  checked-in flows still navigated the retired six-tab bar. Their preambles now use
+  Train, Progress and Library, opening Routines and Equipment through Library, Fatigue
+  map through Progress and Manage plan through Train; the README table, the current
+  browser sentence and a dated-narrative note were corrected.
+- **Verified re-runs:** `fatigue-body-map.yaml` passed 27/27, `logger-history-browser.yaml`
+  25/25, `splitbuilder-auto-targets.yaml` 34/34 and `routine-editor-cancel.yaml` 17/17
+  after the routing change; the last leaves Equipment open with the Library tab
+  selected, and the splitbuilder opt-in was confirmed back at `Off`. The other 15
+  re-routed flows are syntax-checked only; the writing fixture flows were not executed.
+- **Flow technique:** `hideKeyboard` failed on this emulator because no soft keyboard is
+  shown, so the history and splitbuilder flows now tap the next semantic control instead.
+- **R13-02 (minor, resolved as documentation):** comments and living docs claimed the bar
+  keeps a group selected while Settings is open. They now state that no destination is
+  selected, matching `selectedNavTab` and `NavTabTest`.
+- **R13-03/R13-04 (minor, mechanical):** the workout overview target printed
+  `3 × null reps` for force slots and built its strings in Kotlin. It now renders the
+  slot's actual measure — reps, seconds, display-unit distance or newtons — from
+  resource templates (`logger_workout_overview_target*`). Device rendering of a force
+  overview slot was not exercised.
+- **R13-06/R13-07/R13-08 (minor/nit, mechanical):** the settings-routes test KDoc no
+  longer claims to prove graph nesting; three unreferenced Settings strings were removed
+  after a repository search; the per-slot Advanced state is now keyed by the slot id.
+- **Open decision (R13-05):** system Back from an in-group member returns to Train rather
+  than the member's group screen. Device evidence confirms it, and `fatigue-body-map.yaml`
+  asserts that actual end state; changing the behavior requires the user to choose the Back
+  semantics first.
+- **Accepted residual:** the routine editor keys its Advanced disclosure by slot id, but
+  unsaved slots share the default id, so moving unsaved slots can reset or carry that
+  disclosure state. Giving unsaved entries their own identity would change the
+  save/replace contract, so it is documented rather than changed.
+- **Review evidence:** the reviewer inspected the source and evidence but did not re-execute
+  the matrix. The final candidate `b6c8d17a` was then re-run fresh: 885 Gradle tasks
+  executed with `--rerun-tasks`, 3144 host tests with no failures, migration verification,
+  ktlint, debug assembly and release lint, plus both iOS simulator compiles (142 tasks).
+  The earlier `90c7433e` run reported the same 3144 tests.

@@ -1,7 +1,7 @@
 appId: com.hydrafit.app
 ---
 # Read-only: opens and closes the Logger's manual loading helper.
-# Preconditions (see .maestro/README.md): Logger tab selected with a manual exercise chosen so
+# Preconditions (see .maestro/README.md): Train selected with a manual exercise chosen so
 # the set form and its calculator action are present, no keyboard, dialog or unsaved editor.
 # The helper only calculates; this flow writes no set, draft, note or session state.
 - scrollUntilVisible:
