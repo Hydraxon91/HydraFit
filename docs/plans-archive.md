@@ -1768,3 +1768,19 @@ Stale next-action wording is historical; active follow-ups remain in `PLANS.md`.
 | Version | Role |
 | --- | --- |
 | **0.8.x** | Progress & Recovery — **4 publications, `0.8.0`–`0.8.3`**: `0.8.0` charts + records (active); `0.8.1` catalog corrections + forearm accessories + approved TRAPS controls; `0.8.2` anatomical map + volume/last-trained; `0.8.3` body-weight tracking ([grouping](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15)). |
+
+## 2026-11-02 — 0.13.0 completion-detail cleanup
+
+The following records are copied verbatim from the "Release versioning" table in `PLANS.md` at
+`4bedadce`, in source order. Their historical pending wording ("IN PROGRESS",
+"review corrections pending closure") is preserved as it stood at that revision, not a new assertion
+of current status. `0.13.0` was published on 2026-11-02 as `v0.13.0` on `4bedadce`; the release-run
+and signed-artifact evidence is recorded in `docs/qa.md`. Open items remain in `PLANS.md`: the
+accepted-plan-without-a-block presentation, and `0.13.1`–`0.13.3`.
+
+### Completed versioning rows (verbatim)
+
+| Version | Role |
+| --- | --- |
+| **0.13.x (provisional)** | Final UX & Design — **4 publications, `0.13.0`–`0.13.3`**: design/navigation + screen polish; tablet + foldable adaptation; accessibility + localization/content; recovery states + final integration. Basic UX checks apply throughout. **0.13.0 IN PROGRESS** (branch `feature/0.13.0`, commit `b2639352`): the workout-first Train pass — overview/training stage, action menus, occurrence-only replacement, rest-expiry finished state, guided timer layout and the Train/Progress/Library bar with a toolbar Settings entry — is implemented and emulator-checked, including dark theme, 1.3× text, edited-draft round-trip, Finish, Skip and both timer surfaces. TalkBack is waived for this pass; the accepted-plan-without-a-block flow, and overall screen polish, 0.13.1–0.13.3 and release-level review remain outstanding. |
+| **0.13.0 remaining screen passes** | **COMPLETE with review corrections pending closure 2026-11-02 — 5/5 implemented, integration passed, independent review returned findings now fixed.** Routines separates the active block from saved routines with a collapsed schedule, archived filter, labeled overflow and per-slot Advanced disclosure. Manage plan leads with plan status and contents, discloses Plan configuration, keeps Use this plan and Start block distinct and labels accepted-plan substitution Change in plan. Progress stays exercise-first with a Change exercise picker, wrapping filters, separated trend/records/history and goal editing behind Edit goal. Equipment leads with the active profile and inventory, groups loading configuration with stations and hides catalog, exclusions and baseline records behind separate disclosures. Editors use scoped titles with a filled primary save, secondary cancel and separate destructive actions, and the Start-block replace-label clipping is fixed. Integration passed a fresh full matrix at `90c7433e` (3144 tests, no failures) and both iOS compiles. The independent 0.13.0 review's mechanical findings R13-01/02/03/04/06/07/08 are corrected; R13-05 (in-group Back behavior) awaits a user decision. Evidence in `docs/qa.md`. |

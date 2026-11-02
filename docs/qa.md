@@ -4923,3 +4923,24 @@ were applied; one design question is open.
   executed with `--rerun-tasks`, 3144 host tests with no failures, migration verification,
   ktlint, debug assembly and release lint, plus both iOS simulator compiles (142 tasks).
   The earlier `90c7433e` run reported the same 3144 tests.
+
+### 0.13.0 publication (2026-11-02)
+
+Published as `v0.13.0` on the PR #48 merge commit `4bedadce`. The user approved the single
+folded publication for the whole batch, including keeping R13-05's current in-group Back
+behavior.
+
+- **CI:** PR run `41496528317` passed Lint, Agent tooling checks, Unit Tests and Assemble
+  Debug APK on `c37be8ae`; the post-merge `main` run `41497501568` and the Release run
+  `41497531331` both passed (Lint, Unit Tests, Build Signed Release APK).
+- **Artifact verified offline, never installed:** `androidApp-release.apk`, 3,477,127 bytes,
+  SHA-256 `ffab760fa738d4f444da1bfd6a6fdf72c809461804926b51a53fe8b5b7b7c5c7`.
+  `apksigner verify` passed with signer `CN=Bence Szabo, OU=HydraFit` — the same certificate
+  as `v0.12.0`, so the signed upgrade path holds. Manifest reads `versionName='0.13.0'`,
+  `versionCode='130000'` against `v0.12.0`'s `120000`.
+- **Release state:** published 2026-11-02T18:14:18Z, not a draft or pre-release, and the
+  repository's latest release. The published notes match `docs/release-notes/v0.13.0.md`
+  apart from one trailing newline added by the release API.
+- **Not verified:** signed-upgrade installation and on-device runtime behavior of the
+  published artifact. The emulator stays on debug builds; the release APK was not installed
+  anywhere. The verification limits listed above for the UI passes are unchanged.
