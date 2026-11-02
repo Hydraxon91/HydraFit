@@ -4910,16 +4910,16 @@ were applied; one design question is open.
 - **R13-06/R13-07/R13-08 (minor/nit, mechanical):** the settings-routes test KDoc no
   longer claims to prove graph nesting; three unreferenced Settings strings were removed
   after a repository search; the per-slot Advanced state is now keyed by the slot id.
-- **Open:** R13-05, the Back behavior of in-group members, is a design decision. Device
-  evidence shows system Back from Fatigue map returns to Train rather than Progress, and
-  `fatigue-body-map.yaml` now asserts that actual end state.
-- **Outstanding decision:** system Back from an in-group member returns to Train rather
-  than the member's group screen (R13-05). The re-routed fatigue flow asserts that
-  current end state; changing the behavior requires the user to choose the Back
+- **Open decision (R13-05):** system Back from an in-group member returns to Train rather
+  than the member's group screen. Device evidence confirms it, and `fatigue-body-map.yaml`
+  asserts that actual end state; changing the behavior requires the user to choose the Back
   semantics first.
 - **Accepted residual:** the routine editor keys its Advanced disclosure by slot id, but
-  unsaved slots share the default id, so the new-routine path can still transfer that
-  disclosure state when slots move. Giving unsaved entries their own identity would
-  change the save/replace contract, so it is documented rather than changed.
-- **Review evidence:** not re-executed by the reviewer; the supplied matrix was a fresh
-  `--rerun-tasks` run at `90c7433e` with 3144 tests and no failures.
+  unsaved slots share the default id, so moving unsaved slots can reset or carry that
+  disclosure state. Giving unsaved entries their own identity would change the
+  save/replace contract, so it is documented rather than changed.
+- **Review evidence:** the reviewer inspected the source and evidence but did not re-execute
+  the matrix. The final candidate `b6c8d17a` was then re-run fresh: 885 Gradle tasks
+  executed with `--rerun-tasks`, 3144 host tests with no failures, migration verification,
+  ktlint, debug assembly and release lint, plus both iOS simulator compiles (142 tasks).
+  The earlier `90c7433e` run reported the same 3144 tests.
