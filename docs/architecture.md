@@ -30,7 +30,10 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
 - **Navigation groups (0.13.0):** the shell's bottom bar has three destinations —
   Train (`log`, `plan`, `cardio`), Progress (`progress`, `progress/bodyweight`,
   `fatigue`) and Library (`routines`, `equipment`) — and Settings is a pushed
-  toolbar destination. `core/navigation/NavTab.kt` maps a destination hierarchy to
+  toolbar destination. A bottom-bar tap closes that pushed Settings entry without
+  saving it before the tab switch, so the target tab restores its own last screen
+  rather than the overlay; unsaved Settings field edits are discarded by the
+  switch. `core/navigation/NavTab.kt` maps a destination hierarchy to
   its group; features keep their own routes, graphs and bindings and none of them
   knows which group it belongs to. `AppTab` remains the per-feature identity used
   by external tab requests, onboarding handoffs and `LocalAppTabNavigator`, so a

@@ -48,9 +48,21 @@ tags:
     text: '^Back$'
     retryTapIfNoChange: false
 - assertVisible: '^New routine$'
+# A tab switch cancels Settings instead of saving it with the tab it was opened from.
+- tapOn:
+    text: '^Settings$'
+    retryTapIfNoChange: false
+- assertVisible: '^Planning engine$'
 - tapOn:
     text: '^Train$'
     retryTapIfNoChange: false
+- assertVisible: '^Manage plan$'
+- assertNotVisible: '^Planning engine$'
+- tapOn:
+    text: '^Train$'
+    retryTapIfNoChange: false
+- assertVisible: '^Manage plan$'
+- assertNotVisible: '^Planning engine$'
 - assertVisible:
     selected: true
     containsDescendants:

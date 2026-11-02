@@ -32,4 +32,29 @@ class NavTabTest {
         assertNull(selectedNavTab(listOf("settings", "settings/home"), tabRoutes))
         assertNull(selectedNavTab(emptyList(), tabRoutes))
     }
+
+    @Test
+    fun anOpenOverlayIsClosedBeforeATabSwitch() {
+        assertEquals("settings", overlayRouteToClose(listOf("routines", "settings"), "settings"))
+        assertEquals(
+            "settings",
+            overlayRouteToClose(listOf("settings", "settings/acknowledgments"), "settings")
+        )
+    }
+
+    @Test
+    fun noOverlayIsClosedOnAPlainTab() {
+        assertNull(overlayRouteToClose(listOf("log"), "settings"))
+        assertNull(overlayRouteToClose(emptyList(), "settings"))
+    }
+
+    @Test
+    fun anUnrelatedRouteIsNotMistakenForTheOverlay() {
+        assertNull(
+            overlayRouteToClose(
+                listOf("log", "log/history", "progress", "routines", "equipment"),
+                "settings"
+            )
+        )
+    }
 }

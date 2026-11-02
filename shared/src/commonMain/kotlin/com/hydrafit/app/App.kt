@@ -51,6 +51,7 @@ import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import com.hydrafit.app.core.navigation.NavTab
 import com.hydrafit.app.core.navigation.appTabForRequest
 import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
+import com.hydrafit.app.core.navigation.overlayRouteToClose
 import com.hydrafit.app.core.navigation.selectedNavTab
 import com.hydrafit.app.feature.cardio.cardioGraph
 import com.hydrafit.app.feature.cardio.cardioRoute
@@ -300,12 +301,25 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
 /**
  * Moves the bottom bar to a tab.
  *
+ * A pushed shell overlay (Settings) closes first, without saving, so a later return to the tab it
+ * was opened from shows that tab's own screen instead of the overlay. Its unsaved edits are
+ * discarded with it.
+ *
  * Selecting a different tab saves the one being left so its nested screens survive a return.
  * Re-selecting the tab that is already on screen instead returns it to its own root: the old
  * save-and-restore re-shows the nested screen it was on, and restoring that screen recomposes a
  * destination whose back stack entry the switch has already destroyed.
  */
 private fun navigateToAppTab(navController: NavController, route: String) {
+    val hierarchyRoutes = navController.currentDestination
+        ?.hierarchy
+        ?.mapNotNull { it.route }
+        ?.toList()
+        .orEmpty()
+    val overlayRoute = overlayRouteToClose(hierarchyRoutes, settingsRoute)
+    if (overlayRoute != null) {
+        navController.popBackStack(overlayRoute, inclusive = true, saveState = false)
+    }
     val current = navController.currentDestination
     val isCurrentTab = current?.hierarchy?.any { it.route == route } == true
     val tabStartRoute = (navController.graph.findNode(route) as? NavGraph)?.startDestinationRoute

@@ -24,3 +24,13 @@ fun selectedNavTab(
     val routes = tabRoutes[tab].orEmpty()
     hierarchyRoutes.any { it in routes }
 }
+
+/**
+ * The pushed shell overlay to close before a bottom-bar switch, or null when none is open.
+ *
+ * An overlay is pushed above a tab. The switch saves the screen it leaves, so an overlay left in
+ * that saved stack would reappear the next time the tab is selected. The caller closes the returned
+ * route without saving, before the switch runs; unsaved edits on the overlay are discarded with it.
+ */
+fun overlayRouteToClose(hierarchyRoutes: Collection<String>, overlayRoute: String): String? =
+    overlayRoute.takeIf { route -> route in hierarchyRoutes }
