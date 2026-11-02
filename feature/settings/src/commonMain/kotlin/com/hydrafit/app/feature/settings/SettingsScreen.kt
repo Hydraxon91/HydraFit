@@ -1,86 +1,66 @@
 package com.hydrafit.app.feature.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import com.hydrafit.app.core.domain.engine.PlannerEngineId
-import com.hydrafit.app.core.domain.engine.TrainingGoal
-import com.hydrafit.app.core.domain.unit.DistanceUnit
-import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.nav_label
-import hydrafit.feature.settings.generated.resources.settings_acknowledgments
-import hydrafit.feature.settings.generated.resources.settings_api_key_clear
-import hydrafit.feature.settings.generated.resources.settings_api_key_configured
-import hydrafit.feature.settings.generated.resources.settings_api_key_label
-import hydrafit.feature.settings.generated.resources.settings_api_key_save
-import hydrafit.feature.settings.generated.resources.settings_api_key_section
 import hydrafit.feature.settings.generated.resources.settings_back
-import hydrafit.feature.settings.generated.resources.settings_cloud_unavailable
-import hydrafit.feature.settings.generated.resources.settings_distance_unit_feet
-import hydrafit.feature.settings.generated.resources.settings_distance_unit_meters
-import hydrafit.feature.settings.generated.resources.settings_distance_unit_section
-import hydrafit.feature.settings.generated.resources.settings_engine_deterministic
-import hydrafit.feature.settings.generated.resources.settings_engine_gemini
-import hydrafit.feature.settings.generated.resources.settings_engine_groq
-import hydrafit.feature.settings.generated.resources.settings_engine_local_llm
-import hydrafit.feature.settings.generated.resources.settings_engine_section
-import hydrafit.feature.settings.generated.resources.settings_goal_balanced
-import hydrafit.feature.settings.generated.resources.settings_goal_endurance
-import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
-import hydrafit.feature.settings.generated.resources.settings_goal_section
-import hydrafit.feature.settings.generated.resources.settings_goal_strength
-import hydrafit.feature.settings.generated.resources.settings_guided_workout
-import hydrafit.feature.settings.generated.resources.settings_guided_workout_description
-import hydrafit.feature.settings.generated.resources.settings_planning_section
-import hydrafit.feature.settings.generated.resources.settings_rest_default_description
-import hydrafit.feature.settings.generated.resources.settings_rest_default_save
-import hydrafit.feature.settings.generated.resources.settings_rest_default_seconds
-import hydrafit.feature.settings.generated.resources.settings_rest_default_section
+import hydrafit.feature.settings.generated.resources.settings_home_about
+import hydrafit.feature.settings.generated.resources.settings_home_about_description
+import hydrafit.feature.settings.generated.resources.settings_home_backup_and_data
+import hydrafit.feature.settings.generated.resources.settings_home_backup_and_data_description
+import hydrafit.feature.settings.generated.resources.settings_home_notifications
+import hydrafit.feature.settings.generated.resources.settings_home_notifications_description
+import hydrafit.feature.settings.generated.resources.settings_home_planner_engine
+import hydrafit.feature.settings.generated.resources.settings_home_units
+import hydrafit.feature.settings.generated.resources.settings_home_workout_preferences
+import hydrafit.feature.settings.generated.resources.settings_home_workout_preferences_description
 import hydrafit.feature.settings.generated.resources.settings_setup
-import hydrafit.feature.settings.generated.resources.settings_share_data
-import hydrafit.feature.settings.generated.resources.settings_share_data_description
 import hydrafit.feature.settings.generated.resources.settings_title
-import hydrafit.feature.settings.generated.resources.settings_unit_kg
-import hydrafit.feature.settings.generated.resources.settings_unit_lb
-import hydrafit.feature.settings.generated.resources.settings_unit_section
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 val settingsRoute: String = "settings"
-private val settingsHomeRoute: String = "settings/home"
+
+/**
+ * Category page routes. Each one is nested under [settingsRoute] so the shell keeps the Settings
+ * group selected while a page is open, and so Back from a page returns to the hub.
+ */
+internal object SettingsRoutes {
+    const val HOME = "settings/home"
+    const val WORKOUT_PREFERENCES = "settings/workout-preferences"
+    const val NOTIFICATIONS = "settings/notifications"
+    const val PLANNER_ENGINE = "settings/planner-engine"
+    const val UNITS = "settings/units"
+    const val BACKUP_AND_DATA = "settings/backup-and-data"
+}
 
 val settingsDestination: FeatureDestination = FeatureDestination(
     route = settingsRoute,
@@ -90,13 +70,37 @@ val settingsDestination: FeatureDestination = FeatureDestination(
 
 fun NavGraphBuilder.settingsGraph(navController: NavController) {
     // A real nested graph keeps the Settings tab selected on its sub-routes (the shell matches
-    // destinations by graph hierarchy), so Acknowledgments is a child of Settings, not a sibling.
-    navigation(startDestination = settingsHomeRoute, route = settingsRoute) {
-        composable(settingsHomeRoute) {
-            SettingsRoute(
+    // destinations by graph hierarchy), so every category page is a child of Settings, not a
+    // sibling. Back from a page returns to the hub; Back from the hub closes the overlay.
+    navigation(startDestination = SettingsRoutes.HOME, route = settingsRoute) {
+        composable(SettingsRoutes.HOME) {
+            SettingsHomeRoute(
+                onOpenWorkoutPreferences = {
+                    navController.navigate(SettingsRoutes.WORKOUT_PREFERENCES)
+                },
+                onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
+                onOpenPlannerEngine = { navController.navigate(SettingsRoutes.PLANNER_ENGINE) },
+                onOpenUnits = { navController.navigate(SettingsRoutes.UNITS) },
+                onOpenBackupAndData = { navController.navigate(SettingsRoutes.BACKUP_AND_DATA) },
                 onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) },
+                onOpenSetup = LocalSetupNavigator.current,
                 onBack = { navController.popBackStack() }
             )
+        }
+        composable(SettingsRoutes.WORKOUT_PREFERENCES) {
+            WorkoutPreferencesRoute(onBack = { navController.popBackStack() })
+        }
+        composable(SettingsRoutes.NOTIFICATIONS) {
+            NotificationsRoute(onBack = { navController.popBackStack() })
+        }
+        composable(SettingsRoutes.PLANNER_ENGINE) {
+            PlannerEngineRoute(onBack = { navController.popBackStack() })
+        }
+        composable(SettingsRoutes.UNITS) {
+            UnitsRoute(onBack = { navController.popBackStack() })
+        }
+        composable(SettingsRoutes.BACKUP_AND_DATA) {
+            BackupAndDataRoute(onBack = { navController.popBackStack() })
         }
         composable(acknowledgmentsRoute) {
             AcknowledgmentsRoute(onBack = { navController.popBackStack() })
@@ -105,52 +109,44 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
 }
 
 @Composable
-fun SettingsRoute(
+fun SettingsHomeRoute(
+    onOpenWorkoutPreferences: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenPlannerEngine: () -> Unit,
+    onOpenUnits: () -> Unit,
+    onOpenBackupAndData: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
+    onOpenSetup: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = koinViewModel(),
-    restDurationViewModel: RestDurationSettingsViewModel = koinViewModel()
+    viewModel: SettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val restDurationState by restDurationViewModel.state.collectAsStateWithLifecycle()
-    val openSetup = LocalSetupNavigator.current
-    SettingsScreen(
+    // Saves happen on the category pages, so re-read them when the hub is shown again; otherwise
+    // its Planner engine and Units summaries could describe the values from before the edit.
+    LaunchedEffect(Unit) { viewModel.refresh() }
+    SettingsHomeScreen(
         state = state,
-        restDurationState = restDurationState,
-        onEngineSelected = viewModel::onEngineSelected,
-        onGoalSelected = viewModel::onGoalSelected,
-        onWeightUnitSelected = viewModel::onWeightUnitSelected,
-        onDistanceUnitSelected = viewModel::onDistanceUnitSelected,
-        onWorkoutDataSharingToggled = viewModel::onWorkoutDataSharingToggled,
-        onGuidedWorkoutToggled = viewModel::onGuidedWorkoutToggled,
-        onRestDurationChanged = restDurationViewModel::onSecondsChanged,
-        onSaveRestDuration = restDurationViewModel::save,
-        onApiKeyChanged = viewModel::onApiKeyChanged,
-        onSaveApiKey = viewModel::saveApiKey,
-        onClearApiKey = viewModel::clearApiKey,
+        onOpenWorkoutPreferences = onOpenWorkoutPreferences,
+        onOpenNotifications = onOpenNotifications,
+        onOpenPlannerEngine = onOpenPlannerEngine,
+        onOpenUnits = onOpenUnits,
+        onOpenBackupAndData = onOpenBackupAndData,
         onOpenAcknowledgments = onOpenAcknowledgments,
-        onOpenSetup = openSetup,
+        onOpenSetup = onOpenSetup,
         onBack = onBack,
         modifier = modifier
     )
 }
 
 @Composable
-fun SettingsScreen(
+fun SettingsHomeScreen(
     state: SettingsUiState,
-    restDurationState: RestDurationSettingsUiState,
-    onEngineSelected: (PlannerEngineId) -> Unit,
-    onGoalSelected: (TrainingGoal) -> Unit,
-    onWeightUnitSelected: (WeightUnit) -> Unit,
-    onDistanceUnitSelected: (DistanceUnit) -> Unit,
-    onWorkoutDataSharingToggled: (Boolean) -> Unit,
-    onGuidedWorkoutToggled: (Boolean) -> Unit,
-    onRestDurationChanged: (String) -> Unit,
-    onSaveRestDuration: () -> Unit,
-    onApiKeyChanged: (String) -> Unit,
-    onSaveApiKey: () -> Unit,
-    onClearApiKey: () -> Unit,
+    onOpenWorkoutPreferences: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenPlannerEngine: () -> Unit,
+    onOpenUnits: () -> Unit,
+    onOpenBackupAndData: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
     onBack: () -> Unit,
@@ -163,251 +159,82 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = stringResource(Res.string.settings_title),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.weight(1f)
-            )
-            // Settings opens over a tab, so it owns its own way out rather than relying on the
-            // system Back gesture alone.
-            TextButton(onClick = onBack) {
-                Text(stringResource(Res.string.settings_back))
-            }
-        }
+        SettingsPageHeader(title = stringResource(Res.string.settings_title), onBack = onBack)
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_workout_preferences),
+            description = stringResource(
+                Res.string.settings_home_workout_preferences_description
+            ),
+            onClick = onOpenWorkoutPreferences
+        )
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_notifications),
+            description = stringResource(Res.string.settings_home_notifications_description),
+            onClick = onOpenNotifications
+        )
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_planner_engine),
+            description = state.selectedEngine?.let { stringResource(it.labelResource()) },
+            onClick = onOpenPlannerEngine
+        )
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_units),
+            description = stringResource(state.weightUnit.labelResource()) + " · " +
+                stringResource(state.distanceUnit.labelResource()),
+            onClick = onOpenUnits
+        )
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_backup_and_data),
+            description = stringResource(Res.string.settings_home_backup_and_data_description),
+            onClick = onOpenBackupAndData
+        )
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_about),
+            description = stringResource(Res.string.settings_home_about_description),
+            onClick = onOpenAcknowledgments
+        )
+        Spacer(Modifier.height(8.dp))
         Button(onClick = onOpenSetup) {
             Text(stringResource(Res.string.settings_setup))
-        }
-        Text(
-            text = stringResource(Res.string.settings_planning_section),
-            style = MaterialTheme.typography.titleLarge
-        )
-        Text(
-            text = stringResource(Res.string.settings_engine_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        PlannerEngineId.entries
-            .filterNot { it == PlannerEngineId.GEMINI_API || it == PlannerEngineId.LOCAL_LLM }
-            .forEach { engine ->
-                val enabled = engine in state.availableEngines
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .selectable(
-                            selected = state.selectedEngine == engine,
-                            enabled = enabled,
-                            onClick = { onEngineSelected(engine) }
-                        ),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = state.selectedEngine == engine,
-                        onClick = { onEngineSelected(engine) },
-                        enabled = enabled
-                    )
-                    Text(stringResource(engine.labelResource()))
-                }
-            }
-        if (!state.isGroqAvailable) {
-            Text(
-                text = stringResource(Res.string.settings_cloud_unavailable),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-
-        Text(
-            text = stringResource(Res.string.settings_goal_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        TrainingGoal.entries.forEach { goal ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = state.selectedGoal == goal,
-                        onClick = { onGoalSelected(goal) }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = state.selectedGoal == goal,
-                    onClick = { onGoalSelected(goal) }
-                )
-                Text(stringResource(goal.labelResource()))
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Switch(
-                checked = state.workoutDataSharingEnabled,
-                onCheckedChange = onWorkoutDataSharingToggled
-            )
-            Text(stringResource(Res.string.settings_share_data))
-        }
-        Text(
-            text = stringResource(Res.string.settings_share_data_description),
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .toggleable(
-                    value = state.guidedWorkoutEnabled,
-                    role = Role.Switch,
-                    onValueChange = onGuidedWorkoutToggled
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Switch(
-                checked = state.guidedWorkoutEnabled,
-                onCheckedChange = null
-            )
-            Text(stringResource(Res.string.settings_guided_workout))
-        }
-        Text(
-            text = stringResource(Res.string.settings_guided_workout_description),
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Text(
-            text = stringResource(Res.string.settings_rest_default_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            text = stringResource(Res.string.settings_rest_default_description),
-            style = MaterialTheme.typography.bodySmall
-        )
-        OutlinedTextField(
-            value = restDurationState.seconds,
-            onValueChange = onRestDurationChanged,
-            label = { Text(stringResource(Res.string.settings_rest_default_seconds)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Button(onClick = onSaveRestDuration, enabled = restDurationState.canSave) {
-            Text(stringResource(Res.string.settings_rest_default_save))
-        }
-        TrainingGuidanceSettingsSection()
-        WorkoutReminderSettingsSection()
-
-        Text(
-            text = stringResource(Res.string.settings_unit_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        WeightUnit.entries.forEach { unit ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = state.weightUnit == unit,
-                        onClick = { onWeightUnitSelected(unit) }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = state.weightUnit == unit,
-                    onClick = { onWeightUnitSelected(unit) }
-                )
-                Text(stringResource(unit.labelResource()))
-            }
-        }
-
-        Text(
-            text = stringResource(Res.string.settings_distance_unit_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        DistanceUnit.entries.forEach { unit ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = state.distanceUnit == unit,
-                        onClick = { onDistanceUnitSelected(unit) }
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = state.distanceUnit == unit,
-                    onClick = { onDistanceUnitSelected(unit) }
-                )
-                Text(stringResource(unit.labelResource()))
-            }
-        }
-
-        Text(
-            text = stringResource(Res.string.settings_api_key_section),
-            style = MaterialTheme.typography.titleMedium
-        )
-        OutlinedTextField(
-            value = state.apiKeyInput,
-            onValueChange = onApiKeyChanged,
-            label = { Text(stringResource(Res.string.settings_api_key_label)) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onSaveApiKey, enabled = state.apiKeyInput.isNotBlank()) {
-                Text(stringResource(Res.string.settings_api_key_save))
-            }
-            if (state.apiKeyConfigured) {
-                OutlinedButton(onClick = onClearApiKey) {
-                    Text(stringResource(Res.string.settings_api_key_clear))
-                }
-            }
-        }
-        if (state.apiKeyConfigured) {
-            Text(
-                text = stringResource(Res.string.settings_api_key_configured),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-
-        BackupRoute()
-
-        AutomaticBackupRoute()
-
-        StorageDataRoute()
-
-        WorkoutImportRoute()
-
-        OutlinedButton(onClick = onOpenAcknowledgments) {
-            Text(stringResource(Res.string.settings_acknowledgments))
         }
     }
 }
 
-private fun PlannerEngineId.labelResource(): StringResource = when (this) {
-    PlannerEngineId.DETERMINISTIC -> Res.string.settings_engine_deterministic
-    PlannerEngineId.GEMINI_API -> Res.string.settings_engine_gemini
-    PlannerEngineId.GROQ_API -> Res.string.settings_engine_groq
-    PlannerEngineId.LOCAL_LLM -> Res.string.settings_engine_local_llm
+/**
+ * The title row shared by the hub and its category pages. Settings opens over a tab, so it owns
+ * its own way out rather than relying on the system Back gesture alone.
+ */
+@Composable
+internal fun SettingsPageHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onBack) {
+            Text(stringResource(Res.string.settings_back))
+        }
+    }
 }
 
-private fun TrainingGoal.labelResource(): StringResource = when (this) {
-    TrainingGoal.BALANCED -> Res.string.settings_goal_balanced
-    TrainingGoal.STRENGTH -> Res.string.settings_goal_strength
-    TrainingGoal.HYPERTROPHY -> Res.string.settings_goal_hypertrophy
-    TrainingGoal.ENDURANCE -> Res.string.settings_goal_endurance
-}
-
-private fun WeightUnit.labelResource(): StringResource = when (this) {
-    WeightUnit.KG -> Res.string.settings_unit_kg
-    WeightUnit.LB -> Res.string.settings_unit_lb
-}
-
-private fun DistanceUnit.labelResource(): StringResource = when (this) {
-    DistanceUnit.METERS -> Res.string.settings_distance_unit_meters
-    DistanceUnit.FEET -> Res.string.settings_distance_unit_feet
+/** One hub row that opens a category page: its title, then either a live value or a short hint. */
+@Composable
+private fun SettingsCategoryRow(title: String, description: String?, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(text = title, style = MaterialTheme.typography.bodyLarge)
+        if (description != null) {
+            Text(text = description, style = MaterialTheme.typography.bodySmall)
+        }
+    }
 }

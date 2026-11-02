@@ -33,7 +33,12 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   toolbar destination. A bottom-bar tap closes that pushed Settings entry without
   saving it before the tab switch, so the target tab restores its own last screen
   rather than the overlay; unsaved Settings field edits are discarded by the
-  switch. `core/navigation/NavTab.kt` maps a destination hierarchy to
+  switch. Inside its nested graph Settings is a short hub with category pages
+  (Workout preferences, Notifications, Planner engine, Units, Backup & data,
+  About); each page is a child route, so the group stays selected, Back from a
+  page returns to the hub, and Back from the hub closes the overlay. Leaving a
+  page discards its unsaved field edits while saved changes remain persisted.
+  `core/navigation/NavTab.kt` maps a destination hierarchy to
   its group; features keep their own routes, graphs and bindings and none of them
   knows which group it belongs to. `AppTab` remains the per-feature identity used
   by external tab requests, onboarding handoffs and `LocalAppTabNavigator`, so a
@@ -132,7 +137,7 @@ C5; combined-release integration and formal review remain separate chunks.
 Each feature exports its own Koin module, route string, `FeatureDestination` (label + nav graph),
 and screen; `:shared` lists the exports explicitly. No auto-discovery or plugin registry. The graph
 lambda receives the shell's `NavController`, so a feature can register an internal sub-route
-(e.g. Settings → Acknowledgments) without a shell change.
+(e.g. Settings → Backup & data) without a shell change.
 
 - **Examples:** `feature/*/…Module.kt`, `feature/*/…Navigation.kt` (`FeatureDestination`),
   `core/navigation/FeatureDestination.kt`, `shared/App.kt` (destinations list),

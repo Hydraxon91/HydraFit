@@ -481,9 +481,14 @@ portrait there; large screens may rotate. The read-only `.maestro/navigation-smo
 asserts selected-tab semantics after each navigation, not merely visible labels.
 The exported graph type is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
-can register an internal sub-route without a shell change. Settings uses a nested `navigation(...)`
-graph (`settings` → `settings/home` + `settings/acknowledgments`) so the bottom tab stays selected on
-its sub-screen. The live app version comes from `AppVersionProvider` (`:core:userdata`), bound in
+can register an internal sub-route without a shell change. Settings uses a short hub
+(`settings/home`) inside a nested `navigation(...)` graph: **Workout preferences**, **Notifications**,
+**Planner engine**, **Units**, **Backup & data** and **About** are child composable routes, so the
+bottom tab stays selected on each page. Back from a page returns to the hub; Back from the hub closes
+the overlay. Leaving a page discards its unsaved field edits (rest duration text, API key input)
+because its ViewModels are scoped to that page's back-stack entry; saved changes stay persisted. The
+hub re-reads planner/unit preferences when it is shown again so its summaries are not stale. The live
+app version comes from `AppVersionProvider` (`:core:userdata`), bound in
 `appVersionModule` (Android, from `BuildConfig.VERSION_NAME`) and `IosDatabaseModule` (returns
 `"dev"`).
 
@@ -1063,8 +1068,9 @@ by `chooseFile`/`reset`/`selectProvider` keeps a late read/parse result from ove
 (`MappingCandidateUi` id+label) so the picker can resolve unmatched names, and `RejectedImportRowUi`
 rows shown as an explicit-exclude list.
 
-`WorkoutImportRoute`/`WorkoutImportScreen` (`WorkoutImportScreen.kt`) mount beside `BackupRoute()` in
-`SettingsScreen` and render the provider chooser, the `WorkoutImportSection` expect/actual file
+`WorkoutImportRoute`/`WorkoutImportScreen` (`WorkoutImportScreen.kt`) mount on the Settings **Backup &
+data** page (`BackupAndDataSettingsScreen.kt`, beside `BackupRoute()`, `AutomaticBackupRoute()` and
+`StorageDataRoute()`) and render the provider chooser, the `WorkoutImportSection` expect/actual file
 button (Android `ActivityResultContracts.OpenDocument()` for `text/csv`,
 `text/comma-separated-values`, `text/plain`, `*/*`; iOS no picker), the review rows (each included
 row carries a session selector that moves it into another draft or a new one), mapping and

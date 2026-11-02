@@ -4,6 +4,16 @@
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
     <string name="settings_setup">Set up HydraFit</string>
+    <string name="settings_home_workout_preferences">Workout preferences</string>
+    <string name="settings_home_workout_preferences_description">Training goal, guided workouts and default rest duration.</string>
+    <string name="settings_home_notifications">Notifications</string>
+    <string name="settings_home_notifications_description">Rest alerts, guidance and workout reminders.</string>
+    <string name="settings_home_planner_engine">Planner engine</string>
+    <string name="settings_home_units">Units</string>
+    <string name="settings_home_backup_and_data">Backup &amp; data</string>
+    <string name="settings_home_backup_and_data_description">Backups, CSV exports, workout import and storage.</string>
+    <string name="settings_home_about">About</string>
+    <string name="settings_home_about_description">Credits, licenses and app version.</string>
     <string name="settings_planning_section">Planning</string>
     <string name="settings_engine_section">Planning engine</string>
     <string name="settings_engine_deterministic">Deterministic (offline)</string>
