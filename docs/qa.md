@@ -4723,3 +4723,38 @@ save behavior, permission flow or safeguards.
   `settings-guidance-denial.yaml` and `settings-workout-import.yaml` were updated
   for the new navigation but are syntax-checked only, not re-run. TalkBack remains
   waived for this pass; system back from Settings was not exercised.
+
+### 0.13.0 screen pass — Routines (2026-11-02)
+
+The Routines screen now separates the active training block from saved routines;
+it does not change routine authoring, activation or persistence.
+
+- **Structure:** the active block shows its name and `1 of 1 done` progress
+  immediately, with the per-workout schedule behind `View schedule`/`Hide
+  schedule` and the four block actions still visible. Saved routines have their own
+  heading, keep `Edit` and `Start this routine` visible, and move Duplicate,
+  Export, Archive/Restore and Delete into a `More actions` menu.
+- **Archived filter:** the list defaults to non-archived routines and the
+  `Archived` filter switches to archived ones, which show the archived badge and no
+  start action. Both filters have distinct empty text.
+- **Advanced disclosure:** each editor slot keeps its name, measure chips, sets,
+  load and move controls visible; Progression, Per-set targets, Cluster and pair
+  actions sit behind a per-slot `Advanced` toggle while their summaries stay
+  readable.
+- **Device evidence:** read-only journeys covered the collapsed and expanded
+  schedule, the menu contents (Duplicate, Export, Archive, Delete), the archived
+  filter, the collapsed and expanded editor, the `Start training block` dialog
+  (opened and cancelled), and editor `Cancel` reachability after scrolling. Dark
+  mode at 1.3× was viewed for the list, expanded schedule, menu and expanded
+  editor; labels stayed intact and actions reachable. No routine, block or
+  preference changed.
+- **Checks:** routines ktlint and 58 executed host-test tasks passed, including four
+  new `visibleRoutines` presentation tests; debug assembly succeeded. A first dark
+  journey stopped before the menu because the expanded schedule pushed the action
+  row below the fold; the corrected flow scrolled first and passed.
+- **Observed, not changed:** the Start-block dialog's "Cancel the current block and
+  start this…" switch label is visually clipped at the right edge. That dialog was
+  not part of this pass; the dialog pass covers editor and dialog titles and
+  reachability.
+- **Not verified:** TalkBack traversal, locale variants and rotation for this
+  screen.

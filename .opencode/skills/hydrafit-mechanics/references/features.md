@@ -117,6 +117,24 @@ and the existing submission guard still prevents a double log. Skipping the memb
 cancels that start and its elapsed timing without writing anything, so the partner's turn starts from
 its own fresh Start and the skipped member must Start again when its turn returns.
 
+## Routines screen structure (0.13.0)
+
+`RoutinesScreen` separates the active training block from saved routines. The block card
+always shows the activation name and its `resolved of total` progress; only the
+per-workout occurrence rows (and their Postpone action) sit behind a remembered
+`View schedule`/`Hide schedule` toggle, while Change scheduling, Repeat block, Finish
+block and Cancel block stay visible. Saved routines are listed under their own heading,
+hide archived templates by default behind an `Archived` filter chip, and each row keeps
+Edit and the start action visible with Duplicate, prescription Export, Archive/Restore
+and Delete inside a `More actions` menu. `visibleRoutines(templates, showArchived)` is
+the pure filter, covered in `RoutinesPresentationTest`.
+
+The routine editor keeps a slot's name, measure choice, sets, measure value, load and
+move controls visible, and discloses Progression, Per-set targets, Cluster and the
+superset action behind a per-slot `Advanced` toggle; configured summaries stay outside
+it so a collapsed slot still shows what is stored. These are presentation states only:
+no ViewModel field, persisted value, ordering rule, pairing rule or unit changes.
+
 ## Ordered per-set prescription surfaces (0.10.2)
 
 The routine editor's counted **external** slots carry a **Per-set targets** action opening a
