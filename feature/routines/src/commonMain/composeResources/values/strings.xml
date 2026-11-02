@@ -3,10 +3,14 @@
     <string name="nav_label">Routines</string>
     <string name="routines_title">Routines</string>
     <string name="routines_empty">No routines yet. Create one to reuse it offline.</string>
+    <string name="routines_archived_empty">No archived routines.</string>
+    <string name="routines_saved_title">Saved routines</string>
+    <string name="routines_archived_filter">Archived</string>
     <string name="routines_new">New routine</string>
     <string name="routines_equipment">Equipment</string>
     <string name="routines_edit">Edit</string>
     <string name="routines_duplicate">Duplicate</string>
+    <string name="routines_more_actions">More actions</string>
     <string name="routines_archive">Archive</string>
     <string name="routines_unarchive">Restore</string>
     <string name="routines_delete">Delete</string>
@@ -22,6 +26,8 @@
     <string name="routines_remove">Remove</string>
     <string name="routines_move_up">Move up</string>
     <string name="routines_move_down">Move down</string>
+    <string name="routines_advanced_show">Advanced</string>
+    <string name="routines_advanced_hide">Hide advanced</string>
     <string name="routines_sets_label">Sets</string>
     <string name="routines_reps_label">Reps</string>
     <string name="routines_seconds_label">Seconds</string>
@@ -154,6 +160,8 @@
     <string name="routines_repeat_block">Repeat block</string>
     <string name="routines_postpone">Postpone</string>
     <string name="routines_postpone_title">Move workout to</string>
+    <string name="routines_schedule_show">View schedule</string>
+    <string name="routines_schedule_hide">Hide schedule</string>
     <string name="routines_switch_mode">Change scheduling</string>
 
     <string name="weekday_monday">Mon</string>
