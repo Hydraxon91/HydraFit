@@ -4797,3 +4797,31 @@ dates and substitution rules are unchanged.
 - **Doc drift:** `PLANS.md` P6c and the 2026-10-07 dependency note still describe a
   per-row swap icon; the control is now a text action and the dependency remains in
   use for the measure glyph. Those historical entries were left unrevised.
+
+### 0.13.0 screen pass — Progress and Body weight (2026-11-02)
+
+Progress stays exercise-first; loading, chart math, record scope and history paging
+are unchanged.
+
+- **Header:** Body weight and Fatigue map moved from stacked primary buttons to a
+  wrapping row of secondary text actions under the title and Back.
+- **Exercise selection:** with no selection the search field and option list stay
+  inline. With a selection the screen shows the exercise name and a `Change exercise`
+  action that opens the same search and option list in a dialog; choosing one applies
+  the existing callback and closes the dialog, and Cancel changes nothing. Nothing is
+  preselected and the query is not reset when the dialog opens.
+- **Filters and sections:** range and station chips now use wrapping flow rows, and
+  the station chips gained a `Station` label. Trend (last N days), all-time records and
+  recorded history keep their separate headings, notes and independent
+  loading/error/empty/pagination behavior.
+- **Body weight:** `Add measurement` and the trend lead; goal editing sits behind a
+  collapsed `Edit goal` disclosure while the current goal line stays visible, and the
+  input, validation, Save goal and Clear goal are unchanged when expanded.
+- **Device evidence:** a selected exercise showed the compact row, Change exercise
+  dialog and option switch; Body weight showed the collapsed goal value and expanded
+  Save/Clear controls, then collapsed again. Dark mode at 1.3× was viewed for the
+  progress header, range chips, picker dialog and Body weight screen with no clipped
+  labels; the chips still fit on one row, so the wrapping fallback was not exercised.
+- **Checks:** progress ktlint and 55 host tests passed, debug assembly succeeded, and
+  `git diff --check` was clean. Selection state was not persisted across process
+  death; TalkBack, locale, rotation and long station-filter lists remain unverified.

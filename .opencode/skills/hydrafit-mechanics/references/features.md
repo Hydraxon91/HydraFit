@@ -41,6 +41,23 @@ and note, exercise picker and the manual form) renders only when
 `manualEntryExpanded` is set, through the **Other training** action in the header.
 The form is the same state, so opening it never clears entered values.
 
+## Progress screen structure (0.13.0)
+
+`ProgressScreen` stays exercise-first. Body weight and the Fatigue map are secondary text
+actions under the title, not stacked primary buttons. With nothing selected, the search field
+and option list render inline; with a selection, the screen shows the exercise name and a
+**Change exercise** action whose dialog hosts the same search and list, applies the existing
+selection callback and closes. Nothing is auto-selected, and opening the dialog neither resets
+nor prefills the query. Range and station chips use wrapping flow rows, with a `Station` label
+above the station chips. Trend, all-time records and recorded history keep separate headings,
+notes and independent loading, error, empty and paging states, so changing the chart range
+never changes record scope or history paging.
+
+`BodyWeightScreen` leads with **Add measurement** and the trend. Goal editing sits behind a
+collapsed **Edit goal** disclosure that still shows the current goal line; the input,
+validation, Save goal and Clear goal inside it are unchanged. These are presentation states
+only: no selection, measurement, goal or paging behavior changes.
+
 ## Manage plan screen structure (0.13.0)
 
 `SplitBuilderScreen` leads with the plan itself when one exists: week/cycle, deload and engine
