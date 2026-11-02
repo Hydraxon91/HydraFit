@@ -35,8 +35,10 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   rather than the overlay; unsaved Settings field edits are discarded by the
   switch. Inside its nested graph Settings is a short hub with category pages
   (Workout preferences, Notifications, Planner engine, Units, Backup & data,
-  About); each page is a child route, so the group stays selected, Back from a
-  page returns to the hub, and Back from the hub closes the overlay. Leaving a
+  About); each page is a child route of the Settings hub, Back from a page
+  returns to the hub, and Back from the hub closes the overlay. No bottom-bar
+  destination is selected while Settings is open, because Settings is not a bar
+  member; the bar highlights only Train, Progress or Library. Leaving a
   page discards its unsaved field edits while saved changes remain persisted.
   `core/navigation/NavTab.kt` maps a destination hierarchy to
   its group; features keep their own routes, graphs and bindings and none of them

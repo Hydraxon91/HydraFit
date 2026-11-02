@@ -35,7 +35,10 @@ same occurrence. `showsTrainingStage` also forces training while `restTimer` or
 
 Replace is hidden for a slot in `frozenEntryIds`, because
 `ReplaceOccurrenceExerciseUseCase` refuses a slot that already holds recorded
-work; an untouched slot still replaces for this occurrence only. With an active
+work; an untouched slot still replaces for this occurrence only. The overview target line names
+the slot's actual measure — reps, seconds, the display-unit distance or newtons — from
+resource templates, so a force slot reads its prescribed newtons rather than a null rep count. With
+an active
 workout the manual entry block (history/progress/cardio entries, session controls
 and note, exercise picker and the manual form) renders only when
 `manualEntryExpanded` is set, through the **Other training** action in the header.
@@ -569,8 +572,9 @@ The exported graph type is
 `(NavController) -> NavGraphBuilder.() -> Unit`; the shell passes its `NavController`, so a feature
 can register an internal sub-route without a shell change. Settings uses a short hub
 (`settings/home`) inside a nested `navigation(...)` graph: **Workout preferences**, **Notifications**,
-**Planner engine**, **Units**, **Backup & data** and **About** are child composable routes, so the
-bottom tab stays selected on each page. Back from a page returns to the hub; Back from the hub closes
+**Planner engine**, **Units**, **Backup & data** and **About** are child composable routes; no
+bottom-bar destination is selected while Settings is open, since Settings is reached from the
+toolbar rather than the bar. Back from a page returns to the hub; Back from the hub closes
 the overlay. Leaving a page discards its unsaved field edits (rest duration text, API key input)
 because its ViewModels are scoped to that page's back-stack entry; saved changes stay persisted. The
 hub re-reads planner/unit preferences when it is shown again so its summaries are not stale. The live

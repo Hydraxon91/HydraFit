@@ -4880,3 +4880,37 @@ persistence, precision, unit or identity rule changed.
   reachable with the current fixtures, so their runtime layout was not exercised. The
   soft keyboard did not appear in the captured editor frames, so keyboard-open
   reachability is unverified. TalkBack, locale and rotation remain unverified.
+
+### 0.13.0 review corrections (2026-11-02)
+
+The independent review of the 0.13.0 candidate returned REJECTED on documentation and
+tooling drift, with no product-behaviour blocker or data risk. Mechanical corrections
+were applied; one design question is open.
+
+- **R13-01 (major, mechanical):** the `.maestro/README.md` contract table and 19
+  checked-in flows still navigated the retired six-tab bar. Their preambles now use
+  Train, Progress and Library, opening Routines and Equipment through Library, Fatigue
+  map through Progress and Manage plan through Train; the README table, the current
+  browser sentence and a dated-narrative note were corrected.
+- **Verified re-runs:** `fatigue-body-map.yaml` passed 27/27, `logger-history-browser.yaml`
+  25/25 and `splitbuilder-auto-targets.yaml` 34/34 after the routing change. The latter's
+  opt-in was confirmed back at `Off`. The other 16 re-routed flows are syntax-checked
+  only; the writing fixture flows were not executed.
+- **Flow technique:** `hideKeyboard` failed on this emulator because no soft keyboard is
+  shown, so the history and splitbuilder flows now tap the next semantic control instead.
+- **R13-02 (minor, resolved as documentation):** comments and living docs claimed the bar
+  keeps a group selected while Settings is open. They now state that no destination is
+  selected, matching `selectedNavTab` and `NavTabTest`.
+- **R13-03/R13-04 (minor, mechanical):** the workout overview target printed
+  `3 × null reps` for force slots and built its strings in Kotlin. It now renders the
+  slot's actual measure — reps, seconds, display-unit distance or newtons — from
+  resource templates (`logger_workout_overview_target*`). Device rendering of a force
+  overview slot was not exercised.
+- **R13-06/R13-07/R13-08 (minor/nit, mechanical):** the settings-routes test KDoc no
+  longer claims to prove graph nesting; three unreferenced Settings strings were removed
+  after a repository search; the per-slot Advanced state is now keyed by the slot id.
+- **Open:** R13-05, the Back behavior of in-group members, is a design decision. Device
+  evidence shows system Back from Fatigue map returns to Train rather than Progress, and
+  `fatigue-body-map.yaml` now asserts that actual end state.
+- **Review evidence:** not re-executed by the reviewer; the supplied matrix was a fresh
+  `--rerun-tasks` run at `90c7433e` with 3144 tests and no failures.
