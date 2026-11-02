@@ -13,10 +13,16 @@ tags:
     clearState: false
     permissions:
       all: unset
+- tapOn:
+    text: '^Library$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Routines$'
+      - text: '^Library$'
 - assertVisible: '^HF UI accept per-set$'
 - tapOn:
     text: '^Edit$'

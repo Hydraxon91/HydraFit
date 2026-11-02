@@ -56,7 +56,7 @@ tags:
     id: '^settings_short_rest_coaching$'
     checked: true
 - tapOn:
-    text: '^Equipment$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - tapOn:
     text: '^Settings$'

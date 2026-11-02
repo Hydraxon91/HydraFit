@@ -16,6 +16,9 @@ tags:
     permissions:
       all: unset
 - tapOn:
+    text: '^Library$'
+    retryTapIfNoChange: false
+- tapOn:
     text: '^Routines$'
     retryTapIfNoChange: false
 - assertVisible: '^New routine$'

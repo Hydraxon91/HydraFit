@@ -13,8 +13,18 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Plan$'
+    text: '^Train$'
     retryTapIfNoChange: false
+- tapOn:
+    text: '^Manage plan$'
+    retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible: '^Show configuration$'
+    commands:
+      - tapOn:
+          text: '^Show configuration$'
+          retryTapIfNoChange: false
 - assertVisible: '^Automatic per-set targets$'
 - assertVisible: '^Off$'
 - tapOn:
@@ -38,7 +48,6 @@ tags:
     text: '^10$'
     containsChild:
       text: '^Lowest reps$'
-- hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:
     text: '^Highest reps$'
@@ -49,7 +58,6 @@ tags:
     text: '^6$'
     containsChild:
       text: '^Highest reps$'
-- hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:
     text: '^Apply$'
@@ -65,7 +73,6 @@ tags:
     text: '^12$'
     containsChild:
       text: '^Highest reps$'
-- hideKeyboard
 - assertVisible: '^Shape$'
 - tapOn:
     text: '^Apply$'

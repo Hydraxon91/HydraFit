@@ -12,7 +12,7 @@ tags:
     permissions:
       all: unset
 - tapOn:
-    text: '^Log$'
+    text: '^Train$'
     retryTapIfNoChange: false
 - scrollUntilVisible:
     element:

@@ -11,10 +11,16 @@ tags:
     clearState: false
     permissions:
       all: unset
+- tapOn:
+    text: '^Library$'
+    retryTapIfNoChange: false
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Routines$'
+      - text: '^Library$'
 - assertNotVisible: '^Routine name$'
 - tapOn:
     text: '^New routine$'
