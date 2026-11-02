@@ -2696,7 +2696,7 @@ private fun DraftEditDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = onConfirm,
                 enabled = edit.enteredMetricIsPositive && edit.deviceIsValid && !saving
             ) {

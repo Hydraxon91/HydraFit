@@ -73,7 +73,6 @@
     <string name="logger_short_rest_coaching">For %1$s, your last two live rest intervals were shorter than the rest time you chose. Consider resting longer if useful; this is guidance, not a recovery measurement.</string>
     <string name="logger_short_rest_dismiss">Dismiss guidance</string>
     <string name="logger_replace">Replace for this workout</string>
-    <string name="logger_replace_title">Choose a replacement</string>
     <string name="logger_replace_note">Only this scheduled workout changes. Sets and reps stay the same; the replacement uses its own load history. Choosing an option confirms the change.</string>
     <string name="logger_replace_loading">Loading available alternatives…</string>
     <string name="logger_replace_empty">No eligible alternative is available. Cancel to keep this exercise, or use the workout’s existing Skip or Finish partially action.</string>
