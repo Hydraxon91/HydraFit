@@ -1,6 +1,7 @@
 # Read-only history browser smoke: navigation, the Train tab staying selected, search states, clear
-# filters and Back. The soft keyboard is dismissed after typing so "Search" and "Back" cannot match
-# the IME's own search key and back control.
+# filters and Back. The flow taps the next control directly instead of dismissing the keyboard, so
+# it does not depend on an input method; the Search tap can still match an IME search key when one
+# is shown.
 # Contract and verification status: see README.md.
 appId: com.hydrafit.app
 name: Logger history browser

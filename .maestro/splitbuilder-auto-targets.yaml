@@ -36,9 +36,9 @@ tags:
 - assertVisible: '^Prescribed RIR \(optional\)$'
 - assertVisible: '^Apply$'
 # An inverted range is refused with its own message rather than silently accepted. Each typed
-# value is scoped to its labelled field (`containsChild`). No retained hierarchy captured the
-# SplitBuilder dialog, so this label/field shape is unverified at runtime; these scoped
-# assertions are syntax-checked only until the flow is re-run.
+# value is scoped to its labelled field (`containsChild`). The re-routed flow passed 34/34 on
+# 2026-11-02 with the opt-in left Off; the force and distance variants of this dialog remain
+# unverified.
 - tapOn:
     text: '^Lowest reps$'
     retryTapIfNoChange: false

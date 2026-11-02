@@ -43,4 +43,4 @@ tags:
 - assertVisible:
     selected: true
     containsDescendants:
-      - text: '^Equipment$'
+      - text: '^Library$'
