@@ -2,6 +2,9 @@
 <resources>
     <string name="split_builder_title">Weekly plan</string>
     <string name="nav_label">Plan</string>
+    <string name="split_configuration_label">Plan configuration</string>
+    <string name="split_configuration_show">Show configuration</string>
+    <string name="split_configuration_hide">Hide configuration</string>
     <string name="split_days_label">Days per week</string>
     <string name="split_sets_label">Sets per exercise</string>
     <string name="split_accessory_sets_label">Accessory sets per exercise</string>
@@ -86,8 +89,8 @@
     <string name="split_error_no_usable_exercises">No exercises were selected from the eligible pool. Review current soreness and try again.</string>
     <string name="split_review_equipment">Review equipment and exclusions</string>
     <string name="split_retry">Retry</string>
-    <string name="split_swap_action">Swap</string>
-    <string name="split_swap_dialog_title">Replace %1$s</string>
+    <string name="split_swap_action">Change in plan</string>
+    <string name="split_swap_dialog_title">Change %1$s in the plan</string>
     <string name="split_swap_dialog_empty">No substitute available</string>
     <string name="split_swap_dialog_cancel">Cancel</string>
     <string name="split_swap_no_candidates">No alternative available</string>
