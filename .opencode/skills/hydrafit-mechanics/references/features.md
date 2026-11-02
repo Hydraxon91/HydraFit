@@ -41,6 +41,18 @@ and note, exercise picker and the manual form) renders only when
 `manualEntryExpanded` is set, through the **Other training** action in the header.
 The form is the same state, so opening it never clears entered values.
 
+## Equipment screen structure (0.13.0)
+
+`EquipmentProfilerScreen` leads with the active profile and inventory: profiles with their
+create/copy/rename/activate/delete actions, then equipment chips each carrying its own Manage
+action on a line beneath the chip (a long chip must never squeeze that label), then **Loading
+configuration** and **Stations** as one group so the calculator stays with the equipment it
+describes. Catalog administration, planner exclusions and manual baseline records sit in three
+independent, collapsed-by-default disclosures (**Manage catalog**, **Exercise exclusions**,
+**Baseline records**); the baseline section states that those numbers are manually entered
+planning baselines, not performed sets. These are presentation states only: no profile, station,
+unit, ceiling, attribution or loading behavior changes.
+
 ## Progress screen structure (0.13.0)
 
 `ProgressScreen` stays exercise-first. Body weight and the Fatigue map are secondary text

@@ -4825,3 +4825,29 @@ are unchanged.
 - **Checks:** progress ktlint and 55 host tests passed, debug assembly succeeded, and
   `git diff --check` was clean. Selection state was not persisted across process
   death; TalkBack, locale, rotation and long station-filter lists remain unverified.
+
+### 0.13.0 screen pass — Equipment (2026-11-02)
+
+Equipment now leads with the active profile and inventory and hides management
+administration behind separate disclosures. Profile, station, loading and exclusion
+behavior is unchanged.
+
+- **Structure:** title, Equipment profiles with the active profile and its
+  New profile/Copy active/Rename actions, the equipment inventory chips with their
+  Manage actions, then Loading configuration and Stations as one group, then three
+  collapsed disclosures: Manage catalog (search, custom and built-in exercise lists,
+  New exercise), Exercise exclusions, and Baseline records with a note that these are
+  manually entered planning baselines rather than performed sets.
+- **Layout fix:** at 1.3× a long inventory chip starved its adjacent action, which
+  broke the label mid-word ("Man"/"age"). Each inventory entry now stacks its Manage
+  action under the chip, so labels stay whole.
+- **Device evidence:** light-mode checks expanded each disclosure independently and
+  confirmed the grouped loading configuration and stations. Dark mode at 1.3× was
+  viewed for the profile/inventory top, the loading and stations group, the three
+  disclosure headings and the expanded Baseline records note; no label split and no
+  unreachable control.
+- **Checks:** equipment ktlint and 102 host tests passed, debug assembly succeeded, and
+  `git diff --check` was clean. Three dark-mode journeys failed only on flow scroll
+  assumptions; the corrected flow centred each section and passed. No profile,
+  equipment, station, record or exclusion was changed. TalkBack, locale, rotation and
+  every editor dialog remain unverified for this pass.
