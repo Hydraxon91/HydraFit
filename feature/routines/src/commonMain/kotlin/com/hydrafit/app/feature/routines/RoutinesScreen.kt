@@ -953,7 +953,7 @@ private fun EntryRow(
     canMoveDown: Boolean,
     viewModel: RoutinesViewModel
 ) {
-    var showAdvanced by remember { mutableStateOf(false) }
+    var showAdvanced by remember(entry.id) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),

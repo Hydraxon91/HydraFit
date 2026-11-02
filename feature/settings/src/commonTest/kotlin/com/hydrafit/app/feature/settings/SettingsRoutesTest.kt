@@ -6,9 +6,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The shell decides which bottom group is selected from the destination hierarchy, so a category
- * page must stay inside the `settings` graph instead of becoming a top-level sibling. These checks
- * cover that navigation invariant; they do not prove the rendered hub or page layout.
+ * These checks hold the category routes under the `settings` path prefix instead of a top-level
+ * sibling path. They do not prove the navigation graph nesting, the bottom bar's selection or the
+ * rendered hub/page layout; `NavTabTest` covers the selection outcome.
  */
 class SettingsRoutesTest {
 

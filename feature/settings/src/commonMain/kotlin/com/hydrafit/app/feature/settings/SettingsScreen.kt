@@ -50,8 +50,8 @@ import org.koin.compose.viewmodel.koinViewModel
 val settingsRoute: String = "settings"
 
 /**
- * Category page routes. Each one is nested under [settingsRoute] so the shell keeps the Settings
- * group selected while a page is open, and so Back from a page returns to the hub.
+ * Category page routes. Each one is nested under [settingsRoute], so Back from a page returns to
+ * the hub. Settings is not a bottom-bar destination, so no tab is selected while it is open.
  */
 internal object SettingsRoutes {
     const val HOME = "settings/home"
@@ -69,9 +69,9 @@ val settingsDestination: FeatureDestination = FeatureDestination(
 )
 
 fun NavGraphBuilder.settingsGraph(navController: NavController) {
-    // A real nested graph keeps the Settings tab selected on its sub-routes (the shell matches
-    // destinations by graph hierarchy), so every category page is a child of Settings, not a
-    // sibling. Back from a page returns to the hub; Back from the hub closes the overlay.
+    // A real nested graph makes every category page a child of Settings, not a sibling, and keeps
+    // Back from a page returning to the hub; Back from the hub closes the overlay. Settings is not
+    // a bottom-bar destination, so the shell selects no tab while any of these routes is open.
     navigation(startDestination = SettingsRoutes.HOME, route = settingsRoute) {
         composable(SettingsRoutes.HOME) {
             SettingsHomeRoute(

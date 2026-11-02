@@ -14,8 +14,6 @@
     <string name="settings_home_backup_and_data_description">Backups, CSV exports, workout import and storage.</string>
     <string name="settings_home_about">About</string>
     <string name="settings_home_about_description">Credits, licenses and app version.</string>
-    <string name="settings_planning_section">Planning</string>
-    <string name="settings_engine_section">Planning engine</string>
     <string name="settings_engine_deterministic">Deterministic (offline)</string>
     <string name="settings_engine_gemini">Gemini API (cloud)</string>
     <string name="settings_engine_groq">Groq API (cloud)</string>
@@ -71,7 +69,6 @@
     <string name="settings_api_key_save">Save</string>
     <string name="settings_api_key_clear">Clear</string>
     <string name="settings_api_key_configured">A key is saved on this device.</string>
-    <string name="settings_acknowledgments">Acknowledgments</string>
     <string name="acknowledgments_title">Acknowledgments</string>
     <string name="acknowledgments_version">Version %1$s</string>
     <string name="acknowledgments_credits_heading">Credits</string>

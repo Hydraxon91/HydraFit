@@ -6,8 +6,8 @@ package com.hydrafit.app.core.navigation
  * Each one groups existing feature screens. The features keep their own routes, Koin modules and
  * graphs; grouping is a navigation decision made by the shell, so no feature depends on another.
  *
- * Settings sits outside these groups. It is reached from the shell toolbar and keeps the Library
- * group selected, so the bar does not disappear while the user is on it.
+ * Settings sits outside these groups. It is reached from the shell toolbar, so no bottom-bar
+ * destination is selected while Settings is open.
  */
 enum class NavTab { TRAIN, PROGRESS, LIBRARY }
 
