@@ -4550,3 +4550,89 @@ from the bar and gave Settings no visible way out. Corrected in the same branch:
 - **Still unverified.** The same limits as above; no active-workout draft
   round-trip through **Manage plan** was re-run after the correction (the earlier
   tab round-trip covered the same save/restore path).
+
+### Train action hierarchy pass (2026-11-02)
+
+- **Automated:** logger ktlint and 577 Android host tests ran successfully; debug
+  assembly succeeded, with logger compilation inherited from the preceding test run.
+- **Emulator:** with a user-created synthetic Day 1 block and guided workout on,
+  a read-only journey asserted the draft menu's Edit draft and Change measurement
+  actions, the visible Start set and Log set controls, and all four workout menu
+  entries. The workout remained at 0 of 3 sets; the training screenshot was viewed.
+- **Manage plan:** a separate navigation-only journey opened Weekly plan and
+  returned to the same training stage with Day 1, 0 of 3 sets and the guided
+  actions visible. No draft edit or database-level persistence comparison was made.
+- **Visual variants:** separate read-only journeys asserted the header and all four
+  workout menu items in dark mode and at 1.3× text. Both header and menu screenshots
+  were viewed; the worker reported no clipping. Emulator night mode and font scale
+  were restored and read back as `no` and `1.0`, respectively.
+- **TalkBack attempt:** the installed service was briefly enabled, but Android
+  reported `Bound services:{}` and `touchExplorationEnabled=false`, so traversal and
+  announcements remain blocked. The enabled-services setting was restored to its
+  original empty value and `accessibility_enabled` remained `1`. TalkBack verification
+  is waived for this Train pass at the user's direction; it was not verified.
+- **Limits and fixture:** menu item effects, started and timed set controls, rest
+  expiry and locale were not exercised in this pass. The visual-variant
+  checks did not cover the full guided card at larger text or dark-plus-large
+  together. The synthetic block and guided preference were left as the user supplied
+  them; no set was logged by the journeys. Formal review remains outstanding.
+
+### Train verification follow-up (2026-11-02)
+
+- **Edited draft:** a synthetic Back Squat draft changed from 8 to 9 reps and
+  remained at 9 after Manage plan → Train, with 0 of 3 sets. The initial flow
+  stopped before applying because the keyboard hid Apply; the continuation
+  dismissed the observed keyboard and applied the existing edit once.
+- **Started set and rest:** a synthetic 9-rep set was started and recorded without
+  weight; 1 of 3 sets and the finished rest prompt were observed. The duration
+  field remained focused at 3 while the already-finished prompt was displayed,
+  and dismissal removed it. This did not verify focus across the actual expiry
+  transition. One synthetic set was retained.
+- **Workout actions:** Other training opened and closed through the overflow with
+  the count unchanged. Finish partially was tapped once and its summary showed
+  `Finished partially` and `1 recorded sets · 3 prescribed`. The flow itself failed
+  because it expected a `Workout summary` heading; the result was established
+  from the post-failure hierarchy and screenshot, without repeating the write.
+- **Timed-set blocker:** after repeating the completed synthetic block and changing
+  the new occurrence's measurement to 60 seconds, Start timer was tapped once.
+  The exercise card collapsed to a near-zero-width text column, and the expected
+  Stop early control was not visible. The hierarchy still showed 0 of 3 sets, but
+  the timer's state could not be established; no discard or replay was attempted.
+  Evidence: `train-timed-controls-results/run.log`, `post-failure-hierarchy.csv`
+  and `post-failure.png` in the session's external OpenCode temporary directory.
+- **Remaining:** timed countdown/stop/discard, expiry while actively editing,
+  full Finish and Skip effects remain unverified. TalkBack is waived for this pass.
+
+### Guided timer layout correction (2026-11-02)
+
+The guided exercise row now shares width between details and actions, and timer
+controls can wrap. The previous hidden timer was reconciled at its 60-second
+confirmation and discarded without logging. On the fixed debug build,
+`logger-guided-timer-layout.yaml` passed: the Back Squat name, work countdown and
+Stop early were visible together; stopping and discarding left 0 of 3 sets. A
+separate 1.3× text journey passed the same live-control and discard checks, with
+the warm-up restored afterward. Both running-timer screenshots were viewed; font
+scale was restored and read back as `1.0`.
+
+Logger ktlint and 577 host tests executed successfully; debug assembly succeeded,
+using logger compilation from the preceding test run. The host tests do not test
+Compose layout. The timed attempt was discarded; the synthetic 60-second workout
+and the earlier partially finished synthetic set remain. Rest expiry during an
+active edit, full Finish and Skip effects, and the planned-draft timer at narrow
+width remain unverified. TalkBack is waived for this pass.
+
+### Train review corrections (2026-11-02)
+
+- **R-01:** the all-sets-recorded overview message now points to Workout actions.
+  Debug assembly packaged the updated resource; the all-complete screen itself was
+  not re-created on the emulator for this copy change.
+- **R-02:** `logger-workout-actions.yaml` passed on the synthetic guided Day 1
+  fixture. It opened both menus, asserted all four workout actions and both eligible
+  draft actions, and closed the menus with 0 of 3 sets. The screenshot was viewed;
+  no menu item or set was written. The workout remained in the training stage.
+- **R-03:** the timer flow now has its standard contract preamble, and its README
+  row records that it leaves the training stage open. Both flow files passed
+  Maestro syntax validation.
+
+The prior review's unverified checks remain unchanged; these corrections have not
+yet received a targeted post-fix review.

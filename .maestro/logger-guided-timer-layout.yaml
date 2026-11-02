@@ -1,0 +1,33 @@
+# Contract and verification status: see .maestro/README.md.
+# Requires the synthetic guided Day 1 fixture described there.
+appId: com.hydrafit.app
+name: Guided timed set stays readable
+---
+- assertVisible: '^Current workout: Day 1$'
+- assertVisible: '^0 of 3 sets$'
+- assertVisible: '^3 × 60 s$'
+- tapOn:
+    text: '^Start workout$'
+    retryTapIfNoChange: false
+- assertVisible: '^Start timer$'
+- tapOn:
+    text: '^Start timer$'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: '^Stop early$'
+    timeout: 15000
+- assertVisible: '^Back Squat$'
+- assertVisible: '^Work: .* s left$'
+- assertVisible: '^0 of 3 sets$'
+- takeScreenshot: fixed-timer-running
+- tapOn:
+    text: '^Stop early$'
+    retryTapIfNoChange: false
+- assertVisible: '^Timed set$'
+- assertVisible: '^Prescribed: 60 s$'
+- tapOn:
+    text: '^Discard$'
+    retryTapIfNoChange: false
+- assertNotVisible: '^Timed set$'
+- assertVisible: '^0 of 3 sets$'
+- assertVisible: '^Start timer$'

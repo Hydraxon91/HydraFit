@@ -18,10 +18,13 @@ each feature's `strings.xml`.
 
 An active-block workout has two presentations of one Logger state, chosen by
 `WorkoutLoggerUiState.workoutStage`. `OVERVIEW` shows `WorkoutHeaderSection`
-(workout name, `performed of prescribed` sets, Start/Resume workout, Finish,
-Finish partially, Skip, Other training) and `WorkoutOverviewSection`, whose rows
-carry the remaining prescription and a **Replace** action. `TRAINING` shows the
-warm-up and guided/planned-draft sections instead of the overview rows.
+(workout name, `performed of prescribed` sets, and Start workout/Resume workout or
+Workout overview as the primary action) and `WorkoutOverviewSection`, whose rows
+carry the remaining prescription and a **Replace** action. Finish, Finish
+partially, Skip and the Other training toggle share the header's labeled **Workout
+actions** menu, so the workout's start/review action stays visible.
+`TRAINING` shows the warm-up and guided/planned-draft sections instead of the
+overview rows.
 
 Switching stages calls `showWorkoutTraining`/`showWorkoutOverview` and writes
 nothing: no set, no finish, no queue advance, and drafts, editors and timers are
@@ -165,8 +168,9 @@ the row refreshes to the written target afterwards.
 
 ## Unstarted slot measurement correction
 
-A guided draft for the active occurrence offers **Change measurement** while the occurrence has no
-recorded set (warm-ups included) and the slot has neither ordered per-set targets nor a cluster.
+A guided draft for the active occurrence offers **Change measurement** in the row's **Draft actions**
+menu while the occurrence has no recorded set (warm-ups included) and the slot has neither ordered
+per-set targets nor a cluster.
 The dialog picks reps, seconds, distance or force explicitly and requires a typed value; no stored
 number is converted into another measure. `ChangeOccurrenceEntryMeasureUseCase` validates the active
 selected occurrence and delegates to `GuidedWorkoutTargetsRepository.changeEntryMeasure`, a
@@ -195,7 +199,9 @@ override carries the same "(edited)" marker as a transient edit.
 A seconds-based pending draft offers **Start timer** on its planned-draft row, and the
 matching guided row offers the same control for the current guided timed draft. The guided
 section and the planned-draft list never render together, so only one timer surface is
-visible at a time. The Logger's `WorkoutLoggerUiState.setTimer` holds one transient
+visible at a time. In the guided row the exercise details and action columns share the
+available width; timer text and its action can wrap. The shared planned-draft timer
+also wraps its action when needed. The Logger's `WorkoutLoggerUiState.setTimer` holds one transient
 `SetTimerState`: a five-second cancellable preparation countdown, then the prescribed work
 countdown, then a confirmation showing the measured work seconds with **Log set** and
 **Discard**. Only one timer exists and it never records by itself; reaching zero and
@@ -498,7 +504,10 @@ all recorded renders collapsed to its name and completion summary until expanded
 belongs to that exact recorded completion, so removing a set reopens the rows, and unfinished or
 partially recorded work never collapses. While a set is started, ordinary guided "Log set" and
 edit-confirm for another slot are refused; a repeat "Start set" on the started slot is a no-op, and only
-that slot's explicit "Set completed now" consumes the live event. The Warm-up choice is frozen at
+that slot's explicit "Set completed now" consumes the live event. A guided row keeps its "Start set",
+"Log set", "Set completed now" and any live timer controls visible; "Edit draft" and "Change
+measurement" sit in that row's labeled **Draft actions** menu, with the same write-in-progress and
+available-measure gates. The Warm-up choice is frozen at
 confirmation, survives legacy/missing-load resolution and failed-write retries, and is discarded on
 cancellation or consumed on success. A warm-up is stored as a warm-up and stays out of the progress
 count. "Edit" opens the one-off draft editor; in guided mode Apply persists masked changes for every

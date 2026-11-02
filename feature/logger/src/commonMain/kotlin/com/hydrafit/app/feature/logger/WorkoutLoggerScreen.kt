@@ -202,6 +202,8 @@ import hydrafit.feature.logger.generated.resources.logger_force_input_label
 import hydrafit.feature.logger.generated.resources.logger_force_label
 import hydrafit.feature.logger.generated.resources.logger_force_value
 import hydrafit.feature.logger.generated.resources.logger_future_time_error
+import hydrafit.feature.logger.generated.resources.logger_guided_actions
+import hydrafit.feature.logger.generated.resources.logger_guided_actions_for
 import hydrafit.feature.logger.generated.resources.logger_guided_all_done
 import hydrafit.feature.logger.generated.resources.logger_guided_collapse_sets
 import hydrafit.feature.logger.generated.resources.logger_guided_edit_failed
@@ -355,6 +357,7 @@ import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
 import hydrafit.feature.logger.generated.resources.logger_weight_label
 import hydrafit.feature.logger.generated.resources.logger_weight_none
+import hydrafit.feature.logger.generated.resources.logger_workout_actions
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_complete
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_open
 import hydrafit.feature.logger.generated.resources.logger_workout_replace
@@ -3159,6 +3162,7 @@ private fun WorkoutHeaderSection(
     onSkip: () -> Unit,
     onMessageShown: () -> Unit
 ) {
+    var actionsExpanded by remember { mutableStateOf(false) }
     Card {
         Column(
             modifier = Modifier
@@ -3203,25 +3207,58 @@ private fun WorkoutHeaderSection(
                         )
                     }
                 }
-                TextButton(onClick = onFinish) {
-                    Text(stringResource(Res.string.logger_finish))
-                }
-                TextButton(onClick = onFinishPartially) {
-                    Text(stringResource(Res.string.logger_finish_partial))
-                }
-                TextButton(onClick = onSkip) {
-                    Text(stringResource(Res.string.logger_skip))
-                }
-                TextButton(onClick = onToggleManualEntry) {
-                    Text(
-                        stringResource(
-                            if (manualEntryExpanded) {
-                                Res.string.logger_other_training_hide
-                            } else {
-                                Res.string.logger_other_training_show
+                // Finishing, partial finishing, skipping and the manual-entry toggle are secondary
+                // to starting or reviewing the workout, so they share one labeled menu.
+                Box {
+                    TextButton(
+                        onClick = { actionsExpanded = true },
+                        modifier = Modifier.testTag(LoggerTestTags.WORKOUT_ACTIONS)
+                    ) {
+                        Text(stringResource(Res.string.logger_workout_actions))
+                    }
+                    DropdownMenu(
+                        expanded = actionsExpanded,
+                        onDismissRequest = { actionsExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.logger_finish)) },
+                            onClick = {
+                                actionsExpanded = false
+                                onFinish()
                             }
                         )
-                    )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.logger_finish_partial)) },
+                            onClick = {
+                                actionsExpanded = false
+                                onFinishPartially()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.logger_skip)) },
+                            onClick = {
+                                actionsExpanded = false
+                                onSkip()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(
+                                        if (manualEntryExpanded) {
+                                            Res.string.logger_other_training_hide
+                                        } else {
+                                            Res.string.logger_other_training_show
+                                        }
+                                    )
+                                )
+                            },
+                            onClick = {
+                                actionsExpanded = false
+                                onToggleManualEntry()
+                            }
+                        )
+                    }
                 }
             }
             message?.let { error ->
@@ -4001,8 +4038,10 @@ private fun GuidedWorkoutSection(
                     }
                     // Only the paired member whose turn it is gets set controls, so the same round
                     // cannot be logged twice from the group. A single exercise keeps its controls.
+                    // The action column shares the row width; unweighted, a wide child such as the
+                    // live timer takes the whole row and leaves the exercise details no width.
                     if (exercise.occurrenceEntryId in actionEntryIds) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
                             val timer = setTimer?.takeIf { current ->
                                 current.draft.occurrenceEntryId == exercise.occurrenceEntryId
@@ -4044,30 +4083,74 @@ private fun GuidedWorkoutSection(
                             ) {
                                 Text(stringResource(Res.string.logger_guided_log_completed_now))
                             }
-                            TextButton(
-                                onClick = { onEditSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress
-                            ) {
-                                Text(stringResource(Res.string.logger_draft_edit))
-                            }
-                            if (exercise.occurrenceEntryId in measureChangeEntryIds) {
-                                val changeFor = stringResource(
-                                    Res.string.logger_measure_change_for,
-                                    exercise.exerciseName
-                                )
-                                TextButton(
-                                    onClick = { onChangeMeasure(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress,
-                                    modifier = Modifier.semantics {
-                                        contentDescription = changeFor
-                                    }
-                                ) {
-                                    Text(stringResource(Res.string.logger_measure_change_action))
-                                }
-                            }
+                            GuidedDraftActionsMenu(
+                                exerciseName = exercise.exerciseName,
+                                entryId = exercise.occurrenceEntryId,
+                                writeInProgress = writeInProgress,
+                                canChangeMeasure =
+                                exercise.occurrenceEntryId in measureChangeEntryIds,
+                                onEditSet = onEditSet,
+                                onChangeMeasure = onChangeMeasure
+                            )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The guided row's secondary actions. Editing the pending draft or changing the slot's measure
+ * never writes on its own, so both live behind one labeled menu while the set controls stay
+ * directly visible. A measure change is only offered for a slot that allows it.
+ */
+@Composable
+private fun GuidedDraftActionsMenu(
+    exerciseName: String,
+    entryId: Long,
+    writeInProgress: Boolean,
+    canChangeMeasure: Boolean,
+    onEditSet: (Long) -> Unit,
+    onChangeMeasure: (Long) -> Unit
+) {
+    var expanded by remember(entryId) { mutableStateOf(false) }
+    Box {
+        val label = stringResource(Res.string.logger_guided_actions_for, exerciseName)
+        TextButton(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .testTag(LoggerTestTags.guidedActions(entryId))
+                .semantics { contentDescription = label }
+        ) {
+            Text(stringResource(Res.string.logger_guided_actions))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.logger_draft_edit)) },
+                enabled = !writeInProgress,
+                onClick = {
+                    expanded = false
+                    onEditSet(entryId)
+                }
+            )
+            if (canChangeMeasure) {
+                DropdownMenuItem(
+                    text = {
+                        // The menu is a popup, so the measure action names its exercise here.
+                        Text(
+                            stringResource(
+                                Res.string.logger_measure_change_for,
+                                exerciseName
+                            )
+                        )
+                    },
+                    enabled = !writeInProgress,
+                    onClick = {
+                        expanded = false
+                        onChangeMeasure(entryId)
+                    }
+                )
             }
         }
     }
@@ -4095,10 +4178,13 @@ private fun SetTimerNoticeRow(onDismiss: () -> Unit) {
 @Composable
 private fun SetTimerControls(timer: SetTimerState, onStop: () -> Unit, onCancel: () -> Unit) {
     // Only the preparation and work phases render controls; the confirmation is a dialog.
-    Row(
+    // FlowRow moves the action under the countdown rather than measuring it to zero width when a
+    // narrow column or a large font scale leaves no room beside the text.
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = if (timer.phase == SetTimerPhase.PREPARING) {

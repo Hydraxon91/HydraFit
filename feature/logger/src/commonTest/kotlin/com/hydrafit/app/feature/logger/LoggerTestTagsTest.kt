@@ -61,6 +61,17 @@ class LoggerTestTagsTest {
     }
 
     @Test
+    fun guidedOverflowTagsAreDistinctPerEntryAndFromTheInstructionsAction() {
+        assertEquals("logger_guided_actions_10", LoggerTestTags.guidedActions(10L))
+        assertNotEquals(LoggerTestTags.guidedActions(1L), LoggerTestTags.guidedActions(10L))
+        // The instructions action and the overflow trigger share one row, so they must not collide.
+        assertNotEquals(
+            LoggerTestTags.guidedInstructions(10L),
+            LoggerTestTags.guidedActions(10L)
+        )
+    }
+
+    @Test
     fun theThreeRampControlsOfOneRowAreDistinct() {
         val controls = setOf(
             LoggerTestTags.rampRow(10L, 2),
@@ -75,6 +86,7 @@ class LoggerTestTagsTest {
         val tags = listOf(
             LoggerTestTags.LIST,
             LoggerTestTags.EXERCISE_PICKER,
+            LoggerTestTags.WORKOUT_ACTIONS,
             LoggerTestTags.WARMUP_CARD,
             LoggerTestTags.WARMUP_EDITOR,
             LoggerTestTags.WARMUP_EDITOR_DURATION,

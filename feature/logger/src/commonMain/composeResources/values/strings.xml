@@ -101,7 +101,8 @@
     <string name="logger_workout_resume">Resume workout</string>
     <string name="logger_workout_overview_open">Workout overview</string>
     <string name="logger_workout_replace">Replace</string>
-    <string name="logger_workout_overview_complete">Every prescribed set is recorded. Finish the workout below.</string>
+    <string name="logger_workout_overview_complete">Every prescribed set is recorded. Finish the workout from Workout actions.</string>
+    <string name="logger_workout_actions">Workout actions</string>
     <string name="logger_other_training_show">Other training</string>
     <string name="logger_other_training_hide">Hide other training</string>
     <string name="logger_plan_open">Manage plan</string>
@@ -168,6 +169,8 @@
     <string name="logger_guided_log_completed_now">Set completed now</string>
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
+    <string name="logger_guided_actions">Draft actions</string>
+    <string name="logger_guided_actions_for">Draft actions for %1$s</string>
     <string name="logger_guided_expand_sets">Show sets</string>
     <string name="logger_guided_collapse_sets">Hide sets</string>
     <string name="logger_superset_pair_note">Superset: alternate with the paired exercise. Transition %1$d s, pair rest %2$d s.</string>

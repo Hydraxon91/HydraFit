@@ -1,0 +1,29 @@
+# Contract and verification status: see .maestro/README.md.
+# Requires the synthetic guided Day 1 fixture described there.
+appId: com.hydrafit.app
+name: Workout and draft action menus
+---
+- assertVisible: '^Current workout: Day 1$'
+- assertVisible: '^0 of 3 sets$'
+- tapOn:
+    text: '^Workout actions$'
+    retryTapIfNoChange: false
+- assertVisible: '^Finish$'
+- assertVisible: '^Finish partially$'
+- assertVisible: '^Skip$'
+- assertVisible: '^Other training$'
+- back
+- assertVisible: '^Start workout$'
+- tapOn:
+    text: '^Start workout$'
+    retryTapIfNoChange: false
+- assertVisible: '^Draft actions for Back Squat$'
+- tapOn:
+    text: '^Draft actions for Back Squat$'
+    retryTapIfNoChange: false
+- assertVisible: '^Edit draft$'
+- assertVisible: '^Change measurement for Back Squat$'
+- takeScreenshot: workout-draft-actions
+- back
+- assertVisible: '^Workout overview$'
+- assertVisible: '^0 of 3 sets$'
