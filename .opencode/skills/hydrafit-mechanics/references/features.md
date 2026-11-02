@@ -203,7 +203,11 @@ the pure filter, covered in `RoutinesPresentationTest`.
 The routine editor keeps a slot's name, measure choice, sets, measure value, load and
 move controls visible, and discloses Progression, Per-set targets, Cluster and the
 superset action behind a per-slot `Advanced` toggle; configured summaries stay outside
-it so a collapsed slot still shows what is stored. These are presentation states only:
+it so a collapsed slot still shows what is stored. The toggle state is keyed by the
+slot's id, so a persisted slot keeps its own state when rows move. New slots all share
+the default local id until saved, so on the new-routine path moving two unsaved slots
+can still transfer the open state between them; that residual is accepted rather than
+giving unsaved entries a new identity contract. These are presentation states only:
 no ViewModel field, persisted value, ordering rule, pairing rule or unit changes.
 
 ## Ordered per-set prescription surfaces (0.10.2)

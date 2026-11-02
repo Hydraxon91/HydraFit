@@ -4893,9 +4893,10 @@ were applied; one design question is open.
   map through Progress and Manage plan through Train; the README table, the current
   browser sentence and a dated-narrative note were corrected.
 - **Verified re-runs:** `fatigue-body-map.yaml` passed 27/27, `logger-history-browser.yaml`
-  25/25 and `splitbuilder-auto-targets.yaml` 34/34 after the routing change. The latter's
-  opt-in was confirmed back at `Off`. The other 16 re-routed flows are syntax-checked
-  only; the writing fixture flows were not executed.
+  25/25, `splitbuilder-auto-targets.yaml` 34/34 and `routine-editor-cancel.yaml` 17/17
+  after the routing change; the last leaves Equipment open with the Library tab
+  selected, and the splitbuilder opt-in was confirmed back at `Off`. The other 15
+  re-routed flows are syntax-checked only; the writing fixture flows were not executed.
 - **Flow technique:** `hideKeyboard` failed on this emulator because no soft keyboard is
   shown, so the history and splitbuilder flows now tap the next semantic control instead.
 - **R13-02 (minor, resolved as documentation):** comments and living docs claimed the bar
@@ -4912,5 +4913,13 @@ were applied; one design question is open.
 - **Open:** R13-05, the Back behavior of in-group members, is a design decision. Device
   evidence shows system Back from Fatigue map returns to Train rather than Progress, and
   `fatigue-body-map.yaml` now asserts that actual end state.
+- **Outstanding decision:** system Back from an in-group member returns to Train rather
+  than the member's group screen (R13-05). The re-routed fatigue flow asserts that
+  current end state; changing the behavior requires the user to choose the Back
+  semantics first.
+- **Accepted residual:** the routine editor keys its Advanced disclosure by slot id, but
+  unsaved slots share the default id, so the new-routine path can still transfer that
+  disclosure state when slots move. Giving unsaved entries their own identity would
+  change the save/replace contract, so it is documented rather than changed.
 - **Review evidence:** not re-executed by the reviewer; the supplied matrix was a fresh
   `--rerun-tasks` run at `90c7433e` with 3144 tests and no failures.
