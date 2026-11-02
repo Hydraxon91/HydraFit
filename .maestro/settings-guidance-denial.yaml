@@ -14,10 +14,11 @@ tags:
 - tapOn:
     text: '^Settings$'
     retryTapIfNoChange: false
-- assertVisible:
-    selected: true
-    containsDescendants:
-      - text: '^Settings$'
+- assertVisible: '^Planning engine$'
+- tapOn:
+    text: '^Notifications$'
+    retryTapIfNoChange: false
+- assertVisible: '^Workout reminders$'
 - scrollUntilVisible:
     element:
       id: '^settings_short_rest_coaching$'
@@ -60,6 +61,10 @@ tags:
 - tapOn:
     text: '^Settings$'
     retryTapIfNoChange: false
+- tapOn:
+    text: '^Notifications$'
+    retryTapIfNoChange: false
+- assertVisible: '^Workout reminders$'
 - scrollUntilVisible:
     element:
       id: '^settings_rest_alerts$'

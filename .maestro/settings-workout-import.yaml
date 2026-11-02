@@ -18,6 +18,10 @@ appId: com.hydrafit.app
 - tapOn:
     text: "Settings"
     retryTapIfNoChange: false
+- tapOn:
+    text: "^Backup & data$"
+    retryTapIfNoChange: false
+- assertVisible: "^Backup$"
 - scrollUntilVisible:
     element:
       text: "Import workout history"

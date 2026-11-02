@@ -4688,3 +4688,38 @@ discarded with the overlay.
   no record or preference changed. `navigation-smoke.yaml` now covers the same rule.
 - **Not verified:** system-back from Settings in this pass, and dismissed-unsaved-
   edits behavior for Settings fields (no field was edited).
+
+### Settings hub and category pages (2026-11-02)
+
+Settings was reorganised from one long form into a hub with six category pages —
+Workout preferences, Notifications, Planner engine, Units, Backup & data, About —
+plus the separate `Set up HydraFit` entry. Every control moved without changing its
+save behavior, permission flow or safeguards.
+
+- **Pages and Back:** a read-only journey opened each category, asserted its
+  controls, and returned to the hub with Back; hub Back returned to Train. The
+  Workout preferences screenshot was viewed. No preference, radio, switch or backup
+  action was selected.
+- **Unsaved input:** a rest-duration edit of `999` was discarded by leaving the
+  page and reopening it, which restored the stored `120`. The earlier attempt to
+  type into the API-key field could not assert its text because that field is
+  masked; the numeric field replaced it as the probe.
+- **Saved values:** the weight unit was switched to pounds, the hub summary
+  refreshed to `Pounds (lb) · Metres (m)`, the reopened page showed pounds active,
+  and kilograms was restored in the same journey. The reopened radio exposes
+  `checked`, not `selected`, so the flow's `selected` assertion failed while the
+  hierarchy and summary both showed the saved value.
+- **Dark and larger text:** at 1.3× text in dark mode the hub and Workout
+  preferences were readable without clipping; that run's theme restoration needed
+  `cmd uimode night no`, because `settings put secure ui_night_mode` alone did not
+  change the rendered theme.
+- **Backup & data fix:** at 1.3× text the four export/restore actions previously
+  shared one row at a quarter width each, breaking labels into fragments
+  (“Exp ort back up”). The Android backup section now uses a wrapping group with
+  content-sized buttons. Re-checked on device: labels stay intact and the actions
+  stack one per line at 1.3×, and form a 2×2 group at 1.0×.
+- **Checks:** settings ktlint and 58 executed host-test tasks (111 tests, 0
+  failures) passed, debug assembly succeeded, and `git diff --check` was clean.
+  `settings-guidance-denial.yaml` and `settings-workout-import.yaml` were updated
+  for the new navigation but are syntax-checked only, not re-run. TalkBack remains
+  waived for this pass; system back from Settings was not exercised.
