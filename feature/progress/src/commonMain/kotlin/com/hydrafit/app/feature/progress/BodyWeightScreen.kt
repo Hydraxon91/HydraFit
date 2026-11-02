@@ -2,6 +2,8 @@ package com.hydrafit.app.feature.progress
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,6 +53,8 @@ import hydrafit.feature.progress.generated.resources.bodyweight_error_invalid_we
 import hydrafit.feature.progress.generated.resources.bodyweight_error_missing_measurement
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_clear
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_current
+import hydrafit.feature.progress.generated.resources.bodyweight_goal_edit
+import hydrafit.feature.progress.generated.resources.bodyweight_goal_hide
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_input_label
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_invalid
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_none
@@ -147,12 +154,6 @@ fun BodyWeightScreen(
         OutlinedButton(onClick = onBack) {
             Text(stringResource(Res.string.progress_back))
         }
-        GoalSection(
-            state = state,
-            onGoalInputChanged = onGoalInputChanged,
-            onSaveGoal = onSaveGoal,
-            onClearGoal = onClearGoal
-        )
         Button(
             onClick = onAddMeasurement,
             modifier = Modifier.testTag(BodyWeightTestTags.ADD)
@@ -193,6 +194,12 @@ fun BodyWeightScreen(
                 )
             }
         }
+        GoalSection(
+            state = state,
+            onGoalInputChanged = onGoalInputChanged,
+            onSaveGoal = onSaveGoal,
+            onClearGoal = onClearGoal
+        )
     }
 
     state.editor?.let { editor ->
@@ -274,6 +281,7 @@ private fun GoalSection(
     onSaveGoal: () -> Unit,
     onClearGoal: () -> Unit
 ) {
+    var showGoalEditor by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = stringResource(Res.string.bodyweight_goal_title),
@@ -289,52 +297,74 @@ private fun GoalSection(
             },
             style = MaterialTheme.typography.bodyMedium
         )
-        OutlinedTextField(
-            value = state.goalInput,
-            onValueChange = onGoalInputChanged,
-            label = {
-                Text(stringResource(Res.string.bodyweight_goal_input_label, state.weightUnit.label))
-            },
-            singleLine = true,
-            enabled = !state.submitting,
-            isError = state.goalError,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(BodyWeightTestTags.GOAL_INPUT)
-        )
-        if (state.goalError) {
+        TextButton(onClick = { showGoalEditor = !showGoalEditor }) {
             Text(
-                text = stringResource(Res.string.bodyweight_goal_invalid),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
+                stringResource(
+                    if (showGoalEditor) {
+                        Res.string.bodyweight_goal_hide
+                    } else {
+                        Res.string.bodyweight_goal_edit
+                    }
+                )
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onSaveGoal,
+        if (showGoalEditor) {
+            OutlinedTextField(
+                value = state.goalInput,
+                onValueChange = onGoalInputChanged,
+                label = {
+                    Text(
+                        stringResource(
+                            Res.string.bodyweight_goal_input_label,
+                            state.weightUnit.label
+                        )
+                    )
+                },
+                singleLine = true,
                 enabled = !state.submitting,
-                modifier = Modifier.testTag(BodyWeightTestTags.GOAL_SAVE)
-            ) {
-                Text(stringResource(Res.string.bodyweight_goal_save))
+                isError = state.goalError,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(BodyWeightTestTags.GOAL_INPUT)
+            )
+            if (state.goalError) {
+                Text(
+                    text = stringResource(Res.string.bodyweight_goal_invalid),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
-            TextButton(
-                onClick = onClearGoal,
-                enabled = !state.submitting,
-                modifier = Modifier.testTag(BodyWeightTestTags.GOAL_CLEAR)
-            ) {
-                Text(stringResource(Res.string.bodyweight_goal_clear))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onSaveGoal,
+                    enabled = !state.submitting,
+                    modifier = Modifier.testTag(BodyWeightTestTags.GOAL_SAVE)
+                ) {
+                    Text(stringResource(Res.string.bodyweight_goal_save))
+                }
+                TextButton(
+                    onClick = onClearGoal,
+                    enabled = !state.submitting,
+                    modifier = Modifier.testTag(BodyWeightTestTags.GOAL_CLEAR)
+                ) {
+                    Text(stringResource(Res.string.bodyweight_goal_clear))
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BodyWeightRangeSelector(
     range: ProgressRange,
     onRangeSelected: (ProgressRange) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         ProgressRange.entries.forEach { option ->
             FilterChip(
                 selected = option == range,
