@@ -768,8 +768,9 @@ section recorded the on-device upgrade exercise as closed; **that claim is retra
 flows passed at the time; `logger-prescribed-effort.yaml` has never passed. Since then
 `routines-set-targets-rir.yaml`, `routines-set-targets-cleanup.yaml` and
 `splitbuilder-auto-targets.yaml` were revised to scope field values and cleanup actions by
-identity. Those three revised files are **syntax-checked only, not runtime passes**, and no new
-independent execution was performed for them. The revised cleanup flow is also deliberately
+identity. Those three revised files were **syntax-checked only, not runtime passes**, and no new
+independent execution was performed for them at that time; `splitbuilder-auto-targets.yaml` was
+subsequently re-run on 2026-11-02 and passed 34/34. The revised cleanup flow is also deliberately
 stricter: its identity-scoped selectors require a single matching card, but Maestro does not
 enforce that uniqueness (parent resolution takes the first match), so the retained
 two-archived-same-name fixture state is a stop-and-report precondition failure, not an automatic
@@ -782,7 +783,7 @@ abort.
 | `routines-set-targets-persist.yaml` | 10/10, exit 0, 11 s |
 | `routines-set-targets-rir.yaml` | 26/26, exit 0, 34 s — file since revised; syntax-checked only |
 | `routines-set-targets-cleanup.yaml` | 7/7, exit 0, 14 s — file since revised; syntax-checked only, and the revised selectors require a single unarchived fixture |
-| `splitbuilder-auto-targets.yaml` | 34/34, exit 0, 59 s — file since revised; syntax-checked only |
+| `splitbuilder-auto-targets.yaml` | 34/34, exit 0, 59 s — file since revised; re-run 2026-11-02 passed 34/34 again |
 | `logger-prescribed-effort.yaml` | **not passing** (untagged from `smoke`) — the line was observed in a hierarchy dump but never asserted by this flow; see limits |
 
 Observed on device: the per-set dialog renders every field and shape; an untouched preview

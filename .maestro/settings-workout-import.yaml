@@ -2,7 +2,7 @@ appId: com.hydrafit.app
 ---
 # Settings workout-CSV import: read-only reachability and affordance check.
 #
-# Starting state: HydraFit foregrounded with the Settings tab reachable, an English UI, no
+# Starting state: HydraFit foregrounded with the Settings entry reachable, an English UI, no
 # keyboard/dialog/editor open. The flow never taps "Choose CSV file", so it opens no document
 # picker, reads no file and writes no workout data; provider selection is only asserted, not changed.
 #
