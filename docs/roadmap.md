@@ -76,8 +76,10 @@ table records the former slice ids. Backlog ids (M1–M8, OF, LT, CAT, EX, QL, P
 EQ) are unchanged, and immutable history (`docs/plans-archive.md`, dated review
 snapshots) keeps its original numbers.
 
-Target approximately 27 publications, including the current 0.8.0 (26 afterward,
-then 1.0.0). The 0.8.0 scope and its six-chunk implementation plan are unchanged,
+The 2026-10-15 grouping targeted approximately 27 publications. With 0.12.1
+folded and the visual-identity scope added as 0.13.4 on 2026-11-02, the table
+below contains 27 planned scopes before 1.0.0; folding may publish fewer tags.
+The 0.8.0 scope and its six-chunk implementation plan are unchanged,
 and that active scope already includes automatic records. Fewer publication and
 review cycles do not mean larger implementation chunks or fewer required tests.
 
@@ -88,8 +90,8 @@ review cycles do not mean larger implementation chunks or fewer required tests.
 | 0.10.x | integrity; policies; prescriptions + presets + generation + RIR/RPE; supersets; effort/readiness | 0.10.0–0.10.4 | 5 |
 | 0.11.x | duration + timed preparation; distance; force; clusters; cardio | 0.11.0–0.11.4 | 5 |
 | 0.12.x | provider research; remote AI reliability and local LLM retirement (0.12.1 folded) | 0.12.0 | 1 |
-| 0.13.x | design/polish; tablet + foldable; accessibility + localization; recovery + final closure | 0.13.0–0.13.3 | 4 |
-| **Total before 1.0.0** | **0.8.0 (active) + 25 = 26, then 1.0.0** | | **26** |
+| 0.13.x | navigation/polish; tablet + foldable; accessibility + localization; recovery + integration; visual identity + final closure | 0.13.0–0.13.4 | 5 |
+| **Total before 1.0.0** | **27 planned scopes, then 1.0.0** | | **27** |
 
 Counts above are planned release scopes, not tag counts; folding publishes fewer tags. The 0.10.x
 series published `v0.10.0`, `v0.10.1` (0.10.2 folded) and `v0.10.3` (0.10.4 folded).
@@ -477,16 +479,28 @@ planner. Existing imported model files and saved settings need an explicit handl
 decision before removal. Preserve experimental evidence without claiming that one
 model test proves all local models non-viable; see `docs/qa.md`.
 
-### 0.13 — Final UX & Design (0.13.0–0.13.3, 4 publications, provisional)
+### 0.13 — Final UX & Design (0.13.0–0.13.4, 5 publications, provisional)
 
-Former slice ids are recorded in parentheses.
+Former slice ids are recorded in parentheses. The new 0.13.4 visual-identity
+release is distinct from the former 0.13.4 slice mapped to 0.13.1 above.
 
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
 | 0.13.0 | Shared design tokens and navigation hierarchy; workout/logging screen polish; remaining screen/component polish (former `0.13.0`–`0.13.2`) | QL-01 + OCT13-06; agreed design direction, scoped components rather than a full rewrite; decide expired-rest dismissal without interrupting duration edits; preserve drafts, targets, session and timer semantics; split into further screen-specific releases if too broad |
 | 0.13.1 | Adaptive tablet layouts and wide-window navigation; seamless foldable layouts and posture transitions (former `0.13.3`–`0.13.4`) | UX-01; rail/single-row navigation and useful multi-pane layouts; tablet foundation, draft/workout/scroll/selection continuity |
 | 0.13.2 | Final accessibility remediation; final localization and instruction-coverage remediation (former `0.13.5`–`0.13.6`) | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access; locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
-| 0.13.3 | Final UI-state and recovery remediation; final integration and 1.0-readiness closure (former `0.13.7`–`0.13.8`) | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits |
+| 0.13.3 | Final UI-state and recovery remediation; integration of preceding scopes (former `0.13.7`–`0.13.8`) | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits; final visual acceptance and 1.0-readiness closure follow in 0.13.4 |
+| 0.13.4 | Visual identity and final integration (added 2026-11-02) | QL-01; distinctive light/dark palette, typography, surfaces, shapes and consistent component styling; user-approved visual proofs before integration; preserve training/data behaviour; verify affected screens, contrast, text scaling and colour-independent information, then complete final integration and 1.0-readiness closure |
+
+**0.13.4 P0 — visual direction (scope approved 2026-11-02; design pending):**
+Approve the palette, typography and representative screen proofs before
+implementation. Apply the approved identity through bounded shared-token and
+screen/component changes, not a wholesale rewrite. App icon/splash changes remain
+a separate decision. Preserve existing body-map artwork and fatigue colour
+meanings unless explicitly approved otherwise. Recheck the affected 0.13.1
+adaptive layouts, 0.13.2 accessibility criteria and 0.13.3 UI states after styling;
+earlier verification is not evidence for the new palette or typography. This
+roadmap decision does not authorize implementation or publication.
 
 **0.13.0 design direction (approved, implementation pending):** Put the current workout first:
 an overview for reviewing targets and replacing an untouched exercise for this occurrence only,
