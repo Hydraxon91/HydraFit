@@ -360,6 +360,12 @@ import hydrafit.feature.logger.generated.resources.logger_weight_none
 import hydrafit.feature.logger.generated.resources.logger_workout_actions
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_complete
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_open
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_distance
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_force
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_load
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_sets
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_timed
 import hydrafit.feature.logger.generated.resources.logger_workout_replace
 import hydrafit.feature.logger.generated.resources.logger_workout_resume
 import hydrafit.feature.logger.generated.resources.logger_workout_start
@@ -3342,14 +3348,42 @@ private fun workoutOverviewTarget(
 ): String {
     val sets = draft.sets
     return when {
-        draft.durationSeconds != null -> "$sets × ${draft.durationSeconds} s"
-        draft.distanceMeters != null ->
-            "$sets × ${formatDistance(draft.distanceMeters, distanceUnit)}"
-        draft.forceNewtons != null -> "$sets × ${draft.reps} reps"
-        else -> {
+        draft.durationSeconds != null -> stringResource(
+            Res.string.logger_workout_overview_target_timed,
+            sets,
+            draft.durationSeconds
+        )
+
+        draft.distanceMeters != null -> stringResource(
+            Res.string.logger_workout_overview_target_distance,
+            sets,
+            formatDistance(draft.distanceMeters, distanceUnit)
+        )
+
+        draft.forceNewtons != null -> stringResource(
+            Res.string.logger_workout_overview_target_force,
+            sets,
+            stringResource(
+                Res.string.logger_force_value,
+                formatWeight(draft.forceNewtons)
+            )
+        )
+
+        draft.reps != null -> {
             val load = draft.weightKg?.let { loadWeightText(draft.loadKind, it, weightUnit) }
-            if (load == null) "$sets × ${draft.reps} reps" else "$sets × ${draft.reps} reps · $load"
+            if (load == null) {
+                stringResource(Res.string.logger_workout_overview_target, sets, draft.reps)
+            } else {
+                stringResource(
+                    Res.string.logger_workout_overview_target_load,
+                    sets,
+                    draft.reps,
+                    load
+                )
+            }
         }
+
+        else -> stringResource(Res.string.logger_workout_overview_target_sets, sets)
     }
 }
 

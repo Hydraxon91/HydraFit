@@ -101,6 +101,12 @@
     <string name="logger_workout_overview_open">Workout overview</string>
     <string name="logger_workout_replace">Replace</string>
     <string name="logger_workout_overview_complete">Every prescribed set is recorded. Finish the workout from Workout actions.</string>
+    <string name="logger_workout_overview_target">%1$d × %2$d reps</string>
+    <string name="logger_workout_overview_target_load">%1$d × %2$d reps · %3$s</string>
+    <string name="logger_workout_overview_target_timed">%1$d × %2$d s</string>
+    <string name="logger_workout_overview_target_distance">%1$d × %2$s</string>
+    <string name="logger_workout_overview_target_force">%1$d × %2$s</string>
+    <string name="logger_workout_overview_target_sets">%1$d sets</string>
     <string name="logger_workout_actions">Workout actions</string>
     <string name="logger_other_training_show">Other training</string>
     <string name="logger_other_training_hide">Hide other training</string>
