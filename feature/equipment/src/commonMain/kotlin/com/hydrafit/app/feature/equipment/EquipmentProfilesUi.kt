@@ -166,8 +166,8 @@ data class LoadingCalculatorActions(
 )
 
 /**
- * The equipment-profile section: the active profile, its configuration summary and the actions that
- * create, copy, rename, switch and delete profiles.
+ * The equipment-profile section: the active profile, its rows and the actions that create, copy,
+ * rename, switch and delete profiles. Loading configuration lives with the station group.
  */
 @Composable
 internal fun EquipmentProfilesSection(
@@ -210,11 +210,6 @@ internal fun EquipmentProfilesSection(
                 Text(stringResource(Res.string.equipment_profile_rename))
             }
         }
-        LoadingConfigurationRow(
-            summary = summary,
-            onOpenLoading = actions.onOpenLoading,
-            onOpenCalculator = actions.onOpenCalculator
-        )
         failure?.let { ProfileFailureText(it) }
     }
 }
@@ -255,8 +250,9 @@ private fun ProfileRow(
     }
 }
 
+/** The active profile's loading summary and the editors over it, shown with the station list. */
 @Composable
-private fun LoadingConfigurationRow(
+internal fun LoadingConfigurationRow(
     summary: EquipmentProfileSummary,
     onOpenLoading: () -> Unit,
     onOpenCalculator: () -> Unit

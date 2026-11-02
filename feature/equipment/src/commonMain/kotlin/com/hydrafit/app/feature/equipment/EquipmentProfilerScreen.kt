@@ -86,6 +86,16 @@ import hydrafit.feature.equipment.generated.resources.equipment_load_external
 import hydrafit.feature.equipment.generated.resources.equipment_load_section
 import hydrafit.feature.equipment.generated.resources.equipment_load_unspecified
 import hydrafit.feature.equipment.generated.resources.equipment_manage
+import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_hide
+import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_note
+import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_show
+import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_title
+import hydrafit.feature.equipment.generated.resources.equipment_manage_catalog_hide
+import hydrafit.feature.equipment.generated.resources.equipment_manage_catalog_show
+import hydrafit.feature.equipment.generated.resources.equipment_manage_catalog_title
+import hydrafit.feature.equipment.generated.resources.equipment_manage_exclusions_hide
+import hydrafit.feature.equipment.generated.resources.equipment_manage_exclusions_show
+import hydrafit.feature.equipment.generated.resources.equipment_manage_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern_hint
@@ -374,6 +384,9 @@ fun EquipmentProfilerScreen(
             onDismiss = onDismissInstructions
         )
     }
+    var showCatalog by remember { mutableStateOf(false) }
+    var showExclusions by remember { mutableStateOf(false) }
+    var showBaselines by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -397,75 +410,67 @@ fun EquipmentProfilerScreen(
             onNewEquipmentNameChanged = onNewEquipmentNameChanged,
             onAddEquipment = onAddEquipment
         )
+        state.profile?.let { summary ->
+            LoadingConfigurationRow(
+                summary = summary,
+                onOpenLoading = equipmentProfileActions.onOpenLoading,
+                onOpenCalculator = equipmentProfileActions.onOpenCalculator
+            )
+        }
         StationsSection(
             stations = state.activeStations,
             onAdd = onAddStation,
             onEdit = onEditStation
         )
-        OutlinedTextField(
-            value = state.search,
-            onValueChange = onSearchChanged,
-            label = { Text(stringResource(Res.string.equipment_search_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+        ManagementSectionHeader(
+            title = Res.string.equipment_manage_catalog_title,
+            expanded = showCatalog,
+            showLabel = Res.string.equipment_manage_catalog_show,
+            hideLabel = Res.string.equipment_manage_catalog_hide,
+            onToggle = { showCatalog = !showCatalog }
         )
-        if (state.customExercises.isNotEmpty()) {
-            Text(
-                text = stringResource(Res.string.equipment_custom_section),
-                style = MaterialTheme.typography.titleMedium
+        if (showCatalog) {
+            OutlinedTextField(
+                value = state.search,
+                onValueChange = onSearchChanged,
+                label = { Text(stringResource(Res.string.equipment_search_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
             )
-            state.customExercises.forEach { exercise ->
-                ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
+            if (state.customExercises.isNotEmpty()) {
+                Text(
+                    text = stringResource(Res.string.equipment_custom_section),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                state.customExercises.forEach { exercise ->
+                    ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
+                }
             }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = stringResource(Res.string.equipment_exercise_section),
-                style = MaterialTheme.typography.titleMedium
-            )
-            TextButton(onClick = onNewCustomExercise) {
-                Text(stringResource(Res.string.equipment_add_exercise))
-            }
-        }
-        state.builtInExercises.forEach { exercise ->
-            ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = stringResource(Res.string.equipment_personal_records),
-                style = MaterialTheme.typography.titleMedium
-            )
-            TextButton(onClick = onNewPersonalRecord) {
-                Text(stringResource(Res.string.equipment_add_button))
-            }
-        }
-        state.personalRecords.forEach { record ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = record.exerciseName, style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = "${formatWeight(record.weightKg)} kg × ${record.reps}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
-                    Text(stringResource(Res.string.equipment_remove))
+                Text(
+                    text = stringResource(Res.string.equipment_exercise_section),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(onClick = onNewCustomExercise) {
+                    Text(stringResource(Res.string.equipment_add_exercise))
                 }
             }
+            state.builtInExercises.forEach { exercise ->
+                ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
+            }
         }
-        if (exclusions.isNotEmpty()) {
+        ManagementSectionHeader(
+            title = Res.string.equipment_manage_exclusions_title,
+            expanded = showExclusions,
+            showLabel = Res.string.equipment_manage_exclusions_show,
+            hideLabel = Res.string.equipment_manage_exclusions_hide,
+            onToggle = { showExclusions = !showExclusions }
+        )
+        if (showExclusions && exclusions.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.equipment_exclusions_title),
                 style = MaterialTheme.typography.titleMedium
@@ -489,6 +494,50 @@ fun EquipmentProfilerScreen(
                     }
                     TextButton(onClick = { onIncludeExercise(exclusion.exerciseId) }) {
                         Text(stringResource(Res.string.equipment_include))
+                    }
+                }
+            }
+        }
+        ManagementSectionHeader(
+            title = Res.string.equipment_manage_baselines_title,
+            expanded = showBaselines,
+            showLabel = Res.string.equipment_manage_baselines_show,
+            hideLabel = Res.string.equipment_manage_baselines_hide,
+            onToggle = { showBaselines = !showBaselines }
+        )
+        if (showBaselines) {
+            Text(
+                text = stringResource(Res.string.equipment_manage_baselines_note),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(Res.string.equipment_personal_records),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(onClick = onNewPersonalRecord) {
+                    Text(stringResource(Res.string.equipment_add_button))
+                }
+            }
+            state.personalRecords.forEach { record ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = record.exerciseName, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = "${formatWeight(record.weightKg)} kg × ${record.reps}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
+                        Text(stringResource(Res.string.equipment_remove))
                     }
                 }
             }
@@ -703,10 +752,11 @@ private fun InventorySection(
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         state.equipment.forEach { equipment ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Column {
                 FilterChip(
                     selected = equipment.id in state.selectedTags,
                     onClick = { onTagToggled(equipment.id) },
@@ -800,6 +850,30 @@ private fun StationsSection(
                     Text(stringResource(Res.string.equipment_edit))
                 }
             }
+        }
+    }
+}
+
+/** A collapsed management area: its heading and the text toggle that reveals its contents. */
+@Composable
+private fun ManagementSectionHeader(
+    title: StringResource,
+    expanded: Boolean,
+    showLabel: StringResource,
+    hideLabel: StringResource,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = stringResource(title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        TextButton(onClick = onToggle) {
+            Text(stringResource(if (expanded) hideLabel else showLabel))
         }
     }
 }
