@@ -1360,7 +1360,7 @@ private fun ProgressionPolicyDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onSave) {
+            Button(onClick = onSave) {
                 Text(stringResource(Res.string.routines_save))
             }
         },
@@ -1512,7 +1512,7 @@ private fun SetTargetsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onApply) {
+            Button(onClick = onApply) {
                 Text(stringResource(Res.string.routines_set_targets_apply))
             }
         },
@@ -1677,7 +1677,7 @@ private fun SupersetDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onApply) {
+            Button(onClick = onApply) {
                 Text(stringResource(Res.string.routines_set_targets_apply))
             }
         },
@@ -1787,10 +1787,14 @@ private fun ActivationDialog(
                 }
                 if (activation.hasActiveBlock) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(stringResource(Res.string.routines_activation_replace))
+                        Text(
+                            text = stringResource(Res.string.routines_activation_replace),
+                            modifier = Modifier.weight(1f)
+                        )
                         Switch(
                             checked = activation.replaceActive,
                             onCheckedChange = onReplaceActiveChanged
