@@ -41,6 +41,22 @@ and note, exercise picker and the manual form) renders only when
 `manualEntryExpanded` is set, through the **Other training** action in the header.
 The form is the same state, so opening it never clears entered values.
 
+## Editor and dialog conventions (0.13.0)
+
+The changed editors follow one bounded rubric: the title states what is being edited and its
+scope (`Edit set: <exercise>`, `Edit <draft>`, `Replace for this workout` for occurrence-only
+replacement versus Manage plan's `Change in plan`); the saving action is a filled primary button
+(Save set, Apply edit, Save, Apply) while Cancel, Pause, Clear, Reset, Retire and Delete stay
+secondary or destructive text actions; the body scrolls inside the dialog so the action row stays
+reachable; validation and failed-save messages stay visible without clearing input. The
+Start-block dialog's replace-block row gives its label the remaining width so a long label wraps
+instead of clipping beside the switch.
+
+This rubric is presentation only. It does not add a dirty-editor confirmation, a shared editor
+framework, a full-screen conversion, or any persistence or process-death guarantee, and it does
+not change captured units, precision, cluster identity, station load basis or occurrence-only
+replacement rules.
+
 ## Equipment screen structure (0.13.0)
 
 `EquipmentProfilerScreen` leads with the active profile and inventory: profiles with their

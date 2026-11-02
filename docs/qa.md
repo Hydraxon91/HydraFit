@@ -4851,3 +4851,32 @@ behavior is unchanged.
   assumptions; the corrected flow centred each section and passed. No profile,
   equipment, station, record or exclusion was changed. TalkBack, locale, rotation and
   every editor dialog remain unverified for this pass.
+
+### 0.13.0 screen pass — Editors and dialogs (2026-11-02)
+
+A bounded consistency rubric applied to the changed editors only; no validation,
+persistence, precision, unit or identity rule changed.
+
+- **Scope in titles:** the recorded-set editor keeps `Edit set: <exercise>` and the
+  draft editor `Edit <draft>`. The occurrence replacement dialog now reads `Replace
+  for this workout`, the occurrence-only counterpart to Manage plan's `Change in
+  plan`, with its note unchanged.
+- **Action hierarchy:** Save set, Apply edit, Progression Save, per-set targets Apply,
+  superset Apply, cluster Apply and the Routines kind prompts use filled primary
+  buttons, with Cancel, Pause, Clear, Reset, Retire and Delete kept as secondary or
+  destructive text actions. Equipment's profile, station, loading-inventory,
+  equipment, exercise and baseline editors already conformed and were left unchanged.
+- **Layout fix:** the Start training block dialog's "Cancel the current block and
+  start this one" label was clipped at the right edge; the label now takes the row's
+  remaining width and wraps while the switch keeps its own width. Verified at 1.0× and
+  at 1.3× in dark mode.
+- **Device evidence:** from Workout history, the recorded-set editor showed the scoped
+  title, filled `Save changes` and secondary Cancel at 1.0× and dark 1.3×, and was
+  cancelled without saving. The progression dialog showed a filled Save in light mode.
+  The Start-block dialog was opened and cancelled at both sizes; no block was started.
+- **Checks:** logger ktlint and 577 host tests, routines 110 and equipment 102 host
+  tests all passed; debug assembly succeeded and `git diff --check` was clean.
+- **Not verified:** the draft editor and the occurrence replacement dialog were not
+  reachable with the current fixtures, so their runtime layout was not exercised. The
+  soft keyboard did not appear in the captured editor frames, so keyboard-open
+  reachability is unverified. TalkBack, locale and rotation remain unverified.
