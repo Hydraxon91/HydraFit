@@ -47,8 +47,16 @@ Accessibility disposition for the changed flows:
 | Accessible labels and selected states | Pass (structure) | Baseline navigation journey asserted selected containers; the changed screens use labelled text buttons and fields, with no unlabelled icon-only controls added. |
 | Status not conveyed by colour alone | Pass (structure) | Read failures render text plus a Retry action; load states use text/spinner rather than colour. |
 | Contrast (WCAG AA) | Unverified | No pixel-level measurement; dark and light screenshots are visual evidence only. |
-| Touch targets | Unverified | No measured hit-area audit in this batch. |
+| Touch targets | Partial | Interactive list rows and exercise pickers expose at least 48dp semantic bounds; text buttons show 40dp visual bounds and rely on Compose's minimum touch-target expansion, which was not individually measured. |
 | TalkBack speech | Unverified | Semantics exist, but no listening evidence was captured. |
+
+Post-change device check: debug APK built from `fc3b260a`+fixes, installed over the existing data on
+`emulator-5554`, launched without a HydraFit crash, and the Train screen rendered with labelled
+controls, selected-tab state and 48dp list rows (`/tmp/hf0132-postchange-train.png`). The app locale
+was temporarily set to `de-DE` and restored to unset; font scale stayed 1.0, night mode `no`, and
+the accessibility service list stayed empty. Comma entry was **not** exercised through the device
+UI in this pass; it is covered by ViewModel and state tests, so on-device keyboard behaviour remains
+unverified.
 
 - Instruction coverage is closed on set equality with the 195-entry seeded catalog; the coverage
   test fails if a seed has no text or text exists for no seed.
