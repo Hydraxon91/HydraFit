@@ -42,6 +42,20 @@ host state was restored with graceful shutdowns; no data was cleared or AVD dele
   - PR #49 CI run `41820278594` on `cd41e5c4` passed all four jobs (agent tooling,
     lint, unit tests + migration verification, debug assembly + release lint);
     post-merge `main` run `41820630831` on `e29162ff` also completed successfully.
+  - Documentation PR #50 (merged as `575a6345`) passed the same four jobs before
+    merge. Tag `v0.13.1` then ran release workflow `41821844373` successfully:
+    signing-secret and release-notes checks, signed assembly and release upload all
+    completed.
+  - **Artifact verified offline, never installed:** downloaded
+    `androidApp-release.apk` (3,493,507 bytes, SHA-256
+    `76cd8cf7eee56538335bdc4e7deb0f076a5631e7640040edd89e9c4f58953742`).
+    `apksigner verify --print-certs` passed with the established certificate
+    (`CN=Bence Szabo, OU=HydraFit, O=Hydra`; SHA-256
+    `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`).
+    `aapt2 dump badging` reports `versionName='0.13.1'` and
+    `versionCode='130100'` (above `v0.13.0`'s `130000`). Published notes match
+    `docs/release-notes/v0.13.1.md`. Signed-upgrade and on-device release runtime
+    behavior remain unverified by design.
   Inspectable wrapper results: `/tmp/hydrafit-0131-validator-result.json`,
   `/tmp/hydrafit-0131-shellcheck-result.json` and
   `/tmp/hydrafit-0131-diffcheck-result.json`, with matching `.log` files.
