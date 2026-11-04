@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.logger
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -32,9 +34,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -3265,12 +3270,19 @@ private fun WorkoutHeaderSection(
     onMessageShown: () -> Unit
 ) {
     var actionsExpanded by remember { mutableStateOf(false) }
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -3279,8 +3291,10 @@ private fun WorkoutHeaderSection(
             ) {
                 Text(
                     text = stringResource(Res.string.logger_active_workout, occurrence.workoutName),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() }
                 )
                 Text(
                     text = stringResource(
@@ -3288,16 +3302,20 @@ private fun WorkoutHeaderSection(
                         occurrence.performedSets,
                         occurrence.prescribedSets
                     ),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (trainingStage) {
                     TextButton(onClick = onShowOverview) {
                         Text(stringResource(Res.string.logger_workout_overview_open))
                     }
                 } else {
-                    TextButton(onClick = onStartTraining) {
+                    Button(
+                        onClick = onStartTraining,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
                         Text(
                             stringResource(
                                 if (occurrence.performedSets > 0) {
@@ -3396,12 +3414,18 @@ private fun WorkoutOverviewSection(
     distanceUnit: DistanceUnit,
     onReplace: (Long) -> Unit
 ) {
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(16.dp)
         ) {
             if (drafts.isEmpty()) {
                 Text(
@@ -3410,22 +3434,38 @@ private fun WorkoutOverviewSection(
                 )
                 return@Column
             }
-            drafts.forEach { draft ->
+            drafts.forEachIndexed { index, draft ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(draft.name)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = draft.name,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Text(
                             text = workoutOverviewTarget(draft, weightUnit, distanceUnit),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     val entryId = draft.occurrenceEntryId
                     if (entryId != null && entryId !in frozenEntryIds) {
-                        TextButton(onClick = { onReplace(entryId) }) {
+                        OutlinedButton(
+                            onClick = { onReplace(entryId) },
+                            shape = MaterialTheme.shapes.medium
+                        ) {
                             Text(stringResource(Res.string.logger_workout_replace))
                         }
                     }
@@ -3503,11 +3543,19 @@ private fun WarmupGuidanceSection(
     onEditRamp: (Long, Int) -> Unit,
     onHide: () -> Unit
 ) {
-    Card(modifier = Modifier.testTag(LoggerTestTags.WARMUP_CARD)) {
+    Card(
+        modifier = Modifier.testTag(LoggerTestTags.WARMUP_CARD),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
@@ -3856,12 +3904,19 @@ private fun GuidedWorkoutSection(
     onResumeTurn: () -> Unit,
     onUnpair: (Long) -> Unit
 ) {
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -3870,7 +3925,8 @@ private fun GuidedWorkoutSection(
             ) {
                 Text(
                     text = stringResource(Res.string.logger_guided_title),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() }
                 )
                 Text(
                     text = stringResource(
@@ -3878,7 +3934,8 @@ private fun GuidedWorkoutSection(
                         guided.performedSets,
                         guided.prescribedSets
                     ),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (writeFailed) {
@@ -3897,26 +3954,35 @@ private fun GuidedWorkoutSection(
             }
             setTimerNotice?.let { SetTimerNoticeRow(onDismiss = onDismissSetTimerNotice) }
             restTimer?.let { timer ->
-                Row(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
-                    Text(
-                        text = if (timer.isFinished) {
-                            stringResource(Res.string.logger_rest_timer_finished)
-                        } else {
-                            val seconds = (timer.remainingMillis + 999L) / 1_000L
-                            stringResource(
-                                Res.string.logger_rest_timer_remaining,
-                                seconds / 60L,
-                                seconds % 60L
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    TextButton(onClick = onCancelRestTimer) {
-                        Text(stringResource(Res.string.logger_rest_timer_cancel))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (timer.isFinished) {
+                                stringResource(Res.string.logger_rest_timer_finished)
+                            } else {
+                                val seconds = (timer.remainingMillis + 999L) / 1_000L
+                                stringResource(
+                                    Res.string.logger_rest_timer_remaining,
+                                    seconds / 60L,
+                                    seconds % 60L
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.displaySmall
+                        )
+                        TextButton(onClick = onCancelRestTimer) {
+                            Text(stringResource(Res.string.logger_rest_timer_cancel))
+                        }
                     }
                 }
                 Text(
@@ -3980,7 +4046,10 @@ private fun GuidedWorkoutSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(exercise.exerciseName)
+                        Text(
+                            text = exercise.exerciseName,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         if (showsTechniqueConsiderations(exercise.exerciseId)) {
                             Text(
                                 text = stringResource(Res.string.logger_technique_considerations),
@@ -4061,7 +4130,8 @@ private fun GuidedWorkoutSection(
                                         loadText
                                     )
                                 },
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             // A force reading is load-free by design, so it never asks for a load reason.
                             if (exercise.forceNewtons == null &&
@@ -4171,7 +4241,10 @@ private fun GuidedWorkoutSection(
                     // The action column shares the row width; unweighted, a wide child such as the
                     // live timer takes the whole row and leaves the exercise details no width.
                     if (exercise.occurrenceEntryId in actionEntryIds) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
                             val timer = setTimer?.takeIf { current ->
                                 current.draft.occurrenceEntryId == exercise.occurrenceEntryId
@@ -4193,23 +4266,26 @@ private fun GuidedWorkoutSection(
                                     Text(stringResource(Res.string.logger_set_timer_start))
                                 }
                             }
-                            TextButton(
+                            Button(
                                 onClick = { onStartSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && !isStartedSlot
+                                enabled = !writeInProgress && !isStartedSlot,
+                                shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(stringResource(Res.string.logger_guided_start_set))
                             }
-                            TextButton(
+                            OutlinedButton(
                                 // A live start owns the completion: an ordinary log is only
                                 // available when no guided set is started.
                                 onClick = { onLogSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && startedSetEntryId == null
+                                enabled = !writeInProgress && startedSetEntryId == null,
+                                shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(stringResource(Res.string.logger_log_button))
                             }
-                            TextButton(
+                            Button(
                                 onClick = { onLogSetNow(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && isStartedSlot
+                                enabled = !writeInProgress && isStartedSlot,
+                                shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(stringResource(Res.string.logger_guided_log_completed_now))
                             }
@@ -4322,7 +4398,7 @@ private fun SetTimerControls(timer: SetTimerState, onStop: () -> Unit, onCancel:
             } else {
                 stringResource(Res.string.logger_set_timer_remaining, timer.remainingSeconds)
             },
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
         )
         if (timer.phase == SetTimerPhase.WORKING) {

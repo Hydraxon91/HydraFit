@@ -3,6 +3,7 @@ package com.hydrafit.app.feature.logger
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -89,6 +90,11 @@ internal fun LoggedSetEditDialog(
     val parts = localDateTimeParts(edit.performedAtMillis, utcOffsetMillis)
     AlertDialog(
         onDismissRequest = onCancel,
+        // The dialog window keeps its full height when the IME opens, so the inset must pad the
+        // whole dialog content. Padding only the scrolling body leaves the action row underneath
+        // the keyboard. imePadding is the common Compose inset API; it is zero without a keyboard
+        // and does not change the fields, guards or dialog labels.
+        modifier = Modifier.imePadding(),
         title = { Text(stringResource(Res.string.logger_edit_set_title, edit.row.exerciseName)) },
         text = {
             Column(
@@ -204,7 +210,9 @@ internal fun LoggedSetEditDialog(
                         stringResource(
                             Res.string.logger_edit_set_load_fixed,
                             loadWeightText(edit.row.loadKind, edit.row.weightKg, edit.weightUnit)
-                        )
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 RirInput(
@@ -213,7 +221,11 @@ internal fun LoggedSetEditDialog(
                     enabled = !saving
                 )
                 if (edit.hasCluster) {
-                    Text(stringResource(Res.string.logger_draft_cluster_segments_title))
+                    Text(
+                        stringResource(Res.string.logger_draft_cluster_segments_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     edit.clusterSegments.forEach { segment ->
                         OutlinedTextField(
                             value = segment.reps,
@@ -268,7 +280,9 @@ internal fun LoggedSetEditDialog(
                         Res.string.logger_recorded_at,
                         localDateLabel(parts),
                         localTimeLabel(parts)
-                    )
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 TextButton(onClick = { showDate = true }, enabled = !saving) {
                     Text(stringResource(Res.string.logger_set_time))
