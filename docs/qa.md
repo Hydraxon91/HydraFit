@@ -76,6 +76,13 @@ unverified.
   review-fix suites `hf0133-fix-test3.log`. The earlier 0.13.2 review tip evidence
   (`hf0132-full4.log`, 338 suites/3191 tests) remains the record for that checkpoint, and
   `hf0133-full3.log` is the pre-closure matrix at 3205 tests.
+- Publication evidence (2026-11-04): PR #52 merged as `abaca50c`; PR run `41871478692` and post-merge
+  main run `41872134598` green; tag `v0.13.2` published by Release run `41872154855` as
+  `androidApp-release.apk` (3,527,823 bytes, SHA-256
+  `64f675ff4d8e07bcf117e6896dc42b5cba47986570123220fddc08a61550a308`, `versionName=0.13.2`,
+  `versionCode=130200`, `apksigner` verified with certificate SHA-256
+  `af9cd73b3cc6842c7ab3c2f3cd572245826089aee863e9168a761a893c35a7e1`). The artifact was verified
+  offline only; it was not installed on any emulator.
 - 0.13.3 review closure: the reviewer's F1 (body-map overlay bypassing the load/failure gate), F2
   (tick during retry republishing cached scores), F3 (coverage-first zero grid) and F6 (single-launch
   guard, with a `startTwiceLaunchesOneAttempt` regression test) are fixed and covered by
