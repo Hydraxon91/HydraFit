@@ -380,6 +380,42 @@ instruction content itself does not change catalog facts, involvements, stored d
 This 0.7.4 batch is not a claim of full catalog or localization coverage. Later text batches are
 separately scoped and must record their own authored IDs and provenance here.
 
+### 0.13.2 instruction coverage — batch 1 (2026-11-04)
+
+Twenty further entries, authored under the same contract as 0.7.4: original English HydraFit text,
+no copied or translated third-party instructions, no injury-prevention or performance claims. Each
+entry's editorial reference is its stable ID, canonical label, required equipment and movement
+pattern in `DefaultExercises.kt`; a cue that needs equipment the catalog does not record for that
+identity is not written. Editorial acceptance for this batch is recorded separately from code review
+in `docs/qa.md`.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `incline-dumbbell-press` | Incline Dumbbell Press | dumbbell + bench, horizontal push on an inclined bench | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-push-up` | Incline Push-up | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-fly` | Cable Fly | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `band-chest-press` | Band Chest Press | resistance band, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `dips` | Dips | bodyweight, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-row` | Barbell Row | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `pull-up` | Pull-up | pull-up bar, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `chin-up` | Chin-up | pull-up bar, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `band-row` | Band Row | resistance band, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `band-pull-apart` | Band Pull-Apart | resistance band, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-shoulder-press` | Dumbbell Shoulder Press | dumbbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-lateral-raise` | Cable Lateral Raise | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `face-pull` | Face Pull | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-curl` | Barbell Curl | barbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `band-curl` | Band Curl | resistance band, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-triceps-extension` | Overhead Triceps Extension | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `close-grip-bench-press` | Close-Grip Bench Press | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `front-squat` | Front Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `bodyweight-squat` | Bodyweight Squat | bodyweight, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `bulgarian-split-squat` | Bulgarian Split Squat | dumbbell + bench, lunge | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage is still partial: 37 of the seeded catalog's exercises carry instructions after this batch.
+The remaining batches retain the same contract and stay open until they close on set equality with
+the seed, which `ExerciseInstructionSeedCoverageTest` will assert in both directions.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is

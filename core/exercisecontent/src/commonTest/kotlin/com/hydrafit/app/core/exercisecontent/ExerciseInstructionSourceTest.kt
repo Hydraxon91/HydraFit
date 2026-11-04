@@ -30,7 +30,27 @@ class ExerciseInstructionSourceTest {
         "triceps-pushdown",
         "standing-calf-raise",
         "standing-calf-raise-machine",
-        "hanging-leg-raise"
+        "hanging-leg-raise",
+        "incline-dumbbell-press",
+        "incline-push-up",
+        "cable-fly",
+        "band-chest-press",
+        "dips",
+        "barbell-row",
+        "pull-up",
+        "chin-up",
+        "band-row",
+        "band-pull-apart",
+        "dumbbell-shoulder-press",
+        "cable-lateral-raise",
+        "face-pull",
+        "barbell-curl",
+        "band-curl",
+        "overhead-triceps-extension",
+        "close-grip-bench-press",
+        "front-squat",
+        "bodyweight-squat",
+        "bulgarian-split-squat"
     )
 
     @Test
