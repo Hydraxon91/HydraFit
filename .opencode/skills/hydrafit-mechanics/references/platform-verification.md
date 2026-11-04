@@ -16,9 +16,12 @@ editable text that parses back to the same double. `currentPresentationNumberFor
 platform actual (Android `DecimalFormatSymbols` for the app locale, iOS a decimal-style
 `NSNumberFormatter`). Grouping is never emitted or interpreted. Backups, CSV, PDF and other
 interchange encodings keep their existing non-localized form, and canonical values are never
-rounded through a display string. The body-weight editor and goal use this contract; the remaining
-editors still parse with `toDoubleOrNull` until their own slice migrates them, so a comma is not yet
-accepted everywhere.
+rounded through a display string. Every human-facing decimal editor now uses this contract: body
+weight, the Logger's manual/correction/cluster/warm-up fields, the routine editor and its cluster
+and set-target dialogs, the split-builder measure dialog, the equipment profiler and onboarding
+personal records. Loading-inventory native tick amounts stay a fixed technical encoding rather than
+a locale-formatted field. A grouped entry such as `1.234,5` under a comma locale is rejected, never
+guessed.
 
 The Logger's manual form retains canonical kilograms beside its display text. A preference change
 reformats valid input from the retained value with `exactEntryText`; it does not round the value at
