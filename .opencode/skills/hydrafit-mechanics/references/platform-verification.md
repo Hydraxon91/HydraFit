@@ -39,6 +39,28 @@ fixed technical encoding. Human-facing dates are presented in unambiguous ISO fo
 localized layout; that choice is recorded as a release limitation, not silently claimed as
 localized.
 
+**App-localized resources need typographic apostrophes.** Compose Multiplatform does not decode the
+Android `\'` escape, so `Couldn\'t` renders with a literal backslash. Resources use `’` instead
+(`feature/logger` and `feature/routines` were corrected in `0.13.3`, along with the new shell failure
+copy). Use `’` in any new string; verify a new string on a device or in a Compose host test rather
+than assuming Android's aapt escaping applies.
+
+**Startup storage failure (fault injection recipe).** To exercise the launch failure path without
+touching stored data:
+
+```sh
+adb -s <emulator> shell am force-stop com.hydrafit.app
+adb -s <emulator> shell run-as com.hydrafit.app chmod 000 databases/hydrafit.db
+adb -s <emulator> shell am start -W -n com.hydrafit.app/.MainActivity   # failure screen
+adb -s <emulator> shell run-as com.hydrafit.app chmod 660 databases/hydrafit.db
+# tap "Try again" and assert the app opens with the same data
+```
+
+Record the original mode with `ls -l` and restore exactly that; a rename is unsafe because the
+driver can create a fresh empty database at the missing path. `chmod` also keeps the file present, so
+the failure is an open failure rather than corruption. Verified on `Medium_Phone` API 37 with a
+438,272-byte database that stayed byte-for-byte the same size and kept its recorded sets.
+
 Draft editor force and device-rating prefills are also exact entry text, not one-decimal display
 formatting: both opening the editor and Reset preserve the stored double through the editor's
 Apply/reopen/log path. These values stay in newtons and kilograms respectively; neither is converted

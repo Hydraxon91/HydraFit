@@ -37,8 +37,8 @@ tablet/foldable layouts, signed-release runtime, and any database-preservation p
 ### 0.13.2 implementation status (2026-11-04)
 
 The 0.13.2 implementation is complete. 0.13.3 is folded into the same publication: its Routines
-recovery slice is implemented and evidenced below, while the open items in §0.13.3 keep it from
-being a complete release candidate.
+recovery slice, the launch-time storage recovery, the fatigue-map load states and the UI-state audit
+are implemented and evidenced in §0.13.3, which also lists the verification limits that remain.
 
 Accessibility disposition for the changed flows:
 
@@ -70,34 +70,95 @@ unverified.
   technical encoding.
 - Routines distinguishes loading, empty success and read failure, keeps loaded data and open
   editors on a failed refresh, and retries reads only.
-- Fresh evidence at the reviewed code tip: full host matrix `hf0132-full4.log` (432 tasks executed,
-  0 up-to-date; 338 suites, 3191 tests, 0 failures) including `verifySqlDelightMigration`;
-  review-fix suites `hf0132-fix-test3.log`; iOS simulator compile `hf0132-ios3.log` (53 tasks
-  executed, 0 up-to-date) for the logger, routines and equipment modules touched by the fixes. The
-  earlier batch-wide iOS run `hf0132-ios2.log` covered every touched module before the fixes.
+- Fresh evidence at the final candidate: full host matrix `hf0133-full4.log` (817 tasks executed,
+  0 up-to-date; 339 suites, 3206 tests, 0 failures/errors/skips) including
+  `verifySqlDelightMigration`, `ktlintCheck`, debug assembly and both iOS compiles;
+  review-fix suites `hf0133-fix-test3.log`. The earlier 0.13.2 review tip evidence
+  (`hf0132-full4.log`, 338 suites/3191 tests) remains the record for that checkpoint, and
+  `hf0133-full3.log` is the pre-closure matrix at 3205 tests.
+- 0.13.3 review closure: the reviewer's F1 (body-map overlay bypassing the load/failure gate), F2
+  (tick during retry republishing cached scores), F3 (coverage-first zero grid) and F6 (single-launch
+  guard, with a `startTwiceLaunchesOneAttempt` regression test) are fixed and covered by
+  `FatigueScreenStateTest` (4) and the new ViewModel cases; F8 made the failure screen scrollable at
+  large text scale. F4 doc nits are corrected and F5 was closed by re-running both startup legs on
+  the final build with contract-matching flow hashes.
 - Verification limits: human-facing dates still use the unambiguous ISO form rather than a
   localized layout; loading-inventory native ticks keep their fixed technical encoding; TalkBack
-  speech, measured contrast, device integration and signed-release upgrade behavior remain
-  unverified at this point.
+  speech and signed-release runtime upgrade behaviour remain unverified, and contrast is
+  token-computed rather than pixel-measured.
 
-### 0.13.3 open items (2026-11-04)
+### 0.13.3 completion (2026-11-04)
 
-The Routines read-recovery slice is implemented and tested. The following folded-scope items are
-**not done** and stay open until implemented or explicitly deferred:
+The eight folded items were addressed in this batch. Host evidence is from the final matrix recorded
+below; device evidence is listed per item.
 
-| Item | State | Evidence / residual risk |
+| Item | State | Evidence / residual limit |
 | --- | --- | --- |
-| Startup/storage recovery | Open | A cold launch with an unreadable database lets `SQLiteCantOpenDatabaseException` escape `DatabaseStartupMaintenance` via the staged-backup read; there is no user-facing recovery. Deferred from the 0.7.6 pass to 0.13.3 (`docs/qa.md`, 2026-10-14 entry). |
-| First-run / empty / loading / error / cancel / retry outside Routines | Open | Only Routines template, activation and occurrence reads were remediated and tested. The rest of the feature set has not been audited screen by screen in this batch. |
-| Signed-release upgrade regression | Open | Only a debug install over existing data was checked on `emulator-5554`. There is no older-release → 0.13.2 upgrade proof. |
-| Backup/restore regression | Open | No export, import, staged-restore or post-restore smoke run in this batch. Backup encodings were not changed. |
-| Ledger/performance checks | Open | No ledger size or foreground performance measurement in this batch. |
-| Docs and license review | Partial | The affected living docs and release notes are updated; a full dependency/artwork/model license sweep for the release was not repeated. |
-| Supported-device limits | Open | Device evidence is one `Medium_Phone` API 37 emulator. Tablet, foldable, other API levels and cover/Flex behavior are not rechecked here. |
-| On-device integration of the new behaviour | Partial | App launch, navigation semantics and restored settings were checked; comma entry, recovery fault injection, measured contrast and TalkBack speech remain unverified on device. |
+| Startup/storage recovery | Done | `StartupReadiness` gained `hasFailed`/`retry()`; `DatabaseStartupMaintenance` reports a failed attempt instead of letting the exception escape, and the shell shows a non-destructive `Try again` screen. On-device fault injection on `emulator-5554`: `chmod 000 databases/hydrafit.db`, cold launch rendered the failure screen with no crash and no `AndroidRuntime` entry, restoring `chmod 660` and tapping `Try again` opened the app with the original 438,272-byte database intact. Tests: `DatabaseStartupMaintenanceTest` (9, including staged-read failure, transient retry, repeated failure, cancellation, retry-before-failure and a double `start()`). |
+| First-run / empty / loading / error / cancel / retry outside Routines | Done (audit) with one fixed defect | Audit table below. The fatigue map previously rendered an uncomputed grid of zeroes, had no failure channel, and its body-map overlay bypassed the new gate; the list now renders progress, a retryable failure and a computed map as separate states, and the overlay is offered only for a computed map. Review follow-ups also stopped a retry-window tick from republishing cached scores and a coverage-first load from publishing zeroes (`FatigueScreenStateTest` 4 tests, `FatigueHeatmapViewModelTest` read-failure/retry/tick/coverage-order tests). |
+| Signed-release upgrade regression | Partial (policy limit) | This batch changes no schema, migration or stored encoding (`git diff --stat 79a6e701..HEAD -- '*.sq' '*.sqm'` empty), and `verifySqlDelightMigration` passes on the final matrix. `versionCodeForTag` derives 0.13.2 = 130200, above 0.13.1 = 130100. A signed-release runtime upgrade was **not** executed: release APKs may not be installed on development emulators, so only offline artifact checks after publication can cover it. |
+| Backup/restore regression | Done (host) | Existing `SqlDelightBackupRepositoryTest.exportStageApplyRoundTripsEverySection` (export → validate → stage → apply → identical export) and `ApplyStagedBackupUseCaseTest` (replace, merge, legacy payload, invalid payload records one-time error) pass on the final matrix. Whole-replacement testing ran on in-memory fixtures only; no on-device replacement was performed, so the live emulator history was never a test target. |
+| Ledger/performance checks | Done (bounded) | Ledger aggregates from a read-only pull: 2 `workoutImportBucket` rows, 0 import-provenance rows, 0 staged backups, 0 recorded apply errors, 30 sets, 21 sessions, 196 exercises, 438,272-byte database. Cold start (debug, `emulator-5554`, de-DE app locale, 5 samples after force-stop): `WaitTime` 1921/1982/2076/2404/2126 ms, median 2076 ms. Foreground after a Train→Progress→Library→Train pass: 128 frames, 85.94% janky, 50th 48 ms, 95th 121 ms. These are debug emulator figures, indicative only and not a user-facing performance claim. |
+| Docs and license review | Done | Sweep of the `debugRuntimeClasspath` inventory: every bundled group is Apache-2.0 except `org.slf4j:slf4j-api` (MIT); test-only tooling (Robolectric MIT, MockK Apache-2.0, JUnit 4 EPL-1.0, kotlin-test) is not bundled. Artwork and data credits are already in the in-app acknowledgments screen. See `docs/third-party-licenses.md`; upstream license texts are not bundled in the APK, recorded there as an open compliance item. |
+| Supported-device limits | Done (recorded) | All four allowlisted AVDs ran the navigation smoke with 27/27 assertions: `Medium_Phone`, `Pixel_Tablet`, `Pixel_Fold` and `6.7_Horizontal_Fold-in`, sequentially, debug builds only. Cover-screen and reduced-height Flex behaviour remain outside what these profiles prove; see the matrix and limits below. |
+| On-device integration of the new behaviour | Partial (bounded) | Startup failure/retry verified on device; comma entry held exactly `12,5` under a de-DE app locale with no set logged. Contrast is computed from the Material tokens (all ≥6.44:1) rather than sampled, and TalkBack speech remains unverified and needs an explicit manual acceptance result. |
 
-These items are the reason 0.13.3 is not a complete candidate even though its recovery slice is
-approved. Publication may fold the slice only if the user explicitly defers the list above.
+**UI-state audit.** Each row names the state fields and the failure path that was checked in this
+batch. "Retry" means the screen exposes an action that re-reads; "write failure" means the editor keeps
+its input for another attempt.
+
+| Area | Loading / empty / failure separation | Retry / retained input |
+| --- | --- | --- |
+| Onboarding first run | `OnboardingUiState.failure` (LOAD/SAVE/INVALID_INPUT/STALE_CONTEXT), `loading`, and an explicit entry phase; a failed first read shows the error instead of a spinner | Load failure shows Retry; failed save keeps the draft; stale context is refused |
+| Train / Logger | Per-action failure flags (manual log, draft write, note load/save, guided targets, ramp, single set, suggestion); incomplete text blocks submission | Each failure keeps the entered values and offers the action again; note load failure shows "tap to retry" |
+| Workout history | `loading`, `loadFailed`, `loadMoreFailed`, `detailFailed`, `setsFailed`, `loadingMoreSets`, `loadMoreSetsFailed`, and empty-with-filter versus empty-history getters | Each list/detail failure renders its own retry or load-more action |
+| Progress | `chartsFailed`, `historyFailed`, load-more failure, and empty-range versus empty-history getters | Chart and history sections each expose Retry |
+| Body weight | `loading`/`loadFailed`; add, delete and goal failures are typed | Load failure shows Retry; editors keep their values |
+| Fatigue map | `isLoading` rendered as progress; `loadFailed` added in this batch | Retry restarts both reads; a computed map is the only state that shows values |
+| Cardio | `loading`/`loadFailed`; editor errors are typed | Load failure shows Retry; editor keeps input |
+| Equipment profiler | `profileFailure`, editor `error`/`errorReason`, `loadingEditor` | Typed failure messages; editors keep input |
+| Split builder | `isLoading`, `hasError`, `isTransientError`, `failureReason` | Retry re-runs the plan request |
+| Settings backup / import / storage / automatic backup | Typed statuses (`Failed`, `CategoryBlocked`, `RunFailed`, phases) | Each surface renders its failure and the action can be repeated |
+| Routines | Template, activation and occurrence read failures; dialog failures | Reads retry without discarding loaded data; dialogs keep their draft |
+
+Residual limit: feature screens that subscribe to a repository flow without a failure channel still
+end that subscription silently if the read throws; the Logger's initial catalog/schedule/activation
+observation is the largest such case and is scheduled rather than fixed here, because adding a reload
+path to a long-lived multi-collector ViewModel is a design change rather than a mechanical fix. The
+startup gate covers the storage failure that would otherwise reach those screens.
+
+**Device matrix (2026-11-04, debug builds, API 37, sequential):**
+
+| AVD | Size | Check | Result |
+| --- | --- | --- | --- |
+| `Medium_Phone` | 1080×2400 | `navigation-smoke.yaml` 27/27; launch-failure screen and retry journey; comma-decimal entry | Pass; failure screen showed with `Try again`, restored file opened with 30 sets/21 sessions unchanged; weight field held exactly `12,5` under `de-DE` |
+| `Pixel_Tablet` | 2560×1600 | `navigation-smoke.yaml` 27/27 | Pass; left navigation rail, all controls inside bounds, no clipping observed in the hierarchy |
+| `Pixel_Fold` | 2208×1840 | `navigation-smoke.yaml` 27/27 | Pass; rail layout, viewed screenshot clean; AVD exposes two HWM displays, so captures must name a display |
+| `6.7_Horizontal_Fold-in` | 1080×2636 | `navigation-smoke.yaml` 27/27 | Pass; bottom bar fully labelled, four viewed screenshots with no clipping |
+
+All runs used the debug APK only, asserted through semantics, and left the device on Train with
+no dialog or draft. No AVD was wiped and no app data was cleared. The parent performed the lifecycle
+through `scripts/emulator-lifecycle.py` and the `ui-runner` executed each prepared journey after a
+passing preflight.
+
+**Device limits recorded with this completion:**
+
+- Comma entry: with the app locale set to `de-DE`, the weight field accepted `,` and contained exactly
+  `12,5` after typing, with no set logged (30 sets/21 sessions before and after). The canonical
+  kilogram conversion and display contract are covered by `WorkoutLoggerViewModelTest` and
+  `LocalizedNumbersTest`; a full on-device round trip through Log set and history was not performed.
+- Contrast: ratios were computed from the Material 3 baseline tokens the app uses, not sampled from
+  rendered pixels — light body 16.71:1, light button text 6.44:1, dark body 13.27:1, dark button text
+  7.71:1. The failure screen's button container measured 278×126 px at density 2.625 (~106×48 dp), so
+  it meets the 48 dp minimum. Pixel-level rendering, disabled states and custom artwork were not
+  measured.
+- TalkBack: speech was not captured. The failure screen exposes a heading node and a labelled button
+  in the semantics tree, and the comma-entry journey asserted through the same tree, but no
+  spoken-output evidence exists. **An explicit manual TalkBack acceptance result is still required**
+  before claiming audible accessibility for these screens.
+- Foldables: the Pixel_Fold and Fold-in profiles reported their full display in every posture, so
+  cover-screen and reduced-height Flex behaviour are not proven by these runs.
+- Rotation, dark mode and text scaling were not re-exercised in this pass for the changed screens.
 
 ## 0.13.1 adaptive release (2026-11-04)
 

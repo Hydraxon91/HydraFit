@@ -1687,3 +1687,26 @@ the user's approval remain the real controls.
   directly), parallel coder workers, the emulator lifecycle helper (the device was
   already running), and Maestro runner delegation. Device interaction stayed
   parent-owned and bounded; comma entry and contrast remain unverified on device.
+
+## 0.13.3 completion pass (2026-11-04)
+
+- **Prepared-journey preflight:** every delegated journey carried a version-2
+  contract validated by `scripts/ui-journey-preflight.py` with a 600-second
+  baseline age. The first runner attempt was correctly refused: the brief had no
+  contract, and the runner stopped before touching the device rather than inventing
+  one. That refusal is the behaviour the procedure asks for.
+- **Runner:** four `ui-runner` sessions executed six prepared journeys on
+  `emulator-5554`: the launch-failure screen (5s), its retry half (6s), navigation
+  smoke (26s), comma entry (18s), and navigation smoke again on `Pixel_Tablet`
+  (32s), `Pixel_Fold` (25s) and `6.7_Horizontal_Fold-in` (24s). The runner's first
+  flow attempt also demonstrated the limits of fixed swipes: two blind UP swipes
+  overshot the weight field, and the corrected flow needed `scrollUntilVisible`.
+  Diagnosis and the flow edit stayed with the parent.
+- **Emulator lifecycle:** the parent used `scripts/emulator-lifecycle.py` for four
+  sequential AVDs. Starts and stops reported the expected identity and process
+  exit; no wipe, uninstall or data clear. Restoring `Medium_Phone` last left its
+  database at the same 438,272 bytes and 30 sets/21 sessions it had before the
+  matrix.
+- **Still not covered:** TalkBack speech and pixel-sampled contrast. Contrast was
+  computed from the Material tokens instead; that distinction is recorded rather
+  than blurred into "verified".

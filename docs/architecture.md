@@ -1665,6 +1665,32 @@ freeze rule and the remaining limits are recorded in
 `.opencode/skills/hydrafit-mechanics/references/platform-verification.md`; tests live in
 `LocalizedNumbersTest`, `AndroidPresentationLocaleTest` and the affected feature suites.
 
+### 1.29 Startup availability and storage failure (0.13.3)
+
+`StartupReadiness` reports three observable situations, not just a ready flag: `isReady` stays false
+while maintenance runs, `hasFailed` reports that the latest attempt failed, and `retry()` requests one
+more attempt. `DatabaseStartupMaintenance` runs the staged-backup apply, catalog seeding, custom
+dedupe, session backfill and search-projection backfill in that order. A failure at any step stops the
+attempt, leaves `isReady` false and sets `hasFailed`; nothing is cleared, replaced or repaired, and no
+second attempt starts on its own. A cancellation is rethrown as cancellation rather than reported as a
+storage failure. `retry()` is ignored unless an attempt failed and clears `hasFailed` synchronously, so
+a repeated tap cannot queue a duplicate attempt.
+
+The shell therefore has three states: loading, a failure screen with one `Try again` action, and the
+normal app. Feature screens are never composed while the database is unsafe to read, so their own
+read-failure states describe a failure that happens later, not the startup one. This closes the cold
+launch that previously let `SQLiteCantOpenDatabaseException` escape the staged-backup read and crash
+the process; the shell keeps the first screen closed until an attempt succeeds.
+
+Flow-based screens distinguish loading, empty and failed reads. The fatigue map is the audited example:
+`isLoading` is rendered as progress instead of a grid of zeroes, a failed read of the log or coverage
+ends both subscriptions and shows a retry rather than the last partial grid, and the body-map overlay
+is offered only for a computed map so it cannot render an all-neutral or stale figure. A retry clears
+the captured inputs and waits for a fresh modelled score, so a resume tick during the retry window
+cannot republish the pre-failure grid. Screens that observe a repository flow without a failure
+channel are listed in `docs/qa.md` with that limit; the audit fixed the map because its uncomputed
+state actively read as "no fatigue".
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.
