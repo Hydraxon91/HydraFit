@@ -105,8 +105,23 @@ class RoutinesViewModel(
     init {
         viewModelScope.launch {
             templatesRefresh.collectLatest {
-                routineActions.observe().collect { templates ->
-                    _state.update { it.copy(templates = templates, isLoading = false) }
+                try {
+                    routineActions.observe().collect { templates ->
+                        _state.update {
+                            it.copy(
+                                templates = templates,
+                                isLoading = false,
+                                templatesLoadFailed = false
+                            )
+                        }
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Keep the loaded list and any open editor; only the read failed.
+                    _state.update {
+                        it.copy(isLoading = false, templatesLoadFailed = true)
+                    }
                 }
             }
         }
@@ -134,17 +149,36 @@ class RoutinesViewModel(
         }
         viewModelScope.launch {
             scheduleActions.observeActiveActivation().collect { activation ->
-                _state.update { it.copy(activeActivation = activation) }
-                occurrencesJob?.cancel()
+                _state.update {
+                    it.copy(activeActivation = activation, occurrencesLoadFailed = false)
+                }
                 if (activation == null) {
+                    occurrencesJob?.cancel()
                     _state.update { it.copy(occurrences = emptyList()) }
                 } else {
-                    occurrencesJob = viewModelScope.launch {
-                        scheduleActions.observeOccurrences(activation.id).collect { occurrences ->
-                            _state.update { it.copy(occurrences = occurrences) }
-                        }
+                    startOccurrenceObservation(activation.id)
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads the active block's schedule. A failed read marks the failure and keeps whatever was
+     * already loaded; it never writes anything, so retrying cannot replay a mutation.
+     */
+    private fun startOccurrenceObservation(activationId: Long) {
+        occurrencesJob?.cancel()
+        occurrencesJob = viewModelScope.launch {
+            try {
+                scheduleActions.observeOccurrences(activationId).collect { occurrences ->
+                    _state.update {
+                        it.copy(occurrences = occurrences, occurrencesLoadFailed = false)
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(occurrencesLoadFailed = true) }
             }
         }
     }
@@ -168,6 +202,8 @@ class RoutinesViewModel(
     fun refresh() {
         updateExerciseOptions()
         templatesRefresh.value += 1
+        // A failed schedule read is retried here too; reads have no side effects.
+        _state.value.activeActivation?.let { startOccurrenceObservation(it.id) }
     }
 
     // --- Editor ---

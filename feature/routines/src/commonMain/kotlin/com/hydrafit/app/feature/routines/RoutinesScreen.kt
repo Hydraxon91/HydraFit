@@ -121,6 +121,8 @@ import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_force_label
 import hydrafit.feature.routines.generated.resources.routines_force_unit
+import hydrafit.feature.routines.generated.resources.routines_load_failed
+import hydrafit.feature.routines.generated.resources.routines_load_retry
 import hydrafit.feature.routines.generated.resources.routines_more_actions
 import hydrafit.feature.routines.generated.resources.routines_move_down
 import hydrafit.feature.routines.generated.resources.routines_move_up
@@ -135,6 +137,7 @@ import hydrafit.feature.routines.generated.resources.routines_occurrence_pending
 import hydrafit.feature.routines.generated.resources.routines_occurrence_scheduled
 import hydrafit.feature.routines.generated.resources.routines_occurrence_skipped
 import hydrafit.feature.routines.generated.resources.routines_occurrence_unscheduled
+import hydrafit.feature.routines.generated.resources.routines_occurrences_load_failed
 import hydrafit.feature.routines.generated.resources.routines_picker_empty
 import hydrafit.feature.routines.generated.resources.routines_picker_excluded
 import hydrafit.feature.routines.generated.resources.routines_picker_title
@@ -344,6 +347,22 @@ fun RoutinesScreen(
                     onClick = { showArchived = !showArchived },
                     label = { Text(stringResource(Res.string.routines_archived_filter)) }
                 )
+                if (state.templatesLoadFailed) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.routines_load_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = viewModel::refresh) {
+                            Text(stringResource(Res.string.routines_load_retry))
+                        }
+                    }
+                }
                 when {
                     state.isLoading -> CircularProgressIndicator()
                     listedTemplates.isEmpty() -> Text(
@@ -585,6 +604,22 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
                 text = activation.name,
                 style = MaterialTheme.typography.bodyLarge
             )
+            if (state.occurrencesLoadFailed) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(Res.string.routines_occurrences_load_failed),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = viewModel::refresh) {
+                        Text(stringResource(Res.string.routines_load_retry))
+                    }
+                }
+            }
             val resolved = state.occurrences.count { it.isResolved }
             Text(
                 text = stringResource(

@@ -708,6 +708,48 @@ class RoutinesViewModelTest {
     }
 
     @Test
+    fun aFailedRefreshKeepsLoadedRoutinesAndARetryRecovers() = runTest(dispatcher) {
+        val snapshot = SnapshotRoutineTemplateRepository()
+        snapshot.add(template("Existing"))
+        val viewModel = viewModel(routineRepository = snapshot)
+        advanceUntilIdle()
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+
+        snapshot.failReads = true
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.templatesLoadFailed)
+        assertFalse(viewModel.state.value.isLoading)
+        // The loaded list and the rest of the screen state survive a failed read.
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+
+        snapshot.failReads = false
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.templatesLoadFailed)
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+    }
+
+    @Test
+    fun aFailedFirstLoadEndsLoadingAndLeavesARetryableFailure() = runTest(dispatcher) {
+        val snapshot = SnapshotRoutineTemplateRepository()
+        snapshot.failReads = true
+        val viewModel = viewModel(routineRepository = snapshot)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.isLoading)
+        assertTrue(viewModel.state.value.templatesLoadFailed)
+        assertTrue(viewModel.state.value.templates.isEmpty())
+
+        snapshot.failReads = false
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.templatesLoadFailed)
+    }
+
+    @Test
     fun refreshPicksUpARoutineSavedElsewhere() = runTest(dispatcher) {
         val snapshot = SnapshotRoutineTemplateRepository()
         snapshot.add(template("Existing"))
@@ -1900,13 +1942,19 @@ private class SnapshotRoutineTemplateRepository : RoutineTemplateRepository {
     private val stored = mutableListOf<RoutineTemplate>()
     private var nextId = 1L
 
+    /** When true, the next read fails; the stored list is untouched. */
+    var failReads = false
+
     fun add(template: RoutineTemplate): Long {
         val id = nextId++
         stored += template.copy(id = id)
         return id
     }
 
-    override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(stored.toList())
+    override fun observeAll(): Flow<List<RoutineTemplate>> = flow {
+        if (failReads) throw IllegalStateException("template read failed")
+        emit(stored.toList())
+    }
 
     override suspend fun get(id: Long): RoutineTemplate? = stored.firstOrNull { it.id == id }
 

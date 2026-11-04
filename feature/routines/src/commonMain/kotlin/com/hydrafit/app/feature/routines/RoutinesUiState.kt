@@ -230,6 +230,8 @@ data class PendingSwitchMode(
 data class RoutinesUiState(
     val templates: List<RoutineTemplate> = emptyList(),
     val isLoading: Boolean = true,
+    /** True when the template read failed; loaded templates and any open editor are kept. */
+    val templatesLoadFailed: Boolean = false,
     val exercises: List<RoutineExerciseOption> = emptyList(),
     val editor: RoutineEditorState? = null,
     val picker: ExercisePickerState? = null,
@@ -242,6 +244,8 @@ data class RoutinesUiState(
     val activation: ActivationUiState? = null,
     val activeActivation: TrainingActivation? = null,
     val occurrences: List<WorkoutOccurrence> = emptyList(),
+    /** True when the active block's schedule read failed; loaded occurrences are kept. */
+    val occurrencesLoadFailed: Boolean = false,
     val pendingPostpone: PendingPostpone? = null,
     val pendingSwitchMode: PendingSwitchMode? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
