@@ -66,7 +66,15 @@ runner to stop before parent diagnosis or interaction resumes.
 3. `adb devices -l` and Maestro `list_devices` must identify a connected
    `emulator-<port>`; launchable names, phones and chromium are not targets. Set
    `ANDROID_SERIAL` for scripts and pass the returned `device_id` for MCP calls.
-   If no emulator is connected, ask the user to start one.
+    If no emulator is connected, ask the user to start one unless an accepted
+    task/batch contract explicitly authorizes the parent-owned Approved emulator
+    lifecycle procedure in `docs/agent-ui-verification.md`. Only the parent may
+    start/stop the four allowlisted existing AVDs through
+    `scripts/emulator-lifecycle.py`; runners do not switch devices. Finish all
+    controllers and reconcile writes before shutdown. One emulator at a time;
+    no wipe, uninstall, AVD deletion, forced recovery or physical-device access.
+    Stricter harness instructions still apply. Startup does not establish screen
+    or fixture readiness; inspect fresh state before the runner handoff.
    Keep the development emulator on debug builds. Never install a release/minified APK on it
    (including a published signed release); there is no approval path. Verify a release artifact
    offline (checksum, `apksigner verify`, manifest `versionName`/`versionCode`) and report

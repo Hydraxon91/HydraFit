@@ -317,6 +317,14 @@ python3 scripts/plan-file-closure.py --repo . \
   --seed feature/logger/src/commonMain/kotlin/com/hydrafit/app/feature/logger/WorkoutLoggerUiState.kt
 ```
 
+For explicitly approved parent-owned emulator start/stop operations, use
+`scripts/emulator-lifecycle.py` under the Approved emulator lifecycle procedure
+in `docs/agent-ui-verification.md`. It is separate from app foregrounding in
+`scripts/launch.sh`, operates on four allowlisted existing AVDs and never wipes
+data or forces recovery. Offline tests in `scripts/tests/test_emulator_lifecycle.py`
+exercise lifecycle decisions without launching a device; they do not prove boot
+or posture support on an installed system image.
+
 `ktlintFormat` is the mechanical pre-pass: it rewrites imports and expression-body
 wrapping, which are the two defects that otherwise cost repeated correction rounds.
 It runs before the first test run, scoped to the affected module or source set, and
