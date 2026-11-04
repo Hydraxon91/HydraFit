@@ -25,7 +25,7 @@ V4.1 Flash on OpenCode Go completed fixed-role coverage, tests and owning docs.
 
 | Scope | Fresh evidence | Limits |
 | --- | --- | --- |
-| Shared Quiet Strength theme | `/tmp/hf0134-p1-shared-test2.log`: seven identity/contrast/type/shape tests; full theme includes the installed Material fixed roles | Token contrast is computed; phone, tablet and unfolded-foldable light/dark/2.0 rendering was viewed. Pixel sampling, fold/unfold posture transitions and signed-release runtime remain unverified |
+| Shared Quiet Strength theme | `/tmp/hf0134-p1-shared-test2.log`: seven identity/contrast/type/shape tests; full theme includes the installed Material fixed roles | Token contrast is computed; phone light/dark/2.0 and tablet/unfolded-foldable light/dark rendering was viewed. Pixel sampling, fold/unfold posture transitions and signed-release runtime remain unverified |
 | P1 full matrix | `/tmp/hf0134-p1-fulltest2.log`: reported 3211 host tests; `hf0134-p1-root-ktlint2.log`, `hf0134-p1-assemble2.log`, `hf0134-p1-ios-shared2.log`, `hf0134-p1-ios-network2.log`, `hf0134-p1-migration2.log` (all under `/tmp`) show BUILD SUCCESSFUL with tasks freshly executed via `--rerun-tasks` | This evidence predates later feature chunks; it is not final integration evidence |
 | Final implementation/review closure | `/tmp/hf0134-lines-final-matrix.log`: fresh 3228 host tests with 817/817 tasks executed, including migration verification, root lint, debug assembly and both iOS compiles. Reviewer R134-01 restored the pre-existing weight-unit flow test; `/tmp/hf0134-closure-progress-test.log` reran all 78 Progress tests (0 failures, including the restored test), and `/tmp/hf0134-closure-ktlint.log` passed 23 executed lint tasks. Documentation-only changes and the local commits followed; the full matrix was not rerun after those docs changes | Independent review verified the code and targeted closure; the remaining acceptance checks were then run below. Fold/unfold posture transitions and fault-injected Progress errors remain unverified |
 | Progress charts and UI corrections | `/tmp/hf0134-ui01-final-matrix.log`: fresh 3226 host tests after measured date-label fix. DeepSeek ui-runner original pinned flows passed on the UI02 dialog-inset build at light 1.0, dark 1.0 and light 2.0: navigation 27/27, chart journey 30/30, editor 15/15 each; viewed screenshots confirmed no date-label collisions and both editor actions above the open keyboard. Runner artifacts `/tmp/hf0134-phone-retry-{normal,dark,large}` | Superseded for line rendering by `/tmp/hf0134-lines-v2-*`; this record remains valid for layout, ranges, keyboard and editor behavior |
@@ -38,9 +38,10 @@ inset to the whole logged-set dialog after the runner found its actions under th
 original pinned editor flow then passed. P2 charts, P3 Logger and P4 Routines are implemented.
 Connecting lines were added after the first UI pass and verified on phone at light/dark/2.0 with
 the 3228-test matrix; the reviewer's restored weight-unit test was then rerun in the Progress module
-(78 tests). Independent review returned INCOMPLETE for missing cross-device, TalkBack, locale/fault
-and Routines-specific checks; that limits decision remains open. Targeted closure is otherwise
-recorded.
+(78 tests). Independent review first returned INCOMPLETE for missing acceptance. The user then had
+the remaining checks run: pound display, Routines light/dark/2.0, empty Progress, dark+2.0 charts,
+tablet wide layouts and the unfolded foldable. TalkBack is permanently retired. Fold/unfold posture
+transitions and fault-injected chart errors remain the disclosed limits.
 
 ## 0.13.2 baseline (2026-11-04)
 
