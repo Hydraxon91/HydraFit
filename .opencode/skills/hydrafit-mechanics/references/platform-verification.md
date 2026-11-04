@@ -7,6 +7,19 @@ Paths are relative to the repository root; package shorthand is defined in
 remain kilograms. Unilateral rows use the logged per-hand value rather than
 doubling the 1RM input.
 
+Human-facing decimals use `:core:userdata`'s presentation contract
+(`core/userdata/.../presentation/LocalizedNumbers.kt`): `PresentationNumberFormat` carries the
+locale decimal separator, `parseLocalizedDecimal` accepts that separator or the ASCII dot and any
+Unicode decimal digit while rejecting grouping separators, mixed separators and non-finite values,
+`formatLocalizedDecimal` rounds once on a copy for display, and `exactLocalizedDecimalText` produces
+editable text that parses back to the same double. `currentPresentationNumberFormat()` is the
+platform actual (Android `DecimalFormatSymbols` for the app locale, iOS a decimal-style
+`NSNumberFormatter`). Grouping is never emitted or interpreted. Backups, CSV, PDF and other
+interchange encodings keep their existing non-localized form, and canonical values are never
+rounded through a display string. The body-weight editor and goal use this contract; the remaining
+editors still parse with `toDoubleOrNull` until their own slice migrates them, so a comma is not yet
+accepted everywhere.
+
 The Logger's manual form retains canonical kilograms beside its display text. A preference change
 reformats valid input from the retained value with `exactEntryText`; it does not round the value at
 each toggle. Whole-metre manual distance uses the same approach, with `DistanceUnit` converting the
