@@ -14,6 +14,105 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.13.1 adaptive candidate — in progress (2026-11-04)
+
+Base `1651701e`; implementation verified and independently reviewed, publication pending. Parent implemented
+the adaptive shell, Train and lifecycle tooling. The requested OpenCode Go
+DeepSeek V4.1 Flash coder implemented Progress and Routines; separate Flash
+UI-runner sessions executed prepared acceptance journeys. All devices used debug
+builds on API 37.2 ARM64 and ran sequentially. The original no-emulator-running
+host state was restored with graceful shutdowns; no data was cleared or AVD deleted.
+
+### Fresh integration checks
+
+- `/tmp/hydrafit-0131-integration-android.log`: full `testAndroidHostTest`,
+  `:core:database:verifySqlDelightMigration`, `ktlintCheck`,
+  `:androidApp:assembleDebug` and `:androidApp:lintVitalRelease` passed,
+  **885 executed / 0 up-to-date** tasks. XML totals: **3153 tests**, zero failures,
+  errors or skipped tests across 336 suites. No schema/dependency/DI change.
+- `/tmp/hydrafit-0131-integration-ios.log`: both
+  `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` passed,
+  **142 executed / 0 up-to-date** tasks. Compilation is not iOS runtime coverage.
+- Lifecycle helper's 14 offline cases passed. After documentation consolidation,
+  `/tmp/hydrafit-0131-final-tooling.log` passed all 278 tooling tests; tooling
+  validation checked 13 definitions / 30 surface files with zero findings,
+  ShellCheck passed, and `git diff --check` was clean.
+  Inspectable wrapper results: `/tmp/hydrafit-0131-validator-result.json`,
+  `/tmp/hydrafit-0131-shellcheck-result.json` and
+  `/tmp/hydrafit-0131-diffcheck-result.json`, with matching `.log` files.
+
+### Initial criterion-to-consumer evidence (superseded by final closure below)
+
+| Criterion | Consumer-backed result | Evidence / limits |
+| --- | --- | --- |
+| Adaptive rail / bottom bar with unchanged navigation | Pixel Fold changed from rail to bottom bar and back; selected destination, Settings hub Back and Progress selection/range survived. Compact phone navigation also passed. | `/tmp/hydrafit-0131-fold-runner-*-1.log`, `/tmp/hydrafit-0131-phone-runtime.log`; viewed prepared screenshots. One stable shell `NavHost` in source; width-boundary host test uses the actual screen policy. |
+| Progress wide/compact and editor continuity | Tablet physically changed 2560×1600 → 1600×2560 → 2560×1600. Back Squat and 365-day range remained; wide picker/compact Change exercise switched correctly. Own unsaved routine name survived rotation and Cancel left the list. | `/tmp/hydrafit-0131-tablet-corrected.log` and screenshots under `/tmp/hydrafit-0131-tablet-corrected-results/2026-11-04_103315/`. The final legacy navigation subflow stopped at stale `Planning engine` text (actual `Planner engine`); its remaining tablet-specific Back assertions were not rerun. Fold/phone independently cover that shell behavior. |
+| Train two-pane arrangement without automatic start | Newly activated synthetic workout stayed on overview until explicit Start workout. Wide training screenshot shows overview beside the training list; portrait fallback shows one list. Count remained 0 of 3 throughout. | `/tmp/hydrafit-0131-tablet-train-results/2026-11-04_104801/` and parent overview/training hierarchies. Boundary tests cover width/height/active-workout/training-stage gates. |
+| Book-fold continuity | Actual 2208×1840 → 1080×2092 → 2208×1840 transitions retained an own unsaved routine name; after Cancel, Back Squat / 365 days persisted. Settings Back and Train selected-state assertions passed. | Three prepared flows passed in `/tmp/hydrafit-0131-fold-runner-{open,cover,restored}-1.log`; fresh hierarchies and six viewed screenshots under corresponding result directories. |
+| Clamshell posture compatibility | Runtime device-state reports OPENED (3), HALF_OPENED (2, 90°), CLOSED (1), then OPENED (3). Own draft survived half-open; after Cancel, selection/range and navigation survived close/reopen. | `/tmp/hydrafit-0131-flip-runner-state-*.txt`, three passing flow logs and six viewed screenshots under `/tmp/hydrafit-0131-flip-results-*`. Display stayed 1080×2636 and `app_accessible=true` even closed: this does not prove Samsung cover-screen behavior, genuine backgrounding or reduced-height Flex UI. |
+| Compact phone / keyboard reachability | Train/Progress/Library and Settings Back passed. Own new routine name, Save and Cancel remained visible above the keyboard; Cancel returned without Save, then Train / No active session were asserted. | `/tmp/hydrafit-0131-phone-runtime.log`, 27/27 command results (29 log lines include two headers) and four viewed screenshots under `/tmp/hydrafit-0131-phone-results/2026-11-04_112538/`. No pre-existing editor was discarded. |
+| Timed-set configuration continuity | **Not yet runtime-verified after correction.** The original timer journey reproduced cancellation on rotation. Source traced this to the existing deliberately foreground-only `ON_PAUSE` callback. User approved preserving timers through configuration changes but retaining cancellation on genuine background/leaving. New callback-routing tests and existing timer tests pass; Android adapter reads Activity configuration state at the event. | `/tmp/hydrafit-0131-tablet-train-runtime.log` is failing-before evidence. After corrected debug deployment, the first bounded CLI hierarchy timed out before any new timer action. Diagnostics `/tmp/hydrafit-0131-tablet-inspection-blocked.png` show idle overview, 0 of 3 sets, no editor/timer. Tablet interaction stopped; no automatic retry/driver restart or acceptance waiver. |
+| Scroll / other UI states | Scroll states are hoisted across adaptive branches, but a meaningful scrolled-content restoration journey has not yet run. | **Unverified**, not inferred from selection retention, screenshots or host policy tests. |
+
+### State retained and procedure limits
+
+- Tablet retains the synthetic `HF0131 adaptive` routine, its active `Adaptive Day`
+  block and occurrence-only 3×120-second Back Squat prescription. No sets were
+  recorded. There is no running timer/editor. No deletion cleanup was authorized.
+- New tablet/Fold/clamshell AVDs retain the one-time Skip setup preference. Own
+  unsaved routine drafts on successful journeys were cancelled; no routine was
+  saved on Fold/clamshell/phone. Existing Medium Phone records were not modified
+  by the prepared no-write journey.
+- The phone runner additionally made an unrequested read-only emulator DB pull.
+  Only aggregate post-state was reported, with no before baseline, so it is not
+  a numerical preservation proof. Parent removed both exact scratch copies and
+  the remaining SQLite SHM sidecar identified during review; no
+  individual rows or DB copies enter the repository.
+- The clamshell runner reported an unsuccessful stray `cd /Users/dax` before the
+  correct repository command; it performed no outside read/write. This is a
+  command-hygiene deviation, not a new permitted workdir.
+- Tablet orientation needed one evidence-based flow correction: this tablet is
+  naturally landscape, so Maestro's rotation-0 `PORTRAIT` command leaves it
+  physically landscape. Actual portrait used rotation 270°, proved by dimensions.
+- Independent Flash review completed with an **INCOMPLETE** verdict; see
+  `docs/review-0.13.1-snapshot.md`. Required timer and scrolled-state evidence
+  remain open, and R131-02 needs the user's explicit layout-scope decision on the
+  1200dp global content cap / 120dp rail. No commit, tag or publication is approved
+  by these checks. Dark mode, larger text, locale, TalkBack and true multi-window
+  coverage were not exercised in this candidate's journeys.
+
+### Final targeted closure — 2026-11-04
+
+The user approved retaining the 1200dp global content cap / 120dp rail and a
+fresh bounded tablet session, extending the existing budget by six hours rather
+than resetting elapsed usage. No source changed after the fresh integration matrix.
+
+- **M-01 closed:** `/tmp/hydrafit-0131-tablet-timer-fresh-runtime.log` proves a
+  positive non-increasing countdown through actual portrait/wide transitions;
+  screenshots show 116 then 113 seconds remaining. Stop early / prescribed 120 s /
+  Discard passed. A second timer was cancelled by genuine Home/background and
+  foregrounding, with no countdown and 0 of 3 sets in the final hierarchy.
+  The flow overall failed its extra `Start timer` assertion because the app returned
+  to the workout overview (`Start workout`). The reviewer classified that oracle
+  as over-specific, not a required timer failure; the stage-reset cause remains
+  unattributed/pre-existing. No green flow or stage-retention claim is made.
+- **M-02 closed:** `/tmp/hydrafit-0131-tablet-scroll-runtime.log` passed all 12
+  commands. The wide exercise picker was meaningfully scrolled (Search hidden,
+  Band Pull-Apart clipped at the top, Band Row text at y229), rotated through
+  compact portrait and back. Before/restored wide screenshots are byte-identical,
+  SHA-256 `258e25042fc206aee10327e9958f04ffbccc499c1d40b8c3c8bbf7f599bd7367`.
+  Artifacts: `/tmp/hydrafit-0131-tablet-scroll-results/run1/2026-11-04_120513/`.
+  This proves one wide-pane round trip, not all layouts or compact offset equality.
+- **R131-02 closed by user decision.** Independent reviewer approved targeted
+  closure of all required items; the initial INCOMPLETE verdict is preserved in
+  `docs/review-0.13.1-snapshot.md` alongside its subsequent closure.
+- R131-03 selected-row affordance, R131-04 harmless dead branch and R131-05 shared
+  picker/dialog scroll-state question remain non-blocking findings, unchanged.
+  No new product decisions were silently made for them.
+- All AVDs were gracefully stopped after the fresh session. Tablet fixture remains
+  with zero sets recorded and no running timer/editor; no data was cleared.
+
 ## Pre-0.13 audit fixes — user manual acceptance (2026-10-30)
 
 User-executed checks on `emulator-5554` with debug build `0.12.0-dev-61f11803` (subsequently

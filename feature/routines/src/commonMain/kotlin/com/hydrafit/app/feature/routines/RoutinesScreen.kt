@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -34,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -256,6 +259,9 @@ import org.koin.compose.viewmodel.koinViewModel
 
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 
+/** Both the routine list and the editor keep a readable measure and center on wide windows. */
+private val routinesContentMaxWidth = 800.dp
+
 @Composable
 fun RoutinesRoute(
     viewModel: RoutinesViewModel = koinViewModel(),
@@ -296,70 +302,74 @@ fun RoutinesScreen(
             viewModel = viewModel
         )
     } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(Res.string.routines_title),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            // Library groups routines and equipment. Equipment is its own feature and route, so this
-            // screen asks the shell to open that group member instead of depending on it.
-            TextButton(onClick = onOpenEquipment) {
-                Text(stringResource(Res.string.routines_equipment))
-            }
-            state.message?.let { message ->
-                MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
-            }
-            ActiveBlockSection(state = state, viewModel = viewModel)
-            var showArchived by remember { mutableStateOf(false) }
-            val listedTemplates = visibleRoutines(state.templates, showArchived)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = routinesContentMaxWidth)
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = stringResource(Res.string.routines_saved_title),
-                    style = MaterialTheme.typography.titleMedium
+                    text = stringResource(Res.string.routines_title),
+                    style = MaterialTheme.typography.headlineSmall
                 )
-                TextButton(onClick = viewModel::onNewRoutine) {
-                    Text(stringResource(Res.string.routines_new))
+                // Library groups routines and equipment. Equipment is its own feature and route, so
+                // this screen asks the shell to open that group member instead of depending on it.
+                TextButton(onClick = onOpenEquipment) {
+                    Text(stringResource(Res.string.routines_equipment))
                 }
-            }
-            FilterChip(
-                selected = showArchived,
-                onClick = { showArchived = !showArchived },
-                label = { Text(stringResource(Res.string.routines_archived_filter)) }
-            )
-            when {
-                state.isLoading -> CircularProgressIndicator()
-                listedTemplates.isEmpty() -> Text(
-                    stringResource(
-                        if (showArchived) {
-                            Res.string.routines_archived_empty
-                        } else {
-                            Res.string.routines_empty
-                        }
+                state.message?.let { message ->
+                    MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
+                }
+                ActiveBlockSection(state = state, viewModel = viewModel)
+                var showArchived by rememberSaveable { mutableStateOf(false) }
+                val listedTemplates = visibleRoutines(state.templates, showArchived)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(Res.string.routines_saved_title),
+                        style = MaterialTheme.typography.titleMedium
                     )
+                    TextButton(onClick = viewModel::onNewRoutine) {
+                        Text(stringResource(Res.string.routines_new))
+                    }
+                }
+                FilterChip(
+                    selected = showArchived,
+                    onClick = { showArchived = !showArchived },
+                    label = { Text(stringResource(Res.string.routines_archived_filter)) }
                 )
-                else -> listedTemplates.forEach { template ->
-                    TemplateRow(
-                        template = template,
-                        viewModel = viewModel,
-                        canExport = shareState.isSupported,
-                        onExportRequested = shareViewModel::onExportRequested
+                when {
+                    state.isLoading -> CircularProgressIndicator()
+                    listedTemplates.isEmpty() -> Text(
+                        stringResource(
+                            if (showArchived) {
+                                Res.string.routines_archived_empty
+                            } else {
+                                Res.string.routines_empty
+                            }
+                        )
                     )
+                    else -> listedTemplates.forEach { template ->
+                        TemplateRow(
+                            template = template,
+                            viewModel = viewModel,
+                            canExport = shareState.isSupported,
+                            onExportRequested = shareViewModel::onExportRequested
+                        )
+                    }
                 }
+                PrescriptionTransferSection(
+                    shareState = shareState,
+                    shareViewModel = shareViewModel
+                )
             }
-            PrescriptionTransferSection(
-                shareState = shareState,
-                shareViewModel = shareViewModel
-            )
         }
     }
 
@@ -555,7 +565,7 @@ private fun MessageBanner(message: String, onDismiss: () -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewModel) {
-    var showSchedule by remember { mutableStateOf(false) }
+    var showSchedule by rememberSaveable { mutableStateOf(false) }
     Card {
         Column(
             modifier = Modifier
@@ -629,7 +639,7 @@ private fun OccurrenceRow(
     workoutName: String,
     onPostpone: (Long, Long) -> Unit
 ) {
-    var showPostpone by remember { mutableStateOf(false) }
+    var showPostpone by rememberSaveable(occurrence.id) { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -697,7 +707,7 @@ private fun TemplateRow(
     canExport: Boolean,
     onExportRequested: (RoutineTemplate) -> Unit
 ) {
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable(template.id) { mutableStateOf(false) }
     var showActions by remember { mutableStateOf(false) }
     Card {
         Column(
@@ -820,50 +830,54 @@ private fun RoutineEditor(
     excludedExerciseIds: Set<String>,
     viewModel: RoutinesViewModel
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = stringResource(
-                if (editor.id == 0L) {
-                    Res.string.routines_editor_new_title
-                } else {
-                    Res.string.routines_editor_edit_title
-                }
-            ),
-            style = MaterialTheme.typography.headlineSmall
-        )
-        message?.let { MessageBanner(message = it, onDismiss = viewModel::onMessageShown) }
-        OutlinedTextField(
-            value = editor.name,
-            onValueChange = viewModel::onEditorNameChanged,
-            label = { Text(stringResource(Res.string.routines_name_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        editor.workouts.forEachIndexed { index, workout ->
-            WorkoutCard(
-                index = index,
-                workout = workout,
-                weightUnit = editor.unit,
-                distanceUnit = editor.distanceUnit,
-                excludedExerciseIds = excludedExerciseIds,
-                viewModel = viewModel
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = routinesContentMaxWidth)
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(
+                    if (editor.id == 0L) {
+                        Res.string.routines_editor_new_title
+                    } else {
+                        Res.string.routines_editor_edit_title
+                    }
+                ),
+                style = MaterialTheme.typography.headlineSmall
             )
-        }
-        OutlinedButton(onClick = viewModel::onAddWorkout) {
-            Text(stringResource(Res.string.routines_add_workout))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = viewModel::onSaveEditor) {
-                Text(stringResource(Res.string.routines_save))
+            message?.let { MessageBanner(message = it, onDismiss = viewModel::onMessageShown) }
+            OutlinedTextField(
+                value = editor.name,
+                onValueChange = viewModel::onEditorNameChanged,
+                label = { Text(stringResource(Res.string.routines_name_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            editor.workouts.forEachIndexed { index, workout ->
+                WorkoutCard(
+                    index = index,
+                    workout = workout,
+                    weightUnit = editor.unit,
+                    distanceUnit = editor.distanceUnit,
+                    excludedExerciseIds = excludedExerciseIds,
+                    viewModel = viewModel
+                )
             }
-            OutlinedButton(onClick = viewModel::onEditorDismissed) {
-                Text(stringResource(Res.string.routines_cancel))
+            OutlinedButton(onClick = viewModel::onAddWorkout) {
+                Text(stringResource(Res.string.routines_add_workout))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = viewModel::onSaveEditor) {
+                    Text(stringResource(Res.string.routines_save))
+                }
+                OutlinedButton(onClick = viewModel::onEditorDismissed) {
+                    Text(stringResource(Res.string.routines_cancel))
+                }
             }
         }
     }
@@ -953,7 +967,7 @@ private fun EntryRow(
     canMoveDown: Boolean,
     viewModel: RoutinesViewModel
 ) {
-    var showAdvanced by remember(entry.id) { mutableStateOf(false) }
+    var showAdvanced by rememberSaveable(entry.id) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1715,7 +1729,7 @@ private fun ActivationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showStartDatePicker by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.routines_activation_title)) },

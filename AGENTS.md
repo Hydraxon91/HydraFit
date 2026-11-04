@@ -862,7 +862,13 @@ Keep SQLDelight, Koin, Ktor and Compose Multiplatform within the existing archit
   never automatically replay it or restart/reinstall the driver as recovery.
 - Target only an explicitly verified running emulator (`ANDROID_SERIAL=emulator-<port>`),
   with bounded ADB calls. Never use a phone for UI verification. If none is running,
-  ask the user to start one; do not boot one.
+  ask the user to start one unless an accepted task/batch contract explicitly
+  authorizes the parent-owned lifecycle procedure in `docs/agent-ui-verification.md`.
+  That exception permits only the four named test AVDs through
+  `scripts/emulator-lifecycle.py`, one at a time, after all controllers stop and
+  writes are reconciled. Helpers never own lifecycle operations. It permits no
+  wipe, uninstall, AVD deletion, physical-device access or forced recovery, and
+  cannot override a stricter harness instruction.
 - **The development emulator stays on debug builds. Never install a release/minified APK
   on it — including a published signed release or a scratch release build.** There is no
   approval path for an emulator release install; refuse and report such a request.

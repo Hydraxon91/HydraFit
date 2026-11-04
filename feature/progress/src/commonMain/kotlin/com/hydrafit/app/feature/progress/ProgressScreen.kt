@@ -1,10 +1,12 @@
 package com.hydrafit.app.feature.progress
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,7 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -145,7 +147,6 @@ fun ProgressRoute(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProgressScreen(
     state: ProgressUiState,
@@ -163,78 +164,171 @@ fun ProgressScreen(
     onOpenFatigue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showExercisePicker by remember { mutableStateOf(false) }
-    Column(
+    // Query, selection, range and filter live in the ViewModel. The dialog intent and both scroll
+    // offsets are hoisted above the adaptive branch so rotating or resizing keeps them; no layout
+    // transition selects an exercise or writes state on its own.
+    var showExercisePicker by rememberSaveable { mutableStateOf(false) }
+    val detailScrollState = rememberScrollState()
+    val pickerScrollState = rememberScrollState()
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-            .testTag(ProgressTestTags.ROOT),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .testTag(ProgressTestTags.ROOT)
     ) {
-        Text(
-            text = stringResource(Res.string.progress_title),
-            style = MaterialTheme.typography.headlineSmall
-        )
-        OutlinedButton(onClick = onBack) {
-            Text(stringResource(Res.string.progress_back))
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            TextButton(
-                onClick = onOpenBodyWeight,
-                modifier = Modifier.testTag(ProgressTestTags.BODY_WEIGHT_ENTRY)
-            ) {
-                Text(stringResource(Res.string.progress_body_weight))
-            }
-            TextButton(
-                onClick = onOpenFatigue,
-                modifier = Modifier.testTag(ProgressTestTags.FATIGUE_ENTRY)
-            ) {
-                Text(stringResource(Res.string.progress_fatigue))
-            }
-        }
-        if (state.hasSelectedExercise) {
-            SelectedExercise(state, onChangeExercise = { showExercisePicker = true })
-            RangeSelector(state.range, onRangeSelected)
-            StationFilterSelector(state, onStationFilterSelected)
-            ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
-            HistorySection(state, onRetryHistory, onLoadMoreHistory)
-        } else {
-            ExerciseSearch(state, onExerciseQueryChanged, onExerciseSelected)
-            Text(stringResource(Res.string.progress_exercise_none_selected))
-        }
-    }
-
-    if (showExercisePicker) {
-        AlertDialog(
-            onDismissRequest = { showExercisePicker = false },
-            title = { Text(stringResource(Res.string.progress_exercise_change)) },
-            text = {
-                ExerciseSearch(
-                    state = state,
-                    onQueryChanged = onExerciseQueryChanged,
-                    onSelected = { exerciseId ->
-                        onExerciseSelected(exerciseId)
-                        showExercisePicker = false
-                    },
-                    modifier = Modifier.verticalScroll(rememberScrollState())
-                )
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showExercisePicker = false }) {
-                    Text(stringResource(Res.string.bodyweight_cancel))
+        if (progressUsesTwoPane(maxWidth, maxHeight)) {
+            // The search/list stays visible beside the selected exercise instead of behind the
+            // Change exercise dialog. Narrow windows keep the compact workflow below.
+            Row(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .fillMaxHeight()
+                        .verticalScroll(pickerScrollState)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ProgressHeader(onBack, onOpenBodyWeight, onOpenFatigue)
+                    ExerciseSearch(state, onExerciseQueryChanged, onExerciseSelected)
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight()
+                        .verticalScroll(detailScrollState)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (state.hasSelectedExercise) {
+                        ProgressDetail(
+                            state = state,
+                            onRangeSelected = onRangeSelected,
+                            onStationFilterSelected = onStationFilterSelected,
+                            onRetryCharts = onRetryCharts,
+                            onRetryHistory = onRetryHistory,
+                            onLoadMoreHistory = onLoadMoreHistory,
+                            onShowSupportingSet = onShowSupportingSet,
+                            onCloseSupportingSet = onCloseSupportingSet,
+                            onChangeExercise = null
+                        )
+                    } else {
+                        Text(stringResource(Res.string.progress_exercise_none_selected))
+                    }
                 }
             }
-        )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(detailScrollState)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProgressHeader(onBack, onOpenBodyWeight, onOpenFatigue)
+                if (state.hasSelectedExercise) {
+                    ProgressDetail(
+                        state = state,
+                        onRangeSelected = onRangeSelected,
+                        onStationFilterSelected = onStationFilterSelected,
+                        onRetryCharts = onRetryCharts,
+                        onRetryHistory = onRetryHistory,
+                        onLoadMoreHistory = onLoadMoreHistory,
+                        onShowSupportingSet = onShowSupportingSet,
+                        onCloseSupportingSet = onCloseSupportingSet,
+                        onChangeExercise = { showExercisePicker = true }
+                    )
+                } else {
+                    ExerciseSearch(state, onExerciseQueryChanged, onExerciseSelected)
+                    Text(stringResource(Res.string.progress_exercise_none_selected))
+                }
+            }
+
+            if (showExercisePicker) {
+                AlertDialog(
+                    onDismissRequest = { showExercisePicker = false },
+                    title = { Text(stringResource(Res.string.progress_exercise_change)) },
+                    text = {
+                        ExerciseSearch(
+                            state = state,
+                            onQueryChanged = onExerciseQueryChanged,
+                            onSelected = { exerciseId ->
+                                onExerciseSelected(exerciseId)
+                                showExercisePicker = false
+                            },
+                            modifier = Modifier.verticalScroll(pickerScrollState)
+                        )
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showExercisePicker = false }) {
+                            Text(stringResource(Res.string.bodyweight_cancel))
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SelectedExercise(state: ProgressUiState, onChangeExercise: () -> Unit) {
+private fun ProgressHeader(
+    onBack: () -> Unit,
+    onOpenBodyWeight: () -> Unit,
+    onOpenFatigue: () -> Unit
+) {
+    Text(
+        text = stringResource(Res.string.progress_title),
+        style = MaterialTheme.typography.headlineSmall
+    )
+    OutlinedButton(onClick = onBack) {
+        Text(stringResource(Res.string.progress_back))
+    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TextButton(
+            onClick = onOpenBodyWeight,
+            modifier = Modifier.testTag(ProgressTestTags.BODY_WEIGHT_ENTRY)
+        ) {
+            Text(stringResource(Res.string.progress_body_weight))
+        }
+        TextButton(
+            onClick = onOpenFatigue,
+            modifier = Modifier.testTag(ProgressTestTags.FATIGUE_ENTRY)
+        ) {
+            Text(stringResource(Res.string.progress_fatigue))
+        }
+    }
+}
+
+/**
+ * The exercise-scoped detail sections, shared by both layouts so selection, range, filters and the
+ * chart/record/history state have one rendering path. [onChangeExercise] is null in the two-pane
+ * layout, where the always-visible list is the selection control.
+ */
+@Composable
+private fun ProgressDetail(
+    state: ProgressUiState,
+    onRangeSelected: (ProgressRange) -> Unit,
+    onStationFilterSelected: (StationFilter) -> Unit,
+    onRetryCharts: () -> Unit,
+    onRetryHistory: () -> Unit,
+    onLoadMoreHistory: () -> Unit,
+    onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
+    onCloseSupportingSet: () -> Unit,
+    onChangeExercise: (() -> Unit)?
+) {
+    SelectedExercise(state, onChangeExercise)
+    RangeSelector(state.range, onRangeSelected)
+    StationFilterSelector(state, onStationFilterSelected)
+    ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
+    HistorySection(state, onRetryHistory, onLoadMoreHistory)
+}
+
+@Composable
+private fun SelectedExercise(state: ProgressUiState, onChangeExercise: (() -> Unit)?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -247,8 +341,10 @@ private fun SelectedExercise(state: ProgressUiState, onChangeExercise: () -> Uni
             color = if (name == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             modifier = Modifier.weight(1f)
         )
-        TextButton(onClick = onChangeExercise) {
-            Text(stringResource(Res.string.progress_exercise_change))
+        if (onChangeExercise != null) {
+            TextButton(onClick = onChangeExercise) {
+                Text(stringResource(Res.string.progress_exercise_change))
+            }
         }
     }
 }

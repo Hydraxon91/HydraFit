@@ -27,7 +27,7 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   deps), `feature/logger/build.gradle.kts` (depends on `:core:domain`, `:core:userdata`,
   `:core:navigation` only). `feature/progress` is registered by the shell and is the
   Progress group's start destination.
-- **Navigation groups (0.13.0):** the shell's bottom bar has three destinations —
+- **Navigation groups (0.13.0, adaptive in 0.13.1):** the shell has three destinations —
   Train (`log`, `plan`, `cardio`), Progress (`progress`, `progress/bodyweight`,
   `fatigue`) and Library (`routines`, `equipment`) — and Settings is a pushed
   toolbar destination. A bottom-bar tap closes that pushed Settings entry without
@@ -46,6 +46,11 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   by external tab requests, onboarding handoffs and `LocalAppTabNavigator`, so a
   notification still names a concrete screen. History stays inside the Logger
   graph because it shares the Logger ViewModel, so it selects Train.
+  Below 600dp available window width they use a single bottom row; from 600dp they
+  use a text-labelled rail. Both call the same tab-navigation function, with one
+  `NavController` and one `NavHost` at a stable composition site. Resizing changes
+  the chrome, not the destination, graph or ViewModel owner. The shared content
+  area is centered and capped at 1200dp; feature-specific panes remain feature-owned.
 - **Group members (0.13.0):** because the bar has only three destinations, the
   absorbed screens are reachable from inside their group: Train's header offers
   **Manage plan** (`AppTab.PLAN`), Progress offers **Fatigue map**
@@ -663,6 +668,10 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   implementation is `systemBars.union(displayCutout)`, so a landscape display cutout is cleared
   without app-level inset code; a custom `Scaffold` or `NavigationBar` inset would have to preserve
   that.
+  The adaptive shell additionally applies IME padding to the content/rail row so
+  editors can scroll their actions above the keyboard. Available feature width
+  and height, after shell chrome/insets, determine pane eligibility rather than
+  the device's model or physical screen size.
 - **Violations / tensions:** real Android/iOS bindings are not exercised by Koin verification (PLANS
   records this); the synchronous `ApiKeyStore` port pushes threading discipline
   onto callers (S2-007).
@@ -1334,6 +1343,26 @@ prompt or timed-set countdown forces the training presentation
 `ReplaceOccurrenceExerciseUseCase` would refuse it. With an active workout, the
 manual entry block sits behind `manualEntryExpanded` instead of competing with the
 workout; it is the same Logger form, so its state is preserved.
+
+**Adaptive presentation (0.13.1).** With an active workout already in training,
+at least 840dp feature width and 480dp height shows the overview beside the existing
+training list. Before Start/Resume, and in smaller or shorter windows, the original
+single-list stage workflow remains. Both lists' scroll state is hoisted above the
+layout decision, and the training list retains one composition site. No layout
+transition starts a workout or records a set. Progress uses the same dimension
+thresholds for an exercise search/list beside its existing detail sections; query,
+exercise, range and station filters remain ViewModel-owned. Its dialog intent and
+scroll states survive layout changes. Routines retains its list/editor workflow,
+centered at a maximum 800dp, with meaningful local dialog/filter state saveable.
+
+Timed sets remain foreground-only. `LoggerPausePolicy` exempts Android Activity
+configuration relaunches from the normal pause cancellation, reading
+`isChangingConfigurations` at the event rather than composition. A real background
+pause or leaving still invokes the existing `onPause` cancellation without recording.
+The iOS adapter keeps ordinary pause cancellation. This adds no timer persistence,
+service, notification or process-death continuation guarantee. Runtime verification
+of this configuration exception passed on the tablet; see `docs/qa.md` for
+the failed extra presentation assertion and the independent closure limits.
 
 ### 1.21 Local workout-CSV imports (0.9.1)
 

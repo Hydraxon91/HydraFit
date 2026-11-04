@@ -3,10 +3,12 @@ package com.hydrafit.app.feature.logger
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
@@ -45,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -558,9 +562,12 @@ fun WorkoutLoggerRoute(
     }
     val replacementState by replacementViewModel.state.collectAsStateWithLifecycle()
     val loadingCalculator by loadingCalculatorViewModel.state.collectAsStateWithLifecycle()
+    val configurationChange = rememberConfigurationChangeCheck()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
-    // The timed-set timer is foreground-only: leaving the screen cancels it with nothing recorded.
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
+    // Configuration relaunches keep the same workout. Actually leaving still cancels without a write.
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        handleLoggerPause(configurationChange, viewModel::onPause)
+    }
     // The helper's own Logger context: a moved exercise/session, occurrence or draft/guided source
     // closes it instead of reinterpreting the target it captured.
     val loadingSourceIds = buildSet {
@@ -935,10 +942,13 @@ fun WorkoutLoggerScreen(
 ) {
     val focusManager = LocalFocusManager.current
     val weightFocusRequester = remember { FocusRequester() }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var pendingDateUtcMillis by remember { mutableStateOf<Long?>(null) }
-    var futureTimeError by remember { mutableStateOf(false) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var pendingDateUtcMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var futureTimeError by rememberSaveable { mutableStateOf(false) }
+    val trainingScrollState = rememberLazyListState()
+    val overviewScrollState = rememberLazyListState()
+    val measureChangeLabel = stringResource(Res.string.logger_measure_change_action)
 
     state.exerciseInstructions?.let { instructions ->
         ExerciseInstructionDialog(
@@ -995,1159 +1005,1245 @@ fun WorkoutLoggerScreen(
         )
     }
 
-    // One scroll container for the whole screen: a fixed-height picker inside a non-scrolling
-    // parent used to push the form and the recent-sets list off short viewports.
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .loggerTestTagsAsResourceId()
-            .testTag(LoggerTestTags.LIST),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(Res.string.logger_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f)
-                )
-                // Plan is its own feature and route; the shell's tab navigator opens it, so the
-                // Logger never depends on the planning feature.
-                TextButton(onClick = onOpenPlan) {
-                    Text(stringResource(Res.string.logger_plan_open))
-                }
-            }
-        }
-        // The active workout owns the top of the screen. Its overview is for reviewing the workout
-        // and replacing an untouched exercise; training gives the current set the room. Both read the
-        // same Logger state, so switching between them writes nothing and keeps drafts and timers.
-        state.activeOccurrence?.let { occurrence ->
-            item {
-                WorkoutHeaderSection(
-                    occurrence = occurrence,
-                    message = state.occurrenceMessage,
-                    trainingStage = state.showsTrainingStage,
-                    manualEntryExpanded = state.manualEntryExpanded,
-                    onStartTraining = onStartTraining,
-                    onShowOverview = onShowOverview,
-                    onToggleManualEntry = onToggleManualEntry,
-                    onFinish = onFinishWorkout,
-                    onFinishPartially = onFinishWorkoutPartially,
-                    onSkip = onSkipWorkout,
-                    onMessageShown = onOccurrenceMessageShown
-                )
-            }
-            if (!state.showsTrainingStage) {
-                item {
-                    WorkoutOverviewSection(
-                        drafts = state.draftSets,
-                        frozenEntryIds = state.frozenEntryIds,
-                        weightUnit = state.weightUnit,
-                        distanceUnit = state.distanceUnit,
-                        onReplace = onReplaceOccurrenceEntry
-                    )
-                }
-            }
-        }
-        if (!state.hasActiveWorkout || state.manualEntryExpanded) {
-            item {
-                TextButton(onClick = onOpenHistory) {
-                    Text(stringResource(Res.string.logger_history_open))
-                }
-            }
-            item {
-                TextButton(onClick = onOpenProgress) {
-                    Text(stringResource(Res.string.logger_progress_open))
-                }
-            }
-            item {
-                TextButton(onClick = onOpenCardio) {
-                    Text(stringResource(Res.string.logger_cardio_open))
-                }
-            }
-            items(
-                state.draftSets.filter {
-                    it.cluster != null && it.occurrenceId != null
-                }
-            ) { draft ->
-                TextButton(onClick = {
-                    onOpenClusterLog(draft)
-                }, enabled = !state.draftWriteInProgress) {
-                    Text(stringResource(Res.string.logger_cluster_log_open, draft.name))
-                }
-            }
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (state.activeSession != null) {
-                                Res.string.logger_session_active
-                            } else {
-                                Res.string.logger_session_none
-                            }
-                        )
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onEndSession, enabled = state.activeSession != null) {
-                            Text(stringResource(Res.string.logger_end_session))
-                        }
-                        TextButton(onClick = onNewSession) {
-                            Text(stringResource(Res.string.logger_new_session))
-                        }
-                    }
-                }
-            }
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    when {
-                        state.activeSession == null -> {
-                            // A session note needs an explicit session identity; the entry point is inert
-                            // and explains why rather than creating a session.
-                            Text(
-                                text = stringResource(Res.string.logger_session_note_none),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            TextButton(onClick = onSessionNoteOpen, enabled = false) {
-                                Text(stringResource(Res.string.logger_session_note_open))
-                            }
-                        }
-
-                        state.sessionNoteSessionId != null -> {
-                            if (state.sessionNoteLoadFailed) {
-                                // The note could not be read, so an empty field would falsely read as "no
-                                // note". Offer a retry instead of an editable draft.
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.logger_session_note_load_failed
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    TextButton(
-                                        onClick = onSessionNoteRetry,
-                                        enabled = !state.sessionNoteSaving
-                                    ) {
-                                        Text(stringResource(Res.string.logger_note_retry))
-                                    }
-                                    TextButton(
-                                        onClick = onSessionNoteCancel,
-                                        enabled = !state.sessionNoteSaving
-                                    ) {
-                                        Text(stringResource(Res.string.logger_cancel))
-                                    }
-                                }
-                            } else {
-                                OutlinedTextField(
-                                    value = state.sessionNoteText,
-                                    onValueChange = onSessionNoteTextChanged,
-                                    label = {
-                                        Text(stringResource(Res.string.logger_session_note_label))
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    maxLines = 4,
-                                    enabled = !state.sessionNoteSaving,
-                                    supportingText = {
-                                        Text("${state.sessionNoteText.length}/$NOTE_MAX_LENGTH")
-                                    }
-                                )
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Button(
-                                        onClick = onSessionNoteSave,
-                                        enabled = !state.sessionNoteSaving
-                                    ) {
-                                        Text(stringResource(Res.string.logger_note_save))
-                                    }
-                                    Button(
-                                        onClick = onSessionNoteClear,
-                                        enabled = !state.sessionNoteSaving
-                                    ) {
-                                        Text(stringResource(Res.string.logger_note_clear))
-                                    }
-                                    TextButton(
-                                        onClick = onSessionNoteCancel,
-                                        enabled = !state.sessionNoteSaving
-                                    ) {
-                                        Text(stringResource(Res.string.logger_cancel))
-                                    }
-                                }
-                                if (state.sessionNoteFailed) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.logger_session_note_failed
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-
-                        state.sessionNoteLoading -> {
-                            Text(
-                                text = stringResource(Res.string.logger_session_note_loading),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        else -> {
-                            TextButton(onClick = onSessionNoteOpen) {
-                                Text(stringResource(Res.string.logger_session_note_open))
-                            }
-                        }
-                    }
-                }
-            }
-            item {
-                // Shown independently of the editor so a successful save/clear is still confirmed after
-                // the editor closes.
-                if (state.sessionNoteSaved) {
-                    Text(
-                        text = stringResource(Res.string.logger_session_note_saved),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            state.todayFocus?.let { focus ->
-                item {
-                    Text(
-                        text = stringResource(
-                            Res.string.logger_today,
-                            stringResource(focus.labelResource())
-                        ),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
-            item {
-                if (state.noteExerciseId != null) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (state.noteLoadFailed) {
-                            // The note could not be read, so an empty field would falsely read as "no
-                            // note". Offer a retry instead of an editable draft.
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = stringResource(Res.string.logger_note_load_failed),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(
-                                    onClick = onRetryNoteLoad,
-                                    enabled = !state.noteSaving
-                                ) {
-                                    Text(stringResource(Res.string.logger_note_retry))
-                                }
-                                TextButton(
-                                    onClick = onCancelNote,
-                                    enabled = !state.noteSaving
-                                ) {
-                                    Text(stringResource(Res.string.logger_cancel))
-                                }
-                            }
-                        } else {
-                            OutlinedTextField(
-                                value = state.noteText,
-                                onValueChange = onNoteTextChanged,
-                                label = { Text(stringResource(Res.string.logger_note_label)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                maxLines = 4,
-                                supportingText = {
-                                    Text(
-                                        text = "${state.noteText.length}/$NOTE_MAX_LENGTH"
-                                    )
-                                }
-                            )
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Button(
-                                    onClick = onSaveNote,
-                                    enabled = !state.noteSaving
-                                ) {
-                                    Text(stringResource(Res.string.logger_note_save))
-                                }
-                                Button(
-                                    onClick = onClearNote,
-                                    enabled = !state.noteSaving
-                                ) {
-                                    Text(stringResource(Res.string.logger_note_clear))
-                                }
-                                TextButton(
-                                    onClick = onCancelNote,
-                                    enabled = !state.noteSaving
-                                ) {
-                                    Text(stringResource(Res.string.logger_cancel))
-                                }
-                            }
-                            if (state.noteFailed) {
-                                Text(
-                                    text = stringResource(Res.string.logger_note_failed),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            item {
-                // Shown independently of the editor so a successful save/clear is still confirmed after
-                // the editor closes.
-                if (state.noteSaved) {
-                    Text(
-                        text = stringResource(Res.string.logger_note_saved),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            item {
-                OutlinedTextField(
-                    value = state.exerciseSearch,
-                    onValueChange = onExerciseSearchChanged,
-                    label = { Text(stringResource(Res.string.logger_search_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            item {
+    // The training list stays at one composition site when the overview pane appears. Both scroll
+    // states live above the layout decision, and resizing never invokes a workout action.
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val twoPane =
+            loggerUsesTwoPane(maxWidth, maxHeight, state.hasActiveWorkout, state.showsTrainingStage)
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (twoPane) {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .testTag(LoggerTestTags.EXERCISE_PICKER)
+                    state = overviewScrollState,
+                    modifier = Modifier.weight(0.4f).fillMaxHeight(),
+                    contentPadding = PaddingValues(16.dp)
                 ) {
-                    items(state.visibleExercises, key = { it.id }) { exercise ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag(LoggerTestTags.exercise(exercise.id))
-                                .clickable { onExerciseSelected(exercise.id) },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = state.selectedExerciseId == exercise.id,
-                                onClick = { onExerciseSelected(exercise.id) }
-                            )
-                            Text(exercise.name)
-                        }
-                    }
-                }
-            }
-            if (state.selectedExerciseId != null) {
-                item {
-                    Column {
-                        if (showsTechniqueConsiderations(state.selectedExerciseId)) {
-                            Text(
-                                text = stringResource(Res.string.logger_technique_considerations),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        TextButton(
-                            onClick = onManualInstructions,
-                            modifier = Modifier.testTag(LoggerTestTags.MANUAL_INSTRUCTIONS)
-                        ) {
-                            Text(stringResource(Res.string.logger_instructions))
-                        }
-                    }
-                }
-            }
-            item {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = state.metric == SetMetric.REPETITIONS,
-                        onClick = { onMetricChanged(SetMetric.REPETITIONS) },
-                        label = { Text(stringResource(Res.string.logger_reps_label)) }
-                    )
-                    FilterChip(
-                        selected = state.metric == SetMetric.DURATION,
-                        onClick = { onMetricChanged(SetMetric.DURATION) },
-                        label = { Text(stringResource(Res.string.logger_seconds_label)) }
-                    )
-                    FilterChip(
-                        selected = state.metric == SetMetric.DISTANCE,
-                        onClick = { onMetricChanged(SetMetric.DISTANCE) },
-                        label = { Text(stringResource(Res.string.logger_distance_label)) }
-                    )
-                    FilterChip(
-                        selected = state.metric == SetMetric.FORCE,
-                        onClick = { onMetricChanged(SetMetric.FORCE) },
-                        label = { Text(stringResource(Res.string.logger_force_label)) }
-                    )
-                }
-            }
-            item {
-                // Only the selected metric's field is shown, and only its value is ever submitted, so a
-                // manual set can never record two measurements at once.
-                when (state.metric) {
-                    SetMetric.FORCE -> OutlinedTextField(
-                        value = state.forceNewtons,
-                        onValueChange = onForceChanged,
-                        label = { Text(stringResource(Res.string.logger_force_input_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    SetMetric.DISTANCE -> OutlinedTextField(
-                        value = state.distanceMeters,
-                        onValueChange = onDistanceChanged,
-                        label = {
-                            Text(
-                                stringResource(
-                                    Res.string.logger_distance_input_label,
-                                    state.distanceUnit.label
-                                )
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag(LoggerTestTags.DISTANCE_INPUT)
-                    )
-                    SetMetric.DURATION -> OutlinedTextField(
-                        value = state.durationSeconds,
-                        onValueChange = onDurationSecondsChanged,
-                        label = { Text(stringResource(Res.string.logger_seconds_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    SetMetric.REPETITIONS -> OutlinedTextField(
-                        value = state.reps,
-                        onValueChange = onRepsChanged,
-                        label = { Text(stringResource(Res.string.logger_reps_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            if (state.metric == SetMetric.FORCE) {
-                item {
-                    OutlinedTextField(
-                        value = state.deviceName,
-                        onValueChange = onDeviceNameChanged,
-                        label = { Text(stringResource(Res.string.logger_device_name_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = state.deviceRatingKg,
-                        onValueChange = onDeviceRatingChanged,
-                        label = { Text(stringResource(Res.string.logger_device_rating_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            item {
-                if (state.showWeightField) {
-                    OutlinedTextField(
-                        value = state.weightInput,
-                        onValueChange = onWeightChanged,
-                        label = {
-                            Text(
-                                stringResource(
-                                    Res.string.logger_weight_label,
-                                    state.weightUnit.label
-                                )
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(weightFocusRequester)
-                    )
-                } else {
-                    TextButton(onClick = onRevealWeight) {
-                        Text(stringResource(Res.string.logger_add_weight))
-                    }
-                }
-            }
-            if (state.availableStations.isNotEmpty()) {
-                item {
-                    StationSelector(
-                        stations = state.availableStations,
-                        selectedStationId = state.selectedStationId,
-                        onStationSelected = onStationSelected
-                    )
-                }
-            }
-            item {
-                TextButton(
-                    onClick = onManualLoadingCalculator,
-                    modifier = Modifier.testTag(LoggerLoadingCalculatorTestTags.MANUAL_ACTION)
-                ) {
-                    Text(stringResource(Res.string.logger_loading_calculator_open))
-                }
-            }
-            item {
-                RirInput(
-                    value = state.rir,
-                    onValueChange = onRirChanged,
-                    onDone = { focusManager.clearFocus() }
-                )
-            }
-            if (state.selectedExerciseIsUnilateral) {
-                item {
-                    Text(
-                        text = stringResource(Res.string.logger_per_hand),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Switch(checked = state.isWarmup, onCheckedChange = onWarmupToggled)
-                    Text(stringResource(Res.string.logger_warmup))
-                }
-            }
-            item {
-                BackdatedTimeControl(
-                    isBackdated = state.isBackdated,
-                    performedAtMillis = state.performedAtMillis,
-                    utcOffsetMillis = state.utcOffsetMillis,
-                    attachesToOpenSession = state.backdatedTargetSession != null,
-                    forceNewSession = state.forceNewSession,
-                    showFutureError = futureTimeError,
-                    onSetTime = {
-                        futureTimeError = false
-                        pendingDateUtcMillis = null
-                        showDatePicker = true
-                    },
-                    onUseNow = {
-                        futureTimeError = false
-                        onClearBackdated()
-                    },
-                    onForceNewSessionChanged = onForceNewSessionChanged
-                )
-            }
-            item {
-                Button(onClick = onLog, enabled = state.canLog && !state.manualLogInProgress) {
-                    Text(stringResource(Res.string.logger_log_button))
-                }
-            }
-            if (state.manualLogFailed) {
-                item {
-                    Text(
-                        text = stringResource(Res.string.logger_log_failed),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            if (state.manualLogRefreshFailed) {
-                item {
-                    Text(
-                        text = stringResource(Res.string.logger_log_refresh_failed),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-        if (!state.hasActiveWorkout || state.showsTrainingStage) {
-            if (state.isGuidedActive) {
-                state.shortRestCoachingExerciseName?.let { name ->
                     item {
-                        Column {
-                            Text(stringResource(Res.string.logger_short_rest_coaching, name))
-                            TextButton(onClick = onDismissShortRestCoaching) {
-                                Text(stringResource(Res.string.logger_short_rest_dismiss))
-                            }
-                        }
-                    }
-                }
-                val warmup = state.visibleWarmupView
-                if (warmup != null) {
-                    item {
-                        WarmupGuidanceSection(
-                            view = warmup,
-                            checked = state.warmupPreparationChecked,
-                            weightUnit = state.weightUnit,
-                            writeInProgress = state.draftWriteInProgress,
-                            rampWriteFailed = state.warmupRampWriteFailed,
-                            onPreparationToggled = onWarmupPreparationToggled,
-                            onEditPreparation = onEditWarmupPreparation,
-                            onSkipPreparation = onSkipWarmupPreparation,
-                            onRestoreSkipped = onRestoreSkippedWarmupPreparation,
-                            onLogRamp = onLogWarmupRamp,
-                            onEditRamp = onEditWarmupRamp,
-                            onHide = onToggleWarmupGuidance
-                        )
-                    }
-                } else if (state.warmupGuidanceHidden && state.warmupGuidance?.isEmpty == false) {
-                    item {
-                        TextButton(onClick = onToggleWarmupGuidance) {
-                            Text(stringResource(Res.string.logger_warmup_guidance_show))
-                        }
-                    }
-                }
-                state.guidedProgress?.let { guided ->
-                    item {
-                        GuidedWorkoutSection(
-                            guided = guided,
+                        WorkoutOverviewSection(
+                            drafts = state.draftSets,
+                            frozenEntryIds = state.frozenEntryIds,
                             weightUnit = state.weightUnit,
                             distanceUnit = state.distanceUnit,
-                            exerciseLoadBasis = state.exerciseLoadBasis,
-                            writeFailed = state.guidedSetWriteFailed,
-                            clusterDraftError = state.clusterDraftError,
-                            writeInProgress = state.draftWriteInProgress,
-                            restTimer = state.restTimer,
-                            setTimer = state.setTimer,
-                            setTimerNotice = state.setTimerNotice,
-                            timedEntryIds = state.draftSets
-                                .filter { it.durationSeconds != null }
-                                .mapNotNull { it.occurrenceEntryId }
-                                .toSet(),
-                            onStartSetTimer = { entryId ->
-                                state.draftSets
-                                    .firstOrNull { it.occurrenceEntryId == entryId }
-                                    ?.let(onStartSetTimer)
-                            },
-                            onStopSetTimer = onStopSetTimer,
-                            onCancelSetTimer = onCancelSetTimer,
-                            onDismissSetTimerNotice = onDismissSetTimerNotice,
-                            restDurationSeconds = state.restDurationSeconds,
-                            restDurationIsOverride = state.restDurationIsOverride,
-                            restDurationIsPairRest = state.restDurationIsPairRest,
-                            restDurationIsSupersetTransition =
-                            state.restDurationIsSupersetTransition,
-                            onRestDurationChanged = onRestDurationChanged,
-                            onResetRestDuration = onResetRestDuration,
-                            onCancelRestTimer = onCancelRestTimer,
-                            onLogSet = onConfirmGuidedSet,
-                            onLogSetNow = onConfirmGuidedSetNow,
-                            startedSetEntryId = state.startedSetEntryId,
-                            frozenEntryIds = state.frozenEntryIds,
-                            onStartSet = onStartGuidedSet,
-                            onEditSet = onEditGuidedSet,
-                            onReplace = onReplaceOccurrenceEntry,
-                            onInstructions = onGuidedInstructions,
-                            onChangeMeasure = onChangeMeasure,
-                            measureChangeEntryIds = state.measureChangeEntryIds,
-                            onLoadingCalculator = onGuidedLoadingCalculator,
-                            expandedEntryIds = guided.exercises
-                                .filter(state::isGuidedEntryExpanded)
-                                .map { it.occurrenceEntryId }
-                                .toSet(),
-                            actionEntryIds = guided.exercises
-                                .filter(state::showsGuidedActions)
-                                .map { it.occurrenceEntryId }
-                                .toSet(),
-                            supersetControlEntryIds = guided.exercises
-                                .filter(state::showsSupersetControls)
-                                .map { it.occurrenceEntryId }
-                                .toSet(),
-                            onToggleExpanded = onToggleGuidedExpanded,
-                            nextEntryId = nextGuidedEntryId,
-                            skippedEntryId = supersetSkippedEntryId,
-                            onSkipTurn = onSkipSupersetTurn,
-                            onResumeTurn = onResumeSupersetTurn,
-                            onUnpair = onUnpairSuperset
+                            onReplace = onReplaceOccurrenceEntry
                         )
                     }
                 }
-            } else if (state.draftSets.isNotEmpty()) {
-                item {
+            }
+            LazyColumn(
+                state = trainingScrollState,
+                modifier = Modifier
+                    .weight(if (twoPane) 0.6f else 1f)
+                    .fillMaxHeight()
+                    .loggerTestTagsAsResourceId()
+                    .testTag(LoggerTestTags.LIST),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item(key = "logger_title") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = stringResource(Res.string.logger_planned_today),
-                            style = MaterialTheme.typography.titleMedium
+                            text = stringResource(Res.string.logger_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.weight(1f)
                         )
-                        TextButton(
-                            onClick = onConfirmAllDrafts,
-                            enabled = !state.draftWriteInProgress
-                        ) {
-                            Text(stringResource(Res.string.logger_confirm_all))
+                        // Plan is its own feature and route; the shell's tab navigator opens it, so the
+                        // Logger never depends on the planning feature.
+                        TextButton(onClick = onOpenPlan) {
+                            Text(stringResource(Res.string.logger_plan_open))
                         }
                     }
-                    if (state.progressionApplyFailed) {
-                        Text(
-                            text = stringResource(Res.string.logger_progression_apply_failed),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
+                }
+                // The active workout owns the top of the screen. Its overview is for reviewing the workout
+                // and replacing an untouched exercise; training gives the current set the room. Both read the
+                // same Logger state, so switching between them writes nothing and keeps drafts and timers.
+                state.activeOccurrence?.let { occurrence ->
+                    item(key = "workout_header") {
+                        WorkoutHeaderSection(
+                            occurrence = occurrence,
+                            message = state.occurrenceMessage,
+                            trainingStage = state.showsTrainingStage,
+                            manualEntryExpanded = state.manualEntryExpanded,
+                            onStartTraining = onStartTraining,
+                            onShowOverview = onShowOverview,
+                            onToggleManualEntry = onToggleManualEntry,
+                            onFinish = onFinishWorkout,
+                            onFinishPartially = onFinishWorkoutPartially,
+                            onSkip = onSkipWorkout,
+                            onMessageShown = onOccurrenceMessageShown
                         )
                     }
-                    state.setTimerNotice?.let {
-                        SetTimerNoticeRow(onDismiss = onDismissSetTimerNotice)
+                    if (!state.showsTrainingStage) {
+                        item(key = "workout_overview") {
+                            WorkoutOverviewSection(
+                                drafts = state.draftSets,
+                                frozenEntryIds = state.frozenEntryIds,
+                                weightUnit = state.weightUnit,
+                                distanceUnit = state.distanceUnit,
+                                onReplace = onReplaceOccurrenceEntry
+                            )
+                        }
                     }
                 }
-                items(state.draftSets) { draft ->
-                    val weight = loadWeightText(
-                        draft.loadKind,
-                        draft.weightKg,
-                        state.weightUnit,
-                        state.exerciseLoadBasis[draft.exerciseId]
-                    )
-                    var expanded by remember(draft) { mutableStateOf(false) }
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                if (!state.hasActiveWorkout || state.manualEntryExpanded) {
+                    item {
+                        TextButton(onClick = onOpenHistory) {
+                            Text(stringResource(Res.string.logger_history_open))
+                        }
+                    }
+                    item {
+                        TextButton(onClick = onOpenProgress) {
+                            Text(stringResource(Res.string.logger_progress_open))
+                        }
+                    }
+                    item {
+                        TextButton(onClick = onOpenCardio) {
+                            Text(stringResource(Res.string.logger_cardio_open))
+                        }
+                    }
+                    items(
+                        state.draftSets.filter {
+                            it.cluster != null && it.occurrenceId != null
+                        }
+                    ) { draft ->
+                        TextButton(onClick = {
+                            onOpenClusterLog(draft)
+                        }, enabled = !state.draftWriteInProgress) {
+                            Text(stringResource(Res.string.logger_cluster_log_open, draft.name))
+                        }
+                    }
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             Text(
-                                text = when {
-                                    draft.forceNewtons != null -> stringResource(
-                                        Res.string.logger_draft_force_line,
-                                        draft.name,
-                                        draft.sets,
-                                        stringResource(
-                                            Res.string.logger_force_value,
-                                            formatWeight(draft.forceNewtons)
-                                        )
+                                text = stringResource(
+                                    if (state.activeSession != null) {
+                                        Res.string.logger_session_active
+                                    } else {
+                                        Res.string.logger_session_none
+                                    }
+                                )
+                            )
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(
+                                    onClick = onEndSession,
+                                    enabled =
+                                    state.activeSession != null
+                                ) {
+                                    Text(stringResource(Res.string.logger_end_session))
+                                }
+                                TextButton(onClick = onNewSession) {
+                                    Text(stringResource(Res.string.logger_new_session))
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            when {
+                                state.activeSession == null -> {
+                                    // A session note needs an explicit session identity; the entry point is inert
+                                    // and explains why rather than creating a session.
+                                    Text(
+                                        text = stringResource(Res.string.logger_session_note_none),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-
-                                    draft.distanceMeters != null -> stringResource(
-                                        Res.string.logger_draft_distance_line,
-                                        draft.name,
-                                        draft.sets,
-                                        formatDistance(draft.distanceMeters, state.distanceUnit),
-                                        weight
-                                    )
-
-                                    draft.durationSeconds != null -> stringResource(
-                                        Res.string.logger_draft_timed_line,
-                                        draft.name,
-                                        draft.sets,
-                                        draft.durationSeconds,
-                                        weight
-                                    )
-
-                                    else -> {
-                                        "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+                                    TextButton(onClick = onSessionNoteOpen, enabled = false) {
+                                        Text(stringResource(Res.string.logger_session_note_open))
                                     }
                                 }
-                            )
-                            draft.device?.takeIf { draft.forceNewtons != null }?.let { device ->
-                                Text(
-                                    text = deviceAttributionText(device),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            draft.setTargets?.let { targets ->
-                                val rirs = targets.targets.mapNotNull { it.targetRir }.distinct()
-                                if (rirs.size == 1) {
-                                    val representative = targets.targets.first {
-                                        it.targetRir == rirs.single()
-                                    }
-                                    representative.equivalentRpe?.let { rpe ->
-                                        Text(
-                                            text = stringResource(
-                                                Res.string.logger_draft_prescribed_effort,
-                                                rirs.single(),
-                                                rpe
-                                            ),
-                                            style = MaterialTheme.typography.bodySmall
+
+                                state.sessionNoteSessionId != null -> {
+                                    if (state.sessionNoteLoadFailed) {
+                                        // The note could not be read, so an empty field would falsely read as "no
+                                        // note". Offer a retry instead of an editable draft.
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = stringResource(
+                                                    Res.string.logger_session_note_load_failed
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            TextButton(
+                                                onClick = onSessionNoteRetry,
+                                                enabled = !state.sessionNoteSaving
+                                            ) {
+                                                Text(stringResource(Res.string.logger_note_retry))
+                                            }
+                                            TextButton(
+                                                onClick = onSessionNoteCancel,
+                                                enabled = !state.sessionNoteSaving
+                                            ) {
+                                                Text(stringResource(Res.string.logger_cancel))
+                                            }
+                                        }
+                                    } else {
+                                        OutlinedTextField(
+                                            value = state.sessionNoteText,
+                                            onValueChange = onSessionNoteTextChanged,
+                                            label = {
+                                                Text(
+                                                    stringResource(
+                                                        Res.string.logger_session_note_label
+                                                    )
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            maxLines = 4,
+                                            enabled = !state.sessionNoteSaving,
+                                            supportingText = {
+                                                Text(
+                                                    "${state.sessionNoteText.length}/$NOTE_MAX_LENGTH"
+                                                )
+                                            }
                                         )
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Button(
+                                                onClick = onSessionNoteSave,
+                                                enabled = !state.sessionNoteSaving
+                                            ) {
+                                                Text(stringResource(Res.string.logger_note_save))
+                                            }
+                                            Button(
+                                                onClick = onSessionNoteClear,
+                                                enabled = !state.sessionNoteSaving
+                                            ) {
+                                                Text(stringResource(Res.string.logger_note_clear))
+                                            }
+                                            TextButton(
+                                                onClick = onSessionNoteCancel,
+                                                enabled = !state.sessionNoteSaving
+                                            ) {
+                                                Text(stringResource(Res.string.logger_cancel))
+                                            }
+                                        }
+                                        if (state.sessionNoteFailed) {
+                                            Text(
+                                                text = stringResource(
+                                                    Res.string.logger_session_note_failed
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
                                     }
-                                } else if (rirs.size > 1) {
+                                }
+
+                                state.sessionNoteLoading -> {
                                     Text(
                                         text = stringResource(
-                                            Res.string.logger_draft_prescribed_effort_varies
+                                            Res.string.logger_session_note_loading
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                else -> {
+                                    TextButton(onClick = onSessionNoteOpen) {
+                                        Text(stringResource(Res.string.logger_session_note_open))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        // Shown independently of the editor so a successful save/clear is still confirmed after
+                        // the editor closes.
+                        if (state.sessionNoteSaved) {
+                            Text(
+                                text = stringResource(Res.string.logger_session_note_saved),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    state.todayFocus?.let { focus ->
+                        item {
+                            Text(
+                                text = stringResource(
+                                    Res.string.logger_today,
+                                    stringResource(focus.labelResource())
+                                ),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+                    item {
+                        if (state.noteExerciseId != null) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (state.noteLoadFailed) {
+                                    // The note could not be read, so an empty field would falsely read as "no
+                                    // note". Offer a retry instead of an editable draft.
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = stringResource(
+                                                Res.string.logger_note_load_failed
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(
+                                            onClick = onRetryNoteLoad,
+                                            enabled = !state.noteSaving
+                                        ) {
+                                            Text(stringResource(Res.string.logger_note_retry))
+                                        }
+                                        TextButton(
+                                            onClick = onCancelNote,
+                                            enabled = !state.noteSaving
+                                        ) {
+                                            Text(stringResource(Res.string.logger_cancel))
+                                        }
+                                    }
+                                } else {
+                                    OutlinedTextField(
+                                        value = state.noteText,
+                                        onValueChange = onNoteTextChanged,
+                                        label = {
+                                            Text(stringResource(Res.string.logger_note_label))
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        maxLines = 4,
+                                        supportingText = {
+                                            Text(
+                                                text = "${state.noteText.length}/$NOTE_MAX_LENGTH"
+                                            )
+                                        }
+                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Button(
+                                            onClick = onSaveNote,
+                                            enabled = !state.noteSaving
+                                        ) {
+                                            Text(stringResource(Res.string.logger_note_save))
+                                        }
+                                        Button(
+                                            onClick = onClearNote,
+                                            enabled = !state.noteSaving
+                                        ) {
+                                            Text(stringResource(Res.string.logger_note_clear))
+                                        }
+                                        TextButton(
+                                            onClick = onCancelNote,
+                                            enabled = !state.noteSaving
+                                        ) {
+                                            Text(stringResource(Res.string.logger_cancel))
+                                        }
+                                    }
+                                    if (state.noteFailed) {
+                                        Text(
+                                            text = stringResource(Res.string.logger_note_failed),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        // Shown independently of the editor so a successful save/clear is still confirmed after
+                        // the editor closes.
+                        if (state.noteSaved) {
+                            Text(
+                                text = stringResource(Res.string.logger_note_saved),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    item {
+                        OutlinedTextField(
+                            value = state.exerciseSearch,
+                            onValueChange = onExerciseSearchChanged,
+                            label = { Text(stringResource(Res.string.logger_search_label)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .testTag(LoggerTestTags.EXERCISE_PICKER)
+                        ) {
+                            items(state.visibleExercises, key = { it.id }) { exercise ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag(LoggerTestTags.exercise(exercise.id))
+                                        .clickable { onExerciseSelected(exercise.id) },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = state.selectedExerciseId == exercise.id,
+                                        onClick = { onExerciseSelected(exercise.id) }
+                                    )
+                                    Text(exercise.name)
+                                }
+                            }
+                        }
+                    }
+                    if (state.selectedExerciseId != null) {
+                        item {
+                            Column {
+                                if (showsTechniqueConsiderations(state.selectedExerciseId)) {
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.logger_technique_considerations
                                         ),
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                Text(
-                                    text = setTargetsSummaryLine(
-                                        targets,
-                                        state.weightUnit,
-                                        state.exerciseLoadBasis[draft.exerciseId]
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            val progression = draft.occurrenceEntryId?.let { entryId ->
-                                state.progressionSuggestions[entryId]
-                            }
-                            if (progression?.canApply == true) {
-                                val ordered = progression.ordered
-                                val suggestionText = if (ordered != null) {
-                                    val copy = orderedProgressionCopy(
-                                        suggested = ordered.suggested,
-                                        current = progression.currentOrdered,
-                                        unit = state.weightUnit
-                                    )
-                                    val loads = copy.loads
-                                    if (loads == null) {
-                                        stringResource(
-                                            Res.string.logger_progression_suggested_ordered,
-                                            copy.sets,
-                                            copy.reps
-                                        )
-                                    } else {
-                                        stringResource(
-                                            Res.string.logger_progression_suggested_ordered_load,
-                                            copy.sets,
-                                            copy.reps,
-                                            loads
-                                        )
-                                    }
-                                } else {
-                                    stringResource(
-                                        Res.string.logger_progression_suggested,
-                                        draft.sets,
-                                        progression.suggestedReps ?: draft.reps ?: 0,
-                                        loadWeightText(
-                                            draft.loadKind,
-                                            progression.suggestedLoadKg ?: draft.weightKg,
-                                            state.weightUnit,
-                                            state.exerciseLoadBasis[draft.exerciseId]
-                                        )
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = suggestionText,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    val entryId = draft.occurrenceEntryId
-                                    if (entryId != null) {
-                                        val applyFor = stringResource(
-                                            Res.string.logger_progression_apply_for,
-                                            draft.name
-                                        )
-                                        TextButton(
-                                            onClick = {
-                                                onApplyProgressionSuggestion(entryId)
-                                            },
-                                            enabled = state.progressionApplyEntryId == null,
-                                            modifier = Modifier.semantics {
-                                                contentDescription = applyFor
-                                            }
-                                        ) {
-                                            Text(
-                                                stringResource(Res.string.logger_progression_apply)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            TargetExplanationDisclosure(
-                                key = draft.occurrenceEntryId ?: draft.exerciseId,
-                                explanation = draft.explanation,
-                                weightUnit = state.weightUnit
-                            )
-                            if (draft.cluster != null) {
-                                state.clusterDraftError?.let { error ->
-                                    Text(
-                                        text = clusterDraftErrorMessage(error),
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
+                                TextButton(
+                                    onClick = onManualInstructions,
+                                    modifier = Modifier.testTag(LoggerTestTags.MANUAL_INSTRUCTIONS)
+                                ) {
+                                    Text(stringResource(Res.string.logger_instructions))
                                 }
                             }
                         }
-                        if (showsTechniqueConsiderations(draft.exerciseId)) {
+                    }
+                    item {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = state.metric == SetMetric.REPETITIONS,
+                                onClick = { onMetricChanged(SetMetric.REPETITIONS) },
+                                label = { Text(stringResource(Res.string.logger_reps_label)) }
+                            )
+                            FilterChip(
+                                selected = state.metric == SetMetric.DURATION,
+                                onClick = { onMetricChanged(SetMetric.DURATION) },
+                                label = { Text(stringResource(Res.string.logger_seconds_label)) }
+                            )
+                            FilterChip(
+                                selected = state.metric == SetMetric.DISTANCE,
+                                onClick = { onMetricChanged(SetMetric.DISTANCE) },
+                                label = { Text(stringResource(Res.string.logger_distance_label)) }
+                            )
+                            FilterChip(
+                                selected = state.metric == SetMetric.FORCE,
+                                onClick = { onMetricChanged(SetMetric.FORCE) },
+                                label = { Text(stringResource(Res.string.logger_force_label)) }
+                            )
+                        }
+                    }
+                    item {
+                        // Only the selected metric's field is shown, and only its value is ever submitted, so a
+                        // manual set can never record two measurements at once.
+                        when (state.metric) {
+                            SetMetric.FORCE -> OutlinedTextField(
+                                value = state.forceNewtons,
+                                onValueChange = onForceChanged,
+                                label = {
+                                    Text(stringResource(Res.string.logger_force_input_label))
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            SetMetric.DISTANCE -> OutlinedTextField(
+                                value = state.distanceMeters,
+                                onValueChange = onDistanceChanged,
+                                label = {
+                                    Text(
+                                        stringResource(
+                                            Res.string.logger_distance_input_label,
+                                            state.distanceUnit.label
+                                        )
+                                    )
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag(LoggerTestTags.DISTANCE_INPUT)
+                            )
+                            SetMetric.DURATION -> OutlinedTextField(
+                                value = state.durationSeconds,
+                                onValueChange = onDurationSecondsChanged,
+                                label = { Text(stringResource(Res.string.logger_seconds_label)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            SetMetric.REPETITIONS -> OutlinedTextField(
+                                value = state.reps,
+                                onValueChange = onRepsChanged,
+                                label = { Text(stringResource(Res.string.logger_reps_label)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    if (state.metric == SetMetric.FORCE) {
+                        item {
+                            OutlinedTextField(
+                                value = state.deviceName,
+                                onValueChange = onDeviceNameChanged,
+                                label = {
+                                    Text(stringResource(Res.string.logger_device_name_label))
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        item {
+                            OutlinedTextField(
+                                value = state.deviceRatingKg,
+                                onValueChange = onDeviceRatingChanged,
+                                label = {
+                                    Text(stringResource(Res.string.logger_device_rating_label))
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    item {
+                        if (state.showWeightField) {
+                            OutlinedTextField(
+                                value = state.weightInput,
+                                onValueChange = onWeightChanged,
+                                label = {
+                                    Text(
+                                        stringResource(
+                                            Res.string.logger_weight_label,
+                                            state.weightUnit.label
+                                        )
+                                    )
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(weightFocusRequester)
+                            )
+                        } else {
+                            TextButton(onClick = onRevealWeight) {
+                                Text(stringResource(Res.string.logger_add_weight))
+                            }
+                        }
+                    }
+                    if (state.availableStations.isNotEmpty()) {
+                        item {
+                            StationSelector(
+                                stations = state.availableStations,
+                                selectedStationId = state.selectedStationId,
+                                onStationSelected = onStationSelected
+                            )
+                        }
+                    }
+                    item {
+                        TextButton(
+                            onClick = onManualLoadingCalculator,
+                            modifier = Modifier.testTag(
+                                LoggerLoadingCalculatorTestTags.MANUAL_ACTION
+                            )
+                        ) {
+                            Text(stringResource(Res.string.logger_loading_calculator_open))
+                        }
+                    }
+                    item {
+                        RirInput(
+                            value = state.rir,
+                            onValueChange = onRirChanged,
+                            onDone = { focusManager.clearFocus() }
+                        )
+                    }
+                    if (state.selectedExerciseIsUnilateral) {
+                        item {
                             Text(
-                                text = stringResource(Res.string.logger_technique_considerations),
+                                text = stringResource(Res.string.logger_per_hand),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        state.setTimer
-                            ?.takeIf { timer ->
-                                timer.phase != SetTimerPhase.CONFIRMING &&
-                                    timer.draft.sameSlotAs(draft)
+                    }
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Switch(checked = state.isWarmup, onCheckedChange = onWarmupToggled)
+                            Text(stringResource(Res.string.logger_warmup))
+                        }
+                    }
+                    item {
+                        BackdatedTimeControl(
+                            isBackdated = state.isBackdated,
+                            performedAtMillis = state.performedAtMillis,
+                            utcOffsetMillis = state.utcOffsetMillis,
+                            attachesToOpenSession = state.backdatedTargetSession != null,
+                            forceNewSession = state.forceNewSession,
+                            showFutureError = futureTimeError,
+                            onSetTime = {
+                                futureTimeError = false
+                                pendingDateUtcMillis = null
+                                showDatePicker = true
+                            },
+                            onUseNow = {
+                                futureTimeError = false
+                                onClearBackdated()
+                            },
+                            onForceNewSessionChanged = onForceNewSessionChanged
+                        )
+                    }
+                    item {
+                        Button(
+                            onClick = onLog,
+                            enabled = state.canLog && !state.manualLogInProgress
+                        ) {
+                            Text(stringResource(Res.string.logger_log_button))
+                        }
+                    }
+                    if (state.manualLogFailed) {
+                        item {
+                            Text(
+                                text = stringResource(Res.string.logger_log_failed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    if (state.manualLogRefreshFailed) {
+                        item {
+                            Text(
+                                text = stringResource(Res.string.logger_log_refresh_failed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+                if (!state.hasActiveWorkout || state.showsTrainingStage) {
+                    if (state.isGuidedActive) {
+                        state.shortRestCoachingExerciseName?.let { name ->
+                            item {
+                                Column {
+                                    Text(
+                                        stringResource(Res.string.logger_short_rest_coaching, name)
+                                    )
+                                    TextButton(onClick = onDismissShortRestCoaching) {
+                                        Text(stringResource(Res.string.logger_short_rest_dismiss))
+                                    }
+                                }
                             }
-                            ?.let { timer ->
-                                SetTimerControls(
-                                    timer = timer,
-                                    onStop = onStopSetTimer,
-                                    onCancel = onCancelSetTimer
+                        }
+                        val warmup = state.visibleWarmupView
+                        if (warmup != null) {
+                            item {
+                                WarmupGuidanceSection(
+                                    view = warmup,
+                                    checked = state.warmupPreparationChecked,
+                                    weightUnit = state.weightUnit,
+                                    writeInProgress = state.draftWriteInProgress,
+                                    rampWriteFailed = state.warmupRampWriteFailed,
+                                    onPreparationToggled = onWarmupPreparationToggled,
+                                    onEditPreparation = onEditWarmupPreparation,
+                                    onSkipPreparation = onSkipWarmupPreparation,
+                                    onRestoreSkipped = onRestoreSkippedWarmupPreparation,
+                                    onLogRamp = onLogWarmupRamp,
+                                    onEditRamp = onEditWarmupRamp,
+                                    onHide = onToggleWarmupGuidance
                                 )
                             }
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        } else if (state.warmupGuidanceHidden &&
+                            state.warmupGuidance?.isEmpty == false
                         ) {
-                            TextButton(
-                                onClick = { onConfirmDraft(draft) },
-                                enabled = !state.draftWriteInProgress
-                            ) {
-                                Text(stringResource(Res.string.logger_confirm))
+                            item {
+                                TextButton(onClick = onToggleWarmupGuidance) {
+                                    Text(stringResource(Res.string.logger_warmup_guidance_show))
+                                }
                             }
-                            if (draft.durationSeconds != null &&
-                                state.setTimer?.draft?.sameSlotAs(draft) != true
+                        }
+                        state.guidedProgress?.let { guided ->
+                            item {
+                                GuidedWorkoutSection(
+                                    guided = guided,
+                                    weightUnit = state.weightUnit,
+                                    distanceUnit = state.distanceUnit,
+                                    exerciseLoadBasis = state.exerciseLoadBasis,
+                                    writeFailed = state.guidedSetWriteFailed,
+                                    clusterDraftError = state.clusterDraftError,
+                                    writeInProgress = state.draftWriteInProgress,
+                                    restTimer = state.restTimer,
+                                    setTimer = state.setTimer,
+                                    setTimerNotice = state.setTimerNotice,
+                                    timedEntryIds = state.draftSets
+                                        .filter { it.durationSeconds != null }
+                                        .mapNotNull { it.occurrenceEntryId }
+                                        .toSet(),
+                                    onStartSetTimer = { entryId ->
+                                        state.draftSets
+                                            .firstOrNull { it.occurrenceEntryId == entryId }
+                                            ?.let(onStartSetTimer)
+                                    },
+                                    onStopSetTimer = onStopSetTimer,
+                                    onCancelSetTimer = onCancelSetTimer,
+                                    onDismissSetTimerNotice = onDismissSetTimerNotice,
+                                    restDurationSeconds = state.restDurationSeconds,
+                                    restDurationIsOverride = state.restDurationIsOverride,
+                                    restDurationIsPairRest = state.restDurationIsPairRest,
+                                    restDurationIsSupersetTransition =
+                                    state.restDurationIsSupersetTransition,
+                                    onRestDurationChanged = onRestDurationChanged,
+                                    onResetRestDuration = onResetRestDuration,
+                                    onCancelRestTimer = onCancelRestTimer,
+                                    onLogSet = onConfirmGuidedSet,
+                                    onLogSetNow = onConfirmGuidedSetNow,
+                                    startedSetEntryId = state.startedSetEntryId,
+                                    frozenEntryIds = state.frozenEntryIds,
+                                    onStartSet = onStartGuidedSet,
+                                    onEditSet = onEditGuidedSet,
+                                    onReplace = onReplaceOccurrenceEntry,
+                                    onInstructions = onGuidedInstructions,
+                                    onChangeMeasure = onChangeMeasure,
+                                    measureChangeEntryIds = state.measureChangeEntryIds,
+                                    onLoadingCalculator = onGuidedLoadingCalculator,
+                                    expandedEntryIds = guided.exercises
+                                        .filter(state::isGuidedEntryExpanded)
+                                        .map { it.occurrenceEntryId }
+                                        .toSet(),
+                                    actionEntryIds = guided.exercises
+                                        .filter(state::showsGuidedActions)
+                                        .map { it.occurrenceEntryId }
+                                        .toSet(),
+                                    supersetControlEntryIds = guided.exercises
+                                        .filter(state::showsSupersetControls)
+                                        .map { it.occurrenceEntryId }
+                                        .toSet(),
+                                    onToggleExpanded = onToggleGuidedExpanded,
+                                    nextEntryId = nextGuidedEntryId,
+                                    skippedEntryId = supersetSkippedEntryId,
+                                    onSkipTurn = onSkipSupersetTurn,
+                                    onResumeTurn = onResumeSupersetTurn,
+                                    onUnpair = onUnpairSuperset
+                                )
+                            }
+                        }
+                    } else if (state.draftSets.isNotEmpty()) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                Text(
+                                    text = stringResource(Res.string.logger_planned_today),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                                 TextButton(
-                                    onClick = { onStartSetTimer(draft) },
+                                    onClick = onConfirmAllDrafts,
                                     enabled = !state.draftWriteInProgress
                                 ) {
-                                    Text(stringResource(Res.string.logger_set_timer_start))
+                                    Text(stringResource(Res.string.logger_confirm_all))
                                 }
                             }
-                            TextButton(onClick = { onDismissDraft(draft) }) {
-                                Text(stringResource(Res.string.logger_dismiss))
+                            if (state.progressionApplyFailed) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_progression_apply_failed
+                                    ),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
-                            TextButton(
-                                onClick = { onDraftInstructions(draft) },
-                                modifier = Modifier.testTag(LoggerTestTags.draftInstructions(draft))
-                            ) {
-                                Text(stringResource(Res.string.logger_instructions))
+                            state.setTimerNotice?.let {
+                                SetTimerNoticeRow(onDismiss = onDismissSetTimerNotice)
                             }
-                            if (loggerLoadingTargetEligible(draft.loadKind, draft.weightKg)) {
-                                TextButton(
-                                    onClick = { onDraftLoadingCalculator(draft) },
-                                    modifier = Modifier.testTag(
-                                        LoggerLoadingCalculatorTestTags.draftAction(
-                                            draft.occurrenceEntryId?.toString() ?: draft.exerciseId
-                                        )
-                                    )
-                                ) {
+                        }
+                        items(state.draftSets) { draft ->
+                            val weight = loadWeightText(
+                                draft.loadKind,
+                                draft.weightKg,
+                                state.weightUnit,
+                                state.exerciseLoadBasis[draft.exerciseId]
+                            )
+                            var expanded by remember(draft) { mutableStateOf(false) }
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
                                     Text(
-                                        stringResource(Res.string.logger_loading_calculator_action)
+                                        text = when {
+                                            draft.forceNewtons != null -> stringResource(
+                                                Res.string.logger_draft_force_line,
+                                                draft.name,
+                                                draft.sets,
+                                                stringResource(
+                                                    Res.string.logger_force_value,
+                                                    formatWeight(draft.forceNewtons)
+                                                )
+                                            )
+
+                                            draft.distanceMeters != null -> stringResource(
+                                                Res.string.logger_draft_distance_line,
+                                                draft.name,
+                                                draft.sets,
+                                                formatDistance(
+                                                    draft.distanceMeters,
+                                                    state.distanceUnit
+                                                ),
+                                                weight
+                                            )
+
+                                            draft.durationSeconds != null -> stringResource(
+                                                Res.string.logger_draft_timed_line,
+                                                draft.name,
+                                                draft.sets,
+                                                draft.durationSeconds,
+                                                weight
+                                            )
+
+                                            else -> {
+                                                "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+                                            }
+                                        }
                                     )
-                                }
-                            }
-                            Box {
-                                TextButton(onClick = { expanded = true }) {
-                                    Text(stringResource(Res.string.logger_draft_more_options))
-                                }
-                                DropdownMenu(
-                                    expanded = expanded,
-                                    onDismissRequest = { expanded = false }
-                                ) {
-                                    draft.occurrenceEntryId?.let { entryId ->
-                                        if (state.canReplaceEntry(entryId)) {
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(stringResource(Res.string.logger_replace))
-                                                },
-                                                enabled = !state.draftWriteInProgress,
-                                                onClick = {
-                                                    expanded = false
-                                                    onReplaceOccurrenceEntry(entryId)
+                                    draft.device?.takeIf {
+                                        draft.forceNewtons != null
+                                    }?.let { device ->
+                                        Text(
+                                            text = deviceAttributionText(device),
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                    draft.setTargets?.let { targets ->
+                                        val rirs = targets.targets.mapNotNull {
+                                            it.targetRir
+                                        }.distinct()
+                                        if (rirs.size == 1) {
+                                            val representative = targets.targets.first {
+                                                it.targetRir == rirs.single()
+                                            }
+                                            representative.equivalentRpe?.let { rpe ->
+                                                Text(
+                                                    text = stringResource(
+                                                        Res.string.logger_draft_prescribed_effort,
+                                                        rirs.single(),
+                                                        rpe
+                                                    ),
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        } else if (rirs.size > 1) {
+                                            Text(
+                                                text = stringResource(
+                                                    Res.string.logger_draft_prescribed_effort_varies
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        Text(
+                                            text = setTargetsSummaryLine(
+                                                targets,
+                                                state.weightUnit,
+                                                state.exerciseLoadBasis[draft.exerciseId]
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                    val progression = draft.occurrenceEntryId?.let { entryId ->
+                                        state.progressionSuggestions[entryId]
+                                    }
+                                    if (progression?.canApply == true) {
+                                        val ordered = progression.ordered
+                                        val suggestionText = if (ordered != null) {
+                                            val copy = orderedProgressionCopy(
+                                                suggested = ordered.suggested,
+                                                current = progression.currentOrdered,
+                                                unit = state.weightUnit
+                                            )
+                                            val loads = copy.loads
+                                            if (loads == null) {
+                                                stringResource(
+                                                    Res.string.logger_progression_suggested_ordered,
+                                                    copy.sets,
+                                                    copy.reps
+                                                )
+                                            } else {
+                                                stringResource(
+                                                    Res.string
+                                                        .logger_progression_suggested_ordered_load,
+                                                    copy.sets,
+                                                    copy.reps,
+                                                    loads
+                                                )
+                                            }
+                                        } else {
+                                            stringResource(
+                                                Res.string.logger_progression_suggested,
+                                                draft.sets,
+                                                progression.suggestedReps ?: draft.reps ?: 0,
+                                                loadWeightText(
+                                                    draft.loadKind,
+                                                    progression.suggestedLoadKg ?: draft.weightKg,
+                                                    state.weightUnit,
+                                                    state.exerciseLoadBasis[draft.exerciseId]
+                                                )
+                                            )
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = suggestionText,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                            val entryId = draft.occurrenceEntryId
+                                            if (entryId != null) {
+                                                val applyFor = stringResource(
+                                                    Res.string.logger_progression_apply_for,
+                                                    draft.name
+                                                )
+                                                TextButton(
+                                                    onClick = {
+                                                        onApplyProgressionSuggestion(entryId)
+                                                    },
+                                                    enabled = state.progressionApplyEntryId == null,
+                                                    modifier = Modifier.semantics {
+                                                        contentDescription = applyFor
+                                                    }
+                                                ) {
+                                                    Text(
+                                                        stringResource(
+                                                            Res.string.logger_progression_apply
+                                                        )
+                                                    )
                                                 }
+                                            }
+                                        }
+                                    }
+                                    TargetExplanationDisclosure(
+                                        key = draft.occurrenceEntryId ?: draft.exerciseId,
+                                        explanation = draft.explanation,
+                                        weightUnit = state.weightUnit
+                                    )
+                                    if (draft.cluster != null) {
+                                        state.clusterDraftError?.let { error ->
+                                            Text(
+                                                text = clusterDraftErrorMessage(error),
+                                                color = MaterialTheme.colorScheme.error,
+                                                style = MaterialTheme.typography.bodySmall
                                             )
                                         }
                                     }
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(stringResource(Res.string.logger_draft_edit))
-                                        },
-                                        onClick = {
-                                            expanded = false
-                                            onEditDraft(draft)
-                                        }
+                                }
+                                if (showsTechniqueConsiderations(draft.exerciseId)) {
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.logger_technique_considerations
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall
                                     )
-                                    draft.occurrenceEntryId?.let { entryId ->
-                                        if (entryId in state.measureChangeEntryIds) {
+                                }
+                                state.setTimer
+                                    ?.takeIf { timer ->
+                                        timer.phase != SetTimerPhase.CONFIRMING &&
+                                            timer.draft.sameSlotAs(draft)
+                                    }
+                                    ?.let { timer ->
+                                        SetTimerControls(
+                                            timer = timer,
+                                            onStop = onStopSetTimer,
+                                            onCancel = onCancelSetTimer
+                                        )
+                                    }
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = { onConfirmDraft(draft) },
+                                        enabled = !state.draftWriteInProgress
+                                    ) {
+                                        Text(stringResource(Res.string.logger_confirm))
+                                    }
+                                    if (draft.durationSeconds != null &&
+                                        state.setTimer?.draft?.sameSlotAs(draft) != true
+                                    ) {
+                                        TextButton(
+                                            onClick = { onStartSetTimer(draft) },
+                                            enabled = !state.draftWriteInProgress
+                                        ) {
+                                            Text(stringResource(Res.string.logger_set_timer_start))
+                                        }
+                                    }
+                                    TextButton(onClick = { onDismissDraft(draft) }) {
+                                        Text(stringResource(Res.string.logger_dismiss))
+                                    }
+                                    TextButton(
+                                        onClick = { onDraftInstructions(draft) },
+                                        modifier = Modifier.testTag(
+                                            LoggerTestTags.draftInstructions(draft)
+                                        )
+                                    ) {
+                                        Text(stringResource(Res.string.logger_instructions))
+                                    }
+                                    if (loggerLoadingTargetEligible(
+                                            draft.loadKind,
+                                            draft.weightKg
+                                        )
+                                    ) {
+                                        TextButton(
+                                            onClick = { onDraftLoadingCalculator(draft) },
+                                            modifier = Modifier.testTag(
+                                                LoggerLoadingCalculatorTestTags.draftAction(
+                                                    draft.occurrenceEntryId?.toString()
+                                                        ?: draft.exerciseId
+                                                )
+                                            )
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    Res.string.logger_loading_calculator_action
+                                                )
+                                            )
+                                        }
+                                    }
+                                    Box {
+                                        TextButton(onClick = { expanded = true }) {
+                                            Text(
+                                                stringResource(Res.string.logger_draft_more_options)
+                                            )
+                                        }
+                                        DropdownMenu(
+                                            expanded = expanded,
+                                            onDismissRequest = { expanded = false }
+                                        ) {
+                                            draft.occurrenceEntryId?.let { entryId ->
+                                                if (state.canReplaceEntry(entryId)) {
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                stringResource(
+                                                                    Res.string.logger_replace
+                                                                )
+                                                            )
+                                                        },
+                                                        enabled = !state.draftWriteInProgress,
+                                                        onClick = {
+                                                            expanded = false
+                                                            onReplaceOccurrenceEntry(entryId)
+                                                        }
+                                                    )
+                                                }
+                                            }
                                             DropdownMenuItem(
                                                 text = {
                                                     Text(
-                                                        stringResource(
-                                                            Res.string.logger_measure_change_action
-                                                        )
+                                                        stringResource(Res.string.logger_draft_edit)
                                                     )
                                                 },
-                                                enabled = !state.draftWriteInProgress,
                                                 onClick = {
                                                     expanded = false
-                                                    onChangeMeasure(entryId)
+                                                    onEditDraft(draft)
                                                 }
                                             )
+                                            draft.occurrenceEntryId?.let { entryId ->
+                                                if (entryId in state.measureChangeEntryIds) {
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(measureChangeLabel)
+                                                        },
+                                                        enabled = !state.draftWriteInProgress,
+                                                        onClick = {
+                                                            expanded = false
+                                                            onChangeMeasure(entryId)
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                    if (state.draftWriteRetries.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(
+                                    if (state.draftWriteRetries.any { it.anyRecorded }) {
+                                        Res.string.logger_draft_write_partial
+                                    } else {
+                                        Res.string.logger_draft_write_none
+                                    }
+                                ),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 }
-            }
-            if (state.draftWriteRetries.isNotEmpty()) {
                 item {
                     Text(
-                        text = stringResource(
-                            if (state.draftWriteRetries.any { it.anyRecorded }) {
-                                Res.string.logger_draft_write_partial
-                            } else {
-                                Res.string.logger_draft_write_none
+                        text = stringResource(Res.string.logger_recent),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                itemsIndexed(state.recentSets) { index, row ->
+                    Column {
+                        if (row.startsSessionAfter(state.recentSets.getOrNull(index - 1))) {
+                            Text(
+                                text = stringResource(Res.string.logger_session_recorded),
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(bottom = 8.dp).semantics { heading() }
+                            )
+                        }
+                        val unit = state.weightUnit
+                        val weight = loadWeightText(row.loadKind, row.weightKg, unit)
+                        val warmupSuffix = if (row.isWarmup) {
+                            " " + stringResource(Res.string.logger_warmup_suffix)
+                        } else {
+                            ""
+                        }
+                        // A cluster row shows the parent's own measurement plus the cluster's kind and
+                        // segment count. Its segments are never listed as extra sets or compared to them.
+                        val clusterSuffix = row.cluster?.let { cluster ->
+                            " · " + clusterKindLabel(cluster.kind) + " · " + stringResource(
+                                Res.string.logger_cluster_segment_count,
+                                cluster.performedSegments
+                            )
+                        } ?: ""
+                        val weekDay = if (row.weekNumber != null && row.dayIndex != null) {
+                            " · " + stringResource(
+                                Res.string.logger_set_week_day,
+                                row.weekNumber,
+                                row.dayIndex + 1
+                            )
+                        } else {
+                            ""
+                        }
+                        val measurement = when {
+                            row.forceNewtons != null -> stringResource(
+                                Res.string.logger_history_set_force_line,
+                                stringResource(
+                                    Res.string.logger_force_value,
+                                    formatWeight(row.forceNewtons)
+                                )
+                            )
+
+                            row.distanceMeters != null -> stringResource(
+                                Res.string.logger_history_set_distance_line,
+                                formatDistance(row.distanceMeters, state.distanceUnit),
+                                weight
+                            )
+
+                            row.durationSeconds != null -> stringResource(
+                                Res.string.logger_history_set_duration_line,
+                                row.durationSeconds,
+                                weight
+                            )
+
+                            row.reps != null -> stringResource(
+                                Res.string.logger_history_set_line,
+                                row.reps,
+                                weight
+                            )
+
+                            else -> weight
+                        }
+                        val line = "${row.exerciseName}  " +
+                            "$measurement$warmupSuffix$weekDay$clusterSuffix"
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { onRecentSetSelected(row) }
+                        ) {
+                            Text(
+                                text = line,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { onEditLoggedSet(row) }
+                            ) {
+                                Text(stringResource(Res.string.logger_edit_set))
                             }
-                        ),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-        }
-        item {
-            Text(
-                text = stringResource(Res.string.logger_recent),
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-        itemsIndexed(state.recentSets) { index, row ->
-            Column {
-                if (row.startsSessionAfter(state.recentSets.getOrNull(index - 1))) {
-                    Text(
-                        text = stringResource(Res.string.logger_session_recorded),
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(bottom = 8.dp).semantics { heading() }
-                    )
-                }
-                val unit = state.weightUnit
-                val weight = loadWeightText(row.loadKind, row.weightKg, unit)
-                val warmupSuffix = if (row.isWarmup) {
-                    " " + stringResource(Res.string.logger_warmup_suffix)
-                } else {
-                    ""
-                }
-                // A cluster row shows the parent's own measurement plus the cluster's kind and
-                // segment count. Its segments are never listed as extra sets or compared to them.
-                val clusterSuffix = row.cluster?.let { cluster ->
-                    " · " + clusterKindLabel(cluster.kind) + " · " + stringResource(
-                        Res.string.logger_cluster_segment_count,
-                        cluster.performedSegments
-                    )
-                } ?: ""
-                val weekDay = if (row.weekNumber != null && row.dayIndex != null) {
-                    " · " + stringResource(
-                        Res.string.logger_set_week_day,
-                        row.weekNumber,
-                        row.dayIndex + 1
-                    )
-                } else {
-                    ""
-                }
-                val measurement = when {
-                    row.forceNewtons != null -> stringResource(
-                        Res.string.logger_history_set_force_line,
-                        stringResource(
-                            Res.string.logger_force_value,
-                            formatWeight(row.forceNewtons)
-                        )
-                    )
-
-                    row.distanceMeters != null -> stringResource(
-                        Res.string.logger_history_set_distance_line,
-                        formatDistance(row.distanceMeters, state.distanceUnit),
-                        weight
-                    )
-
-                    row.durationSeconds != null -> stringResource(
-                        Res.string.logger_history_set_duration_line,
-                        row.durationSeconds,
-                        weight
-                    )
-
-                    row.reps != null -> stringResource(
-                        Res.string.logger_history_set_line,
-                        row.reps,
-                        weight
-                    )
-
-                    else -> weight
-                }
-                val line = "${row.exerciseName}  $measurement$warmupSuffix$weekDay$clusterSuffix"
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onRecentSetSelected(row) }
-                ) {
-                    Text(
-                        text = line,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(
-                        onClick = { onEditLoggedSet(row) }
-                    ) {
-                        Text(stringResource(Res.string.logger_edit_set))
+                            TextButton(onClick = { onDeleteSet(row.id) }) {
+                                Text(stringResource(Res.string.logger_delete_set))
+                            }
+                        }
+                        row.device?.takeIf { row.forceNewtons != null }?.let { device ->
+                            Text(
+                                text = deviceAttributionText(device),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (row.sessionId == null) {
+                            Text(
+                                text = stringResource(Res.string.logger_session_not_recorded),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
-                    TextButton(onClick = { onDeleteSet(row.id) }) {
-                        Text(stringResource(Res.string.logger_delete_set))
-                    }
-                }
-                row.device?.takeIf { row.forceNewtons != null }?.let { device ->
-                    Text(
-                        text = deviceAttributionText(device),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                if (row.sessionId == null) {
-                    Text(
-                        text = stringResource(Res.string.logger_session_not_recorded),
-                        style = MaterialTheme.typography.bodySmall
-                    )
                 }
             }
         }
@@ -2529,10 +2625,10 @@ private fun DraftEditDialog(
     onReset: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    var showDate by remember { mutableStateOf(false) }
-    var showTime by remember { mutableStateOf(false) }
-    var date by remember { mutableStateOf<Long?>(null) }
-    var timeError by remember { mutableStateOf(false) }
+    var showDate by rememberSaveable { mutableStateOf(false) }
+    var showTime by rememberSaveable { mutableStateOf(false) }
+    var date by rememberSaveable { mutableStateOf<Long?>(null) }
+    var timeError by rememberSaveable { mutableStateOf(false) }
     val anchor = edit.performedAtMillis ?: nowMillis
     AlertDialog(
         onDismissRequest = { if (!saving) onCancel() },

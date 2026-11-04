@@ -3,11 +3,18 @@ package com.hydrafit.app
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +22,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -225,75 +234,101 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     // itself carries the way back.
     val onSettings = settingsRoute in hierarchyRoutes
 
-    Scaffold(
-        snackbarHost = { RestCompletionPresenter() },
-        topBar = {
-            if (onAppTab && !onSettings) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = {
-                            // Settings is a toolbar destination, not a tab: pushing it keeps the
-                            // screen it was opened from underneath, so system Back returns there.
-                            navController.navigate(settingsDestination.route) {
-                                launchSingleTop = true
-                                restoreState = false
-                            }
-                        }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val useRail = usesNavigationRail(maxWidth)
+        Scaffold(
+            snackbarHost = { RestCompletionPresenter() },
+            topBar = {
+                if (onAppTab && !onSettings) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(settingsDestination.label))
+                        TextButton(
+                            onClick = {
+                                // Settings is a toolbar destination, not a tab: pushing it keeps the
+                                // screen it was opened from underneath, so system Back returns there.
+                                navController.navigate(settingsDestination.route) {
+                                    launchSingleTop = true
+                                    restoreState = false
+                                }
+                            }
+                        ) {
+                            Text(stringResource(settingsDestination.label))
+                        }
+                    }
+                }
+            },
+            bottomBar = {
+                if (onAppTab && !useRail) {
+                    NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
+                        NavTab.entries.forEach { tab ->
+                            NavigationBarItem(
+                                selected = selectedTab == tab,
+                                onClick = { navigateToAppTab(navController, tab.startRoute()) },
+                                icon = {},
+                                // Text-only tabs: the default pill would render an empty indicator
+                                // around the missing icon, so selection is carried by the label colour.
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = Color.Transparent
+                                ),
+                                label = { Text(stringResource(tab.labelResource())) }
+                            )
+                        }
                     }
                 }
             }
-        },
-        bottomBar = {
-            if (onAppTab) {
-                NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                    NavTab.entries.forEach { tab ->
-                        NavigationBarItem(
-                            selected = selectedTab == tab,
-                            onClick = { navigateToAppTab(navController, tab.startRoute()) },
-                            icon = {},
-                            // Text-only tabs: the default pill would render an empty indicator
-                            // around the missing icon, so selection is carried by the label colour.
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = Color.Transparent
-                            ),
-                            label = { Text(stringResource(tab.labelResource())) }
-                        )
+        ) { innerPadding ->
+            Row(modifier = Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
+                if (onAppTab && useRail) {
+                    NavigationRail(
+                        modifier = Modifier.width(120.dp).fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        NavTab.entries.forEach { tab ->
+                            NavigationRailItem(
+                                selected = selectedTab == tab,
+                                onClick = { navigateToAppTab(navController, tab.startRoute()) },
+                                icon = { Text(stringResource(tab.labelResource())) }
+                            )
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    CompositionLocalProvider(
+                        LocalAppTabNavigator provides openTab,
+                        LocalSetupNavigator provides openSetup,
+                        LocalProgressNavigator provides openProgress,
+                        LocalCardioNavigator provides openCardio
+                    ) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = loggerRoute,
+                            modifier = Modifier.widthIn(max = 1200.dp).fillMaxSize()
+                        ) {
+                            destinations.forEach { destination ->
+                                destination.graph(navController)(this)
+                            }
+                            // Setup registers its own routes; it is not a seventh tab entry.
+                            onboardingGraph(navController = navController, onClose = closeSetup)
+                            // Progress owns its pushed destinations outside the shell tabs.
+                            progressGraph(navController = navController, onClose = closeProgress)
+                            // Cardio is the same standalone pushed destination.
+                            cardioGraph(navController = navController)
+                        }
+                        // Outside the nav host: share the startup gate's ViewModel owner.
+                        OnboardingStartupEntry(navController = navController)
                     }
                 }
             }
-        }
-    ) { innerPadding ->
-        CompositionLocalProvider(
-            LocalAppTabNavigator provides openTab,
-            LocalSetupNavigator provides openSetup,
-            LocalProgressNavigator provides openProgress,
-            LocalCardioNavigator provides openCardio
-        ) {
-            NavHost(
-                navController = navController,
-                startDestination = loggerRoute,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                destinations.forEach { destination -> destination.graph(navController)(this) }
-                // Setup registers its own routes; it is not a seventh tab entry.
-                onboardingGraph(navController = navController, onClose = closeSetup)
-                // Progress is a standalone, pushed destination; it is not a seventh tab entry.
-                progressGraph(navController = navController, onClose = closeProgress)
-                // Cardio is the same standalone pushed destination.
-                cardioGraph(navController = navController)
-            }
-            // Composed outside the nav host so its ViewModel owner matches the startup gate's.
-            OnboardingStartupEntry(navController = navController)
         }
     }
 }

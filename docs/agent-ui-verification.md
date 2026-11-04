@@ -7,6 +7,49 @@ Paths below are relative to the repository root.
 
 ## Visual Verification
 
+### Approved emulator lifecycle
+
+Without explicit lifecycle authorization in an accepted task/batch contract,
+ask the user to start the emulator. With that authorization, the parent may use
+`scripts/emulator-lifecycle.py` for these existing AVDs only: `Medium_Phone`,
+`Pixel_Tablet`, `Pixel_Fold` and `6.7_Horizontal_Fold-in`. Do not create or modify
+AVDs, download images or change host/system settings as part of switching.
+Stricter harness instructions still take precedence.
+
+Only the parent controls lifecycle operations. Finish the runner's journey and
+confirm its controller has stopped, persisted writes have known outcomes and any
+approved cleanup has completed before shutdown. Do not shut down to recover from
+a failed UI command or an unresolved write. Unsaved state is not transferred
+between AVDs; establish each device's own fixtures and never discard a pre-existing
+draft or dialog merely to switch devices. Lifecycle declarations are not proof
+that these conditions hold.
+
+Run one emulator at a time. The helper refuses non-emulator targets, multiple
+connected emulators, unallowlisted identities and start requests while an emulator
+process remains. Start waits for the requested AVD identity and boot completion;
+stop sends the emulator console's graceful shutdown request and waits for both
+ADB disconnection and emulator-process exit. Every subprocess call is bounded,
+and the operation has a maximum 300-second deadline (180 seconds by default).
+No timeout or failure triggers retry, force-kill, data clearing or restoration.
+An uncertain outcome requires read-only reconciliation and a report before
+another lifecycle operation. Process detection covers the standard macOS Android
+SDK emulator executable names; it is not a host-wide ownership sandbox.
+
+For example, after the corresponding operation is authorized and safe:
+
+```sh
+python3 -B scripts/emulator-lifecycle.py start Pixel_Tablet --timeout 180 --log /tmp/hydrafit-tablet-start.log
+python3 -B scripts/emulator-lifecycle.py stop Pixel_Tablet --timeout 120 --journey-ended
+```
+
+Choose a fresh log path outside the checkout for each start. Record the exact
+AVD, resulting serial, commands, log and outcome in the task artifacts. The
+`--journey-ended` flag is a caller assertion, not a verification or permission
+grant. After startup, still identify the connected emulator with bounded
+`adb devices -l` and Maestro discovery, and establish fresh screen/fixture
+evidence before handing a prepared journey to `ui-runner`. Debug-build-only,
+data-preservation and permission rules remain unchanged.
+
 ### Prepared-journey preflight
 
 Before handing a prepared acceptance journey to the runner, validate an external
@@ -244,7 +287,9 @@ read-only and performs no ADB/Maestro calls or artifact uploads.
 - Needs my approval: `adb uninstall`, clearing app data, and any adb command
   that touches other apps or system settings.
 - UI verification uses the emulator only, never a personal phone. If no
-  emulator is running (`adb devices` shows nothing), ask me to start it; do
-  not boot one. (DB audits are the read-only phone pulls in AGENTS.md Session rules.)
+  emulator is running (`adb devices` shows nothing), ask me to start it unless
+  the parent has explicit accepted-contract authorization for the Approved
+  emulator lifecycle procedure above. (DB audits are the read-only phone pulls
+  in AGENTS.md Session rules.)
 - Test screenshots and UI dumps go to /tmp, never into the repo. Emulator
   inspection uses `/data/local/tmp/hydrafit-ui.xml` as a scratch hierarchy file.
