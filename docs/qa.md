@@ -14,6 +14,23 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
+## 0.13.2 baseline (2026-11-04, in progress)
+
+Read-only accessibility, theme and locale baseline on `emulator-5554` (Medium_Phone, API 37),
+debug build `0.12.0-dev-79a6e701` installed by `assembleDebug` over the existing data. This is
+baseline evidence for the 0.13.2 scope, not release acceptance.
+
+| Check | Result | Evidence / limits |
+| --- | --- | --- |
+| Navigation and selected-state semantics (light, 1.0) | Settings Back returns to Train; Train/Progress/Library selected containers asserted; final Train shows Manage plan and No active session. | `hf0132-runner-phase*.log` plus fresh compact hierarchies; source unchanged by the journey. |
+| Dark theme | Train, Settings, Progress and Routines render the dark palette with readable enabled text and visible outlined-button borders. | `hf0132-dark-results/2026-11-04_131346/`; disabled `End session` text is low contrast, which is permitted for inactive controls. |
+| Text scale 2.0 | Train, Settings and Routines stay readable without clipped text; Settings scrolls to `Set up HydraFit`; block and row actions wrap instead of truncating. | `hf0132-font20-results/2026-11-04_131457/`, `hf0132-font20-scroll-results/`; the `Log workout`/`Manage plan` header row is tight at 2.0 but not overlapping. |
+| `de-DE` app locale | English fallback resolves with unchanged layout. | `hf0132-locale-de-train.png`; set with `cmd locale set-app-locales` and restored to `[]`. No translated resources exist, so this is fallback coverage only. |
+| Baseline restoration | Text scale 1.0, night mode off, app locale unset, `accessibility_enabled=1` with an empty service list restored to the observed values. | `adb shell settings get`/`cmd uimode night` after the sweep. |
+
+Not covered here: TalkBack speech (semantics only), recovery-state fault injection, adaptive
+tablet/foldable layouts, signed-release runtime, and any database-preservation proof.
+
 ## 0.13.1 adaptive release (2026-11-04)
 
 Base `1651701e`, merged as `e29162ff` and published as `v0.13.1`; implementation
