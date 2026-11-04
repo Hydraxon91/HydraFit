@@ -1,6 +1,6 @@
 # Exercise catalog — sources & methodology (CAT-P0)
 
-Status: CAT-P0/P1 done; the CAT-P1 batch is seeded and verified (CAT-P2/P3/P4, P5 verified, 2026-10-06). This document
+Status: CAT-P0/P1 done; the CAT-P1 batch is seeded and verified (CAT-P2/P3/P4, P5 verified, 2026-10-06). Instruction coverage is complete as of 0.13.2: every seeded identity carries authored Setup/Execution text (see the batch tables below). This document
 defines where catalog facts come from and how per-muscle involvement weights are derived.
 It is documentation only (no code); implementation lives in `core/database`.
 

@@ -17,7 +17,7 @@ exists, so old records that name those tabs describe the shell at the time of th
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
-## 0.13.2 baseline (2026-11-04, in progress)
+## 0.13.2 baseline (2026-11-04)
 
 Read-only accessibility, theme and locale baseline on `emulator-5554` (Medium_Phone, API 37),
 debug build `0.12.0-dev-79a6e701` installed by `assembleDebug` over the existing data. This is
@@ -36,9 +36,9 @@ tablet/foldable layouts, signed-release runtime, and any database-preservation p
 
 ### 0.13.2 implementation status (2026-11-04)
 
-The 0.13.2 implementation is complete. 0.13.3 is folded into this release: its Routines recovery
-slice is implemented and evidenced below; the integration checks in this section are its remaining
-gate, so 0.13.3 is not yet a complete candidate.
+The 0.13.2 implementation is complete. 0.13.3 is folded into the same publication: its Routines
+recovery slice is implemented and evidenced below, while the open items in §0.13.3 keep it from
+being a complete release candidate.
 
 Accessibility disposition for the changed flows:
 
@@ -80,6 +80,24 @@ unverified.
   speech, measured contrast, device integration and signed-release upgrade behavior remain
   unverified at this point.
 
+### 0.13.3 open items (2026-11-04)
+
+The Routines read-recovery slice is implemented and tested. The following folded-scope items are
+**not done** and stay open until implemented or explicitly deferred:
+
+| Item | State | Evidence / residual risk |
+| --- | --- | --- |
+| Startup/storage recovery | Open | A cold launch with an unreadable database lets `SQLiteCantOpenDatabaseException` escape `DatabaseStartupMaintenance` via the staged-backup read; there is no user-facing recovery. Deferred from the 0.7.6 pass to 0.13.3 (`docs/qa.md`, 2026-10-14 entry). |
+| First-run / empty / loading / error / cancel / retry outside Routines | Open | Only Routines template, activation and occurrence reads were remediated and tested. The rest of the feature set has not been audited screen by screen in this batch. |
+| Signed-release upgrade regression | Open | Only a debug install over existing data was checked on `emulator-5554`. There is no older-release → 0.13.2 upgrade proof. |
+| Backup/restore regression | Open | No export, import, staged-restore or post-restore smoke run in this batch. Backup encodings were not changed. |
+| Ledger/performance checks | Open | No ledger size or foreground performance measurement in this batch. |
+| Docs and license review | Partial | The affected living docs and release notes are updated; a full dependency/artwork/model license sweep for the release was not repeated. |
+| Supported-device limits | Open | Device evidence is one `Medium_Phone` API 37 emulator. Tablet, foldable, other API levels and cover/Flex behavior are not rechecked here. |
+| On-device integration of the new behaviour | Partial | App launch, navigation semantics and restored settings were checked; comma entry, recovery fault injection, measured contrast and TalkBack speech remain unverified on device. |
+
+These items are the reason 0.13.3 is not a complete candidate even though its recovery slice is
+approved. Publication may fold the slice only if the user explicitly defers the list above.
 
 ## 0.13.1 adaptive release (2026-11-04)
 

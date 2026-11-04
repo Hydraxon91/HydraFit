@@ -727,6 +727,10 @@ baseline. `settings-guidance-denial.yaml` is syntax-checked only: it still needs
 approved permission-baseline handling described in its header. Neither run covers
 TalkBack, dark mode, text scaling or locale.
 
+The later 0.13.2 post-change build (code tip `0f91d9c0`) was installed and launched on
+`emulator-5554`, but these flows were not re-run against it in that pass; flow acceptance
+therefore still rests on the baseline run above.
+
 ## Earlier verification status (2026-10-09)
 
 Both files pass the installed Maestro 2.11.0 `check-syntax` and runtime smoke on

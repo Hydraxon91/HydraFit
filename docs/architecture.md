@@ -1212,7 +1212,9 @@ and recorded provenance in `docs/exercise-catalog-sources.md`; no copyrighted de
 unlicensed media is copied, and no performance, injury-prevention or physiology claim is made.
 Delivery is text-first and covered by the 0.7.4 slices: the foundation (resources, ID lookup and
 viewer) ships first, then two authored content batches, then the Equipment and Logger entry points.
-The first batch is not complete catalog coverage.
+The 0.7.4 batch was not complete catalog coverage; the 0.13.2 coverage batches closed it on
+2026-11-04, and `ExerciseInstructionSeedCoverageTest` now asserts set equality between authored IDs
+and the seeded catalog in both directions.
 
 The approved review follow-up expands the authored batch from 16 to 17 exercises by distinguishing
 calf equipment. The existing `standing-calf-raise` ID remains the dumbbell identity, now labelled
@@ -1231,8 +1233,10 @@ and wired feature UI acceptance remain separate gates.
 
 **Technique considerations (EX-03, 0.7.5).** `ExerciseCautionSource` adds a small, sourced set of
 informational technique notes in the same module, keyed by stable ID and deliberately independent of
-`ExerciseInstructionSource`: an exercise can carry a caution without an authored instruction, and a
-missing caution is never a statement that an exercise is safe. Lookup is exact-ID only and never by
+`ExerciseInstructionSource`: the two lookups neither derive from nor suppress each other. Now that
+every seeded identity carries instructions, no seeded caution-only case remains; the independence is
+still structural, and a missing caution is never a statement that an exercise is safe. Lookup is
+exact-ID only and never by
 display name, so a custom exercise's `user-*` ID or any seeded ID outside the batch cannot inherit a
 caution, and a CAT-02 profile suggestion changes no ID. Renaming a seeded row keeps its ID and
 therefore its caution. The notes are bundled content — never persisted, exported or part of a
@@ -1632,6 +1636,34 @@ alike, so a logged set from an edited scalar slot stores its effective target an
 an ordered slot does — and Apply persists the masked edit
 for every remaining position. RIR, performed time and force-device attribution remain transient
 performed-set values rather than prescription fields.
+
+### 1.28 Presentation number format (0.13.2)
+
+Human-facing decimals share one contract in `:core:userdata`:
+`core/userdata/.../presentation/LocalizedNumbers.kt` defines `PresentationNumberFormat`, which
+carries only the locale decimal separator. `parseLocalizedDecimal` accepts that separator or the
+ASCII dot and any Unicode decimal digit, and rejects grouping separators, a second separator, a
+sign-only value and non-finite results. `formatLocalizedDecimal` rounds once on a copy for display
+(at most one decimal by default) and uses the locale separator; `exactLocalizedDecimalText` renders
+editable text that parses back to the same double. `currentPresentationNumberFormat()` is the
+platform actual: Android reads `DecimalFormatSymbols` for the app locale, iOS a decimal-style
+`NSNumberFormatter`.
+
+Every human-facing decimal editor uses the contract: body weight, the Logger's manual, correction,
+cluster and warm-up fields, the routine editor and its cluster and set-target dialogs, the
+split-builder measure dialog, the equipment profiler and onboarding personal records. Each open
+editor freezes its format, so a locale change mid-edit cannot reinterpret typed text; display text
+uses the live format. Grouping is never emitted or interpreted. Parsers do not convert units:
+callers keep their existing range validation and convert through `WeightUnit`, `DistanceUnit` or
+plain newtons, so stored kilograms, whole metres and newtons are unchanged.
+
+Exceptions are deliberate: the import preview renders stored weights with the plain dot formatter
+because it mirrors an interchange file, loading-inventory native ticks keep their fixed technical
+encoding, and human-facing dates keep the unambiguous ISO form rather than a localized layout.
+Backups, CSV, PDF and other interchange encodings are unchanged. Platform coverage, the editor
+freeze rule and the remaining limits are recorded in
+`.opencode/skills/hydrafit-mechanics/references/platform-verification.md`; tests live in
+`LocalizedNumbersTest`, `AndroidPresentationLocaleTest` and the affected feature suites.
 
 ## 2. Decision log
 

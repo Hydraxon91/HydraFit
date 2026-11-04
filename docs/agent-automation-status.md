@@ -1668,3 +1668,22 @@ the user's approval remain the real controls.
 - The clamshell emulator kept its full display size in every posture and reported the
   app accessible while closed, so its pass does not establish Samsung cover-screen or
   reduced-height Flex behavior.
+
+## 0.13.2+0.13.3 batch use (2026-11-04)
+
+- **Task state:** a single durable record (`batch-0.13.2`) ran through contract init,
+  scope amend, repeated evidence and checkpoint events, and reconciliation of
+  repository drift after commits; it reached revision 20 with no unknown operations
+  or out-of-scope writes. A pre-flight `resume` correctly flagged drift before the
+  parent recorded a checkpoint rather than replaying anything.
+- **Review:** the read-only `reviewer` agent performed a full-range checkpoint, then
+  two targeted closure rounds. It found 12 findings plus one design note; all
+  mechanical findings were fixed and closed, and the design note was left for
+  0.13.4. No reviewer write occurred.
+- **Bounded runs:** every Gradle invocation went through `run-bounded.py` with a hard
+  timeout and a log file; the final matrix executed 432 tasks with zero up-to-date
+  tasks. The tool did not need to terminate a hung child in this batch.
+- **Not exercised:** `git-ops` delegation (the batch contract owns local Git
+  directly), parallel coder workers, the emulator lifecycle helper (the device was
+  already running), and Maestro runner delegation. Device interaction stayed
+  parent-owned and bounded; comma entry and contrast remain unverified on device.

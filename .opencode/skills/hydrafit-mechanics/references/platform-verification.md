@@ -45,7 +45,8 @@ Apply/reopen/log path. These values stay in newtons and kilograms respectively; 
 when a weight or distance preference changes.
 
 Measured force is the exception: newtons are canonical and are never converted by `WeightUnit` or by
-the metres/feet preference, so `formatWeight(forceNewtons)` only trims the number. A device's
+the metres/feet preference, so the display formatter only trims the number and applies the locale
+separator. A device's
 `ratingKg` is a descriptive manufacturer figure shown in kilograms; it is not converted to newtons and
 never becomes a load, an expected force or a comparison across devices.
 
@@ -248,5 +249,5 @@ increment grid (both endpoints reachable), and gaps report the nearest lower/hig
 
 `LoadingAmounts.parseNativeTicks`/`formatNativeTicks` convert between text and ticks with at most
 three decimal places and no binary-floating rounding; overprecision, malformed and negative input
-are rejected rather than truncated. Unlike `formatWeight`'s one-decimal display form the round
+are rejected rather than truncated. Unlike the one-decimal display form the round
 trip is exact; `0..MAX_LOADING_TICKS` range checks stay in the calculators.
