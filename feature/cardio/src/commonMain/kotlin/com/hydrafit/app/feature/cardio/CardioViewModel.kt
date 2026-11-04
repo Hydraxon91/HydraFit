@@ -12,6 +12,9 @@ import com.hydrafit.app.core.domain.cardio.EditCardioActivityUseCase
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -33,17 +36,25 @@ import kotlinx.coroutines.launch
 class CardioViewModel(
     private val repository: CardioRepository,
     distanceUnitRepository: DistanceUnitRepository,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    /**
+     * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
+     * the default; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
 
     private val addActivity = AddCardioActivityUseCase(repository)
     private val editActivity = EditCardioActivityUseCase(repository)
     private val deleteActivity = DeleteCardioActivityUseCase(repository)
 
+    private val numberFormat: PresentationNumberFormat = numberFormatProvider()
+
     private val _state = MutableStateFlow(
         CardioUiState(
             utcOffsetMillis = timeProvider.utcOffsetMillis(),
-            todayLocalEpochDay = today(timeProvider.utcOffsetMillis())
+            todayLocalEpochDay = today(timeProvider.utcOffsetMillis()),
+            numberFormat = numberFormat
         )
     )
     val state: StateFlow<CardioUiState> = _state.asStateFlow()
@@ -293,7 +304,7 @@ class CardioViewModel(
     private fun parsedDistanceMeters(editor: CardioEditorState, state: CardioUiState): Int? {
         val text = editor.distanceText.trim()
         if (text.isEmpty()) return null
-        val display = text.toDoubleOrNull()
+        val display = parseLocalizedDecimal(text, state.numberFormat)
         if (display == null || !display.isFinite() || display <= 0.0) return null
         val previousId = editor.previousId
         val stored = if (previousId != null && editor.distanceText == editor.initialDistanceText) {

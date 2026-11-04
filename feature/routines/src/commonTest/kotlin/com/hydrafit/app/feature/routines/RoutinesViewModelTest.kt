@@ -57,6 +57,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -104,6 +105,28 @@ class RoutinesViewModelTest {
     @AfterTest
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun aCommaWeightIsAcceptedAndStoredAsCanonicalKilograms() = runTest(dispatcher) {
+        val viewModel = viewModel(numberFormat = PresentationNumberFormat(','))
+        advanceUntilIdle()
+
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntrySetsChanged(0, 0, "4")
+        viewModel.onEntryRepsChanged(0, 0, "6")
+        viewModel.onEntryWeightChanged(0, 0, "72,5")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val entry = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(72.5, entry.weightKg!!, 1e-9)
     }
 
     @Test
@@ -309,7 +332,9 @@ class RoutinesViewModelTest {
         val invalidInputs = listOf(
             "abc" to "Force must be a number",
             "0" to "Force must be greater than zero",
-            "Infinity" to "Force must be greater than zero",
+            // Non-finite text is refused as non-numeric by the locale-aware parser, rather than
+            // parsed as an infinite number and then rejected by the range check.
+            "Infinity" to "Force must be a number",
             "5001" to "Force must be between 0.1 and 5000.0 newtons"
         )
         invalidInputs.forEach { (input, message) ->
@@ -1665,7 +1690,8 @@ class RoutinesViewModelTest {
         preferredWeekdaysRepository: PreferredWeekdaysRepository =
             FakePreferredWeekdaysRepository(),
         timeProvider: TimeProvider = this.timeProvider,
-        distanceUnitRepository: DistanceUnitRepository? = null
+        distanceUnitRepository: DistanceUnitRepository? = null,
+        numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
@@ -1700,7 +1726,8 @@ class RoutinesViewModelTest {
             weightUnitRepository = weightUnitRepository,
             exclusionRepository = exclusionRepository,
             preferredWeekdaysRepository = preferredWeekdaysRepository,
-            distanceUnitRepository = distanceUnitRepository
+            distanceUnitRepository = distanceUnitRepository,
+            numberFormatProvider = { numberFormat }
         )
     }
 

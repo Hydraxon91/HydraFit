@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -28,6 +29,30 @@ class ClusterPrescriptionDialogTest {
         )
         assertEquals("", editor.restSeconds)
         assertEquals(null, editor.error)
+    }
+
+    @Test
+    fun aCommaLocaleParsesSegmentsAndRejectsGrouping() {
+        val comma = PresentationNumberFormat(',')
+        val valid = parseClusterEditor(
+            clusterState(
+                segment(reps = "8", load = "100,5"),
+                segment(reps = "8", load = "80,5")
+            ),
+            comma
+        )
+        val prescription = assertIs<ClusterParseResult.Valid>(valid).prescription
+        assertEquals(listOf(100.5, 80.5), prescription.segments.map { it.weightKg })
+
+        // Two separators are ambiguous, so the load field is refused rather than guessed.
+        val ambiguous = parseClusterEditor(
+            clusterState(
+                segment(reps = "8", load = "1.234,5"),
+                segment(reps = "8", load = "80")
+            ),
+            comma
+        )
+        assertEquals(ClusterParseResult.Invalid(ClusterError.LOAD), ambiguous)
     }
 
     @Test

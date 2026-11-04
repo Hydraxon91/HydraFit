@@ -13,6 +13,24 @@ import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.exercisecontent.ExerciseCautions
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
+
+/**
+ * Renders a weight for display with the live presentation format: at most one decimal place, the
+ * locale decimal separator, and a trailing `.0` dropped. Stored kilograms are not rounded through
+ * this text; editable prefills use the exact text helper instead.
+ */
+internal fun formatEquipmentWeightForDisplay(
+    value: Double,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = formatLocalizedDecimal(value, format)
+
+/** Keeps digits, the ASCII dot and the locale separator; duplicates are rejected by the parser. */
+internal fun decimalEquipmentInput(value: String, format: PresentationNumberFormat): String =
+    value.filter { it.isDigit() || it == '.' || it == format.decimalSeparator }
 
 /** The exercise currently open in the editor dialog, and its in-progress edits. */
 data class ExerciseEditorState(
@@ -131,7 +149,9 @@ data class PersonalRecordEditorState(
     val exerciseId: String? = null,
     val weightInput: String = "",
     val repsInput: String = "",
-    val error: String? = null
+    val error: String? = null,
+    /** The number format frozen when the editor opened. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 ) {
     val isOpen: Boolean
         get() = open
@@ -143,7 +163,9 @@ data class EquipmentEditorState(
     val name: String = "",
     val isBuiltIn: Boolean = false,
     val maxWeightInput: String = "",
-    val error: String? = null
+    val error: String? = null,
+    /** The number format frozen when the editor opened. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 ) {
     val isOpen: Boolean
         get() = tag != null
@@ -159,7 +181,9 @@ data class StationEditorState(
     val maxInput: String = "",
     val incrementInput: String = "",
     val saving: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    /** The number format frozen when the editor opened. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 ) {
     val isOpen: Boolean get() = equipmentId != null
 
@@ -176,12 +200,15 @@ data class StationEditorState(
                 !hasGridInput ||
                     (
                         gridInputs.all { it.isNotBlank() } &&
-                            minInput.toDoubleOrNull()?.let { it >= 0.0 } == true &&
-                            maxInput.toDoubleOrNull()?.let { max ->
-                                val min = minInput.toDoubleOrNull() ?: return@let false
+                            parseLocalizedDecimal(minInput, numberFormat)
+                                ?.let { it >= 0.0 } == true &&
+                            parseLocalizedDecimal(maxInput, numberFormat)?.let { max ->
+                                val min = parseLocalizedDecimal(minInput, numberFormat)
+                                    ?: return@let false
                                 max >= min
                             } == true &&
-                            incrementInput.toDoubleOrNull()?.let { it > 0.0 } == true
+                            parseLocalizedDecimal(incrementInput, numberFormat)
+                                ?.let { it > 0.0 } == true
                         )
                 )
 }

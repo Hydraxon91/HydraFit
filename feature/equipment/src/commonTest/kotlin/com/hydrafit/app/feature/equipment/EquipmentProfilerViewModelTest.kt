@@ -833,7 +833,8 @@ class EquipmentProfilerViewModelTest {
         assertNull(viewModel.state.value.exerciseEditor.involvementEditor)
 
         viewModel.onEditMuscleInvolvement(MuscleGroup.QUADS)
-        assertEquals("1.0", viewModel.state.value.exerciseEditor.involvementEditor?.input)
+        // The exact prefill drops a redundant `.0`, so a whole stored weight reopens as "1".
+        assertEquals("1", viewModel.state.value.exerciseEditor.involvementEditor?.input)
         viewModel.onInvolvementInputChanged("0.2")
         viewModel.onDismissExerciseEditor()
         assertNull(viewModel.state.value.exerciseEditor.involvementEditor)

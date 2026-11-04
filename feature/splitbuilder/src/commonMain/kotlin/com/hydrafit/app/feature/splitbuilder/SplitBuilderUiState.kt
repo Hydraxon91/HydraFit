@@ -12,6 +12,19 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.DistanceUnit
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+
+/**
+ * Renders a weight for display with the live presentation format: at most one decimal place, the
+ * locale decimal separator, and a trailing `.0` dropped. Stored values are never rounded through
+ * this text; editable prefills use the exact text helper instead.
+ */
+internal fun formatSplitWeightForDisplay(
+    value: Double,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = formatLocalizedDecimal(value, format)
 
 /** The scheduling choices shown when a generated plan is started as a block. */
 data class SplitScheduleDialogState(

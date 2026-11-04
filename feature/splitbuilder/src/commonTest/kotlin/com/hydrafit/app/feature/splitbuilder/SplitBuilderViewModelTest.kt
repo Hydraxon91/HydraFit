@@ -71,6 +71,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.test.AfterTest
@@ -1284,6 +1285,35 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun aCommaForceEntryIsAcceptedAndPrefillsAsComma() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(forceAcceptedPlan().copy(id = 1L))
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planHistory = history,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        advanceUntilIdle()
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        assertEquals("250", viewModel.state.value.measureDialog?.value)
+
+        viewModel.onMeasureValueChanged("312,5")
+        assertEquals("312,5", viewModel.state.value.measureDialog?.value)
+        viewModel.onMeasureConfirmed()
+        advanceUntilIdle()
+
+        // The force field keeps its plain-newton value; the locale only changes the separator.
+        assertEquals(
+            312.5,
+            history.latest()!!.days.single().exercises.single().forceNewtons
+        )
+
+        viewModel.onMeasureRequested(dayIndex = 0, position = 0)
+        assertEquals("312,5", viewModel.state.value.measureDialog?.value)
+    }
+
+    @Test
     fun switchingAWeightedSlotToForceClearsTheShownLoadAndOrderedTargets() = runTest(dispatcher) {
         val history = FakePlanHistoryRepository()
         val targets = SlotSetTargets.of(listOf(SetTarget(reps = 8, weightKg = 30.0)))
@@ -2178,6 +2208,7 @@ class SplitBuilderViewModelTest {
         sourcesRepository: WorkoutPlanSourcesRepository? = null,
         timeProvider: TimeProvider = TimeProvider { 0L },
         distanceUnitRepository: DistanceUnitRepository? = null,
+        numberFormat: PresentationNumberFormat = PresentationNumberFormat('.'),
         onActivation: () -> Unit = {}
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
@@ -2204,7 +2235,8 @@ class SplitBuilderViewModelTest {
             planHistory = planHistory,
             exerciseCatalog = catalog,
             enginePreference = preference,
-            distanceUnitRepository = distanceUnitRepository
+            distanceUnitRepository = distanceUnitRepository,
+            numberFormatProvider = { numberFormat }
         )
     }
 

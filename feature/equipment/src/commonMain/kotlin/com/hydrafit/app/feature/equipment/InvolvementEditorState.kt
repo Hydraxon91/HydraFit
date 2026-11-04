@@ -1,6 +1,9 @@
 package com.hydrafit.app.feature.equipment
 
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
 /**
  * The in-progress numeric involvement edit for one muscle. The draft is ephemeral: it exists only
@@ -13,11 +16,13 @@ data class InvolvementEditorState(
     val initialInput: String,
     /** The stored weight the editor opened with, or null when the muscle had no contribution. */
     val origin: Double?,
-    val input: String = initialInput
+    val input: String = initialInput,
+    /** The number format frozen when the editor opened. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 ) {
     /** The parsed field value, or null when the text is not a number (including blank). */
     val enteredWeight: Double?
-        get() = input.trim().toDoubleOrNull()
+        get() = parseLocalizedDecimal(input, numberFormat)
 
     /**
      * Blank text is invalid: removal is the explicit `0`/None choice, never an empty field. Any
@@ -49,13 +54,18 @@ data class InvolvementEditorState(
         const val NONE_INPUT: String = "0"
 
         /** Seeds a draft from the muscle's current weight, showing `0` when it has no contribution. */
-        fun forMuscle(muscle: MuscleGroup, weight: Double?): InvolvementEditorState {
-            val text = weight?.toString() ?: NONE_INPUT
+        fun forMuscle(
+            muscle: MuscleGroup,
+            weight: Double?,
+            format: PresentationNumberFormat = PresentationNumberFormat('.')
+        ): InvolvementEditorState {
+            val text = weight?.let { exactLocalizedDecimalText(it, format) } ?: NONE_INPUT
             return InvolvementEditorState(
                 muscle = muscle,
                 initialInput = text,
                 origin = weight,
-                input = text
+                input = text,
+                numberFormat = format
             )
         }
     }

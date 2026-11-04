@@ -12,6 +12,22 @@ class InvolvementEditorStateTest {
     private fun draft(weight: Double?) = InvolvementEditorState.forMuscle(MuscleGroup.QUADS, weight)
 
     @Test
+    fun aCommaLocaleSeedsAndParsesTheLocaleSeparator() {
+        val comma = com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat(',')
+        val draft = InvolvementEditorState.forMuscle(MuscleGroup.QUADS, 0.5, comma)
+        assertEquals("0,5", draft.input)
+        assertEquals(0.5, draft.enteredWeight)
+        assertEquals(0.5, draft.weightToApply())
+
+        // Untouched text keeps the stored double exactly, without a text round-trip.
+        val untouched = InvolvementEditorState.forMuscle(MuscleGroup.QUADS, 0.83, comma)
+        assertEquals(0.83, untouched.weightToApply())
+
+        // Two separators are ambiguous and refused.
+        assertFalse(untouched.copy(input = "0,8.3").isValid)
+    }
+
+    @Test
     fun anUnsetMuscleSeedsZeroAndItsUntouchedApplyIsANoOp() {
         val unset = draft(null)
         assertEquals(InvolvementEditorState.NONE_INPUT, unset.input)

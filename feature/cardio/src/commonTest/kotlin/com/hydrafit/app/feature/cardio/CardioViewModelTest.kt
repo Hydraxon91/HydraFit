@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -265,6 +266,32 @@ class CardioViewModelTest {
     }
 
     @Test
+    fun aCommaDistanceIsAcceptedAndStoredAsWholeMetres() = runTest(dispatcher) {
+        val repository = FakeCardioRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            format = com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat(',')
+        )
+        advanceUntilIdle()
+
+        viewModel.onAddActivity()
+        viewModel.onEditorMinutesChanged("10")
+        viewModel.onEditorDistanceChanged("100,6")
+        viewModel.onEditorSubmit()
+        advanceUntilIdle()
+
+        assertEquals(101, repository.addCalls.single().distanceMeters)
+
+        // Two separators are ambiguous and refused rather than guessed.
+        viewModel.onAddActivity()
+        viewModel.onEditorMinutesChanged("10")
+        viewModel.onEditorDistanceChanged("1.234,5")
+        viewModel.onEditorSubmit()
+        advanceUntilIdle()
+        assertEquals(1, repository.addCalls.size)
+    }
+
+    @Test
     fun aFeetDistanceIsStoredAsWholeMetres() = runTest(dispatcher) {
         val repository = FakeCardioRepository()
         val viewModel = viewModel(
@@ -393,11 +420,13 @@ class CardioViewModelTest {
     private fun viewModel(
         repository: FakeCardioRepository = FakeCardioRepository(),
         unitRepository: FakeDistanceUnitRepository =
-            FakeDistanceUnitRepository(DistanceUnit.METERS)
+            FakeDistanceUnitRepository(DistanceUnit.METERS),
+        format: PresentationNumberFormat = PresentationNumberFormat('.')
     ): CardioViewModel = CardioViewModel(
         repository = repository,
         distanceUnitRepository = unitRepository,
-        timeProvider = timeProvider
+        timeProvider = timeProvider,
+        numberFormatProvider = { format }
     )
 
     private fun activity(

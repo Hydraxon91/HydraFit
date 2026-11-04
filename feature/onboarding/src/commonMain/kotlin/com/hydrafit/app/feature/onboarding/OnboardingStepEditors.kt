@@ -37,8 +37,9 @@ import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.setup.SetupStepInput
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import hydrafit.feature.onboarding.generated.resources.Res
 import hydrafit.feature.onboarding.generated.resources.onboarding_build_routine
 import hydrafit.feature.onboarding.generated.resources.onboarding_day_friday
@@ -367,7 +368,7 @@ private fun PersonalRecordsEditor(
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = personalRecordLabel(state.entryUnit, record),
+                        text = personalRecordLabel(state.entryUnit, record, state.numberFormat),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -400,7 +401,7 @@ private fun PersonalRecordEntry(
     onSave: () -> Unit,
     onUnknown: () -> Unit
 ) {
-    val weight = parseDisplayWeight(entry.weightText)
+    val weight = parseDisplayWeight(entry.weightText, entry.numberFormat)
     val reps = parseReps(entry.repsText)
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -443,17 +444,20 @@ private fun PersonalRecordEntry(
 }
 
 @Composable
-private fun personalRecordLabel(unit: WeightUnit, record: PersonalRecord?): String =
-    if (record == null) {
-        stringResource(Res.string.onboarding_pr_none)
-    } else {
-        stringResource(
-            Res.string.onboarding_pr_value,
-            formatWeight(unit.kilogramsToDisplay(record.weightKg)),
-            unit.label,
-            record.reps.toString()
-        )
-    }
+private fun personalRecordLabel(
+    unit: WeightUnit,
+    record: PersonalRecord?,
+    format: PresentationNumberFormat
+): String = if (record == null) {
+    stringResource(Res.string.onboarding_pr_none)
+} else {
+    stringResource(
+        Res.string.onboarding_pr_value,
+        formatLocalizedDecimal(unit.kilogramsToDisplay(record.weightKg), format),
+        unit.label,
+        record.reps.toString()
+    )
+}
 
 @Composable
 private fun FirstWorkoutEditor(enabled: Boolean, onHandoff: (AppTab) -> Unit) {

@@ -37,7 +37,6 @@ import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecord
@@ -45,6 +44,8 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.bodyweight_cancel
 import hydrafit.feature.progress.generated.resources.progress_back
@@ -617,7 +618,7 @@ private fun SupportingSetDetail(
         text = when {
             forceNewtons != null -> stringResource(
                 Res.string.progress_history_force_line,
-                formatWeight(forceNewtons)
+                formatLocalizedDecimal(forceNewtons, currentPresentationNumberFormat())
             )
 
             distanceMeters != null -> stringResource(
@@ -720,7 +721,7 @@ private fun HistorySetRow(
         text = "$role · " + when {
             forceNewtons != null -> stringResource(
                 Res.string.progress_history_force_line,
-                formatWeight(forceNewtons)
+                formatLocalizedDecimal(forceNewtons, currentPresentationNumberFormat())
             )
 
             distanceMeters != null -> stringResource(
@@ -758,7 +759,7 @@ private fun deviceAttributionText(device: DeviceAttribution): String {
         stringResource(
             Res.string.progress_device_attributed_rated,
             device.name,
-            formatWeight(ratingKg)
+            formatLocalizedDecimal(ratingKg, currentPresentationNumberFormat())
         )
     }
 }

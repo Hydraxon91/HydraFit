@@ -78,7 +78,6 @@ import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
@@ -610,7 +609,9 @@ fun SplitBuilderScreen(
                                 withLoadBasis(
                                     weight = stringResource(
                                         Res.string.split_suggested_weight,
-                                        formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                        formatSplitWeightForDisplay(
+                                            weightUnit.kilogramsToDisplay(kg)
+                                        ),
                                         weightUnit.label
                                     ),
                                     basis = state.exerciseLoadBasis[exercise.exerciseId]
@@ -944,7 +945,7 @@ private fun exerciseLine(
         sets,
         stringResource(
             Res.string.split_measure_force_value,
-            formatWeight(forceNewtons)
+            formatSplitWeightForDisplay(forceNewtons)
         ),
         weight
     )
@@ -1060,8 +1061,8 @@ private fun MeasureError.labelText(distanceUnit: DistanceUnit): String = when (t
     MeasureError.DISTANCE_TOO_LARGE -> stringResource(Res.string.split_measure_error_distance_large)
     MeasureError.FORCE_RANGE -> stringResource(
         Res.string.split_measure_error_force,
-        formatWeight(PrescriptionBounds.MIN_FORCE_NEWTONS),
-        formatWeight(PrescriptionBounds.MAX_FORCE_NEWTONS)
+        formatSplitWeightForDisplay(PrescriptionBounds.MIN_FORCE_NEWTONS),
+        formatSplitWeightForDisplay(PrescriptionBounds.MAX_FORCE_NEWTONS)
     )
     MeasureError.FORCE_TOO_LARGE -> stringResource(Res.string.split_measure_error_force_large)
 }
@@ -1088,7 +1089,7 @@ private fun SwapCandidateDialog(
                             withLoadBasis(
                                 weight = stringResource(
                                     Res.string.split_suggested_weight,
-                                    formatWeight(weightUnit.kilogramsToDisplay(kg)),
+                                    formatSplitWeightForDisplay(weightUnit.kilogramsToDisplay(kg)),
                                     weightUnit.label
                                 ),
                                 basis = loadBasis(
@@ -1220,11 +1221,11 @@ private fun explanationLineText(line: TargetExplanationLine, weightUnit: WeightU
     val rendered = when (line.valueKind) {
         TargetExplanationValueKind.KILOGRAMS -> stringResource(
             Res.string.split_explanation_kilograms,
-            formatWeight(weightUnit.kilogramsToDisplay(value)),
+            formatSplitWeightForDisplay(weightUnit.kilogramsToDisplay(value)),
             weightUnit.label
         )
-        TargetExplanationValueKind.PERCENT -> formatWeight(value * 100.0) + "%"
-        else -> formatWeight(value)
+        TargetExplanationValueKind.PERCENT -> formatSplitWeightForDisplay(value * 100.0) + "%"
+        else -> formatSplitWeightForDisplay(value)
     }
     return stringResource(Res.string.split_explanation_line, label, rendered)
 }
@@ -1381,8 +1382,8 @@ private fun PlanExplanationContext(explanation: PlanExplanation) {
         Text(
             text = stringResource(
                 Res.string.split_explanation_plan_deload_scales,
-                formatWeight(explanation.deloadVolumeScale * 100.0) + "%",
-                formatWeight(explanation.deloadIntensityScale * 100.0) + "%"
+                formatSplitWeightForDisplay(explanation.deloadVolumeScale * 100.0) + "%",
+                formatSplitWeightForDisplay(explanation.deloadIntensityScale * 100.0) + "%"
             ),
             style = MaterialTheme.typography.bodySmall
         )

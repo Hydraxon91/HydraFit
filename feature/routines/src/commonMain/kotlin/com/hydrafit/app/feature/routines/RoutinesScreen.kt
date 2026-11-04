@@ -70,7 +70,6 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
 import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
@@ -1218,14 +1217,14 @@ private fun progressionSummary(policy: SlotProgressionPolicy): String {
             Res.string.routines_progression_summary,
             policy.minReps,
             policy.maxReps,
-            formatWeight(policy.incrementKg)
+            formatRoutineWeightForDisplay(policy.incrementKg)
         )
     } else {
         stringResource(
             Res.string.routines_progression_summary_equipment,
             policy.minReps,
             policy.maxReps,
-            formatWeight(policy.incrementKg),
+            formatRoutineWeightForDisplay(policy.incrementKg),
             equipmentId
         )
     }
@@ -1558,7 +1557,10 @@ private fun setTargetsShapeLabel(shape: SetPrescriptionShape): String = when (sh
 @Composable
 private fun setTargetsPreviewLine(index: Int, target: SetTarget): String {
     val load = target.weightKg?.let {
-        stringResource(Res.string.routines_set_targets_load_single, formatWeight(it))
+        stringResource(
+            Res.string.routines_set_targets_load_single,
+            formatRoutineWeightForDisplay(it)
+        )
     } ?: stringResource(Res.string.routines_set_targets_preview_no_load)
     return stringResource(
         Res.string.routines_set_targets_preview_set,
@@ -1614,11 +1616,14 @@ private fun setTargetsSummary(targets: SlotSetTargets): String {
             if (lastLoad != null && lastLoad != firstLoad) {
                 stringResource(
                     Res.string.routines_set_targets_load_span,
-                    formatWeight(firstLoad),
-                    formatWeight(lastLoad)
+                    formatRoutineWeightForDisplay(firstLoad),
+                    formatRoutineWeightForDisplay(lastLoad)
                 )
             } else {
-                stringResource(Res.string.routines_set_targets_load_single, formatWeight(firstLoad))
+                stringResource(
+                    Res.string.routines_set_targets_load_single,
+                    formatRoutineWeightForDisplay(firstLoad)
+                )
             }
         )
     }

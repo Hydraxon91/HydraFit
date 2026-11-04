@@ -123,6 +123,28 @@ class OnboardingDraftRulesTest {
     }
 
     @Test
+    fun aCommaLocaleParsesAndPrefillsTheLocaleSeparator() {
+        val comma = com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat(',')
+        assertEquals(72.5, parseDisplayWeight("72,5", comma))
+        assertNull(parseDisplayWeight("1.234,5", comma))
+
+        val draft = personalRecordEntryDraft(
+            "bench",
+            WeightUnit.KG,
+            PersonalRecord("bench", 72.5, 5),
+            comma
+        )
+        assertEquals("72,5", draft.weightText)
+        // An untouched entry stages nothing and keeps the stored kilograms.
+        assertNull(decidePersonalRecordEntry(draft, WeightUnit.KG))
+
+        assertEquals(
+            72.5,
+            personalRecordFrom("bench", WeightUnit.KG, "72,5", "5", comma)?.weightKg
+        )
+    }
+
+    @Test
     fun anOpenedEntryStartsFromTheShownRecordInTheFrozenUnitAndRemembersIt() {
         assertEquals(
             PersonalRecordEntryDraft("bench", "80", "5", PersonalRecord("bench", 80.0, 5)),

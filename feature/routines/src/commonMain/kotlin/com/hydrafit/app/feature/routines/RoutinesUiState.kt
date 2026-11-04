@@ -16,6 +16,19 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+
+/**
+ * Renders a weight for display with the live presentation format: at most one decimal place, the
+ * locale decimal separator, and a trailing `.0` dropped. Stored kilograms are never rounded through
+ * this text; editable prefills use the exact text helper instead.
+ */
+internal fun formatRoutineWeightForDisplay(
+    value: Double,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = formatLocalizedDecimal(value, format)
 
 /** A catalog exercise the routine editor can pick; [isExcluded] marks an EX-01 exclusion. */
 data class RoutineExerciseOption(val id: String, val name: String, val isExcluded: Boolean = false)
