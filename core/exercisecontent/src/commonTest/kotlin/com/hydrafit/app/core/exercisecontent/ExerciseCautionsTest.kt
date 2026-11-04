@@ -29,7 +29,10 @@ class ExerciseCautionsTest {
 
     @Test
     fun theIndicationIsIndependentOfAuthoredInstructions() {
-        assertFalse(ExerciseInstructionSource.keysByExerciseId.containsKey("conventional-deadlift"))
+        // Either lookup may exist alone; a caution neither requires nor suppresses instruction text.
+        assertTrue(ExerciseInstructionSource.keysByExerciseId.containsKey("conventional-deadlift"))
         assertTrue(ExerciseCautions.hasTechniqueConsiderations("conventional-deadlift"))
+        assertTrue(ExerciseInstructionSource.keysByExerciseId.containsKey("barbell-bench-press"))
+        assertFalse(ExerciseCautions.hasTechniqueConsiderations("barbell-bench-press"))
     }
 }

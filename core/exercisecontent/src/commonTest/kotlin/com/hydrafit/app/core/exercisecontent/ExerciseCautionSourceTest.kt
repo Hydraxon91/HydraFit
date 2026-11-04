@@ -95,16 +95,20 @@ class ExerciseCautionSourceTest {
     }
 
     /**
-     * Cautions are independent of instructions: an exercise can carry a caution without an authored
-     * instruction, which is the case for two of the three approved IDs.
+     * Cautions are independent of instructions: either, both or neither may exist for one stable ID.
+     * `romanian-deadlift` carried both before this batch; `conventional-deadlift` and `dumbbell-rdl`
+     * gained instructions in the 0.13.2 coverage batch and keep their cautions unchanged, and
+     * `barbell-bench-press` has instructions with no caution.
      */
     @Test
     fun cautionsAreIndependentOfInstructions() {
-        assertNull(ExerciseInstructionSource.keysFor("conventional-deadlift"))
-        assertNull(ExerciseInstructionSource.keysFor("dumbbell-rdl"))
+        assertNotNull(ExerciseInstructionSource.keysFor("conventional-deadlift"))
         assertNotNull(ExerciseCautionSource.cautionFor("conventional-deadlift"))
+        assertNotNull(ExerciseInstructionSource.keysFor("dumbbell-rdl"))
         assertNotNull(ExerciseCautionSource.cautionFor("dumbbell-rdl"))
         assertNotNull(ExerciseInstructionSource.keysFor("romanian-deadlift"))
         assertNotNull(ExerciseCautionSource.cautionFor("romanian-deadlift"))
+        assertNotNull(ExerciseInstructionSource.keysFor("barbell-bench-press"))
+        assertNull(ExerciseCautionSource.cautionFor("barbell-bench-press"))
     }
 }

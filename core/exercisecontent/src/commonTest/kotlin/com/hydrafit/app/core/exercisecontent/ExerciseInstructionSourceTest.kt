@@ -50,7 +50,27 @@ class ExerciseInstructionSourceTest {
         "close-grip-bench-press",
         "front-squat",
         "bodyweight-squat",
-        "bulgarian-split-squat"
+        "bulgarian-split-squat",
+        "leg-press",
+        "dumbbell-rdl",
+        "conventional-deadlift",
+        "hip-thrust",
+        "glute-bridge",
+        "kettlebell-swing",
+        "bodyweight-calf-raise",
+        "plank",
+        "cable-crunch",
+        "hammer-curl",
+        "supinated-curl",
+        "preacher-curl",
+        "close-grip-pulldown",
+        "wide-grip-pulldown",
+        "incline-barbell-press",
+        "decline-barbell-press",
+        "ez-bar-upright-row",
+        "seated-ez-bar-curl",
+        "trap-bar-deadlift",
+        "dumbbell-lunge"
     )
 
     @Test

@@ -416,6 +416,38 @@ Coverage is still partial: 37 of the seeded catalog's exercises carry instructio
 The remaining batches retain the same contract and stay open until they close on set equality with
 the seed, which `ExerciseInstructionSeedCoverageTest` will assert in both directions.
 
+### 0.13.2 instruction coverage — batch 2 (2026-11-04)
+
+Twenty further entries under the same contract. `conventional-deadlift` and `dumbbell-rdl` already
+carry a technique consideration; the instruction describes control and setup and does not repeat or
+contradict it.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `leg-press` | Leg Press | leg press machine, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-rdl` | Dumbbell Romanian Deadlift | dumbbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `conventional-deadlift` | Conventional Deadlift | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `hip-thrust` | Hip Thrust | barbell + bench, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `glute-bridge` | Glute Bridge | bodyweight, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `kettlebell-swing` | Kettlebell Swing | kettlebell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `bodyweight-calf-raise` | Bodyweight Calf Raise | bodyweight, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `plank` | Plank | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-crunch` | Cable Crunch | cable machine, core | HydraFit-authored English Setup/Execution; no external text source |
+| `hammer-curl` | Hammer Curl | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `supinated-curl` | Supinated Curl | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `preacher-curl` | Preacher Curl | barbell + bench, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `close-grip-pulldown` | Close-Grip Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `wide-grip-pulldown` | Wide-Grip Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-barbell-press` | Incline Barbell Press | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `decline-barbell-press` | Decline Barbell Press | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `ez-bar-upright-row` | EZ Bar Upright Row | EZ bar, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-ez-bar-curl` | Seated EZ Bar Curl | EZ bar, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `trap-bar-deadlift` | Trap Bar Deadlift | trap bar, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-lunge` | Dumbbell Lunge | dumbbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 2 is 57 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is
