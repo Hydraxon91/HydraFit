@@ -1608,3 +1608,63 @@ dependency, CI workflow or publication change.
 - Living-doc acceptance here is a record of the existing declaration and mapping,
   not new enforcement; `.maestro/README.md` keeps the same structural checks as the
   other declared documents.
+
+## Emulator lifecycle helper and live batch state (2026-11-04)
+
+Release `0.13.1` added `scripts/emulator-lifecycle.py` because the batch needed to
+use four emulator profiles without running them concurrently. The tool is not a
+sandbox: it checks device identity and readiness, but the calling agent's rules and
+the user's approval remain the real controls.
+
+### What was added
+
+- **Start/stop for four named AVDs only:** `Medium_Phone`, `Pixel_Tablet`,
+  `Pixel_Fold` and `6.7_Horizontal_Fold-in`. Each action refuses non-emulator
+  targets, more than one connected emulator, an unallowlisted AVD identity, and a
+  start while any emulator process remains. Start waits for the requested AVD
+  identity and `sys.boot_completed`; stop sends the console's graceful shutdown and
+  waits for both ADB disconnection and process exit.
+- **No recovery behavior:** every subprocess call is bounded, the whole operation
+  has a maximum 300-second deadline, startup logs must be outside the checkout, and
+  `stop` requires an explicit `--journey-ended` assertion. A timeout or failed check
+  reports and stops; it never retries, force-kills, wipes data or reinstalls a driver.
+- **Policy sync:** `AGENTS.md`, `docs/agent-ui-verification.md`, the UI-testing skill
+  and `docs/agent-project-reference.md` now scope the exception to an accepted
+  task/batch contract, parent-only ownership, one device at a time and reconciled
+  writes. A stricter harness instruction still wins.
+
+### Live use at this boundary
+
+- The batch started, used and stopped all four AVDs sequentially on API 37.2 ARM64:
+  tablet layout/rotation and timer/scroll acceptance, book-fold fold/unfold,
+  clamshell half-open/closed/reopened postures, and compact-phone navigation.
+- One tablet start returned `emulator-5554` and a successful launch. One empty
+  bounded Maestro hierarchy call later timed out; the parent stopped rather than
+  restarting the driver, then resumed only under a separately approved fresh session.
+  Both devices disconnected and reported exited emulator processes on `stop`.
+- `scripts/task-state.py` ran a second live `/batch` journey: contract init, per-chunk
+  `begin`/`resolve`, a six-hour `extend`, scope `amend`, evidence, boundary checks and
+  `ready`. Resume correctly reported drift and a pending operation after an
+  unrecorded consolidation step, which was resolved by inspection rather than replay.
+
+### Verification
+
+- `python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'` — **278 tests
+  OK**, including 14 lifecycle cases covering identity, refusal, boot, shutdown and
+  deadline behavior with no device.
+- `python3 -B scripts/validate-agent-tooling.py` — 13 definitions, 30 surface files,
+  **0 findings**; ShellCheck and `git diff --check` clean.
+- PR #49 CI and post-merge `main` CI passed all jobs.
+
+### Limits
+
+- Offline tests do not prove boot, posture or shutdown behavior on a specific system
+  image; the four-device run is one live observation, not a repeated benchmark.
+- Process detection covers standard macOS SDK emulator executable names. It is not a
+  host-wide ownership sandbox, and it cannot verify that an app write is safe to
+  interrupt — `--journey-ended` is a caller declaration.
+- The helper's four-AVD allowlist is deliberately narrow. Adding a device requires a
+  code change and a fresh approval, not a command-line override.
+- The clamshell emulator kept its full display size in every posture and reported the
+  app accessible while closed, so its pass does not establish Samsung cover-screen or
+  reduced-height Flex behavior.

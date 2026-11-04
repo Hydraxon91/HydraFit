@@ -487,7 +487,7 @@ release is distinct from the former 0.13.4 slice mapped to 0.13.1 above.
 | Version | Reviewable scope | Dependencies / references |
 | --- | --- | --- |
 | 0.13.0 | Shared design tokens and navigation hierarchy; workout/logging screen polish; remaining screen/component polish (former `0.13.0`–`0.13.2`) | QL-01 + OCT13-06; agreed design direction, scoped components rather than a full rewrite; decide expired-rest dismissal without interrupting duration edits; preserve drafts, targets, session and timer semantics; split into further screen-specific releases if too broad |
-| 0.13.1 | Adaptive tablet layouts and wide-window navigation; seamless foldable layouts and posture transitions (former `0.13.3`–`0.13.4`) | UX-01; rail/single-row navigation and useful multi-pane layouts; tablet foundation, draft/workout/scroll/selection continuity |
+| 0.13.1 | Adaptive tablet layouts and wide-window navigation; seamless foldable layouts and posture transitions (former `0.13.3`–`0.13.4`). **Published 2026-11-04 as `v0.13.1`** | UX-01; rail/single-row navigation and useful multi-pane layouts; tablet foundation, draft/workout/scroll/selection continuity |
 | 0.13.2 | Final accessibility remediation; final localization and instruction-coverage remediation (former `0.13.5`–`0.13.6`) | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access; locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
 | 0.13.3 | Final UI-state and recovery remediation; integration of preceding scopes (former `0.13.7`–`0.13.8`) | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, remaining ledger/performance checks, docs, licenses and supported-device limits; final visual acceptance and 1.0-readiness closure follow in 0.13.4 |
 | 0.13.4 | Visual identity and final integration (added 2026-11-02) | QL-01; distinctive light/dark palette, typography, surfaces, shapes and consistent component styling; user-approved visual proofs before integration; preserve training/data behaviour; verify affected screens, contrast, text scaling and colour-independent information, then complete final integration and 1.0-readiness closure |
@@ -616,8 +616,8 @@ Verification-only closure does not require an otherwise empty APK release.
   are exempt from pause cancellation, genuine backgrounding is not (approved
   2026-11-04). User approved the 1200dp global content cap / 120dp rail. Required
   timer and meaningful-scroll evidence now have independent targeted closure;
-  implementation is verified/reviewed, publication pending. Limits and non-blocking
-  review notes remain in `docs/qa.md`.
+  implementation is verified, reviewed and published as `v0.13.1`. Limits and
+  non-blocking review notes remain in `docs/qa.md`.
 - Full light/dark, approved text-scale/layout, screen-reader/focus, touch-target,
   colour-independent metrics and locale/date/number/resource coverage.
 - Consistent first-run, empty, loading, error, cancel, retry and recovery states;
