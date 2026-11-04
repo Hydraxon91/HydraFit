@@ -50,9 +50,10 @@ Accessibility disposition for the changed flows:
 | Touch targets | Partial | Interactive list rows and exercise pickers expose at least 48dp semantic bounds; text buttons show 40dp visual bounds and rely on Compose's minimum touch-target expansion, which was not individually measured. |
 | TalkBack speech | Unverified | Semantics exist, but no listening evidence was captured. |
 
-Post-change device check: debug APK built from `fc3b260a`+fixes, installed over the existing data on
-`emulator-5554`, launched without a HydraFit crash, and the Train screen rendered with labelled
-controls, selected-tab state and 48dp list rows (`/tmp/hf0132-postchange-train.png`). The app locale
+Post-change device check: debug APK built from code tip `0f91d9c0` (later commits are docs-only),
+installed over the existing data on `emulator-5554`, launched without a HydraFit crash entry in
+`adb logcat -b crash`, and the Train screen rendered with labelled controls, selected-tab state and
+48dp list rows (`/tmp/hf0132-postchange-train.png`). The app locale
 was temporarily set to `de-DE` and restored to unset; font scale stayed 1.0, night mode `no`, and
 the accessibility service list stayed empty. Comma entry was **not** exercised through the device
 UI in this pass; it is covered by ViewModel and state tests, so on-device keyboard behaviour remains
@@ -69,9 +70,11 @@ unverified.
   technical encoding.
 - Routines distinguishes loading, empty success and read failure, keeps loaded data and open
   editors on a failed refresh, and retries reads only.
-- Fresh evidence: full host matrix `hf0132-full2.log` (432 tasks executed, 0 up-to-date; 338
-  suites, 3188 tests, 0 failures) including `verifySqlDelightMigration`; iOS simulator compile
-  `hf0132-ios2.log` (93 tasks executed, 0 up-to-date) for every touched module.
+- Fresh evidence at the reviewed code tip: full host matrix `hf0132-full3.log` (432 tasks executed,
+  0 up-to-date; 338 suites, 3190 tests, 0 failures) including `verifySqlDelightMigration`;
+  review-fix suites `hf0132-fix-test3.log`; iOS simulator compile `hf0132-ios3.log` (53 tasks
+  executed, 0 up-to-date) for the logger, routines and equipment modules touched by the fixes. The
+  earlier batch-wide iOS run `hf0132-ios2.log` covered every touched module before the fixes.
 - Verification limits: human-facing dates still use the unambiguous ISO form rather than a
   localized layout; loading-inventory native ticks keep their fixed technical encoding; TalkBack
   speech, measured contrast, device integration and signed-release upgrade behavior remain

@@ -617,7 +617,10 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
             )
             val activation = state.activeActivation
             if (activation == null) {
-                Text(stringResource(Res.string.routines_no_active))
+                // A failed read already shows its own banner; never also claim there is no block.
+                if (!state.activationLoadFailed) {
+                    Text(stringResource(Res.string.routines_no_active))
+                }
                 return@Column
             }
             Text(

@@ -86,6 +86,9 @@ class RoutinesViewModel(
 
     private var occurrencesJob: Job? = null
 
+    /** The activation read; restartable so the failure banner's Retry can re-subscribe. */
+    private var activationReadJob: Job? = null
+
     /** The block whose rows are currently shown; null before the first activation read. */
     private var observedActivationId: Long? = null
 
@@ -150,7 +153,16 @@ class RoutinesViewModel(
         viewModelScope.launch {
             distanceUnitRepository?.unitFlow()?.collect { distanceUnit = it }
         }
-        viewModelScope.launch {
+        startActivationObservation()
+    }
+
+    /**
+     * Observes the active block and, through it, the block's schedule. Restartable: a failed read
+     * leaves the flag set, and Retry re-subscribes instead of leaving a stranded error state.
+     */
+    private fun startActivationObservation() {
+        activationReadJob?.cancel()
+        activationReadJob = viewModelScope.launch {
             try {
                 scheduleActions.observeActiveActivation().collect { activation ->
                     val previousId = observedActivationId
@@ -227,8 +239,8 @@ class RoutinesViewModel(
     fun refresh() {
         updateExerciseOptions()
         templatesRefresh.value += 1
-        // A failed schedule read is retried here too; reads have no side effects.
-        _state.value.activeActivation?.let { startOccurrenceObservation(it.id) }
+        // Restart the activation read as well, so a failed block read can actually be retried.
+        startActivationObservation()
     }
 
     // --- Editor ---

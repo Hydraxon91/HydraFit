@@ -760,6 +760,32 @@ class RoutinesViewModelTest {
     }
 
     @Test
+    fun aFailedActivationReadIsRetryableAndKeepsTheLastBlock() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+        viewModel.onConfirmActivation()
+        advanceUntilIdle()
+        val blockId = assertNotNull(viewModel.state.value.activeActivation).id
+
+        schedule.failActivation = true
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.activationLoadFailed)
+        assertEquals(blockId, viewModel.state.value.activeActivation?.id)
+
+        schedule.failActivation = false
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.activationLoadFailed)
+        assertEquals(blockId, viewModel.state.value.activeActivation?.id)
+    }
+
+    @Test
     fun aFailedFirstLoadEndsLoadingAndLeavesARetryableFailure() = runTest(dispatcher) {
         val snapshot = SnapshotRoutineTemplateRepository()
         snapshot.failReads = true
@@ -2003,6 +2029,9 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
 
     /** When true, schedule reads throw; nothing is written or cleared. */
     var failOccurrences = false
+
+    /** When true, the activation read throws; the last published block is retained. */
+    var failActivation = false
     private var nextActivationId = 1L
     private var nextWorkoutId = 1L
     private var nextActivationEntryId = 1L
@@ -2011,8 +2040,12 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
 
     override fun observeScheduleState(): Flow<WorkoutScheduleState> = state.map { it }
 
-    override fun observeActiveActivation(): Flow<TrainingActivation?> =
-        activationState.map { list -> list.lastOrNull { it.status == ActivationStatus.ACTIVE } }
+    override fun observeActiveActivation(): Flow<TrainingActivation?> = flow {
+        if (failActivation) throw IllegalStateException("activation read failed")
+        activationState.collect { list ->
+            emit(list.lastOrNull { it.status == ActivationStatus.ACTIVE })
+        }
+    }
 
     override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> = flow {
         if (failOccurrences) throw IllegalStateException("occurrence read failed")
