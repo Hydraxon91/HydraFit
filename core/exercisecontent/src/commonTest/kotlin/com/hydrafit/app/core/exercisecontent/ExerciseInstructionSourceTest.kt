@@ -130,7 +130,27 @@ class ExerciseInstructionSourceTest {
         "barbell-walking-lunge",
         "dumbbell-rear-lunge",
         "dumbbell-step-ups",
-        "elevated-back-lunge"
+        "elevated-back-lunge",
+        "lunge-pass-through",
+        "step-up-with-knee-raise",
+        "barbell-seated-calf-raise",
+        "calf-press",
+        "calf-raise-on-a-dumbbell",
+        "calf-raises-with-bands",
+        "seated-calf-raise",
+        "smith-machine-calf-raise",
+        "standing-barbell-calf-raise",
+        "standing-dumbbell-calf-raise",
+        "cable-crossover",
+        "cable-iron-cross",
+        "decline-dumbbell-flyes",
+        "dumbbell-flyes",
+        "incline-cable-flye",
+        "incline-dumbbell-flyes",
+        "incline-dumbbell-flyes-with-a-twist",
+        "low-cable-crossover",
+        "cable-preacher-curl",
+        "concentration-curls"
     )
 
     @Test

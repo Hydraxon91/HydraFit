@@ -544,6 +544,38 @@ simpler alternative rather than presenting the advanced version as the expected 
 Coverage after batch 5 is 117 of the seeded catalog. The remaining batches stay open until they
 close on set equality with the seed.
 
+### 0.13.2 instruction coverage — batch 6 (2026-11-04)
+
+Twenty further entries under the same contract, covering lunge/step-up variants, eight calf
+variants and six chest-fly variants. Calf entries keep the knee position the equipment implies and
+do not add a claimed range target.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `lunge-pass-through` | Lunge Pass Through | kettlebell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `step-up-with-knee-raise` | Step-up with Knee Raise | bodyweight, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-seated-calf-raise` | Barbell Seated Calf Raise | barbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `calf-press` | Calf Press | calf raise machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `calf-raise-on-a-dumbbell` | Calf Raise On A Dumbbell | dumbbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `calf-raises-with-bands` | Calf Raises - With Bands | resistance band, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-calf-raise` | Seated Calf Raise | calf raise machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `smith-machine-calf-raise` | Smith Machine Calf Raise | Smith machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-barbell-calf-raise` | Standing Barbell Calf Raise | barbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-dumbbell-calf-raise` | Standing Dumbbell Calf Raise | dumbbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-crossover` | Cable Crossover | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-iron-cross` | Cable Iron Cross | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `decline-dumbbell-flyes` | Decline Dumbbell Flyes | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-flyes` | Dumbbell Flyes | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-cable-flye` | Incline Cable Flye | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-dumbbell-flyes` | Incline Dumbbell Flyes | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-dumbbell-flyes-with-a-twist` | Incline Dumbbell Flyes - With A Twist | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `low-cable-crossover` | Low Cable Crossover | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-preacher-curl` | Cable Preacher Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `concentration-curls` | Concentration Curls | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 6 is 137 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is
