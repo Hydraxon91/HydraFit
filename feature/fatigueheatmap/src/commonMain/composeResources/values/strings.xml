@@ -35,6 +35,9 @@
     <string name="fatigue_map_female">Female</string>
     <string name="fatigue_map_load_failed">The body map could not be loaded. Muscle values are still available below.</string>
     <string name="fatigue_map_retry">Retry</string>
+    <string name="fatigue_load_progress">Loading your recorded training…</string>
+    <string name="fatigue_load_failed">Could not read your training history, so the estimates are not shown. Your recorded sets have not been changed.</string>
+    <string name="fatigue_load_retry">Retry</string>
     <string name="fatigue_map_figure_description">%1$s, %2$s — estimated muscle fatigue</string>
     <string name="fatigue_map_legend_low">Low estimated fatigue</string>
     <string name="fatigue_map_legend_high">High estimated fatigue</string>

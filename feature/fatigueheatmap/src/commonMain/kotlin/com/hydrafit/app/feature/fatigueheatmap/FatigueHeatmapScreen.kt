@@ -7,9 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,6 +47,9 @@ import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_uncl
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_coverage_unknown_history
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_estimate_note
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_heatmap_title
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_load_failed
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_load_progress
+import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_load_retry
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_map_close
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_map_open
 import hydrafit.feature.fatigueheatmap.generated.resources.fatigue_percentage
@@ -101,12 +107,19 @@ fun FatigueHeatmapRoute(
     DisposableEffect(viewModel) {
         onDispose { viewModel.onPause() }
     }
-    FatigueHeatmapScreen(state = state, modifier = modifier)
+    FatigueHeatmapScreen(state = state, onRetry = viewModel::retry, modifier = modifier)
 }
 
 @Composable
-fun FatigueHeatmapScreen(state: FatigueHeatmapUiState, modifier: Modifier = Modifier) {
+fun FatigueHeatmapScreen(
+    state: FatigueHeatmapUiState,
+    onRetry: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     var mapVisible by rememberSaveable { mutableStateOf(false) }
+    // The overlay renders the same values as the list, so it is offered only once they are a
+    // computed result: a loading or failed state must not open an all-neutral or stale figure.
+    val mapReady = !state.isLoading && !state.loadFailed
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -124,23 +137,66 @@ fun FatigueHeatmapScreen(state: FatigueHeatmapUiState, modifier: Modifier = Modi
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.weight(1f)
             )
-            TextButton(onClick = { mapVisible = true }) {
-                Text(text = stringResource(Res.string.fatigue_map_open))
+            if (mapReady) {
+                TextButton(onClick = { mapVisible = true }) {
+                    Text(text = stringResource(Res.string.fatigue_map_open))
+                }
             }
         }
         Text(
             text = stringResource(Res.string.fatigue_estimate_note),
             style = MaterialTheme.typography.bodySmall
         )
-        if (state.coverageComputed) {
-            FatigueCoverageHeading(state = state)
-        }
-        state.entries.forEach { entry ->
-            MuscleFatigueRow(entry = entry, state = state)
+        when {
+            state.isLoading -> FatigueLoadProgress()
+            state.loadFailed -> FatigueLoadFailure(onRetry = onRetry)
+            else -> {
+                if (state.coverageComputed) {
+                    FatigueCoverageHeading(state = state)
+                }
+                state.entries.forEach { entry ->
+                    MuscleFatigueRow(entry = entry, state = state)
+                }
+            }
         }
     }
-    if (mapVisible) {
+    if (mapVisible && mapReady) {
         BodyMapDialog(state = state, onDismiss = { mapVisible = false })
+    }
+}
+
+/**
+ * An uncomputed map would otherwise render as a grid of zeroes, which reads as "no fatigue". The
+ * progress label says what is actually happening and is announced once when it appears.
+ */
+@Composable
+private fun FatigueLoadProgress() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        Text(
+            text = stringResource(Res.string.fatigue_load_progress),
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+private fun FatigueLoadFailure(onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = stringResource(Res.string.fatigue_load_failed),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Button(onClick = onRetry) {
+            Text(text = stringResource(Res.string.fatigue_load_retry))
+        }
     }
 }
 

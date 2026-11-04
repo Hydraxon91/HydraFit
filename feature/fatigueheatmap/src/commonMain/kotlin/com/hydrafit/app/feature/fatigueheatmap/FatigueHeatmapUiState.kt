@@ -22,5 +22,14 @@ data class FatigueHeatmapUiState(
     val unclassifiedSetsInWindow: Int = 0,
     val hasUnclassifiedHistory: Boolean = false,
     val coverageComputed: Boolean = false,
-    val isLoading: Boolean = true
+    /**
+     * True until the first computation completes. The screen keeps this distinct from a computed map:
+     * an uncomputed grid of zeroes would read as "no fatigue", which is a different claim.
+     */
+    val isLoading: Boolean = true,
+    /**
+     * True when reading the log or coverage failed. The map is not trustworthy until a retry succeeds,
+     * so the screen shows the failure instead of the last partial grid.
+     */
+    val loadFailed: Boolean = false
 )
