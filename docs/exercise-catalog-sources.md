@@ -448,6 +448,38 @@ contradict it.
 Coverage after batch 2 is 57 of the seeded catalog. The remaining batches stay open until they
 close on set equality with the seed.
 
+### 0.13.2 instruction coverage — batch 3 (2026-11-04)
+
+Twenty further entries under the same contract. The advanced variants (`handstand-push-ups`,
+`single-arm-push-up`, `ab-roll`) and the behind-the-neck press describe a controlled range and a
+manageable starting variation; no entry presents a progression path or a safety guarantee.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `barbell-shoulder-press` | Barbell Shoulder Press | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `ab-roll` | Ab Roll | bodyweight + ab roller, core | HydraFit-authored English Setup/Execution; no external text source |
+| `leg-extension` | Leg Extension | leg extension machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-dumbbell-side-bend` | Standing Dumbbell Side Bend | dumbbell, core | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-triceps-overhead-extension` | Dumbbell Triceps Overhead Extension | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-front-to-lateral-raise-combo` | Dumbbell Front to Lateral Raise combo | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `bench-press-with-chains` | Bench Press with Chains | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-chest-press` | Cable Chest Press | cable machine, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `handstand-push-ups` | Handstand Push-Ups | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-push-up-medium` | Incline Push-Up Medium | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-push-up-wide` | Incline Push-Up Wide | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-up-to-side-plank` | Push Up to Side Plank | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-up-wide` | Push-Up Wide | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `single-arm-push-up` | Single-Arm Push-Up | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-shoulder-press` | Cable Shoulder Press | cable machine, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `dip-machine` | Dip Machine | dip bar, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `double-kettlebell-push-press` | Double Kettlebell Push Press | kettlebell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-press` | Push Press | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-press-behind-the-neck` | Push Press - Behind the Neck | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-cable-shoulder-press` | Seated Cable Shoulder Press | cable machine, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 3 is 77 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is

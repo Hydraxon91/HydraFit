@@ -70,7 +70,27 @@ class ExerciseInstructionSourceTest {
         "ez-bar-upright-row",
         "seated-ez-bar-curl",
         "trap-bar-deadlift",
-        "dumbbell-lunge"
+        "dumbbell-lunge",
+        "barbell-shoulder-press",
+        "ab-roll",
+        "leg-extension",
+        "standing-dumbbell-side-bend",
+        "dumbbell-triceps-overhead-extension",
+        "dumbbell-front-to-lateral-raise-combo",
+        "bench-press-with-chains",
+        "cable-chest-press",
+        "handstand-push-ups",
+        "incline-push-up-medium",
+        "incline-push-up-wide",
+        "push-up-to-side-plank",
+        "push-up-wide",
+        "single-arm-push-up",
+        "cable-shoulder-press",
+        "dip-machine",
+        "double-kettlebell-push-press",
+        "push-press",
+        "push-press-behind-the-neck",
+        "seated-cable-shoulder-press"
     )
 
     @Test
