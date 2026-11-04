@@ -94,10 +94,18 @@ actions under the title, not stacked primary buttons. With nothing selected, the
 and option list render inline; with a selection, the screen shows the exercise name and a
 **Change exercise** action whose dialog hosts the same search and list, applies the existing
 selection callback and closes. Nothing is auto-selected, and opening the dialog neither resets
-nor prefills the query. Range and station chips use wrapping flow rows, with a `Station` label
-above the station chips. Trend, all-time records and recorded history keep separate headings,
-notes and independent loading, error, empty and paging states, so changing the chart range
-never changes record scope or history paging.
+nor prefills the query. Range, metric and station chips use wrapping flow rows, with a
+`Station` label above the station chips. The metric selector offers **External load-volume**
+(initial) and **Estimated 1RM**; changing it only reprojects the days already loaded, keeps
+the selected exercise, range and station, and persists for the ViewModel's lifetime. Trend,
+all-time records and recorded history keep separate headings, notes and independent loading,
+error, empty and paging states, so changing the chart range or metric never changes record
+scope or history paging. A metric with no observations in the range shows its own message while
+the numeric day table, records and history stay visible. Both metrics draw one dated mark per
+recorded day and join consecutive observations with straight lines, including across unlogged
+dates; the line never invents a daily value or crosses without a recorded endpoint. Volume uses a
+zero baseline and `kg·reps`/`lb·reps` labels; estimates use padded automatic kg/lb bounds. Date
+labels are reduced or stacked from measured widths rather than dropped or overlapped.
 
 `BodyWeightScreen` leads with **Add measurement** and the trend. Goal editing sits behind a
 collapsed **Edit goal** disclosure that still shows the current goal line; the input,
@@ -224,6 +232,21 @@ transferring it between slots. New slots all share the default local id until sa
 new-routine path moving two unsaved slots can still reset or carry an open state; that residual is
 accepted rather than giving unsaved entries a new identity contract. These are presentation states only:
 no ViewModel field, persisted value, ordering rule, pairing rule or unit changes.
+
+## Quiet Strength presentation in Logger and Routines (0.13.4)
+
+Logger and Routines take the Quiet Strength identity from `MaterialTheme` only: their grouped
+sections use the grouped surface role with a modest medium shape and an outline-variant boundary,
+screen/workout names use the large/title roles, exercise names use the title role, and supporting
+target, progress and schedule lines use the small body role with supporting text colour. The active
+rest timer sits on a `primaryContainer` strip with `onPrimaryContainer` content; it keeps the
+existing countdown, cancel, duration editing and dismissal behavior. The workout Start/Resume
+action, the current guided set's Start and completion actions, and Routines' Activate and editor
+Save are filled primary actions with the medium shape. Ordinary guided Log set, Replace, Edit,
+Cancel and Add workout actions are outlined or text treatments. Workout actions, Guided actions,
+Advanced and More actions stay labelled menus or disclosures, so overflow, confirmation and
+destructive copy are unchanged. These are presentation roles and spacing only: no callback,
+condition, write guard, timer, schedule, save/cancel, unit or ordering behavior changes.
 
 ## Ordered per-set prescription surfaces (0.10.2)
 
@@ -1042,9 +1065,16 @@ name disappears), observes a 28/84/365-day chart window plus all-time records fr
 `observeHistory`, and resolves one contributing set with `observeSet`. Charts plot a mark at each
 recorded day's actual position with no interpolation or fake zero days, and every canvas has a
 numeric `ProgressDayTable` equivalent; the canvas is `clearAndSetSemantics` so it is not announced
-twice. Units are display-only (`WeightUnit`). Load kinds stay separate populations, and the
-`ESTIMATED_ONE_REP_MAX` record is backed by external load only. Nothing is written, so no draft,
-session or log state changes.
+twice. The metric selector (external load-volume by default, estimated 1RM second) reprojects
+`ProgressDay.externalVolumeKg` or `ProgressDay.estimatedOneRepMax.value` without re-reading; a
+missing estimate is never fabricated or auto-substituted. Volume axes start at zero in kg·reps
+or lb·reps; estimated-1RM axes pad the observed bounds by 5% of their span (or a fixed minimum for
+a flat/single value), clamp the lower bound at zero, and use deterministic 1/2/5 × 10^n ticks.
+Dates stay actual ISO civil days, reduced to fit the measured width with the first and last always
+shown; the numeric table states each day's estimated 1RM or that it is unavailable, including on
+metric-empty days. Units are display-only (`WeightUnit`). Load kinds stay separate populations,
+and the `ESTIMATED_ONE_REP_MAX` record is backed by external load only. Nothing is written, so no
+draft, session or log state changes.
 
 The 0.9.0 equipment-profile section is split across four new files plus the extended screen/state/
 ViewModel. `EquipmentProfilePresentation.kt` owns the presentation projections: `EquipmentProfileRow`,

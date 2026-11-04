@@ -116,6 +116,86 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
 | **Beyond 1.0** | iOS shipping, including Keychain-backed ApiKeyStore, and desktop. |
 
+### 0.13.4 — Quiet Strength and Progress charts
+
+**Status 2026-11-04:** P0 selected tokens; P1 shared theme implemented with fresh full matrix (3211 host tests reported, migrations/lint/debug/both iOS compiles). P2 charts, P3 Logger and P4 Routines implemented; measured date labels and keyboard-open dialog actions corrected after UI checks. DeepSeek ui-runner passed the original pinned phone journeys at light/dark/2.0. Straight connecting lines were later approved, implemented, verified on phone at light/dark/2.0 and covered by a 3228-test matrix. Independent review returned INCOMPLETE: R134-01 and R134-03 are closed; R134-02 documentation closure is recorded, and R134-04 is the user's decision whether to accept the missing cross-device/TalkBack/locale/fault/Routines-specific acceptance as publication limits. P1 is mixed main/coder implementation. No publication authorized. Evidence: `docs/qa.md` §0.13.4 and external task `quiet-strength-0134`.
+
+**Scope and implementation owners approved 2026-11-04.** Baseline: `main` at
+`f8fa94e9`, after the published 0.13.2/0.13.3 merge. The user explicitly authorized
+this detailed PLANS.md addition. Preserve the existing untracked design document
+and all reference boards in `docs/design/0.13.4/`.
+
+**Outcome:** apply the six latest Quiet Strength boards through bounded theme and
+screen changes, and deliver selectable **External load-volume / Estimated 1RM**
+charts. Existing training, data, navigation and adaptive-layout semantics stay intact.
+
+**Model selection:** use `opencode-go/deepseek-v4.1-flash` for `coder`, `ui-runner`
+and the separately authorized read-only reviewer. Main agent retains the shared
+theme, chart decisions/implementation, integration and documentation consolidation.
+Workers run serially; no concurrent shared-tree edits or device controllers.
+
+| Chunk | Owner and rationale | Files / work | Acceptance and checks |
+| --- | --- | --- | --- |
+| P0 — exact identity | Main; cohesive visual decisions | Update `docs/design-0.13.4.md` with the six latest boards; specify exact light/dark colour roles, typography, shapes, spacing and component states. Existing system font and Material components; no new dependencies. | Measured contrast table and approved token sheet before app integration. Boards are visual references, not pixel-level accessibility evidence. No additional generation round required. |
+| P1 — shared theme | Main; cross-cutting visual contract | `shared/.../App.kt`, new `AppTheme.kt`, `shared/.../AppColorSchemeTest.kt`. Complete theme roles, typography/shapes and navigation/surface states; replace tests pinning default Material palettes. | Tier A full matrix at this boundary; preserve system theme selection, navigation and startup/recovery behavior. |
+| P2 — Progress layout/charts | Main; coordinated metric/state/accessibility work | `feature/progress/.../{ProgressScreen,ProgressCharts,ProgressUiState,ProgressViewModel}.kt`, new internal `ProgressChartModel.kt`, resources and corresponding tests. | Tier C plus existing domain-calculator/database Progress tests. Compact exercise-first layout, metric/range/station controls, axes/grid, accessible daily values, records/supporting sets and independent history/paging recovery. |
+| P3 — Train/editors | Coder; bounded presentation-only work after tokens settle | `feature/logger/.../WorkoutLoggerScreen.kt`, `LoggedSetEditDialog.kt`, relevant resources/presentation tests. | Tier C; overview/focused/rest hierarchy, numeric readability, reachable keyboard-open editor actions; preserve all logging modes, drafts, guards, timers and failed-write recovery. Logger ViewModel/domain changes excluded. |
+| P4 — Routines and inherited surfaces | Coder for Routines; main for integration | `feature/routines/.../RoutinesScreen.kt`, relevant resources/tests. Inspect Settings, Manage plan, Equipment, Body weight, onboarding, instructions and recovery consumers under the new theme. | Tier C for localized changes. Prefer inherited styling; any additional source edit needs an exact bounded scope before implementation. Preserve actions, disclosures, scheduling, errors and confirmations. |
+| P5 — integration | Main consolidates; ui-runner executes prepared acceptance | Fresh full matrix, sequential emulator acceptance, living-doc updates and requested review checkpoint. | No completion inferred from earlier release evidence. Preserve verification limits and unresolved readiness decisions. |
+
+**User amendment 2026-11-04:** the user requested connecting lines. Both metrics draw straight
+segments between consecutive recorded observations across unlogged dates, with dots at recorded
+values and no interpolation, smoothing, fabricated days or forecasts. This supersedes the
+original marker-only wording but changes no stored, calculated or empty-state data.
+
+**Approved chart contract:**
+
+- Initial metric is External load-volume; keep 28/84/365-day ranges and existing station filters.
+- Both metrics use actual dated markers with straight segments joining consecutive recorded
+  observations across unlogged dates; no smoothing, invented zero days, interpolation or forecasts.
+- X-axis uses actual civil dates with non-overlapping labels. Volume is zero-based and labelled
+  `kg·reps` / `lb·reps`; Estimated 1RM uses clearly labelled padded automatic bounds in kg/lb,
+  including single/flat-value handling. Use restrained horizontal gridlines and readable ticks.
+- Retain metric selection across exercise/range/filter changes and resizing within the existing
+  ViewModel lifetime; add no persisted preference or process-death guarantee.
+- Reuse `ProgressDay.externalVolumeKg` and `estimatedOneRepMax`; no second Epley calculation,
+  planner baseline or repository replay on metric switching. Preserve eligibility and unit helpers.
+- Metric-specific missing-data messages never silently change selection or hide existing history.
+  Keep the numeric daily table, add daily estimated 1RM and explicit unavailable values.
+- All-time records, supporting-set access and paged history remain independently scoped. Preserve
+  the wide picker/detail arrangement; Change exercise stays secondary.
+- Tests cover metric projection/continuity, axes/bounds/ticks, kg/lb/localized decimals,
+  empty/single/flat/sparse observations, missing estimates with recorded history, loading/failure/
+  paging independence and unchanged Body weight consumers of existing chart helpers.
+
+**Verification:** scoped format pass, inspect its delta, then separate lint and fresh affected-module
+tests/debug assembly at each boundary. Final matrix: `testAndroidHostTest`,
+`:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+`:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`,
+plus applicable graph checks. Every Gradle invocation uses the bounded wrapper; inherited tasks
+are not fresh verification. UI acceptance covers light/dark, 2.0 text, long labels, comma decimals,
+keyboard-open editors, relevant empty/loading/error/retry states, phone/tablet/foldable layouts and
+selection/scroll/draft/timer continuity. Main authors/diagnoses bounded journeys; ui-runner executes
+prepared contracts. Explicit manual TalkBack speech acceptance remains required; semantics alone
+do not close it. Reference screenshots are not acceptance evidence.
+
+**Docs:** main owns design-doc updates, QA consolidation, affected architecture/mechanics references
+and PLANS.md status updates. Existing body-map artwork/fatigue meanings remain unchanged. No schema,
+backup-format, DI, dependency, module-graph, CI/signing, icon/splash, training-calculation change,
+automatic data cleanup or unrelated refactor is authorized. Push/publication needs separate approval.
+
+**Execution contract:** accepted four-hour autonomous run. Exact token selection was delegated
+against the boards and contrast criteria; P0 tokens were produced. Independent review is requested
+by this contract, with in-scope mechanical corrections and later targeted closure; publication and
+push remain unapproved. Stop on missing permission, unexpected writes, unsafe data effects, exhausted
+budget, unavailable required checks, unresolved design decisions or the existing two-failed-fixes
+limit. Implementation and the prepared phone navigation/chart/editor/line acceptance are complete;
+Routines-specific visuals, TalkBack, tablet/foldable and locale/fault checks remain unverified and
+are not claimed. Independent review returned INCOMPLETE; R134-01 was corrected with its regression
+test, R134-02 documentation status was corrected, and R134-03 is recorded as the 32sp timer
+deviation. R134-04 remains the user's explicit decision: accept the missing acceptance checks as
+recorded publication limits, or request their execution.
+
 - During pre-1.0 development, a minor series represents a theme; its patch versions deliver smaller feature slices or explicitly labelled corrections. This approved 2026-10-11 policy supersedes the former corrective-only patch rule for future releases, not shipped history.
 - Each combined feature release has its own bounded acceptance, verification and separately requested review before publication; implementation chunks remain small and are verified individually. The [2026-10-15 grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15) governs publication boundaries. Required migrations, data portability, consumers, tests and docs ship with the affected capability; do not defer them to a later integration release.
 - Corrective releases take the next available patch number and shift later provisional targets. Reserved targets are not tags; never reuse a published version. Decision-only work gets no standalone APK, and unsupported research outcomes require explicit disposition rather than empty releases.

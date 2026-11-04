@@ -658,9 +658,10 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   `commonMain` declarations with Android/iOS implementations. Settings also uses a narrow
   modifier adapter to expose guidance and storage test tags as Android resource IDs, with a no-op on iOS.
 - **Consistency:** high; `:core:domain` stays platform-free.
-- **Theme:** the shared app shell follows the system theme using Material3's standard light/dark
-  palettes, preserving the default light palette. Android's `enableEdgeToEdge()` follows system
-  night mode for bar icons; there is no separate app theme setting.
+- **Theme:** the shared app shell follows the system theme using the Quiet Strength Material3 palette
+  (`AppTheme.kt`: graphite/teal roles plus matching typography and shapes; tokens and measured
+  contrast in `docs/design-0.13.4.md`). Android's `enableEdgeToEdge()` follows system night mode for
+  bar icons; there is no separate app theme setting.
 - **Orientation and insets:** phones are portrait-locked and large screens (>= 600dp) may rotate, via
   a size-qualified `screen_orientation` integer applied by `MainActivity` at runtime (manifest
   orientation cannot vary by screen-size configuration); iOS locks iPhone to portrait and leaves iPad free.
