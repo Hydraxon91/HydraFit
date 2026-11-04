@@ -90,7 +90,27 @@ class ExerciseInstructionSourceTest {
         "double-kettlebell-push-press",
         "push-press",
         "push-press-behind-the-neck",
-        "seated-cable-shoulder-press"
+        "seated-cable-shoulder-press",
+        "shoulder-press-with-bands",
+        "standing-military-press",
+        "barbell-rear-delt-row",
+        "bent-over-barbell-row",
+        "dumbbell-incline-row",
+        "one-arm-dumbbell-row",
+        "shotgun-row",
+        "t-bar-row-with-handle",
+        "upright-barbell-row",
+        "upright-cable-row",
+        "close-grip-front-lat-pulldown",
+        "full-range-of-motion-lat-pulldown",
+        "one-arm-lat-pulldown",
+        "underhand-cable-pulldowns",
+        "v-bar-pulldown",
+        "v-bar-pullup",
+        "wide-grip-pulldown-behind-the-neck",
+        "wide-grip-rear-pull-up",
+        "box-squat",
+        "dumbbell-squat"
     )
 
     @Test

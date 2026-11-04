@@ -480,6 +480,38 @@ manageable starting variation; no entry presents a progression path or a safety 
 Coverage after batch 3 is 77 of the seeded catalog. The remaining batches stay open until they
 close on set equality with the seed.
 
+### 0.13.2 instruction coverage — batch 4 (2026-11-04)
+
+Twenty further entries under the same contract, covering presses, rows, pulldowns and squats. The
+behind-the-neck variants describe a comfortable range and offer an in-front alternative; none
+presents a stretched position as a target.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `shoulder-press-with-bands` | Shoulder Press - With Bands | resistance band, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-military-press` | Standing Military Press | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-rear-delt-row` | Barbell Rear Delt Row | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `bent-over-barbell-row` | Bent Over Barbell Row | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-incline-row` | Dumbbell Incline Row | dumbbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `one-arm-dumbbell-row` | One-Arm Dumbbell Row | dumbbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `shotgun-row` | Shotgun Row | cable machine, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `t-bar-row-with-handle` | T-Bar Row with Handle | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `upright-barbell-row` | Upright Barbell Row | barbell, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `upright-cable-row` | Upright Cable Row | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `close-grip-front-lat-pulldown` | Close-Grip Front Lat Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `full-range-of-motion-lat-pulldown` | Full Range-Of-Motion Lat Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `one-arm-lat-pulldown` | One Arm Lat Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `underhand-cable-pulldowns` | Underhand Cable Pulldowns | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `v-bar-pulldown` | V-Bar Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `v-bar-pullup` | V-Bar Pullup | bodyweight, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `wide-grip-pulldown-behind-the-neck` | Wide-Grip Pulldown Behind The Neck | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `wide-grip-rear-pull-up` | Wide-Grip Rear Pull-Up | bodyweight, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `box-squat` | Box Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-squat` | Dumbbell Squat | dumbbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 4 is 97 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is
