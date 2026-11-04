@@ -24,7 +24,7 @@ a locale-formatted field. A grouped entry such as `1.234,5` under a comma locale
 guessed.
 
 The Logger's manual form retains canonical kilograms beside its display text. A preference change
-reformats valid input from the retained value with `exactEntryText`; it does not round the value at
+reformats valid input from the retained value with `exactLocalizedDecimalText`; it does not round the value at
 each toggle. Whole-metre manual distance uses the same approach, with `DistanceUnit` converting the
 retained integer to display text. Blank remains absent, while invalid/incomplete nonblank input is
 preserved and cannot be submitted. This is separate from draft/correction editors, which freeze the
@@ -32,6 +32,12 @@ unit captured when they opened. Recent-set and accepted-plan weight prefills als
 text after unit conversion, keeping the rendered value and submitted canonical kilograms consistent.
 Switching the manual measure away from distance clears its canonical metres as well as its text, so
 selecting distance again requires a fresh positive entry before logging.
+
+Remaining non-locale-aware surfaces: the import preview renders stored weights with the plain dot
+formatter because it mirrors an interchange file, and loading-inventory tick amounts keep their
+fixed technical encoding. Human-facing dates are presented in unambiguous ISO form rather than a
+localized layout; that choice is recorded as a release limitation, not silently claimed as
+localized.
 
 Draft editor force and device-rating prefills are also exact entry text, not one-decimal display
 formatting: both opening the editor and Reset preserve the stored double through the editor's

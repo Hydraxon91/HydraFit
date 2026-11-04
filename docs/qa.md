@@ -36,7 +36,19 @@ tablet/foldable layouts, signed-release runtime, and any database-preservation p
 
 ### 0.13.2 implementation status (2026-11-04)
 
-Local implementation is complete and the 0.13.3 scope is folded into this release.
+The 0.13.2 implementation is complete. 0.13.3 is folded into this release: its Routines recovery
+slice is implemented and evidenced below; the integration checks in this section are its remaining
+gate, so 0.13.3 is not yet a complete candidate.
+
+Accessibility disposition for the changed flows:
+
+| Criterion | Result | Evidence / limit |
+| --- | --- | --- |
+| Accessible labels and selected states | Pass (structure) | Baseline navigation journey asserted selected containers; the changed screens use labelled text buttons and fields, with no unlabelled icon-only controls added. |
+| Status not conveyed by colour alone | Pass (structure) | Read failures render text plus a Retry action; load states use text/spinner rather than colour. |
+| Contrast (WCAG AA) | Unverified | No pixel-level measurement; dark and light screenshots are visual evidence only. |
+| Touch targets | Unverified | No measured hit-area audit in this batch. |
+| TalkBack speech | Unverified | Semantics exist, but no listening evidence was captured. |
 
 - Instruction coverage is closed on set equality with the 195-entry seeded catalog; the coverage
   test fails if a seed has no text or text exists for no seed.
@@ -44,7 +56,9 @@ Local implementation is complete and the 0.13.3 scope is folded into this releas
   Logger's manual/correction/cluster/warm-up fields, the routine editor and its cluster and
   set-target dialogs, the split-builder measure dialog, the equipment profiler and onboarding
   personal records. Comma locales accept their separator or a dot, refuse ambiguous grouping and
-  keep canonical kilograms, whole metres and plain newtons.
+  keep canonical kilograms, whole metres and plain newtons. The import preview keeps the plain
+  dot form because it mirrors an interchange file, and loading-inventory ticks stay a fixed
+  technical encoding.
 - Routines distinguishes loading, empty success and read failure, keeps loaded data and open
   editors on a failed refresh, and retries reads only.
 - Fresh evidence: full host matrix `hf0132-full2.log` (432 tasks executed, 0 up-to-date; 338

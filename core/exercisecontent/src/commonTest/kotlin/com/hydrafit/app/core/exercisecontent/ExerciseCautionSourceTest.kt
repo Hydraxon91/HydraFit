@@ -95,10 +95,11 @@ class ExerciseCautionSourceTest {
     }
 
     /**
-     * Cautions are independent of instructions: either, both or neither may exist for one stable ID.
-     * `romanian-deadlift` carried both before this batch; `conventional-deadlift` and `dumbbell-rdl`
-     * gained instructions in the 0.13.2 coverage batch and keep their cautions unchanged, and
-     * `barbell-bench-press` has instructions with no caution.
+     * Cautions are independent of instructions: either lookup may be present or absent on its own.
+     * Now that every seeded identity carries instructions, a caution-only fixture no longer exists;
+     * the both-present cases (`conventional-deadlift`, `dumbbell-rdl`, `romanian-deadlift`) and the
+     * instructions-only case (`barbell-bench-press`) still prove neither lookup derives from the
+     * other, and `blankUnknownCustomAndDisplayNamesHaveNoCaution` above covers the neither case.
      */
     @Test
     fun cautionsAreIndependentOfInstructions() {
