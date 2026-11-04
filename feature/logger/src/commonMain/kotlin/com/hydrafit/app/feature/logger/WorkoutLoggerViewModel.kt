@@ -2986,7 +2986,10 @@ class WorkoutLoggerViewModel(
     private fun OccurrenceEntry.measureInput(): String = when {
         durationSeconds != null -> durationSeconds.toString()
         distanceMeters != null -> distanceMeters.toString()
-        forceNewtons != null -> forceNewtons.toString()
+        forceNewtons != null -> exactLocalizedDecimalText(
+            requireNotNull(forceNewtons),
+            numberFormat
+        )
         else -> reps?.toString().orEmpty()
     }
 

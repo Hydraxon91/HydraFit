@@ -52,6 +52,8 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
@@ -1506,7 +1508,7 @@ private fun involvementValueLabel(weight: Double): String = when (involvementTie
     InvolvementTier.MID -> stringResource(Res.string.equipment_tier_mid)
     InvolvementTier.HIGH -> stringResource(Res.string.equipment_tier_high)
     InvolvementTier.PRIMARY -> stringResource(Res.string.equipment_tier_primary)
-    null -> weight.toString()
+    null -> formatLocalizedDecimal(weight, currentPresentationNumberFormat())
 }
 
 internal fun InvolvementTier.labelResource(): StringResource = when (this) {

@@ -128,6 +128,7 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -1793,6 +1794,37 @@ class WorkoutLoggerViewModelTest {
         assertNull(viewModel.state.value.measureChange)
         assertEquals(30, viewModel.state.value.draftSets.single().durationSeconds)
         assertNull(viewModel.state.value.draftSets.single().reps)
+    }
+
+    @Test
+    fun aCommaLocaleSeedsTheMeasureDialogWithItsSeparator() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val forceOccurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id != 30L) return@map occurrence
+            occurrence.copy(
+                entries = occurrence.entries.map { entry ->
+                    entry.copy(
+                        sets = 2,
+                        reps = null,
+                        durationSeconds = null,
+                        weightKg = null,
+                        forceNewtons = 247.35
+                    )
+                }
+            )
+        }
+        schedule.set(blockActivation(), forceOccurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        runCurrent()
+
+        viewModel.openMeasureChange(40L)
+        assertEquals("247,35", viewModel.state.value.measureChange?.value)
     }
 
     @Test
@@ -11808,6 +11840,7 @@ class WorkoutLoggerViewModelTest {
         guidedTargets: GuidedWorkoutTargetsRepository? = null,
         progressionContexts: SlotProgressionContextRepository =
             FakeSlotProgressionContextRepository(),
+        numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT,
         progression: ProgressionUseCases = progressionUseCases(
             schedule,
             repository,
@@ -11846,7 +11879,8 @@ class WorkoutLoggerViewModelTest {
         applyGuidedTargets = guidedTargetUseCase(repository, schedule, guidedTargets),
         changeEntryMeasure = changeMeasureUseCase(repository, schedule, guidedTargets),
         suggestSlotProgression = progression.suggest,
-        applySlotProgressionSuggestion = progression.apply
+        applySlotProgressionSuggestion = progression.apply,
+        numberFormatProvider = { numberFormat }
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(
@@ -14214,3 +14248,7 @@ class WorkoutLoggerViewModelTest {
         const val DAY = 24L * 60L * 60L * 1000L
     }
 }
+
+/** Dot-locale entry text for fixtures; production code always passes the live format. */
+private fun exactEntryText(value: Double): String =
+    exactLocalizedDecimalText(value, PresentationNumberFormat('.'))

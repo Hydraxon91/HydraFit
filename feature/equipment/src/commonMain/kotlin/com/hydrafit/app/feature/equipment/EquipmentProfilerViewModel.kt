@@ -1187,7 +1187,9 @@ class EquipmentProfilerViewModel(
         _state.update { current ->
             val editor = current.exerciseEditor
             val draft = editor.involvementEditor ?: return@update current
-            val text = weight?.toString() ?: InvolvementEditorState.NONE_INPUT
+            val text = weight
+                ?.let { exactLocalizedDecimalText(it, draft.numberFormat) }
+                ?: InvolvementEditorState.NONE_INPUT
             current.copy(exerciseEditor = editor.copy(involvementEditor = draft.copy(input = text)))
         }
     }

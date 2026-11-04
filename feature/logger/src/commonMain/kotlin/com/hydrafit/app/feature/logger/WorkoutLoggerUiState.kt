@@ -31,7 +31,6 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummary
 import com.hydrafit.app.core.exercisecontent.ExerciseCautions
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
-import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
@@ -112,28 +111,12 @@ internal val DEFAULT_PRESENTATION_FORMAT = PresentationNumberFormat('.')
  *
  * This keeps the previous display contract — at most one decimal place, with a trailing `.0`
  * dropped — while swapping the decimal separator to the app locale. Canonical values are never
- * rounded through this text; editable prefills use [exactLocalizedDecimalText] instead.
+ * rounded through this text; editable prefills use `exactLocalizedDecimalText` instead.
  */
 internal fun formatWeightForDisplay(
     value: Double,
     format: PresentationNumberFormat = currentPresentationNumberFormat()
 ): String = formatLocalizedDecimal(value, format)
-
-/**
- * The stored value as entry text that parses back to the *same* double under [format].
- *
- * Force and a device rating are prefilled into an editable field and re-read on submit, so a
- * one-decimal display formatter would rewrite an untouched 247.35 N as 247.4 N. A weight avoids
- * that by remembering its original text; these fields instead round-trip exactly, which keeps every
- * prefill, quick-fill and no-op correction from drifting the measurement. Exponential output is
- * expanded to plain decimal digits, because the entry filters accept only digits and a separator.
- *
- * The default dot format exists for fixtures and unit tests; production code passes the live format.
- */
-internal fun exactEntryText(
-    value: Double,
-    format: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
-): String = exactLocalizedDecimalText(value, format)
 
 /**
  * True when the device fields describe a storable attribution: a blank name means no device and no
