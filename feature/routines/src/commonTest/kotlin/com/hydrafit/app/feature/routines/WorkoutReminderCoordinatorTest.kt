@@ -558,6 +558,8 @@ private class FixedReminderClock(private val nowMillis: Long) : TimeProvider {
 
 private class FakeReminderReadiness : StartupReadiness {
     override val isReady = MutableStateFlow(false)
+    override val hasFailed = MutableStateFlow(false)
+    override fun retry() = Unit
 }
 
 private class FakeReminderPreferences(

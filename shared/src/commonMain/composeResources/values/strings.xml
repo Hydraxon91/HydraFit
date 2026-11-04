@@ -4,4 +4,7 @@
     <string name="nav_train">Train</string>
     <string name="nav_progress">Progress</string>
     <string name="nav_library">Library</string>
+    <string name="startup_failure_title">Can’t open your training data</string>
+    <string name="startup_failure_body">HydraFit couldn’t open the database it needs for your workouts, so no screens have been opened yet. Try again, and if it keeps failing, restart the app.</string>
+    <string name="startup_failure_retry">Try again</string>
 </resources>

@@ -11314,6 +11314,8 @@ class WorkoutLoggerViewModelTest {
             BootIdentityProvider { "boot" },
             object : com.hydrafit.app.core.domain.startup.StartupReadiness {
                 override val isReady = ready
+                override val hasFailed = MutableStateFlow(false)
+                override fun retry() = Unit
             },
             alerts,
             StandardTestDispatcher(testScheduler),
@@ -11421,6 +11423,8 @@ class WorkoutLoggerViewModelTest {
             BootIdentityProvider { "boot" },
             object : com.hydrafit.app.core.domain.startup.StartupReadiness {
                 override val isReady = MutableStateFlow(true)
+                override val hasFailed = MutableStateFlow(false)
+                override fun retry() = Unit
             },
             alerts,
             StandardTestDispatcher(testScheduler),
@@ -11497,6 +11501,8 @@ class WorkoutLoggerViewModelTest {
             BootIdentityProvider { "boot" },
             object : com.hydrafit.app.core.domain.startup.StartupReadiness {
                 override val isReady = readiness
+                override val hasFailed = MutableStateFlow(false)
+                override fun retry() = Unit
             },
             alerts,
             StandardTestDispatcher(testScheduler),

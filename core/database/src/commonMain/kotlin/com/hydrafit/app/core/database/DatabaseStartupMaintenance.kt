@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.backup.ApplyStagedBackupUseCase
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,9 +17,11 @@ import kotlinx.coroutines.launch
  * then reports when it is safe for the UI to read the database. A staged backup is applied first, in
  * the same window, before any writer exists.
  *
- * Failures are left uncaught: an exception surfaces as an unhandled coroutine exception and crashes
- * the process, matching the previous synchronous behaviour rather than masking a half-maintained
- * database or leaving the gate stuck.
+ * A storage failure is reported through [hasFailed] instead of escaping the coroutine: the process
+ * keeps running, the shell keeps its first screen closed and offers [retry]. Nothing is cleared,
+ * replaced or repaired here, so a transient failure can be retried without touching user data. A
+ * cancellation is not a failure and still propagates, so a shutdown or test scope ending never shows
+ * a retryable error.
  */
 class DatabaseStartupMaintenance(
     private val applyStagedBackup: ApplyStagedBackupUseCase,
@@ -32,15 +35,39 @@ class DatabaseStartupMaintenance(
     private val _isReady = MutableStateFlow(false)
     override val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
+    private val _hasFailed = MutableStateFlow(false)
+    override val hasFailed: StateFlow<Boolean> = _hasFailed.asStateFlow()
+
+    private val started = MutableStateFlow(false)
+
     fun start() {
+        // One launch per process: a second call cannot race a second attempt against the first.
+        if (!started.compareAndSet(expect = false, update = true)) return
+        launchAttempt()
+    }
+
+    override fun retry() {
+        // Only a failed attempt may start another one, and clearing the flag before launching keeps a
+        // second tap from queueing a duplicate attempt behind this one.
+        if (!_hasFailed.compareAndSet(expect = true, update = false)) return
+        launchAttempt()
+    }
+
+    private fun launchAttempt() {
         scope.launch {
-            applyStagedBackup()
-            seedExerciseCatalog.seed()
-            seedEquipmentCatalog.seed()
-            customExerciseDedupe.run()
-            workoutSessionBackfill.backfill()
-            searchProjectionBackfill.run()
-            _isReady.value = true
+            try {
+                applyStagedBackup()
+                seedExerciseCatalog.seed()
+                seedEquipmentCatalog.seed()
+                customExerciseDedupe.run()
+                workoutSessionBackfill.backfill()
+                searchProjectionBackfill.run()
+                _isReady.value = true
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _hasFailed.value = true
+            }
         }
     }
 }

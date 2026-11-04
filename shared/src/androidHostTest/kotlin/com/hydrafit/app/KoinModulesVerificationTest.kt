@@ -859,6 +859,8 @@ class KoinModulesVerificationTest {
                     single<StartupReadiness> {
                         object : StartupReadiness {
                             override val isReady = MutableStateFlow(false)
+                            override val hasFailed = MutableStateFlow(false)
+                            override fun retry() = Unit
                         }
                     }
                 },
@@ -931,6 +933,8 @@ class KoinModulesVerificationTest {
                     single<StartupReadiness> {
                         object : StartupReadiness {
                             override val isReady = MutableStateFlow(false)
+                            override val hasFailed = MutableStateFlow(false)
+                            override fun retry() = Unit
                         }
                     }
                 },
@@ -1014,6 +1018,8 @@ class KoinModulesVerificationTest {
                     single<StartupReadiness> {
                         object : StartupReadiness {
                             override val isReady = MutableStateFlow(true)
+                            override val hasFailed = MutableStateFlow(false)
+                            override fun retry() = Unit
                         }
                     }
                 },
@@ -1086,6 +1092,8 @@ class KoinModulesVerificationTest {
                     single<StartupReadiness> {
                         object : StartupReadiness {
                             override val isReady = MutableStateFlow(false)
+                            override val hasFailed = MutableStateFlow(false)
+                            override fun retry() = Unit
                         }
                     }
                     single<GuidedWorkoutPreferenceRepository> {
