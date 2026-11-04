@@ -41,7 +41,7 @@ tags:
 - tapOn:
     text: '^Settings$'
     retryTapIfNoChange: false
-- assertVisible: '^Planning engine$'
+- assertVisible: '^Planner engine$'
 # Settings carries its own way back, so the toolbar entry cannot become a dead end.
 - assertVisible: '^Back$'
 - tapOn:
@@ -52,17 +52,17 @@ tags:
 - tapOn:
     text: '^Settings$'
     retryTapIfNoChange: false
-- assertVisible: '^Planning engine$'
+- assertVisible: '^Planner engine$'
 - tapOn:
     text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible: '^Manage plan$'
-- assertNotVisible: '^Planning engine$'
+- assertNotVisible: '^Planner engine$'
 - tapOn:
     text: '^Train$'
     retryTapIfNoChange: false
 - assertVisible: '^Manage plan$'
-- assertNotVisible: '^Planning engine$'
+- assertNotVisible: '^Planner engine$'
 - assertVisible:
     selected: true
     containsDescendants:

@@ -714,6 +714,19 @@ Font scale was restored to 1.0. No persistent app data was changed.
 Run log: `/tmp/hydrafit-r060-fixes-navigation.log`. This does not verify TalkBack,
 rotation, alternate locales or themes.
 
+## Settings label drift correction (2026-11-04)
+
+`navigation-smoke.yaml` and `settings-guidance-denial.yaml` still asserted the retired
+Settings label `Planning engine`. The shipped label is `Planner engine`, so the checked-in
+navigation regression could not pass: the 0.13.1 tablet run stopped on exactly this text
+(`docs/qa.md` 0.13.1 evidence). Both flows now assert the shipped string.
+
+`navigation-smoke.yaml` passed syntax validation and all 27 runtime steps on
+`emulator-5554` (debug `0.12.0-dev-79a6e701`) after the correction, as part of the 0.13.2
+baseline. `settings-guidance-denial.yaml` is syntax-checked only: it still needs the
+approved permission-baseline handling described in its header. Neither run covers
+TalkBack, dark mode, text scaling or locale.
+
 ## Earlier verification status (2026-10-09)
 
 Both files pass the installed Maestro 2.11.0 `check-syntax` and runtime smoke on
