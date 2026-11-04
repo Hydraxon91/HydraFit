@@ -34,6 +34,28 @@ baseline evidence for the 0.13.2 scope, not release acceptance.
 Not covered here: TalkBack speech (semantics only), recovery-state fault injection, adaptive
 tablet/foldable layouts, signed-release runtime, and any database-preservation proof.
 
+### 0.13.2 implementation status (2026-11-04)
+
+Local implementation is complete and the 0.13.3 scope is folded into this release.
+
+- Instruction coverage is closed on set equality with the 195-entry seeded catalog; the coverage
+  test fails if a seed has no text or text exists for no seed.
+- Every human-facing decimal editor uses the shared presentation number contract: body weight, the
+  Logger's manual/correction/cluster/warm-up fields, the routine editor and its cluster and
+  set-target dialogs, the split-builder measure dialog, the equipment profiler and onboarding
+  personal records. Comma locales accept their separator or a dot, refuse ambiguous grouping and
+  keep canonical kilograms, whole metres and plain newtons.
+- Routines distinguishes loading, empty success and read failure, keeps loaded data and open
+  editors on a failed refresh, and retries reads only.
+- Fresh evidence: full host matrix `hf0132-full2.log` (432 tasks executed, 0 up-to-date; 338
+  suites, 3188 tests, 0 failures) including `verifySqlDelightMigration`; iOS simulator compile
+  `hf0132-ios2.log` (93 tasks executed, 0 up-to-date) for every touched module.
+- Verification limits: human-facing dates still use the unambiguous ISO form rather than a
+  localized layout; loading-inventory native ticks keep their fixed technical encoding; TalkBack
+  speech, measured contrast, device integration and signed-release upgrade behavior remain
+  unverified at this point.
+
+
 ## 0.13.1 adaptive release (2026-11-04)
 
 Base `1651701e`, merged as `e29162ff` and published as `v0.13.1`; implementation
