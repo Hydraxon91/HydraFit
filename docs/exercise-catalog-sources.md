@@ -512,6 +512,38 @@ presents a stretched position as a target.
 Coverage after batch 4 is 97 of the seeded catalog. The remaining batches stay open until they
 close on set equality with the seed.
 
+### 0.13.2 instruction coverage — batch 5 (2026-11-04)
+
+Twenty further entries under the same contract, covering squat and deadlift variants, hip and
+posterior-chain work, and lunge/step-up variants. Variants requiring unusual positions name a
+simpler alternative rather than presenting the advanced version as the expected starting point.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `hack-squat` | Hack Squat | hack squat machine, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `kneeling-squat` | Kneeling Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `olympic-squat` | Olympic Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-squat` | Overhead Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `squat-jerk` | Squat Jerk | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `squat-with-bands` | Squat with Bands | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `band-good-morning` | Band Good Morning | resistance band, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-hip-thrust` | Barbell Hip Thrust | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-deadlifts` | Cable Deadlifts | cable machine, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `deadlift-with-bands` | Deadlift with Bands | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `deadlift-with-chains` | Deadlift with Chains | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `deficit-deadlift` | Deficit Deadlift | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `good-morning` | Good Morning | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `sumo-deadlift` | Sumo Deadlift | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-lunge` | Barbell Lunge | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-step-ups` | Barbell Step Ups | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-walking-lunge` | Barbell Walking Lunge | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-rear-lunge` | Dumbbell Rear Lunge | dumbbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-step-ups` | Dumbbell Step Ups | dumbbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `elevated-back-lunge` | Elevated Back Lunge | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 5 is 117 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is

@@ -110,7 +110,27 @@ class ExerciseInstructionSourceTest {
         "wide-grip-pulldown-behind-the-neck",
         "wide-grip-rear-pull-up",
         "box-squat",
-        "dumbbell-squat"
+        "dumbbell-squat",
+        "hack-squat",
+        "kneeling-squat",
+        "olympic-squat",
+        "overhead-squat",
+        "squat-jerk",
+        "squat-with-bands",
+        "band-good-morning",
+        "barbell-hip-thrust",
+        "cable-deadlifts",
+        "deadlift-with-bands",
+        "deadlift-with-chains",
+        "deficit-deadlift",
+        "good-morning",
+        "sumo-deadlift",
+        "barbell-lunge",
+        "barbell-step-ups",
+        "barbell-walking-lunge",
+        "dumbbell-rear-lunge",
+        "dumbbell-step-ups",
+        "elevated-back-lunge"
     )
 
     @Test

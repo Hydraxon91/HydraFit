@@ -9,6 +9,8 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_ba
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_chest_press_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_curl_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_curl_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_good_morning_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_good_morning_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_pull_apart_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_pull_apart_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_band_row_execution
@@ -17,12 +19,20 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_ba
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_bench_press_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_curl_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_curl_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_hip_thrust_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_hip_thrust_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_lunge_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_lunge_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_rear_delt_row_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_rear_delt_row_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_row_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_row_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_shoulder_press_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_shoulder_press_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_step_ups_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_step_ups_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_walking_lunge_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_barbell_walking_lunge_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_bench_press_with_chains_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_bench_press_with_chains_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_bent_over_barbell_row_execution
@@ -39,6 +49,8 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_ca
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_chest_press_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_crunch_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_crunch_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_deadlifts_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_deadlifts_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_fly_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_fly_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cable_lateral_raise_execution
@@ -55,8 +67,14 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_cl
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_close_grip_pulldown_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_conventional_deadlift_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_conventional_deadlift_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_deadlift_with_bands_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_deadlift_with_bands_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_deadlift_with_chains_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_deadlift_with_chains_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_decline_barbell_press_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_decline_barbell_press_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_deficit_deadlift_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_deficit_deadlift_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dip_machine_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dip_machine_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dips_execution
@@ -75,14 +93,20 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_du
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_lunge_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_rdl_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_rdl_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_rear_lunge_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_rear_lunge_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_row_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_row_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_shoulder_press_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_shoulder_press_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_squat_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_squat_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_step_ups_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_step_ups_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_triceps_overhead_extension_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_dumbbell_triceps_overhead_extension_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_elevated_back_lunge_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_elevated_back_lunge_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_ez_bar_upright_row_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_ez_bar_upright_row_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_face_pull_execution
@@ -95,6 +119,10 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_gl
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_glute_bridge_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_goblet_squat_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_goblet_squat_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_good_morning_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_good_morning_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_hack_squat_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_hack_squat_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_hammer_curl_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_hammer_curl_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_handstand_push_ups_execution
@@ -115,6 +143,8 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_in
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_incline_push_up_wide_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_kettlebell_swing_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_kettlebell_swing_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_kneeling_squat_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_kneeling_squat_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_lat_pulldown_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_lat_pulldown_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_lateral_raise_execution
@@ -125,12 +155,16 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_le
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_leg_extension_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_leg_press_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_leg_press_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_olympic_squat_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_olympic_squat_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_one_arm_dumbbell_row_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_one_arm_dumbbell_row_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_one_arm_lat_pulldown_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_one_arm_lat_pulldown_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_overhead_press_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_overhead_press_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_overhead_squat_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_overhead_squat_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_overhead_triceps_extension_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_overhead_triceps_extension_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_plank_execution
@@ -163,6 +197,10 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_sh
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_shoulder_press_with_bands_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_single_arm_push_up_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_single_arm_push_up_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_squat_jerk_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_squat_jerk_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_squat_with_bands_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_squat_with_bands_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_standing_calf_raise_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_standing_calf_raise_machine_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_standing_calf_raise_machine_setup
@@ -171,6 +209,8 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_st
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_standing_dumbbell_side_bend_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_standing_military_press_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_standing_military_press_setup
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_sumo_deadlift_execution
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_sumo_deadlift_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_supinated_curl_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_supinated_curl_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_t_bar_row_with_handle_execution
@@ -318,7 +358,27 @@ internal object ExerciseInstructionSource {
         "wide-grip-pulldown-behind-the-neck",
         "wide-grip-rear-pull-up",
         "box-squat",
-        "dumbbell-squat"
+        "dumbbell-squat",
+        "hack-squat",
+        "kneeling-squat",
+        "olympic-squat",
+        "overhead-squat",
+        "squat-jerk",
+        "squat-with-bands",
+        "band-good-morning",
+        "barbell-hip-thrust",
+        "cable-deadlifts",
+        "deadlift-with-bands",
+        "deadlift-with-chains",
+        "deficit-deadlift",
+        "good-morning",
+        "sumo-deadlift",
+        "barbell-lunge",
+        "barbell-step-ups",
+        "barbell-walking-lunge",
+        "dumbbell-rear-lunge",
+        "dumbbell-step-ups",
+        "elevated-back-lunge"
     )
 
     /**
@@ -717,6 +777,86 @@ internal object ExerciseInstructionSource {
         "dumbbell-squat" to ExerciseInstructionKeys(
             setup = Res.string.exercise_instruction_dumbbell_squat_setup,
             execution = Res.string.exercise_instruction_dumbbell_squat_execution
+        ),
+        "hack-squat" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_hack_squat_setup,
+            execution = Res.string.exercise_instruction_hack_squat_execution
+        ),
+        "kneeling-squat" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_kneeling_squat_setup,
+            execution = Res.string.exercise_instruction_kneeling_squat_execution
+        ),
+        "olympic-squat" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_olympic_squat_setup,
+            execution = Res.string.exercise_instruction_olympic_squat_execution
+        ),
+        "overhead-squat" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_overhead_squat_setup,
+            execution = Res.string.exercise_instruction_overhead_squat_execution
+        ),
+        "squat-jerk" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_squat_jerk_setup,
+            execution = Res.string.exercise_instruction_squat_jerk_execution
+        ),
+        "squat-with-bands" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_squat_with_bands_setup,
+            execution = Res.string.exercise_instruction_squat_with_bands_execution
+        ),
+        "band-good-morning" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_band_good_morning_setup,
+            execution = Res.string.exercise_instruction_band_good_morning_execution
+        ),
+        "barbell-hip-thrust" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_barbell_hip_thrust_setup,
+            execution = Res.string.exercise_instruction_barbell_hip_thrust_execution
+        ),
+        "cable-deadlifts" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_cable_deadlifts_setup,
+            execution = Res.string.exercise_instruction_cable_deadlifts_execution
+        ),
+        "deadlift-with-bands" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_deadlift_with_bands_setup,
+            execution = Res.string.exercise_instruction_deadlift_with_bands_execution
+        ),
+        "deadlift-with-chains" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_deadlift_with_chains_setup,
+            execution = Res.string.exercise_instruction_deadlift_with_chains_execution
+        ),
+        "deficit-deadlift" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_deficit_deadlift_setup,
+            execution = Res.string.exercise_instruction_deficit_deadlift_execution
+        ),
+        "good-morning" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_good_morning_setup,
+            execution = Res.string.exercise_instruction_good_morning_execution
+        ),
+        "sumo-deadlift" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_sumo_deadlift_setup,
+            execution = Res.string.exercise_instruction_sumo_deadlift_execution
+        ),
+        "barbell-lunge" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_barbell_lunge_setup,
+            execution = Res.string.exercise_instruction_barbell_lunge_execution
+        ),
+        "barbell-step-ups" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_barbell_step_ups_setup,
+            execution = Res.string.exercise_instruction_barbell_step_ups_execution
+        ),
+        "barbell-walking-lunge" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_barbell_walking_lunge_setup,
+            execution = Res.string.exercise_instruction_barbell_walking_lunge_execution
+        ),
+        "dumbbell-rear-lunge" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_dumbbell_rear_lunge_setup,
+            execution = Res.string.exercise_instruction_dumbbell_rear_lunge_execution
+        ),
+        "dumbbell-step-ups" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_dumbbell_step_ups_setup,
+            execution = Res.string.exercise_instruction_dumbbell_step_ups_execution
+        ),
+        "elevated-back-lunge" to ExerciseInstructionKeys(
+            setup = Res.string.exercise_instruction_elevated_back_lunge_setup,
+            execution = Res.string.exercise_instruction_elevated_back_lunge_execution
         )
     )
 
