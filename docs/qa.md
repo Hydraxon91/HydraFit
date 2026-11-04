@@ -14,9 +14,10 @@ Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
 
-## 0.13.1 adaptive candidate — in progress (2026-11-04)
+## 0.13.1 adaptive release (2026-11-04)
 
-Base `1651701e`; implementation verified and independently reviewed, publication pending. Parent implemented
+Base `1651701e`, merged as `e29162ff` and published as `v0.13.1`; implementation
+verified and independently reviewed. Parent implemented
 the adaptive shell, Train and lifecycle tooling. The requested OpenCode Go
 DeepSeek V4.1 Flash coder implemented Progress and Routines; separate Flash
 UI-runner sessions executed prepared acceptance journeys. All devices used debug
@@ -38,6 +39,9 @@ host state was restored with graceful shutdowns; no data was cleared or AVD dele
   `/tmp/hydrafit-0131-final-tooling.log` passed all 278 tooling tests; tooling
   validation checked 13 definitions / 30 surface files with zero findings,
   ShellCheck passed, and `git diff --check` was clean.
+  - PR #49 CI run `41820278594` on `cd41e5c4` passed all four jobs (agent tooling,
+    lint, unit tests + migration verification, debug assembly + release lint);
+    post-merge `main` run `41820630831` on `e29162ff` also completed successfully.
   Inspectable wrapper results: `/tmp/hydrafit-0131-validator-result.json`,
   `/tmp/hydrafit-0131-shellcheck-result.json` and
   `/tmp/hydrafit-0131-diffcheck-result.json`, with matching `.log` files.
