@@ -16,6 +16,15 @@ enum class ProgressRange(val days: Int) {
     DAYS_365(365)
 }
 
+/**
+ * The selectable chart metric. It only reprojects the already-loaded daily values: switching it
+ * never re-reads progress, changes the selected window or substitutes a missing estimate.
+ */
+enum class ProgressMetric {
+    EXTERNAL_VOLUME,
+    ESTIMATED_ONE_REP_MAX
+}
+
 /** One selectable exercise, with the current catalog name used for search and display. */
 data class ProgressExerciseOption(val id: String, val name: String)
 
@@ -37,6 +46,8 @@ data class ProgressUiState(
     /** The current catalog name, or null when the selected id is no longer in the catalog. */
     val selectedExerciseName: String? = null,
     val range: ProgressRange = ProgressRange.DAYS_28,
+    /** The chart metric; volume stays the initial choice until the user changes it. */
+    val metric: ProgressMetric = ProgressMetric.EXTERNAL_VOLUME,
     /** Distinct station labels observed in this exercise's history. */
     val stationOptions: List<StationAttribution> = emptyList(),
     val stationFilter: StationFilter = StationFilter.All,
@@ -81,6 +92,21 @@ data class ProgressUiState(
     /** No chartable working sets in the range, distinct from "history is also empty". */
     val chartsHaveNoEligibleDays: Boolean
         get() = hasSelectedExercise && !chartsLoading && !chartsFailed && days.isEmpty()
+
+    /** The selected metric's plotted points, projected from the days already in state. */
+    internal val chartPoints: List<ProgressChartPoint>
+        get() = progressChartPoints(days, metric)
+
+    /**
+     * The range holds recorded days, but none of them carries the selected metric. This stays
+     * separate from [chartsHaveNoEligibleDays] so the day rows, records and history remain visible.
+     */
+    val chartsHaveNoSelectedMetricPoints: Boolean
+        get() = hasSelectedExercise &&
+            !chartsLoading &&
+            !chartsFailed &&
+            days.isNotEmpty() &&
+            chartPoints.isEmpty()
 
     val historyIsEmpty: Boolean
         get() = hasSelectedExercise && !historyLoading && !historyFailed && historySets.isEmpty()

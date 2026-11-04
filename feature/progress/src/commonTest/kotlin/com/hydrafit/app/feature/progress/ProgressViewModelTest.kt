@@ -538,6 +538,74 @@ class ProgressViewModelTest {
     }
 
     @Test
+    fun metricSelectionStartsAtVolumeAndDoesNotReissueARead() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository()
+            val vm = viewModel(repository)
+            advanceUntilIdle()
+            vm.onExerciseSelected("squat")
+            advanceUntilIdle()
+            assertEquals(ProgressMetric.EXTERNAL_VOLUME, vm.state.value.metric)
+            val readsBefore = repository.progressRequests.size
+
+            vm.onMetricSelected(ProgressMetric.ESTIMATED_ONE_REP_MAX)
+            advanceUntilIdle()
+
+            assertEquals(ProgressMetric.ESTIMATED_ONE_REP_MAX, vm.state.value.metric)
+            assertEquals(readsBefore, repository.progressRequests.size)
+            assertEquals(readsBefore, repository.historyRequests.size)
+
+            // Re-selecting the current metric is a no-op and still issues no read.
+            vm.onMetricSelected(ProgressMetric.ESTIMATED_ONE_REP_MAX)
+            advanceUntilIdle()
+            assertEquals(readsBefore, repository.progressRequests.size)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun metricSelectionSurvivesRangeStationAndExerciseChanges() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val station = StationAttribution(1L, "Rack A", StationLoadBasis.TOTAL)
+            val repository = FakeProgressRepository()
+            repository.stationOptionsFlow = { flowOf(listOf(station)) }
+            val vm = viewModel(
+                repository,
+                catalog = FakeCatalog(
+                    listOf(exercise("squat", "Squat"), exercise("bench", "Bench"))
+                )
+            )
+            advanceUntilIdle()
+            vm.onExerciseSelected("squat")
+            advanceUntilIdle()
+            vm.onMetricSelected(ProgressMetric.ESTIMATED_ONE_REP_MAX)
+            advanceUntilIdle()
+
+            vm.onRangeSelected(ProgressRange.DAYS_365)
+            advanceUntilIdle()
+            assertEquals(ProgressMetric.ESTIMATED_ONE_REP_MAX, vm.state.value.metric)
+            assertEquals(ProgressRange.DAYS_365, vm.state.value.range)
+
+            vm.onStationFilterSelected(StationFilter.Station(1L))
+            advanceUntilIdle()
+            assertEquals(ProgressMetric.ESTIMATED_ONE_REP_MAX, vm.state.value.metric)
+            assertEquals(StationFilter.Station(1L), vm.state.value.stationFilter)
+
+            vm.onExerciseSelected("bench")
+            advanceUntilIdle()
+            assertEquals(ProgressMetric.ESTIMATED_ONE_REP_MAX, vm.state.value.metric)
+            assertEquals("bench", vm.state.value.selectedExerciseId)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun weightUnitPresentationFollowsTheRepositoryFlow() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)

@@ -164,6 +164,15 @@ class ProgressViewModel(
         startCharts()
     }
 
+    /**
+     * Changing the metric only reprojects the days already loaded. It deliberately does not restart
+     * a read, and the choice survives exercise, range and station changes for this ViewModel.
+     */
+    fun onMetricSelected(metric: ProgressMetric) {
+        if (_state.value.metric == metric) return
+        _state.update { it.copy(metric = metric) }
+    }
+
     // ── Charts, records ───────────────────────────────────────────────────
 
     fun onRetryCharts() {

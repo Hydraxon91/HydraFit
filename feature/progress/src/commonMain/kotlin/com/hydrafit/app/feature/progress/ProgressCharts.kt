@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.unit.DistanceUnit
@@ -24,6 +26,8 @@ import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_chart_caption
 import hydrafit.feature.progress.generated.resources.progress_table_distance
 import hydrafit.feature.progress.generated.resources.progress_table_duration
+import hydrafit.feature.progress.generated.resources.progress_table_estimate
+import hydrafit.feature.progress.generated.resources.progress_table_estimate_unavailable
 import hydrafit.feature.progress.generated.resources.progress_table_row
 import hydrafit.feature.progress.generated.resources.progress_table_row_no_volume
 import hydrafit.feature.progress.generated.resources.progress_table_title
@@ -41,6 +45,14 @@ internal fun displayWeight(
     unit: WeightUnit,
     format: PresentationNumberFormat = currentPresentationNumberFormat()
 ): String = "${formatLocalizedDecimal(unit.kilogramsToDisplay(kilograms), format)} ${unit.label}"
+
+/** External load-volume is stored as kg·reps, so only its magnitude is converted for display. */
+internal fun displayVolume(
+    kilogramReps: Double,
+    unit: WeightUnit,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = "${formatLocalizedDecimal(unit.kilogramsToDisplay(kilogramReps), format)} " +
+    "${unit.label}·reps"
 
 /**
  * The horizontal centre for a mark at [localEpochDay], inset from each edge by [radiusPx] so no mark
@@ -63,33 +75,140 @@ internal fun progressMarkY(value: Double, max: Double, height: Float, radius: Fl
 }
 
 /**
- * One mark per recorded day that carries external load-volume, positioned at its actual civil day.
- * Days without a recorded value are simply absent: nothing is interpolated, smoothed or connected
- * across them, and no fake zero day is drawn. The canvas is decorative (`clearAndSetSemantics`), so
- * assistive tech is not announced twice; [ProgressDayTable] is the accessible numeric equivalent.
+ * One mark per recorded day that carries the selected metric, positioned at its actual civil day.
+ * Days without a value are simply absent: nothing is interpolated, smoothed, connected or turned
+ * into a fake zero day. The plot reserves measured space for its axis labels, keeps grid, marks and
+ * date labels on the same positions, and reduces date labels until they fit the available width.
+ * The canvas is decorative (`clearAndSetSemantics`), so assistive tech is not announced twice;
+ * [ProgressDayTable] is the accessible numeric equivalent.
  */
 @Composable
-internal fun ProgressVolumeChart(
-    days: List<ProgressDay>,
+internal fun ProgressMetricChart(
+    points: List<ProgressChartPoint>,
+    metric: ProgressMetric,
+    weightUnit: WeightUnit,
     dayFrom: Long,
     dayTo: Long,
     modifier: Modifier = Modifier
 ) {
-    val points = days.filter { it.externalVolumeKg != null }
     if (points.isEmpty()) return
-    val max = points.maxOf { it.externalVolumeKg ?: 0.0 }.coerceAtLeast(1.0)
-    val color = MaterialTheme.colorScheme.primary
+    val axis = progressAxis(points, metric, weightUnit)
+    val format = currentPresentationNumberFormat()
+    val decimals = progressAxisLabelDecimals(axis)
+    val markColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val baselineColor = MaterialTheme.colorScheme.outline
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    val textMeasurer = rememberTextMeasurer()
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(200.dp)
             .clearAndSetSemantics {}
     ) {
-        val radius = 3.dp.toPx()
-        points.forEach { day ->
-            val x = progressMarkX(day.localEpochDay, dayFrom, dayTo, size.width, radius)
-            val y = progressMarkY(day.externalVolumeKg ?: 0.0, max, size.height, radius)
-            drawCircle(color = color, radius = radius, center = Offset(x, y))
+        val markRadius = 3.dp.toPx()
+        val gap = 6.dp.toPx()
+        val strokeWidth = 1.dp.toPx()
+        val lineWidth = 2.dp.toPx()
+        val yLabels = axis.ticks.mapIndexed { index, tick ->
+            val layout = textMeasurer.measure(
+                text = progressAxisTickLabel(tick, weightUnit, format, decimals),
+                style = labelStyle,
+                softWrap = false
+            )
+            index to layout
+        }
+        val gutter = (yLabels.maxOfOrNull { it.second.size.width } ?: 0) + gap
+        val labelHeight = textMeasurer.measure(
+            text = "0000-00-00",
+            style = labelStyle,
+            softWrap = false
+        ).size.height
+        val plotLeft = gutter
+        val plotRight = size.width
+        val plotTop = gap + labelHeight / 2f
+        val datePlacements = progressDateLabelPlacements(
+            from = dayFrom,
+            to = dayTo,
+            widthFor = { day ->
+                textMeasurer.measure(
+                    text = progressDayLabel(day),
+                    style = labelStyle,
+                    softWrap = false
+                ).size.width.toFloat()
+            },
+            xFor = { day ->
+                progressChartMarkX(day, dayFrom, dayTo, plotLeft, plotRight, markRadius)
+            },
+            plotLeft = plotLeft,
+            plotRight = plotRight,
+            gap = gap
+        )
+        val dateRows = (datePlacements.maxOfOrNull { it.row } ?: 0) + 1
+        val bottomInset = gap + dateRows * labelHeight + (dateRows - 1) * (gap / 2f)
+        val plotBottom = (size.height - bottomInset).coerceAtLeast(plotTop + 1f)
+
+        // Restrained horizontal grid; the date ticks below carry the horizontal positions.
+        yLabels.forEach { (index, layout) ->
+            val tick = axis.ticks[index]
+            val y = progressAxisY(tick, axis, plotTop, plotBottom, markRadius)
+            drawLine(
+                color = if (index == 0 && axis.min == 0.0) baselineColor else gridColor,
+                start = Offset(plotLeft, y),
+                end = Offset(plotRight, y),
+                strokeWidth = strokeWidth
+            )
+            drawText(
+                textLayoutResult = layout,
+                topLeft = Offset(plotLeft - gap - layout.size.width, y - layout.size.height / 2f)
+            )
+        }
+
+        fun xForPoint(point: ProgressChartPoint): Float = progressChartMarkX(
+            day = point.localEpochDay,
+            from = dayFrom,
+            to = dayTo,
+            left = plotLeft,
+            right = plotRight,
+            radius = markRadius
+        )
+
+        fun yForPoint(point: ProgressChartPoint): Float =
+            progressAxisY(point.value, axis, plotTop, plotBottom, markRadius)
+
+        // Straight segments join observed values across unlogged dates; dots still mark the only
+        // measured values, so the line is a visual connection rather than inferred daily data.
+        progressChartSegments(points).forEach { segment ->
+            drawLine(
+                color = markColor,
+                start = Offset(xForPoint(segment.from), yForPoint(segment.from)),
+                end = Offset(xForPoint(segment.to), yForPoint(segment.to)),
+                strokeWidth = lineWidth
+            )
+        }
+        points.forEach { point ->
+            drawCircle(
+                color = markColor,
+                radius = markRadius,
+                center = Offset(xForPoint(point), yForPoint(point))
+            )
+        }
+
+        datePlacements.forEach { placement ->
+            val layout = textMeasurer.measure(
+                text = progressDayLabel(placement.day),
+                style = labelStyle,
+                softWrap = false
+            )
+            drawText(
+                textLayoutResult = layout,
+                topLeft = Offset(
+                    placement.left,
+                    plotBottom + gap / 2f + placement.row * (labelHeight + gap / 2f)
+                )
+            )
         }
     }
 }
@@ -110,7 +229,11 @@ internal fun progressDayDurationResource(day: ProgressDay): StringResource? =
 internal fun progressDayDistanceResource(day: ProgressDay): StringResource? =
     if (day.totalDistanceMeters > 0L) Res.string.progress_table_distance else null
 
-/** The accessible numeric equivalent of the chart: one row per recorded day, newest first. */
+/**
+ * The accessible numeric equivalent of the chart: one row per recorded day, newest first, with the
+ * estimated one-rep max either stated or explicitly unavailable. Timed and distance totals stay
+ * visible even when the selected metric has no value for the day.
+ */
 @Composable
 internal fun ProgressDayTable(
     days: List<ProgressDay>,
@@ -127,7 +250,7 @@ internal fun ProgressDayTable(
         )
         ordered.forEach { day ->
             val date = progressDayLabel(day.localEpochDay)
-            val volume = day.externalVolumeKg?.let { displayWeight(it, weightUnit) }
+            val volume = day.externalVolumeKg?.let { displayVolume(it, weightUnit) }
             Text(
                 text = if (volume == null) {
                     stringResource(
@@ -143,6 +266,18 @@ internal fun ProgressDayTable(
                         day.workingSets,
                         day.totalReps.toInt(),
                         volume
+                    )
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
+            val estimate = day.estimatedOneRepMax?.value
+            Text(
+                text = if (estimate == null) {
+                    stringResource(Res.string.progress_table_estimate_unavailable)
+                } else {
+                    stringResource(
+                        Res.string.progress_table_estimate,
+                        displayWeight(estimate, weightUnit)
                     )
                 },
                 style = MaterialTheme.typography.bodySmall
