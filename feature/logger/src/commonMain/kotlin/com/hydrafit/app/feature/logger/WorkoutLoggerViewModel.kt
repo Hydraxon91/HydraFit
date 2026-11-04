@@ -37,7 +37,6 @@ import com.hydrafit.app.core.domain.schedule.originalTargets
 import com.hydrafit.app.core.domain.time.localDayOfWeek
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LiveRestCompletion
@@ -64,6 +63,11 @@ import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.domain.workout.buildGuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.buildWarmupGuidance
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,10 +111,18 @@ class WorkoutLoggerViewModel(
     private val applyGuidedTargets: ApplyGuidedWorkoutTargetsUseCase,
     private val changeEntryMeasure: ChangeOccurrenceEntryMeasureUseCase,
     private val suggestSlotProgression: SuggestSlotProgressionUseCase,
-    private val applySlotProgressionSuggestion: ApplySlotProgressionSuggestionUseCase
+    private val applySlotProgressionSuggestion: ApplySlotProgressionSuggestionUseCase,
+    /**
+     * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
+     * the default, so no binding is added; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(WorkoutLoggerUiState())
+    /** Frozen for the ViewModel's lifetime; open editors each carry the same copy. */
+    private val numberFormat: PresentationNumberFormat = numberFormatProvider()
+
+    private val _state = MutableStateFlow(WorkoutLoggerUiState(numberFormat = numberFormat))
     val state: StateFlow<WorkoutLoggerUiState> = _state.asStateFlow()
 
     private var exercises: List<Exercise> = emptyList()
@@ -339,7 +351,7 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             settings.weightUnitFlow().collectLatest { unit ->
                 _state.update { current ->
-                    val value = current.weightInput.toDoubleOrNull()
+                    val value = parseLocalizedDecimal(current.weightInput, current.numberFormat)
                     current.copy(
                         weightUnit = unit,
                         weightInput = if (unit == current.weightUnit ||
@@ -349,7 +361,10 @@ class WorkoutLoggerViewModel(
                         ) {
                             current.weightInput
                         } else {
-                            exactEntryText(unit.kilogramsToDisplay(current.manualWeightKg))
+                            exactLocalizedDecimalText(
+                                unit.kilogramsToDisplay(current.manualWeightKg),
+                                current.numberFormat
+                            )
                         }
                     )
                 }
@@ -358,7 +373,8 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             settings.distanceUnitFlow().collectLatest { unit ->
                 _state.update { current ->
-                    val value = current.distanceMeters.toDoubleOrNull()
+                    val value =
+                        parseLocalizedDecimal(current.distanceMeters, current.numberFormat)
                     current.copy(
                         distanceUnit = unit,
                         distanceMeters = if (unit == current.distanceUnit ||
@@ -368,7 +384,10 @@ class WorkoutLoggerViewModel(
                         ) {
                             current.distanceMeters
                         } else {
-                            exactEntryText(unit.metresToDisplay(current.manualDistanceMetres))
+                            exactLocalizedDecimalText(
+                                unit.metresToDisplay(current.manualDistanceMetres),
+                                current.numberFormat
+                            )
                         }
                     )
                 }
@@ -588,7 +607,10 @@ class WorkoutLoggerViewModel(
             val option = current.exercises.firstOrNull { it.id == exerciseId }
             current.copy(
                 weightInput = last.weightKg?.let {
-                    exactEntryText(current.weightUnit.kilogramsToDisplay(it))
+                    exactLocalizedDecimalText(
+                        current.weightUnit.kilogramsToDisplay(it),
+                        current.numberFormat
+                    )
                 }.orEmpty(),
                 manualWeightKg = last.weightKg,
                 metric = when {
@@ -604,9 +626,13 @@ class WorkoutLoggerViewModel(
                     ?.toString()
                     .orEmpty(),
                 manualDistanceMetres = last.distanceMeters,
-                forceNewtons = last.forceNewtons?.let(::exactEntryText).orEmpty(),
+                forceNewtons = last.forceNewtons
+                    ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                    .orEmpty(),
                 deviceName = last.device?.name.orEmpty(),
-                deviceRatingKg = last.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+                deviceRatingKg = last.device?.ratingKg
+                    ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                    .orEmpty(),
                 // An added-load history reveals the field on an addable bodyweight exercise.
                 weightRevealed = current.weightRevealed ||
                     (option?.canAddLoad == true && last.weightKg != null),
@@ -623,13 +649,14 @@ class WorkoutLoggerViewModel(
     fun onRecentSetSelected(row: LoggedSetRow) {
         if (noteSaving) return
         val unit = _state.value.weightUnit
+        val format = _state.value.numberFormat
         manualInputGeneration++
         _state.update {
             it.copy(
                 selectedExerciseId = row.exerciseId,
                 exerciseInstructions = null,
                 weightInput = row.weightKg?.let {
-                    exactEntryText(unit.kilogramsToDisplay(it))
+                    exactLocalizedDecimalText(unit.kilogramsToDisplay(it), format)
                 }.orEmpty(),
                 manualWeightKg = row.weightKg,
                 metric = when {
@@ -645,9 +672,13 @@ class WorkoutLoggerViewModel(
                     ?.toString()
                     .orEmpty(),
                 manualDistanceMetres = row.distanceMeters,
-                forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
+                forceNewtons = row.forceNewtons
+                    ?.let { exactLocalizedDecimalText(it, format) }
+                    .orEmpty(),
                 deviceName = row.device?.name.orEmpty(),
-                deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+                deviceRatingKg = row.device?.ratingKg
+                    ?.let { exactLocalizedDecimalText(it, format) }
+                    .orEmpty(),
                 // Reveal the weight field for a bodyweight exercise only when that row had a weight.
                 weightRevealed = row.weightKg != null,
                 isWarmup = row.isWarmup,
@@ -662,8 +693,21 @@ class WorkoutLoggerViewModel(
     }
 
     /** The weight input string for [weightKg] in the display unit, or blank when there is none. */
-    private fun weightInputFor(weightKg: Double?, unit: WeightUnit): String =
-        weightKg?.let { formatWeight(unit.kilogramsToDisplay(it)) }.orEmpty()
+    private fun weightInputFor(
+        weightKg: Double?,
+        unit: WeightUnit,
+        format: PresentationNumberFormat = numberFormat
+    ): String = weightKg
+        ?.let { formatLocalizedDecimal(unit.kilogramsToDisplay(it), format) }
+        .orEmpty()
+
+    /**
+     * Keeps only characters a decimal entry field can hold: digits, the ASCII dot and the locale
+     * separator. Grouping separators and letters are dropped. A duplicated separator is retained here
+     * and rejected by [parseLocalizedDecimal] at validation, rather than silently guessing a value.
+     */
+    private fun decimalEntryText(value: String, format: PresentationNumberFormat): String =
+        value.filter { it.isDigit() || it == '.' || it == format.decimalSeparator }
 
     /**
      * Sets the explicit time to stamp new sets with, or clears it with null to log live. Returns
@@ -747,7 +791,8 @@ class WorkoutLoggerViewModel(
     ): LoggedSetEdit {
         val unit = _state.value.weightUnit
         val distanceUnit = _state.value.distanceUnit
-        val weight = weightInputFor(row.weightKg, unit)
+        val format = _state.value.numberFormat
+        val weight = weightInputFor(row.weightKg, unit, format)
         return LoggedSetEdit(
             row = row,
             weightUnit = unit,
@@ -766,9 +811,13 @@ class WorkoutLoggerViewModel(
                 ?.let { meters -> distanceUnit.displayWhole(meters) }
                 ?.toString()
                 .orEmpty(),
-            forceNewtons = row.forceNewtons?.let(::exactEntryText).orEmpty(),
+            forceNewtons = row.forceNewtons
+                ?.let { exactLocalizedDecimalText(it, format) }
+                .orEmpty(),
             deviceName = row.device?.name.orEmpty(),
-            deviceRatingKg = row.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+            deviceRatingKg = row.device?.ratingKg
+                ?.let { exactLocalizedDecimalText(it, format) }
+                .orEmpty(),
             weightInput = weight,
             originalWeightInput = weight,
             rir = row.rir?.toString().orEmpty(),
@@ -777,10 +826,12 @@ class WorkoutLoggerViewModel(
                 LoggedClusterSegmentEdit(
                     position = segment.position,
                     reps = segment.reps.toString(),
-                    weightInput = weightInputFor(segment.weightKg, unit),
-                    rir = segment.rir?.toString().orEmpty()
+                    weightInput = weightInputFor(segment.weightKg, unit, format),
+                    rir = segment.rir?.toString().orEmpty(),
+                    numberFormat = format
                 )
-            }
+            },
+            numberFormat = format
         )
     }
 
@@ -791,11 +842,11 @@ class WorkoutLoggerViewModel(
     }
 
     fun onLoggedSetDistanceChanged(value: String) = updateLoggedSetEdit {
-        copy(distanceMeters = value.filter { it.isDigit() || it == '.' })
+        copy(distanceMeters = decimalEntryText(value, numberFormat))
     }
 
     fun onLoggedSetForceChanged(value: String) = updateLoggedSetEdit {
-        copy(forceNewtons = value.filter { it.isDigit() || it == '.' })
+        copy(forceNewtons = decimalEntryText(value, numberFormat))
     }
 
     fun onLoggedSetDeviceNameChanged(value: String) = updateLoggedSetEdit {
@@ -803,7 +854,7 @@ class WorkoutLoggerViewModel(
     }
 
     fun onLoggedSetDeviceRatingChanged(value: String) = updateLoggedSetEdit {
-        copy(deviceRatingKg = value.filter { it.isDigit() || it == '.' })
+        copy(deviceRatingKg = decimalEntryText(value, numberFormat))
     }
 
     /**
@@ -888,12 +939,7 @@ class WorkoutLoggerViewModel(
     fun onLoggedSetClusterWeightChanged(position: Int, value: String) = updateLoggedSetEdit {
         copy(
             clusterSegments = clusterSegments.update(position) {
-                it.copy(
-                    weightInput = value.filter { c ->
-                        c.isDigit() ||
-                            c == '.'
-                    }
-                )
+                it.copy(weightInput = decimalEntryText(value, numberFormat))
             }
         )
     }
@@ -946,7 +992,7 @@ class WorkoutLoggerViewModel(
             edit.weightInput == edit.originalWeightInput -> edit.row.weightKg
             edit.weightInput.isBlank() -> null
             else -> edit.weightUnit.displayToKilograms(
-                requireNotNull(edit.weightInput.toDoubleOrNull())
+                requireNotNull(parseLocalizedDecimal(edit.weightInput, edit.numberFormat))
             )
         }
         _state.update { it.copy(savingLoggedSet = true, loggedSetEditFailed = false) }
@@ -1038,7 +1084,7 @@ class WorkoutLoggerViewModel(
         manualInputGeneration++
         _state.update {
             val text = value
-            val parsed = text.toDoubleOrNull()
+            val parsed = parseLocalizedDecimal(text, it.numberFormat)
             it.copy(
                 distanceMeters = text,
                 manualDistanceMetres = parsed?.takeIf { number -> number.isFinite() }
@@ -1051,7 +1097,7 @@ class WorkoutLoggerViewModel(
     fun onForceChanged(value: String) {
         manualInputGeneration++
         _state.update {
-            it.copy(forceNewtons = value.filter { char -> char.isDigit() || char == '.' })
+            it.copy(forceNewtons = decimalEntryText(value, it.numberFormat))
         }
     }
 
@@ -1064,7 +1110,7 @@ class WorkoutLoggerViewModel(
     fun onDeviceRatingChanged(value: String) {
         manualInputGeneration++
         _state.update {
-            it.copy(deviceRatingKg = value.filter { char -> char.isDigit() || char == '.' })
+            it.copy(deviceRatingKg = decimalEntryText(value, it.numberFormat))
         }
     }
 
@@ -1117,7 +1163,7 @@ class WorkoutLoggerViewModel(
         manualInputGeneration++
         _state.update {
             val text = value
-            val parsed = text.toDoubleOrNull()
+            val parsed = parseLocalizedDecimal(text, it.numberFormat)
             it.copy(
                 weightInput = text,
                 manualWeightKg = parsed?.takeIf { number -> number.isFinite() && number >= 0.0 }
@@ -1180,12 +1226,13 @@ class WorkoutLoggerViewModel(
             null
         }
         val forceNewtons = if (current.metric == SetMetric.FORCE) {
-            current.forceNewtons.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 }
+            parseLocalizedDecimal(current.forceNewtons, current.numberFormat)
+                ?.takeIf { it.isFinite() && it > 0.0 }
         } else {
             null
         }
         val device = if (forceNewtons != null) {
-            deviceInputOrNull(current.deviceName, current.deviceRatingKg)
+            deviceInputOrNull(current.deviceName, current.deviceRatingKg, current.numberFormat)
         } else {
             null
         }
@@ -1605,6 +1652,7 @@ class WorkoutLoggerViewModel(
                 val position = parent?.cluster?.performedSegments ?: 0
                 val target = prescription.segments.getOrNull(position) ?: return@launch
                 val unit = _state.value.weightUnit
+                val format = _state.value.numberFormat
                 _state.update {
                     it.copy(
                         clusterLog = ClusterLogState(
@@ -1612,8 +1660,12 @@ class WorkoutLoggerViewModel(
                             position,
                             unit,
                             target.reps.toString(),
-                            exactEntryText(unit.kilogramsToDisplay(target.weightKg)),
-                            target.rir?.toString().orEmpty()
+                            exactLocalizedDecimalText(
+                                unit.kilogramsToDisplay(target.weightKg),
+                                format
+                            ),
+                            target.rir?.toString().orEmpty(),
+                            numberFormat = format
                         )
                     )
                 }
@@ -1678,7 +1730,9 @@ class WorkoutLoggerViewModel(
                     edit.position,
                     requireNotNull(edit.reps.toIntOrNull()),
                     edit.weightUnit.displayToKilograms(
-                        requireNotNull(edit.weightInput.toDoubleOrNull())
+                        requireNotNull(
+                            parseLocalizedDecimal(edit.weightInput, edit.numberFormat)
+                        )
                     ),
                     edit.rir.toIntOrNull()
                 )
@@ -1726,8 +1780,9 @@ class WorkoutLoggerViewModel(
                             edit.copy(
                                 position = edit.position + 1,
                                 reps = target.reps.toString(),
-                                weightInput = exactEntryText(
-                                    edit.weightUnit.kilogramsToDisplay(target.weightKg)
+                                weightInput = exactLocalizedDecimalText(
+                                    edit.weightUnit.kilogramsToDisplay(target.weightKg),
+                                    edit.numberFormat
                                 ),
                                 rir = target.rir?.toString().orEmpty(),
                                 failed = false
@@ -1792,12 +1847,20 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
-                    forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
+                    forceNewtons = base.forceNewtons
+                        ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                        .orEmpty(),
                     deviceName = inherited?.deviceName ?: base.device?.name.orEmpty(),
                     deviceRatingKg = inherited?.deviceRatingKg
-                        ?: base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+                        ?: base.device?.ratingKg
+                            ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                            .orEmpty(),
                     distanceUnit = current.distanceUnit,
-                    weightInput = weightInputFor(base.weightKg, current.weightUnit),
+                    weightInput = weightInputFor(
+                        base.weightKg,
+                        current.weightUnit,
+                        current.numberFormat
+                    ),
                     weightUnit = current.weightUnit,
                     canonicalWeightKg = base.weightKg,
                     rir = inherited?.rir.orEmpty(),
@@ -1814,9 +1877,16 @@ class WorkoutLoggerViewModel(
                     // unit changed since: that text would be re-read in the new unit, so the
                     // prescribed values are seeded again instead.
                     laterSegments = inherited
-                        ?.takeIf { it.weightUnit == current.weightUnit }
+                        ?.takeIf {
+                            it.weightUnit == current.weightUnit &&
+                                it.numberFormat == current.numberFormat
+                        }
                         ?.laterSegments
-                        ?: base.cluster?.laterSegmentInputs(current.weightUnit).orEmpty()
+                        ?: base.cluster?.laterSegmentInputs(
+                            current.weightUnit,
+                            current.numberFormat
+                        ).orEmpty(),
+                    numberFormat = current.numberFormat
                 ),
                 clusterDraftError = null
             )
@@ -1834,12 +1904,12 @@ class WorkoutLoggerViewModel(
 
     /** Edits the frozen distance of a distance draft, entered in the user's display unit. */
     fun onDraftDistanceChanged(value: String) = updateDraftEdit {
-        copy(distanceMeters = value.filter { it.isDigit() || it == '.' })
+        copy(distanceMeters = decimalEntryText(value, numberFormat))
     }
 
     /** Edits the frozen force of a force draft, entered in canonical newtons. */
     fun onDraftForceChanged(value: String) = updateDraftEdit {
-        copy(forceNewtons = value.filter { it.isDigit() || it == '.' })
+        copy(forceNewtons = decimalEntryText(value, numberFormat))
     }
 
     fun onDraftDeviceNameChanged(value: String) = updateDraftEdit {
@@ -1848,11 +1918,11 @@ class WorkoutLoggerViewModel(
 
     /** The rating is descriptive; it is never converted into measured force or lifted mass. */
     fun onDraftDeviceRatingChanged(value: String) = updateDraftEdit {
-        copy(deviceRatingKg = value.filter { it.isDigit() || it == '.' })
+        copy(deviceRatingKg = decimalEntryText(value, numberFormat))
     }
 
     fun onDraftWeightChanged(value: String) = updateDraftEdit {
-        copy(weightInput = value.filter { it.isDigit() || it == '.' })
+        copy(weightInput = decimalEntryText(value, numberFormat))
     }
 
     fun onDraftRirChanged(value: String) {
@@ -1872,7 +1942,9 @@ class WorkoutLoggerViewModel(
     /** Edits one later cluster segment's load, entered in the editor's frozen display unit. */
     fun onDraftSegmentWeightChanged(index: Int, value: String) =
         updateLaterSegment(index) { input ->
-            input.copy(weightInput = value.filter { char -> char.isDigit() || char == '.' })
+            input.copy(
+                weightInput = decimalEntryText(value, _state.value.numberFormat)
+            )
         }
 
     private fun updateLaterSegment(
@@ -1921,16 +1993,25 @@ class WorkoutLoggerViewModel(
                             ?.let { current.distanceUnit.displayWhole(it) }
                             ?.toString()
                             .orEmpty(),
-                        forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
+                        forceNewtons = base.forceNewtons
+                            ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                            .orEmpty(),
                         deviceName = base.device?.name.orEmpty(),
-                        deviceRatingKg = base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
-                        weightInput = weightInputFor(base.weightKg, current.weightUnit),
+                        deviceRatingKg = base.device?.ratingKg
+                            ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                            .orEmpty(),
+                        weightInput = weightInputFor(
+                            base.weightKg,
+                            current.weightUnit,
+                            current.numberFormat
+                        ),
                         weightUnit = current.weightUnit,
                         canonicalWeightKg = base.weightKg,
                         rir = "",
                         weightRevealed = base.loadKind == LoadKind.ADDED,
                         laterSegments = base.cluster?.laterSegmentInputs(
-                            current.weightUnit
+                            current.weightUnit,
+                            current.numberFormat
                         ).orEmpty(),
                         resetGuidedTargets = true,
                         performedAtMillis = current.performedAtMillis,
@@ -1952,18 +2033,30 @@ class WorkoutLoggerViewModel(
                         ?.let { current.distanceUnit.displayWhole(it) }
                         ?.toString()
                         .orEmpty(),
-                    forceNewtons = base.forceNewtons?.let(::exactEntryText).orEmpty(),
+                    forceNewtons = base.forceNewtons
+                        ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                        .orEmpty(),
                     deviceName = base.device?.name.orEmpty(),
-                    deviceRatingKg = base.device?.ratingKg?.let(::exactEntryText).orEmpty(),
+                    deviceRatingKg = base.device?.ratingKg
+                        ?.let { exactLocalizedDecimalText(it, current.numberFormat) }
+                        .orEmpty(),
                     distanceUnit = current.distanceUnit,
-                    weightInput = weightInputFor(base.weightKg, current.weightUnit),
+                    weightInput = weightInputFor(
+                        base.weightKg,
+                        current.weightUnit,
+                        current.numberFormat
+                    ),
                     weightUnit = current.weightUnit,
                     canonicalWeightKg = base.weightKg,
                     rir = "",
                     weightRevealed = base.loadKind == LoadKind.ADDED,
                     performedAtMillis = current.performedAtMillis,
                     performedAtExplicit = false,
-                    laterSegments = base.cluster?.laterSegmentInputs(current.weightUnit).orEmpty()
+                    laterSegments = base.cluster?.laterSegmentInputs(
+                        current.weightUnit,
+                        current.numberFormat
+                    ).orEmpty(),
+                    numberFormat = current.numberFormat
                 )
             )
         }
@@ -2143,7 +2236,7 @@ class WorkoutLoggerViewModel(
             edit.laterSegments.mapIndexedNotNull { offset, segment ->
                 val original = cluster.segments[offset + 1]
                 val reps = segment.reps.toIntOrNull() ?: return@mapIndexedNotNull null
-                val weight = segment.weightInput.toDoubleOrNull()
+                val weight = parseLocalizedDecimal(segment.weightInput, edit.numberFormat)
                     ?.let(edit.weightUnit::displayToKilograms) ?: return@mapIndexedNotNull null
                 val changed = buildSet {
                     if (reps != original.reps) add(ClusterSegmentField.REPS)
@@ -2226,11 +2319,11 @@ class WorkoutLoggerViewModel(
     private fun editedDraft(edit: DraftEdit): DraftSet {
         val capability = edit.draft.loadCapability
         val typed = if (edit.weightInput ==
-            weightInputFor(edit.canonicalWeightKg, edit.weightUnit)
+            weightInputFor(edit.canonicalWeightKg, edit.weightUnit, edit.numberFormat)
         ) {
             edit.canonicalWeightKg
         } else {
-            edit.weightInput.toDoubleOrNull()?.let {
+            parseLocalizedDecimal(edit.weightInput, edit.numberFormat)?.let {
                 edit.weightUnit.displayToKilograms(it)
             }
         }
@@ -2242,8 +2335,12 @@ class WorkoutLoggerViewModel(
                 reps = null,
                 durationSeconds = null,
                 distanceMeters = null,
-                forceNewtons = edit.forceNewtons.toDoubleOrNull(),
-                device = deviceInputOrNull(edit.deviceName, edit.deviceRatingKg),
+                forceNewtons = parseLocalizedDecimal(edit.forceNewtons, edit.numberFormat),
+                device = deviceInputOrNull(
+                    edit.deviceName,
+                    edit.deviceRatingKg,
+                    edit.numberFormat
+                ),
                 weightKg = null,
                 loadKind = edit.draft.loadKind
             )
@@ -2261,7 +2358,8 @@ class WorkoutLoggerViewModel(
         val reps = if (edit.isTimed || edit.isDistance) null else edit.reps.toIntOrNull() ?: 0
         val duration = if (edit.isTimed) edit.durationSeconds.toIntOrNull() ?: 0 else null
         val distance = if (edit.isDistance) {
-            edit.distanceMeters.toDoubleOrNull()?.let(edit.distanceUnit::displayToMetres) ?: 0
+            parseLocalizedDecimal(edit.distanceMeters, edit.numberFormat)
+                ?.let(edit.distanceUnit::displayToMetres) ?: 0
         } else {
             null
         }
@@ -2595,7 +2693,8 @@ class WorkoutLoggerViewModel(
             inputs = edit?.laterSegments,
             // An edit without its own frozen unit cannot happen; the current preference is only a
             // fallback so the refusal never depends on a null unit.
-            weightUnit = edit?.weightUnit ?: _state.value.weightUnit
+            weightUnit = edit?.weightUnit ?: _state.value.weightUnit,
+            numberFormat = edit?.numberFormat ?: _state.value.numberFormat
         )
     }
 
@@ -2792,7 +2891,8 @@ class WorkoutLoggerViewModel(
                     occurrenceEntryId = entryId,
                     exerciseName = entry.exerciseName,
                     metric = entry.measureMetric(),
-                    value = entry.measureInput()
+                    value = entry.measureInput(),
+                    numberFormat = it.numberFormat
                 )
             )
         }
@@ -2841,7 +2941,7 @@ class WorkoutLoggerViewModel(
         val dialog = _state.value.measureChange ?: return
         if (dialog.applying) return
         val occurrenceId = currentOccurrence?.id ?: return
-        val value = dialog.value.trim().toDoubleOrNull()
+        val value = parseLocalizedDecimal(dialog.value, dialog.numberFormat)
         if (value == null || !value.isFinite() || value <= 0.0) {
             _state.update { state ->
                 state.copy(measureChange = state.measureChange?.copy(invalidValue = true))
@@ -2886,7 +2986,10 @@ class WorkoutLoggerViewModel(
     private fun OccurrenceEntry.measureInput(): String = when {
         durationSeconds != null -> durationSeconds.toString()
         distanceMeters != null -> distanceMeters.toString()
-        forceNewtons != null -> forceNewtons.toString()
+        forceNewtons != null -> exactLocalizedDecimalText(
+            requireNotNull(forceNewtons),
+            numberFormat
+        )
         else -> reps?.toString().orEmpty()
     }
 
@@ -3158,7 +3261,7 @@ class WorkoutLoggerViewModel(
     /** Prefills the weight field with the accepted plan's suggestion, in the display unit. */
     private fun suggestedInputFor(exerciseId: String, unit: WeightUnit): String =
         suggestedWeightKgByExercise[exerciseId]
-            ?.let { exactEntryText(unit.kilogramsToDisplay(it)) }
+            ?.let { exactLocalizedDecimalText(unit.kilogramsToDisplay(it), numberFormat) }
             .orEmpty()
 
     private fun suggestedRepsFor(exerciseId: String): String? = acceptedToday?.exercises
@@ -4600,7 +4703,8 @@ class WorkoutLoggerViewModel(
                     weightInput = "",
                     timed = row.durationSeconds != null,
                     hasWeight = false,
-                    weightUnit = it.weightUnit
+                    weightUnit = it.weightUnit,
+                    numberFormat = it.numberFormat
                 )
             )
         }
@@ -4614,7 +4718,10 @@ class WorkoutLoggerViewModel(
             ?.rows?.firstOrNull { it.key.rampIndex == rampIndex }
             ?: return
         _state.update {
-            val shownWeight = formatWeight(it.weightUnit.kilogramsToDisplay(row.weightKg))
+            val shownWeight = formatLocalizedDecimal(
+                it.weightUnit.kilogramsToDisplay(row.weightKg),
+                it.numberFormat
+            )
             it.copy(
                 warmupEditor = WarmupGuidanceEditor(
                     target = WarmupEditTarget.Ramp(WarmupRampKey(occurrenceEntryId, rampIndex)),
@@ -4626,6 +4733,7 @@ class WorkoutLoggerViewModel(
                     timed = false,
                     hasWeight = true,
                     weightUnit = it.weightUnit,
+                    numberFormat = it.numberFormat,
                     ceilingKg = rampCeilingKg(occurrenceEntryId)
                 )
             )
@@ -4642,7 +4750,7 @@ class WorkoutLoggerViewModel(
 
     fun onWarmupEditorWeightChanged(value: String) = updateWarmupEditor {
         copy(
-            weightInput = value.filter { it.isDigit() || it == '.' },
+            weightInput = decimalEntryText(value, numberFormat),
             resetsToDefault = false
         )
     }
@@ -4806,8 +4914,9 @@ class WorkoutLoggerViewModel(
                 _state.update {
                     // The editor's frozen unit, not the current preference, so Reset shows digits in
                     // the same unit Save will interpret them in.
-                    val shownWeight = formatWeight(
-                        editor.weightUnit.kilogramsToDisplay(ramp.weightKg)
+                    val shownWeight = formatLocalizedDecimal(
+                        editor.weightUnit.kilogramsToDisplay(ramp.weightKg),
+                        editor.numberFormat
                     )
                     it.copy(
                         warmupEditor = editor.copy(

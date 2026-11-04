@@ -16,6 +16,19 @@ import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+
+/**
+ * Renders a weight for display with the live presentation format: at most one decimal place, the
+ * locale decimal separator, and a trailing `.0` dropped. Stored kilograms are never rounded through
+ * this text; editable prefills use the exact text helper instead.
+ */
+internal fun formatRoutineWeightForDisplay(
+    value: Double,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = formatLocalizedDecimal(value, format)
 
 /** A catalog exercise the routine editor can pick; [isExcluded] marks an EX-01 exclusion. */
 data class RoutineExerciseOption(val id: String, val name: String, val isExcluded: Boolean = false)
@@ -217,6 +230,8 @@ data class PendingSwitchMode(
 data class RoutinesUiState(
     val templates: List<RoutineTemplate> = emptyList(),
     val isLoading: Boolean = true,
+    /** True when the template read failed; loaded templates and any open editor are kept. */
+    val templatesLoadFailed: Boolean = false,
     val exercises: List<RoutineExerciseOption> = emptyList(),
     val editor: RoutineEditorState? = null,
     val picker: ExercisePickerState? = null,
@@ -229,6 +244,10 @@ data class RoutinesUiState(
     val activation: ActivationUiState? = null,
     val activeActivation: TrainingActivation? = null,
     val occurrences: List<WorkoutOccurrence> = emptyList(),
+    /** True when the active block itself could not be read. */
+    val activationLoadFailed: Boolean = false,
+    /** True when the active block's schedule read failed; loaded occurrences are kept. */
+    val occurrencesLoadFailed: Boolean = false,
     val pendingPostpone: PendingPostpone? = null,
     val pendingSwitchMode: PendingSwitchMode? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,

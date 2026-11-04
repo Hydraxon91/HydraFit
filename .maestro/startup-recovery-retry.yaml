@@ -1,0 +1,18 @@
+# Contract and verification status: see README.md. The retry re-runs idempotent startup maintenance
+# (catalog seeding and search-projection backfill) inside the app database; no user rows are removed.
+# Part 2 of the launch-failure journey. Run only after the parent has restored the database
+# permissions and this flow's Retry succeeds; the app must open with the same data it had before.
+appId: com.hydrafit.app
+name: Retry after a launch failure opens the app
+tags:
+  - recovery
+  - write-free
+---
+- tapOn:
+    text: '^Try again$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Train$'

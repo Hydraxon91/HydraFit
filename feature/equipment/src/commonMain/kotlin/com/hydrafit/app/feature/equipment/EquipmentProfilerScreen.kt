@@ -50,9 +50,11 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
 import hydrafit.feature.equipment.generated.resources.equipment_add_exercise
@@ -532,7 +534,9 @@ fun EquipmentProfilerScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = record.exerciseName, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            text = "${formatWeight(record.weightKg)} kg × ${record.reps}",
+                            text = "${formatEquipmentWeightForDisplay(
+                                record.weightKg
+                            )} kg × ${record.reps}",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -677,7 +681,7 @@ private fun PersonalRecordDialog(
             Button(
                 onClick = onSave,
                 enabled = state.exerciseId != null &&
-                    (state.weightInput.toDoubleOrNull() ?: 0.0) > 0.0 &&
+                    (parseLocalizedDecimal(state.weightInput, state.numberFormat) ?: 0.0) > 0.0 &&
                     (state.repsInput.toIntOrNull() ?: 0) > 0
             ) {
                 Text(stringResource(Res.string.equipment_edit_save))
@@ -836,9 +840,13 @@ private fun StationsSection(
                         text = if (station.hasGrid) {
                             stringResource(
                                 Res.string.equipment_station_grid_summary,
-                                formatWeight(requireNotNull(station.minWeightKg)),
-                                formatWeight(requireNotNull(station.maxWeightKg)),
-                                formatWeight(requireNotNull(station.incrementKg))
+                                formatEquipmentWeightForDisplay(
+                                    requireNotNull(station.minWeightKg)
+                                ),
+                                formatEquipmentWeightForDisplay(
+                                    requireNotNull(station.maxWeightKg)
+                                ),
+                                formatEquipmentWeightForDisplay(requireNotNull(station.incrementKg))
                             )
                         } else {
                             stringResource(Res.string.equipment_station_no_grid)
@@ -1500,7 +1508,7 @@ private fun involvementValueLabel(weight: Double): String = when (involvementTie
     InvolvementTier.MID -> stringResource(Res.string.equipment_tier_mid)
     InvolvementTier.HIGH -> stringResource(Res.string.equipment_tier_high)
     InvolvementTier.PRIMARY -> stringResource(Res.string.equipment_tier_primary)
-    null -> weight.toString()
+    null -> formatLocalizedDecimal(weight, currentPresentationNumberFormat())
 }
 
 internal fun InvolvementTier.labelResource(): StringResource = when (this) {

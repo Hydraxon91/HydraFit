@@ -16,8 +16,10 @@ import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.ProgressDay
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_chart_caption
 import hydrafit.feature.progress.generated.resources.progress_table_distance
@@ -34,8 +36,11 @@ internal const val PROGRESS_MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 internal fun progressDayLabel(localEpochDay: Long): String =
     isoDateUtc(localEpochDay * PROGRESS_MILLIS_PER_DAY)
 
-internal fun displayWeight(kilograms: Double, unit: WeightUnit): String =
-    "${formatWeight(unit.kilogramsToDisplay(kilograms))} ${unit.label}"
+internal fun displayWeight(
+    kilograms: Double,
+    unit: WeightUnit,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = "${formatLocalizedDecimal(unit.kilogramsToDisplay(kilograms), format)} ${unit.label}"
 
 /**
  * The horizontal centre for a mark at [localEpochDay], inset from each edge by [radiusPx] so no mark

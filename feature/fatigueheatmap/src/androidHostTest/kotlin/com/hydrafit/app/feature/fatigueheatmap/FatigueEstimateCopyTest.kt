@@ -26,7 +26,7 @@ class FatigueEstimateCopyTest {
 
     @Test
     fun screenLabelsTheScoresAsAnEstimateBelowTheTitle() = runComposeUiTest {
-        setContent { FatigueHeatmapScreen(state = FatigueHeatmapUiState()) }
+        setContent { FatigueHeatmapScreen(state = FatigueHeatmapUiState(isLoading = false)) }
 
         onNodeWithText(TITLE).assertIsDisplayed()
         onNodeWithText(CAVEAT, substring = true).assertIsDisplayed()
@@ -41,7 +41,7 @@ class FatigueEstimateCopyTest {
 
     @Test
     fun bodyMapLegendReadsAsAnEstimateToo() = runComposeUiTest {
-        setContent { FatigueHeatmapScreen(state = FatigueHeatmapUiState()) }
+        setContent { FatigueHeatmapScreen(state = FatigueHeatmapUiState(isLoading = false)) }
 
         onNodeWithText("Body map").performClick()
         waitForIdle()

@@ -5,7 +5,9 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.setup.SetupStepInput
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
 /**
  * The setup editors' draft decisions, kept out of the Composables so the rules that gate Next and
@@ -55,8 +57,10 @@ internal fun withDraftRecord(
  * A positive, finite display weight, or null for blank, non-numeric, zero, negative or non-finite
  * input. The editor uses this so an unparseable field can never become a stored record.
  */
-internal fun parseDisplayWeight(text: String): Double? =
-    text.trim().toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 }
+internal fun parseDisplayWeight(
+    text: String,
+    format: PresentationNumberFormat = PresentationNumberFormat('.')
+): Double? = parseLocalizedDecimal(text, format)?.takeIf { it.isFinite() && it > 0.0 }
 
 /** A positive whole rep count, or null for blank, non-numeric, zero or negative input. */
 internal fun parseReps(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it > 0 }
@@ -69,17 +73,24 @@ internal fun parseReps(text: String): Int? = text.trim().toIntOrNull()?.takeIf {
 internal fun personalRecordEntryDraft(
     exerciseId: String,
     unit: WeightUnit,
-    shown: PersonalRecord?
+    shown: PersonalRecord?,
+    format: PresentationNumberFormat = PresentationNumberFormat('.')
 ): PersonalRecordEntryDraft = PersonalRecordEntryDraft(
     exerciseId = exerciseId,
-    weightText = prefillWeightText(unit, shown),
+    weightText = prefillWeightText(unit, shown, format),
     repsText = shown?.reps?.toString().orEmpty(),
-    origin = shown
+    origin = shown,
+    numberFormat = format
 )
 
 /** The weight text an opening entry pre-fills its field with, in the frozen entry unit. */
-private fun prefillWeightText(unit: WeightUnit, shown: PersonalRecord?): String =
-    shown?.let { formatWeight(unit.kilogramsToDisplay(it.weightKg)) }.orEmpty()
+private fun prefillWeightText(
+    unit: WeightUnit,
+    shown: PersonalRecord?,
+    format: PresentationNumberFormat
+): String = shown
+    ?.let { formatLocalizedDecimal(unit.kilogramsToDisplay(it.weightKg), format) }
+    .orEmpty()
 
 /**
  * The record an open entry's text describes, or null when either field is blank, non-numeric, zero,
@@ -90,9 +101,10 @@ internal fun personalRecordFrom(
     exerciseId: String,
     unit: WeightUnit,
     weightText: String,
-    repsText: String
+    repsText: String,
+    format: PresentationNumberFormat = PresentationNumberFormat('.')
 ): PersonalRecord? {
-    val weight = parseDisplayWeight(weightText) ?: return null
+    val weight = parseDisplayWeight(weightText, format) ?: return null
     val reps = parseReps(repsText) ?: return null
     return PersonalRecord(exerciseId, unit.displayToKilograms(weight), reps)
 }
@@ -113,15 +125,22 @@ internal fun personalRecordFrom(
  */
 internal fun decidePersonalRecordEntry(
     entry: PersonalRecordEntryDraft,
-    unit: WeightUnit
+    unit: WeightUnit,
+    format: PresentationNumberFormat = entry.numberFormat
 ): PersonalRecord? {
     val origin = entry.origin
-        ?: return personalRecordFrom(entry.exerciseId, unit, entry.weightText, entry.repsText)
-    val weightChanged = entry.weightText != prefillWeightText(unit, origin)
+        ?: return personalRecordFrom(
+            entry.exerciseId,
+            unit,
+            entry.weightText,
+            entry.repsText,
+            format
+        )
+    val weightChanged = entry.weightText != prefillWeightText(unit, origin, format)
     val repsChanged = entry.repsText != origin.reps.toString()
     if (!weightChanged && !repsChanged) return null
     val weight = if (weightChanged) {
-        val display = parseDisplayWeight(entry.weightText) ?: return null
+        val display = parseDisplayWeight(entry.weightText, format) ?: return null
         unit.displayToKilograms(display)
     } else {
         origin.weightKg

@@ -380,8 +380,8 @@ load, and any measure other than repetitions drops its ordered per-set targets, 
 describe rep work that the new measure cannot perform. History details and the post-workout summary render the
 newtons and a `Device: <name> (<rating> kg)` line; Progress shows the same per-set line at both
 history sites but adds no force chart series and no day-total force metric, because summing peak
-forces is not a meaningful quantity. `formatWeight` prints newtons and ratings with one decimal and
-no unit conversion.
+forces is not a meaningful quantity. The locale-aware one-decimal formatter prints newtons and
+ratings with the app's decimal separator; neither is unit-converted.
 
 Force never enters rep-derived e1RM, external volume, strength records, modeled fatigue or planner
 load inputs; the progress calculator counts a force set as recorded work and returns before any
@@ -424,6 +424,15 @@ and that recorded muscle mappings may be incomplete. `fatigue_map_legend_low`/`_
 estimate-framed legend labels. Numbers, the 24 groups, artwork/coverage logic and the
 manual-only seeds are untouched; `FatigueEstimateCopyTest` guards the copy in the real
 resources and in the rendered screen and body-map dialog.
+
+Load states are separate from the estimate (`0.13.3`). `FatigueHeatmapUiState.isLoading` renders a
+progress row, `loadFailed` renders a failure message with Retry, and only a computed state renders
+the muscle rows or offers the body-map overlay. `FatigueHeatmapViewModel` restarts both repository
+reads on retry, drops the pre-failure captures, and waits for a fresh modelled score so a resume tick
+cannot republish the old grid; coverage arriving before the log stays in loading instead of publishing
+zeroes. `FatigueScreenStateTest` covers the three list states and the overlay gate, and
+`FatigueHeatmapViewModelTest` covers failure, retry, retry-while-healthy, a tick during retry and
+coverage-before-log.
 
 Paths are relative to the repository root; package shorthand is defined in
 `../SKILL.md`. Read current source and relevant tests before using this reference.
@@ -547,9 +556,9 @@ without accumulating conversion rounding across repeated toggles. Blank weight r
 distinct from numeric zero); blank distance remains unsubmitted. Incomplete or invalid nonblank text
 stays visible and blocks both the Log action and direct submission. This applies only to manual
 inputs; force/device values are not converted, and draft and correction editors keep their own
-captured-unit behavior. Force and device-rating values in a draft editor use `exactEntryText` on open
-and Reset, preserving full stored precision through Apply, reopen and logging rather than rounding to
-one decimal place. Manual recent-set and plan weight prefills likewise use exact editable text after
+captured-unit behavior. Force and device-rating values in a draft editor use
+`exactLocalizedDecimalText` on open and Reset, preserving full stored precision through Apply,
+reopen and logging rather than rounding to one decimal place and using the app's decimal separator. Manual recent-set and plan weight prefills likewise use exact editable text after
 unit conversion, so the displayed and submitted canonical kilograms remain the same. Switching the
 manual measure away from distance clears both its text and canonical metres; returning to distance
 requires a new positive entry before either the Log action or direct submission is accepted.
@@ -894,8 +903,8 @@ Onboarding's foundation lives in `:feature:onboarding`: `OnboardingViewModel`, `
 `OnboardingNavigation.kt` exports `onboardingFirstRunRoute`/`onboardingRevisitRoute`,
 `onboardingGraph(navController, onClose)`, `OnboardingStartupGate` and `OnboardingStartupEntry`;
 `OnboardingEntryViewModel` reads the disposition once after readiness, so the shell forces first-run
-only while it is PENDING and leaves a route already restored to first-run alone. The six tabs and the
-tab bar are unchanged, and Settings opens the revisit route through `LocalSetupNavigator`
+only while it is PENDING and leaves a route already restored to first-run alone. The Train, Progress
+and Library bar is unchanged, and Settings opens the revisit route through `LocalSetupNavigator`
 (`:core:navigation`).
 `OnboardingEntryScreen.kt` owns the route effect and the Back/Next/Skip/Close action bar, and
 `OnboardingStepEditors.kt` renders one editor per step: welcome copy, unit radios, an equipment
@@ -917,6 +926,16 @@ device settings were restored and read back afterwards. TalkBack, rotation/adapt
 translated-language layout remain unverified rather than claimed; a separate pass then asserted that
 the pinned action bar stays reachable and unobstructed with the keyboard open while a PR entry field
 is focused.
+`StartupReadiness` now reports three situations, not one flag (`0.13.3`): `isReady` while maintenance
+runs and after it succeeds, `hasFailed` after a failed attempt, and `retry()` for one more attempt.
+`DatabaseStartupMaintenance` applies a staged backup, seeds the catalogs, dedupes customs, backfills
+sessions and heals search projections in that order; a failure stops the attempt, keeps `isReady`
+false and sets `hasFailed`, and cancellation still propagates rather than becoming a retry prompt. The
+shell (`App.kt`) shows a loading screen, a `Try again` failure screen, or the app; feature screens are
+not composed on failure, so their read states describe later failures only. `retry()` is ignored
+unless an attempt failed. Tests: `DatabaseStartupMaintenanceTest` covers staged-read failure, a
+transient failure cleared by retry, repeated failures, retry before failure and cancellation.
+
 Construction writes nothing; `open` waits for `StartupReadiness`, resumes PENDING setup, or starts a
 voluntary revisit at Welcome. Next/Skip call the domain save actions; Back/edit/close/rendering save
 nothing. `isSubmittable` gates Next (its only local rule is the 2–6 weekday range, so

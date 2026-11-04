@@ -83,7 +83,6 @@ import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.DeviceAttribution
 import com.hydrafit.app.core.domain.workout.GuidedExerciseProgress
 import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
@@ -1842,7 +1841,7 @@ fun WorkoutLoggerScreen(
                                                 draft.sets,
                                                 stringResource(
                                                     Res.string.logger_force_value,
-                                                    formatWeight(draft.forceNewtons)
+                                                    formatWeightForDisplay(draft.forceNewtons)
                                                 )
                                             )
 
@@ -2188,7 +2187,7 @@ fun WorkoutLoggerScreen(
                                 Res.string.logger_history_set_force_line,
                                 stringResource(
                                     Res.string.logger_force_value,
-                                    formatWeight(row.forceNewtons)
+                                    formatWeightForDisplay(row.forceNewtons)
                                 )
                             )
 
@@ -2451,7 +2450,7 @@ fun WorkoutLoggerScreen(
         val draft = resolution.current.draft
         val recorded = draft.weightKg
             ?.let {
-                formatWeight(state.weightUnit.kilogramsToDisplay(it)) +
+                formatWeightForDisplay(state.weightUnit.kilogramsToDisplay(it)) +
                     " " + state.weightUnit.label
             }
             ?: stringResource(Res.string.logger_weight_none)
@@ -2592,7 +2591,7 @@ internal fun deviceAttributionText(device: DeviceAttribution): String =
         stringResource(
             Res.string.logger_device_attributed_rated,
             device.name,
-            formatWeight(rating)
+            formatWeightForDisplay(rating)
         )
     } ?: stringResource(Res.string.logger_device_attributed, device.name)
 
@@ -2933,11 +2932,11 @@ private fun explanationLineText(line: TargetExplanationLine, weightUnit: WeightU
     val rendered = when (line.valueKind) {
         TargetExplanationValueKind.KILOGRAMS -> stringResource(
             Res.string.logger_explanation_kilograms,
-            formatWeight(weightUnit.kilogramsToDisplay(value)),
+            formatWeightForDisplay(weightUnit.kilogramsToDisplay(value)),
             weightUnit.label
         )
-        TargetExplanationValueKind.PERCENT -> formatWeight(value * 100.0) + "%"
-        else -> formatWeight(value)
+        TargetExplanationValueKind.PERCENT -> formatWeightForDisplay(value * 100.0) + "%"
+        else -> formatWeightForDisplay(value)
     }
     return stringResource(Res.string.logger_explanation_line, label, rendered)
 }
@@ -3031,7 +3030,7 @@ internal fun orderedProgressionCopy(
         null
     } else {
         suggestedLoads.joinToString("/") { load ->
-            load?.let { formatWeight(unit.kilogramsToDisplay(it)) } ?: "-"
+            load?.let { formatWeightForDisplay(unit.kilogramsToDisplay(it)) } ?: "-"
         } + " " + unit.label
     }
     return OrderedProgressionCopy(sets = targets.size, reps = reps, loads = loads)
@@ -3085,7 +3084,8 @@ internal fun loadWeightText(
 ): String = when (val display = loadDisplayFor(loadKind, weightKg)) {
     LoadDisplay.None -> stringResource(Res.string.logger_weight_none)
     is LoadDisplay.External -> {
-        val weight = formatWeight(unit.kilogramsToDisplay(display.weightKg)) + " " + unit.label
+        val weight =
+            formatWeightForDisplay(unit.kilogramsToDisplay(display.weightKg)) + " " + unit.label
         basis?.let { label ->
             stringResource(Res.string.logger_load_basis, weight, basisLabel(label))
         } ?: weight
@@ -3093,7 +3093,7 @@ internal fun loadWeightText(
     is LoadDisplay.Added -> display.weightKg?.let {
         stringResource(
             Res.string.logger_load_added,
-            formatWeight(unit.kilogramsToDisplay(it)),
+            formatWeightForDisplay(unit.kilogramsToDisplay(it)),
             unit.label
         )
     } ?: stringResource(Res.string.logger_load_added_none)
@@ -3101,7 +3101,7 @@ internal fun loadWeightText(
     is LoadDisplay.LegacyUnconfirmed -> display.weightKg?.let {
         stringResource(
             Res.string.logger_load_legacy,
-            formatWeight(unit.kilogramsToDisplay(it)),
+            formatWeightForDisplay(unit.kilogramsToDisplay(it)),
             unit.label
         )
     } ?: stringResource(Res.string.logger_weight_none)
@@ -3461,7 +3461,7 @@ private fun workoutOverviewTarget(
             sets,
             stringResource(
                 Res.string.logger_force_value,
-                formatWeight(draft.forceNewtons)
+                formatWeightForDisplay(draft.forceNewtons)
             )
         )
 
@@ -4039,7 +4039,7 @@ private fun GuidedWorkoutSection(
                                         Res.string.logger_guided_target_force,
                                         stringResource(
                                             Res.string.logger_force_value,
-                                            formatWeight(targetForce)
+                                            formatWeightForDisplay(targetForce)
                                         )
                                     )
 

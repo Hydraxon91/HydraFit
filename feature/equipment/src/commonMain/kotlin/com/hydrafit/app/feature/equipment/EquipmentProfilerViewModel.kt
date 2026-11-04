@@ -15,7 +15,6 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.equipment.parseNativeTicks
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
@@ -26,6 +25,10 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -45,8 +48,16 @@ class EquipmentProfilerViewModel(
     private val customExerciseRepository: CustomExerciseRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     /** The plate solver is bounded but not cheap; it never runs on the UI thread. */
-    private val calculationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val calculationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /**
+     * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
+     * the default; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
+
+    /** Frozen for the ViewModel's lifetime; editor text is parsed and rendered with it. */
+    private val numberFormat: PresentationNumberFormat = numberFormatProvider()
 
     private val _state = MutableStateFlow(EquipmentProfilerUiState())
     val state: StateFlow<EquipmentProfilerUiState> = _state.asStateFlow()
@@ -134,8 +145,11 @@ class EquipmentProfilerViewModel(
                 personalRecordEditor = PersonalRecordEditorState(
                     open = true,
                     exerciseId = exerciseId,
-                    weightInput = existing?.weightKg?.let { kg -> formatWeight(kg) }.orEmpty(),
-                    repsInput = existing?.reps?.toString().orEmpty()
+                    weightInput = existing?.weightKg
+                        ?.let { kg -> exactLocalizedDecimalText(kg, numberFormat) }
+                        .orEmpty(),
+                    repsInput = existing?.reps?.toString().orEmpty(),
+                    numberFormat = numberFormat
                 )
             )
         }
@@ -145,7 +159,7 @@ class EquipmentProfilerViewModel(
         _state.update {
             it.copy(
                 personalRecordEditor = it.personalRecordEditor.copy(
-                    weightInput = value.filter { char -> char.isDigit() || char == '.' },
+                    weightInput = decimalEquipmentInput(value, numberFormat),
                     error = null
                 )
             )
@@ -166,7 +180,7 @@ class EquipmentProfilerViewModel(
     fun onSavePersonalRecord() {
         val editor = _state.value.personalRecordEditor
         val exerciseId = editor.exerciseId ?: return
-        val weightKg = editor.weightInput.toDoubleOrNull() ?: return
+        val weightKg = parseLocalizedDecimal(editor.weightInput, numberFormat) ?: return
         val reps = editor.repsInput.toIntOrNull() ?: return
         if (weightKg <= 0.0 || reps <= 0) return
         // Personal records feed the external-load baseline only; a bodyweight exercise cannot hold one.
@@ -264,7 +278,10 @@ class EquipmentProfilerViewModel(
                     tag = tag,
                     name = equipment.name,
                     isBuiltIn = equipment.isBuiltIn,
-                    maxWeightInput = equipment.maxWeightKg?.let { kg -> formatWeight(kg) }.orEmpty()
+                    maxWeightInput = equipment.maxWeightKg
+                        ?.let { kg -> exactLocalizedDecimalText(kg, numberFormat) }
+                        .orEmpty(),
+                    numberFormat = numberFormat
                 )
             )
         }
@@ -280,7 +297,7 @@ class EquipmentProfilerViewModel(
         _state.update {
             it.copy(
                 equipmentEditor = it.equipmentEditor.copy(
-                    maxWeightInput = value.filter { char -> char.isDigit() || char == '.' },
+                    maxWeightInput = decimalEquipmentInput(value, numberFormat),
                     error = null
                 )
             )
@@ -291,8 +308,9 @@ class EquipmentProfilerViewModel(
         val editor = _state.value.equipmentEditor
         val tag = editor.tag ?: return
         val rawMax = editor.maxWeightInput.trim()
-        if (rawMax.isNotEmpty() && rawMax.toDoubleOrNull() == null) return
-        val maxWeight = rawMax.takeIf { it.isNotEmpty() }?.toDouble()
+        if (rawMax.isNotEmpty() && parseLocalizedDecimal(rawMax, numberFormat) == null) return
+        val maxWeight = rawMax.takeIf { it.isNotEmpty() }
+            ?.let { parseLocalizedDecimal(it, numberFormat) }
         val name = editor.name.trim()
         if (!editor.isBuiltIn && name.isEmpty()) return
         val context = profileContext ?: return
@@ -348,7 +366,12 @@ class EquipmentProfilerViewModel(
             ?: _state.value.equipment.firstOrNull()?.id
             ?: return
         _state.update {
-            it.copy(stationEditor = StationEditorState(equipmentId = equipment))
+            it.copy(
+                stationEditor = StationEditorState(
+                    equipmentId = equipment,
+                    numberFormat = numberFormat
+                )
+            )
         }
     }
 
@@ -360,9 +383,16 @@ class EquipmentProfilerViewModel(
                     equipmentId = station.equipmentId,
                     name = station.name,
                     loadBasis = station.loadBasis,
-                    minInput = station.minWeightKg?.let(::formatWeight).orEmpty(),
-                    maxInput = station.maxWeightKg?.let(::formatWeight).orEmpty(),
-                    incrementInput = station.incrementKg?.let(::formatWeight).orEmpty()
+                    minInput = station.minWeightKg
+                        ?.let { exactLocalizedDecimalText(it, numberFormat) }
+                        .orEmpty(),
+                    maxInput = station.maxWeightKg
+                        ?.let { exactLocalizedDecimalText(it, numberFormat) }
+                        .orEmpty(),
+                    incrementInput = station.incrementKg
+                        ?.let { exactLocalizedDecimalText(it, numberFormat) }
+                        .orEmpty(),
+                    numberFormat = numberFormat
                 )
             )
         }
@@ -410,9 +440,12 @@ class EquipmentProfilerViewModel(
         if (!editor.canSave) return
         val context = profileContext ?: return
         val profileId = context.profileId
-        val minimum = editor.minInput.takeIf(String::isNotBlank)?.toDouble()
-        val maximum = editor.maxInput.takeIf(String::isNotBlank)?.toDouble()
-        val increment = editor.incrementInput.takeIf(String::isNotBlank)?.toDouble()
+        val minimum = editor.minInput.takeIf(String::isNotBlank)
+            ?.let { parseLocalizedDecimal(it, numberFormat) }
+        val maximum = editor.maxInput.takeIf(String::isNotBlank)
+            ?.let { parseLocalizedDecimal(it, numberFormat) }
+        val increment = editor.incrementInput.takeIf(String::isNotBlank)
+            ?.let { parseLocalizedDecimal(it, numberFormat) }
         _state.update {
             it.copy(stationEditor = it.stationEditor.copy(saving = true, error = null))
         }
@@ -1132,7 +1165,8 @@ class EquipmentProfilerViewModel(
                 exerciseEditor = editor.copy(
                     involvementEditor = InvolvementEditorState.forMuscle(
                         muscle,
-                        editor.involvements[muscle]
+                        editor.involvements[muscle],
+                        numberFormat
                     )
                 )
             )
@@ -1153,7 +1187,9 @@ class EquipmentProfilerViewModel(
         _state.update { current ->
             val editor = current.exerciseEditor
             val draft = editor.involvementEditor ?: return@update current
-            val text = weight?.toString() ?: InvolvementEditorState.NONE_INPUT
+            val text = weight
+                ?.let { exactLocalizedDecimalText(it, draft.numberFormat) }
+                ?: InvolvementEditorState.NONE_INPUT
             current.copy(exerciseEditor = editor.copy(involvementEditor = draft.copy(input = text)))
         }
     }

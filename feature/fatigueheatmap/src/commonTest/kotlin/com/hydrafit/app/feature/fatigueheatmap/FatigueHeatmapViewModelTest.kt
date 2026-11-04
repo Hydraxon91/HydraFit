@@ -29,7 +29,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -462,6 +464,125 @@ class FatigueHeatmapViewModelTest {
         )
     )
 
+    /**
+     * A failed read used to leave the screen on a grid of zeroes labelled "estimated muscle fatigue".
+     * It must say the read failed instead, and keep the loading flag off so no spinner is implied.
+     */
+    @Test
+    fun readFailureIsReportedInsteadOfAnEmptyGrid() = runTest(dispatcher) {
+        val repository = ThrowingWorkoutLogRepository(
+            FlowingWorkoutLogRepository(MutableStateFlow(emptyList()))
+        )
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = repository,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FakeTrainingCoverageRepository(),
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
+        )
+
+        runCurrent()
+
+        assertTrue(viewModel.state.value.loadFailed)
+        assertFalse(viewModel.state.value.isLoading)
+        assertTrue(viewModel.state.value.entries.isEmpty())
+    }
+
+    @Test
+    fun retryAfterAReadFailureLoadsTheMap() = runTest(dispatcher) {
+        val repository = ThrowingWorkoutLogRepository(
+            FlowingWorkoutLogRepository(MutableStateFlow(emptyList()))
+        )
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = repository,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FakeTrainingCoverageRepository(),
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
+        )
+        runCurrent()
+        assertTrue(viewModel.state.value.loadFailed)
+
+        repository.failNextRead = false
+        viewModel.retry()
+        runCurrent()
+
+        assertFalse(viewModel.state.value.loadFailed)
+        assertFalse(viewModel.state.value.isLoading)
+        assertEquals(MuscleGroup.entries.size, viewModel.state.value.entries.size)
+        assertEquals(2, repository.reads)
+    }
+
+    @Test
+    fun retryWhileTheReadIsHealthyDoesNotRestartIt() = runTest(dispatcher) {
+        val repository = ThrowingWorkoutLogRepository(
+            FlowingWorkoutLogRepository(MutableStateFlow(emptyList()))
+        )
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = repository,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FakeTrainingCoverageRepository(),
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
+        )
+        repository.failNextRead = false
+        runCurrent()
+
+        viewModel.retry()
+        runCurrent()
+
+        assertFalse(viewModel.state.value.loadFailed)
+        assertEquals(1, repository.reads)
+    }
+
+    /**
+     * A tick or resume during the retry window must not recompute from the pre-failure capture and
+     * present old scores as current: the screen stays in its loading state until the new read lands.
+     */
+    @Test
+    fun aTickDuringRetryDoesNotRepublishThePreviousScores() = runTest(dispatcher) {
+        val repository = FlakyWorkoutLogRepository(MutableStateFlow(emptyList()))
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = repository,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = SilentTrainingCoverageRepository,
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
+        )
+        runCurrent()
+        assertTrue(viewModel.state.value.loadFailed)
+        assertEquals(MuscleGroup.entries.size, viewModel.state.value.entries.size)
+
+        repository.mode = FlakyMode.SILENT
+        viewModel.retry()
+        assertTrue(viewModel.state.value.isLoading)
+        viewModel.onResume()
+        advanceTimeBy(61_000L)
+        runCurrent()
+
+        assertFalse(viewModel.state.value.loadFailed)
+        assertTrue(viewModel.state.value.isLoading)
+        viewModel.onPause()
+    }
+
+    /** Coverage arriving before the log must not publish a computed grid of zeroes. */
+    @Test
+    fun coverageBeforeTheLogReadStaysLoading() = runTest(dispatcher) {
+        val viewModel = FatigueHeatmapViewModel(
+            workoutLogRepository = SilentWorkoutLogRepository,
+            calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
+            trainingCoverageRepository = FluxTrainingCoverageRepository,
+            timeProvider = TimeProvider { 0L },
+            calculationDispatcher = dispatcher
+        )
+
+        runCurrent()
+
+        assertTrue(viewModel.state.value.isLoading)
+        assertTrue(viewModel.state.value.entries.isEmpty())
+        assertFalse(viewModel.state.value.loadFailed)
+    }
+
     private fun viewModel(sets: List<LoggedSet>, nowMillis: Long) = FatigueHeatmapViewModel(
         workoutLogRepository = FakeWorkoutLogRepository(sets),
         calculateMuscleFatigue = CalculateMuscleFatigueUseCase(),
@@ -615,5 +736,68 @@ class FatigueHeatmapViewModelTest {
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = sets
 
         override suspend fun clear() = Unit
+    }
+
+    /**
+     * A repository whose log read throws while [failNextRead] is set, so the ViewModel's failure and
+     * retry path can be exercised without a real storage fault.
+     */
+    private class ThrowingWorkoutLogRepository(private val delegate: WorkoutLogRepository) :
+        WorkoutLogRepository by delegate {
+        var failNextRead = true
+        var reads = 0
+            private set
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flow {
+            reads += 1
+            if (failNextRead) throw IllegalStateException("log read failed")
+            emitAll(delegate.loggedSetsFlow())
+        }
+    }
+
+    /**
+     * Emits the current snapshot and then fails like a storage read that breaks after one successful
+     * frame; [mode] selects the failure or silence the retry-window tests need.
+     */
+    private class FlakyWorkoutLogRepository(private val sets: MutableStateFlow<List<LoggedSet>>) :
+        WorkoutLogRepository by FlowingWorkoutLogRepository(sets) {
+        var mode = FlakyMode.FAIL_AFTER_EMIT
+
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = flow {
+            when (mode) {
+                FlakyMode.FAIL_AFTER_EMIT -> {
+                    emit(sets.value)
+                    throw IllegalStateException("log read failed")
+                }
+                FlakyMode.SILENT -> Unit
+                FlakyMode.HEALTHY -> emitAll(sets)
+            }
+        }
+    }
+
+    private enum class FlakyMode { FAIL_AFTER_EMIT, SILENT, HEALTHY }
+
+    /** A log read that never emits, so only the coverage side can drive a refresh. */
+    private object SilentWorkoutLogRepository :
+        WorkoutLogRepository by FlowingWorkoutLogRepository(MutableStateFlow(emptyList())) {
+        override fun loggedSetsFlow(): Flow<List<LoggedSet>> = emptyFlow()
+    }
+
+    /** Coverage that never emits, so only the log read can drive a refresh. */
+    private object SilentTrainingCoverageRepository : TrainingCoverageRepository {
+        override fun observeSets(): Flow<List<CoverageSet>> = emptyFlow()
+    }
+
+    /** Coverage that arrives while the log read has not produced anything yet. */
+    private object FluxTrainingCoverageRepository : TrainingCoverageRepository {
+        override fun observeSets(): Flow<List<CoverageSet>> = flowOf(
+            listOf(
+                CoverageSet(
+                    performedAtMillis = 0L,
+                    isWarmup = false,
+                    involvements = mapOf(MuscleGroup.CHEST_UPPER to 1.0)
+                )
+            )
+        )
     }
 }

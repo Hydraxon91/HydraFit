@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.time.civilFromDays
 import com.hydrafit.app.core.domain.time.localCivilToEpochMillis
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 
 /** The explicit chart windows. Only the chart and totals change; history always covers all dates. */
 enum class CardioRange(val days: Int) {
@@ -64,6 +65,8 @@ data class CardioEditorState(
 data class CardioUiState(
     val utcOffsetMillis: Long = 0L,
     val distanceUnit: DistanceUnit = DistanceUnit.METERS,
+    /** The number format this screen parses distance entry with. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.'),
     val range: CardioRange = CardioRange.DAYS_28,
     val todayLocalEpochDay: Long = 0L,
     val loading: Boolean = true,

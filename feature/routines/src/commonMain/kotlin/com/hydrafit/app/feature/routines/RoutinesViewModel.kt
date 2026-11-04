@@ -32,10 +32,13 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -61,8 +64,16 @@ class RoutinesViewModel(
      * The user's distance display unit. Null keeps the editor on metres; distance is always stored
      * in metres, so only the authoring label changes.
      */
-    private val distanceUnitRepository: DistanceUnitRepository? = null
+    private val distanceUnitRepository: DistanceUnitRepository? = null,
+    /**
+     * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
+     * the default; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
+
+    /** Frozen for the ViewModel's lifetime; editor text is parsed and rendered with it. */
+    private val numberFormat: PresentationNumberFormat = numberFormatProvider()
 
     private val _state = MutableStateFlow(RoutinesUiState())
     val state: StateFlow<RoutinesUiState> = _state.asStateFlow()
@@ -74,6 +85,12 @@ class RoutinesViewModel(
     private val buildSetPrescription = BuildSetPrescriptionUseCase()
 
     private var occurrencesJob: Job? = null
+
+    /** The activation read; restartable so the failure banner's Retry can re-subscribe. */
+    private var activationReadJob: Job? = null
+
+    /** The block whose rows are currently shown; null before the first activation read. */
+    private var observedActivationId: Long? = null
 
     /**
      * The in-flight activation-dialog resolution. A newer opening replaces it and a dismissal cancels
@@ -94,8 +111,23 @@ class RoutinesViewModel(
     init {
         viewModelScope.launch {
             templatesRefresh.collectLatest {
-                routineActions.observe().collect { templates ->
-                    _state.update { it.copy(templates = templates, isLoading = false) }
+                try {
+                    routineActions.observe().collect { templates ->
+                        _state.update {
+                            it.copy(
+                                templates = templates,
+                                isLoading = false,
+                                templatesLoadFailed = false
+                            )
+                        }
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Keep the loaded list and any open editor; only the read failed.
+                    _state.update {
+                        it.copy(isLoading = false, templatesLoadFailed = true)
+                    }
                 }
             }
         }
@@ -121,18 +153,68 @@ class RoutinesViewModel(
         viewModelScope.launch {
             distanceUnitRepository?.unitFlow()?.collect { distanceUnit = it }
         }
-        viewModelScope.launch {
-            scheduleActions.observeActiveActivation().collect { activation ->
-                _state.update { it.copy(activeActivation = activation) }
-                occurrencesJob?.cancel()
-                if (activation == null) {
-                    _state.update { it.copy(occurrences = emptyList()) }
-                } else {
-                    occurrencesJob = viewModelScope.launch {
-                        scheduleActions.observeOccurrences(activation.id).collect { occurrences ->
-                            _state.update { it.copy(occurrences = occurrences) }
-                        }
+        startActivationObservation()
+    }
+
+    /**
+     * Observes the active block and, through it, the block's schedule. Restartable: a failed read
+     * leaves the flag set, and Retry re-subscribes instead of leaving a stranded error state.
+     */
+    private fun startActivationObservation() {
+        activationReadJob?.cancel()
+        activationReadJob = viewModelScope.launch {
+            try {
+                scheduleActions.observeActiveActivation().collect { activation ->
+                    val previousId = observedActivationId
+                    observedActivationId = activation?.id
+                    _state.update {
+                        it.copy(
+                            activeActivation = activation,
+                            occurrencesLoadFailed = false,
+                            activationLoadFailed = false,
+                            // Rows belong to one block; keep them only while the block is unchanged
+                            // (a retry) and drop them as soon as a different block is shown.
+                            occurrences = if (previousId == activation?.id) {
+                                it.occurrences
+                            } else {
+                                emptyList()
+                            }
+                        )
                     }
+                    if (activation == null) {
+                        occurrencesJob?.cancel()
+                    } else {
+                        startOccurrenceObservation(activation.id)
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(activationLoadFailed = true) }
+            }
+        }
+    }
+
+    /**
+     * Reads the active block's schedule. A failed read marks the failure and keeps whatever was
+     * already loaded; it never writes anything, so retrying cannot replay a mutation. A late result
+     * for a block that is no longer shown is ignored.
+     */
+    private fun startOccurrenceObservation(activationId: Long) {
+        occurrencesJob?.cancel()
+        occurrencesJob = viewModelScope.launch {
+            try {
+                scheduleActions.observeOccurrences(activationId).collect { occurrences ->
+                    if (_state.value.activeActivation?.id != activationId) return@collect
+                    _state.update {
+                        it.copy(occurrences = occurrences, occurrencesLoadFailed = false)
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (_state.value.activeActivation?.id == activationId) {
+                    _state.update { it.copy(occurrencesLoadFailed = true) }
                 }
             }
         }
@@ -157,6 +239,8 @@ class RoutinesViewModel(
     fun refresh() {
         updateExerciseOptions()
         templatesRefresh.value += 1
+        // Restart the activation read as well, so a failed block read can actually be retried.
+        startActivationObservation()
     }
 
     // --- Editor ---
@@ -179,7 +263,11 @@ class RoutinesViewModel(
 
     fun onEditRoutine(template: RoutineTemplate) {
         val names = _state.value.exercises.associate { it.id to it.name }
-        _state.update { it.copy(editor = template.toEditor(weightUnit, distanceUnit, names)) }
+        _state.update {
+            it.copy(
+                editor = template.toEditor(weightUnit, distanceUnit, names, numberFormat)
+            )
+        }
     }
 
     fun onEditorNameChanged(name: String) = updateEditor { it.copy(name = name) }
@@ -363,7 +451,7 @@ class RoutinesViewModel(
         val editor = _state.value.progressionPolicyEditor ?: return
         val minReps = editor.minReps.trim().toIntOrNull()
         val maxReps = editor.maxReps.trim().toIntOrNull()
-        val incrementKg = editor.incrementKg.trim().toDoubleOrNull()
+        val incrementKg = parseLocalizedDecimal(editor.incrementKg, numberFormat)
         if (minReps == null || maxReps == null) {
             rejectProgressionPolicy(editor, ProgressionPolicyError.REPS_RANGE)
             return
@@ -407,10 +495,10 @@ class RoutinesViewModel(
     /**
      * Renders a stored kilogram step for its editor field without rounding it away. The field edits
      * the stored value itself, so a lossy display would rewrite the user's policy on a plain reopen
-     * and save; [formatWeight] stays for display-only surfaces.
+     * and save; [formatLocalizedDecimal] stays for display-only surfaces.
      */
     private fun kilogramStepText(value: Double): String =
-        if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+        exactLocalizedDecimalText(value, numberFormat)
 
     // --- Per-set targets ---
 
@@ -457,7 +545,7 @@ class RoutinesViewModel(
     /** Stores the built targets on the slot, or keeps the dialog open with the offending field. */
     fun onSetTargetsApply() {
         val editor = _state.value.setTargetsEditor ?: return
-        val request = when (val parsed = parseSetTargetsRequest(editor)) {
+        val request = when (val parsed = parseSetTargetsRequest(editor, numberFormat)) {
             is SetTargetsParseResult.Invalid -> {
                 rejectSetTargets(parsed.error)
                 return
@@ -546,7 +634,7 @@ class RoutinesViewModel(
 
     /** The ordered targets the current inputs would build, or null while they are not yet valid. */
     private fun buildSetTargetsPreview(editor: SetTargetsEditorState): SlotSetTargets? {
-        val request = when (val parsed = parseSetTargetsRequest(editor)) {
+        val request = when (val parsed = parseSetTargetsRequest(editor, numberFormat)) {
             is SetTargetsParseResult.Invalid -> return null
             is SetTargetsParseResult.Valid -> parsed.request
         }
@@ -793,7 +881,7 @@ class RoutinesViewModel(
     /** Stores the built prescription on the slot, or keeps the dialog open on the failing rule. */
     fun onClusterApply() {
         val editor = _state.value.clusterEditor ?: return
-        when (val parsed = parseClusterEditor(editor)) {
+        when (val parsed = parseClusterEditor(editor, numberFormat)) {
             is ClusterParseResult.Invalid -> {
                 _state.update { it.copy(clusterEditor = editor.copy(error = parsed.error)) }
             }
@@ -841,7 +929,7 @@ class RoutinesViewModel(
         val editor = _state.value.editor ?: return
         viewModelScope.launch {
             try {
-                routineActions.save(editor.toDraft())
+                routineActions.save(editor.toDraft(numberFormat))
                 _state.update { it.copy(editor = null, picker = null) }
             } catch (error: RoutineTemplateException) {
                 _state.update { it.copy(message = error.message) }
@@ -1136,7 +1224,8 @@ private fun ActivationUiState.withPreview(
 private fun RoutineTemplate.toEditor(
     unit: WeightUnit,
     distanceUnit: DistanceUnit,
-    exerciseNames: Map<String, String>
+    exerciseNames: Map<String, String>,
+    numberFormat: PresentationNumberFormat
 ): RoutineEditorState = RoutineEditorState(
     id = id,
     revision = revision,
@@ -1157,7 +1246,12 @@ private fun RoutineTemplate.toEditor(
                     sets = entry.sets.toString(),
                     reps = entry.reps?.toString() ?: "",
                     weight = entry.weightKg
-                        ?.let { formatWeight(unit.kilogramsToDisplay(it)) }
+                        ?.let {
+                            exactLocalizedDecimalText(
+                                unit.kilogramsToDisplay(it),
+                                numberFormat
+                            )
+                        }
                         ?: "",
                     loadKind = entry.loadKind,
                     metric = when {
@@ -1170,7 +1264,9 @@ private fun RoutineTemplate.toEditor(
                     distance = entry.distanceMeters
                         ?.let { distanceUnit.displayWhole(it).toString() }
                         ?: "",
-                    forceNewtons = entry.forceNewtons?.let(::formatWeight) ?: "",
+                    forceNewtons = entry.forceNewtons
+                        ?.let { exactLocalizedDecimalText(it, numberFormat) }
+                        ?: "",
                     progressionPolicy = entry.progressionPolicy,
                     setTargets = entry.setTargets,
                     superset = entry.superset,
@@ -1181,61 +1277,62 @@ private fun RoutineTemplate.toEditor(
     }
 )
 
-private fun RoutineEditorState.toDraft(): RoutineTemplate = RoutineTemplate(
-    id = id,
-    revision = revision,
-    sourcePlanId = sourcePlanId,
-    name = name,
-    workouts = workouts.mapIndexed { workoutIndex, workout ->
-        RoutineWorkout(
-            id = workout.id,
-            position = workoutIndex,
-            name = workout.name,
-            focus = workout.focus,
-            entries = workout.entries.mapIndexed { entryIndex, entry ->
-                RoutineEntry(
-                    id = entry.id,
-                    position = entryIndex,
-                    exerciseId = entry.exerciseId,
-                    sets = entry.sets.toIntOrNull() ?: 0,
-                    reps = entry.repsValue,
-                    durationSeconds = entry.durationValue,
-                    distanceMeters = if (entry.metric == EntryMetric.DISTANCE) {
-                        parseDisplayedDistance(entry.distance, distanceUnit)
-                    } else {
-                        null
-                    },
-                    forceNewtons = if (entry.metric == EntryMetric.FORCE) {
-                        parseDisplayedForce(entry.forceNewtons)
-                    } else {
-                        null
-                    },
-                    // A force slot is load-free, so a typed weight is dropped exactly as the other
-                    // measures are; the slot's load identity itself is preserved.
-                    weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT ||
-                        entry.metric == EntryMetric.FORCE
-                    ) {
-                        null
-                    } else {
-                        parseDisplayedWeight(entry.weight, unit)
-                    },
-                    loadKind = entry.loadKind,
-                    progressionPolicy = entry.progressionPolicy,
-                    // Ordered per-set targets describe rep work; a slot measured another way cannot
-                    // perform them, so they are dropped rather than saved against a force or timed
-                    // measure that would silently ignore them.
-                    setTargets = entry.setTargets.takeIf {
-                        entry.metric == EntryMetric.REPETITIONS
-                    },
-                    superset = entry.superset,
-                    // A cluster is rep-based external-load work, so a slot switched to another
-                    // measure or load kind cannot keep one.
-                    cluster = entry.cluster.takeIf { entry.canCarryCluster }
-                )
-            }
-        )
-    }
-)
+private fun RoutineEditorState.toDraft(numberFormat: PresentationNumberFormat): RoutineTemplate =
+    RoutineTemplate(
+        id = id,
+        revision = revision,
+        sourcePlanId = sourcePlanId,
+        name = name,
+        workouts = workouts.mapIndexed { workoutIndex, workout ->
+            RoutineWorkout(
+                id = workout.id,
+                position = workoutIndex,
+                name = workout.name,
+                focus = workout.focus,
+                entries = workout.entries.mapIndexed { entryIndex, entry ->
+                    RoutineEntry(
+                        id = entry.id,
+                        position = entryIndex,
+                        exerciseId = entry.exerciseId,
+                        sets = entry.sets.toIntOrNull() ?: 0,
+                        reps = entry.repsValue,
+                        durationSeconds = entry.durationValue,
+                        distanceMeters = if (entry.metric == EntryMetric.DISTANCE) {
+                            parseDisplayedDistance(entry.distance, distanceUnit, numberFormat)
+                        } else {
+                            null
+                        },
+                        forceNewtons = if (entry.metric == EntryMetric.FORCE) {
+                            parseDisplayedForce(entry.forceNewtons, numberFormat)
+                        } else {
+                            null
+                        },
+                        // A force slot is load-free, so a typed weight is dropped exactly as the other
+                        // measures are; the slot's load identity itself is preserved.
+                        weightKg = if (entry.loadKind == LoadKind.BODYWEIGHT ||
+                            entry.metric == EntryMetric.FORCE
+                        ) {
+                            null
+                        } else {
+                            parseDisplayedWeight(entry.weight, unit, numberFormat)
+                        },
+                        loadKind = entry.loadKind,
+                        progressionPolicy = entry.progressionPolicy,
+                        // Ordered per-set targets describe rep work; a slot measured another way cannot
+                        // perform them, so they are dropped rather than saved against a force or timed
+                        // measure that would silently ignore them.
+                        setTargets = entry.setTargets.takeIf {
+                            entry.metric == EntryMetric.REPETITIONS
+                        },
+                        superset = entry.superset,
+                        // A cluster is rep-based external-load work, so a slot switched to another
+                        // measure or load kind cannot keep one.
+                        cluster = entry.cluster.takeIf { entry.canCarryCluster }
+                    )
+                }
+            )
+        }
+    )
 
 /** Drops the pair identified by [key] from every slot, leaving the rest of each slot untouched. */
 private fun EditorWorkout.withoutSuperset(key: String): EditorWorkout =
@@ -1245,10 +1342,14 @@ private fun EditorWorkout.withoutSuperset(key: String): EditorWorkout =
  * Blank means "no load recorded" (null). A non-blank value must be a finite, non-negative number;
  * anything else is rejected so a malformed entry can never silently clear a prescribed load.
  */
-private fun parseDisplayedWeight(input: String, unit: WeightUnit): Double? {
+private fun parseDisplayedWeight(
+    input: String,
+    unit: WeightUnit,
+    format: PresentationNumberFormat
+): Double? {
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
-    val value = trimmed.toDoubleOrNull()
+    val value = parseLocalizedDecimal(trimmed, format)
         ?: throw RoutineTemplateException("Weight must be a number")
     if (!value.isFinite() || value < 0.0) {
         throw RoutineTemplateException("Weight must be zero or positive")
@@ -1260,10 +1361,14 @@ private fun parseDisplayedWeight(input: String, unit: WeightUnit): Double? {
  * Blank means "no distance recorded" (null), which the domain rejects for a distance slot. A
  * non-blank value must be a finite, non-negative number in [unit], and is stored as whole metres.
  */
-private fun parseDisplayedDistance(input: String, unit: DistanceUnit): Int? {
+private fun parseDisplayedDistance(
+    input: String,
+    unit: DistanceUnit,
+    format: PresentationNumberFormat
+): Int? {
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
-    val value = trimmed.toDoubleOrNull()
+    val value = parseLocalizedDecimal(trimmed, format)
         ?: throw RoutineTemplateException("Distance must be a number")
     if (!value.isFinite() || value <= 0.0) {
         throw RoutineTemplateException("Distance must be greater than zero")
@@ -1276,10 +1381,10 @@ private fun parseDisplayedDistance(input: String, unit: DistanceUnit): Int? {
  * value must be a finite, positive number of canonical newtons within [PrescriptionBounds], and is
  * stored as typed: newtons are not a unit the user chooses.
  */
-private fun parseDisplayedForce(input: String): Double? {
+private fun parseDisplayedForce(input: String, format: PresentationNumberFormat): Double? {
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
-    val value = trimmed.toDoubleOrNull()
+    val value = parseLocalizedDecimal(trimmed, format)
         ?: throw RoutineTemplateException("Force must be a number")
     if (!value.isFinite() || value <= 0.0) {
         throw RoutineTemplateException("Force must be greater than zero")
@@ -1359,11 +1464,14 @@ private const val VALID_REPS_TARGETS_PROBE = 8
 /** The outcome of parsing one load field; a blank field is a valid "no load". */
 private data class SetTargetLoadInput(val valid: Boolean, val kilograms: Double?)
 
-private fun parseSetTargetLoad(input: String): SetTargetLoadInput {
+private fun parseSetTargetLoad(
+    input: String,
+    format: PresentationNumberFormat
+): SetTargetLoadInput {
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return SetTargetLoadInput(valid = true, kilograms = null)
-    val value =
-        trimmed.toDoubleOrNull() ?: return SetTargetLoadInput(valid = false, kilograms = null)
+    val value = parseLocalizedDecimal(trimmed, format)
+        ?: return SetTargetLoadInput(valid = false, kilograms = null)
     return SetTargetLoadInput(valid = true, kilograms = value)
 }
 
@@ -1373,18 +1481,21 @@ private sealed interface SetTargetsParseResult {
 }
 
 /** Parses the dialog's text fields, or reports the first field whose text cannot become a request. */
-private fun parseSetTargetsRequest(editor: SetTargetsEditorState): SetTargetsParseResult {
+private fun parseSetTargetsRequest(
+    editor: SetTargetsEditorState,
+    format: PresentationNumberFormat
+): SetTargetsParseResult {
     val sets = editor.sets.trim().toIntOrNull()
         ?: return SetTargetsParseResult.Invalid(SetTargetsError.SETS_RANGE)
     val startReps = editor.startReps.trim().toIntOrNull()
         ?: return SetTargetsParseResult.Invalid(SetTargetsError.REPS_RANGE)
     val endReps = editor.endReps.trim().toIntOrNull()
         ?: return SetTargetsParseResult.Invalid(SetTargetsError.REPS_RANGE)
-    val startLoad = parseSetTargetLoad(editor.startLoadKg)
+    val startLoad = parseSetTargetLoad(editor.startLoadKg, format)
     if (!startLoad.valid) return SetTargetsParseResult.Invalid(SetTargetsError.LOAD)
-    val endLoad = parseSetTargetLoad(editor.endLoadKg)
+    val endLoad = parseSetTargetLoad(editor.endLoadKg, format)
     if (!endLoad.valid) return SetTargetsParseResult.Invalid(SetTargetsError.LOAD)
-    val roundTo = editor.roundToKg.trim().toDoubleOrNull()
+    val roundTo = parseLocalizedDecimal(editor.roundToKg, format)
         ?: return SetTargetsParseResult.Invalid(SetTargetsError.ROUNDING)
     val rirText = editor.targetRir.trim()
     val rir = if (rirText.isEmpty()) {

@@ -1,0 +1,29 @@
+# Contract and verification status: see README.md. No persistent writes.
+# Run with the app locale set to a comma-decimal locale (for example de-DE) and a freshly launched
+# Train screen. The parent clears the unsaved draft afterwards with a force-stop; no set is logged.
+appId: com.hydrafit.app
+name: Manual weight accepts the locale decimal comma
+tags:
+  - locale
+  - write-free
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    id: logger_exercise_back-squat
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: 'Weight \(kg\)'
+    direction: DOWN
+    timeout: 8000
+    visibilityPercentage: 60
+- tapOn:
+    text: 'Weight \(kg\)'
+    retryTapIfNoChange: false
+- eraseText
+- inputText: '12,5'
+- assertVisible: '^[0-9]+,[0-9]+$'

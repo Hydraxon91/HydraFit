@@ -2,6 +2,8 @@ package com.hydrafit.app.feature.progress
 
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
 /** A body-weight editor failure the dialog renders with localized guidance. */
 enum class BodyWeightEditorError {
@@ -27,6 +29,12 @@ data class BodyWeightEditorState(
     val initialWeightText: String,
     val dateText: String = initialDateText,
     val weightText: String = initialWeightText,
+    /**
+     * The number format frozen when the editor opened, so a locale change mid-edit cannot reinterpret
+     * text the user already typed. Production always supplies the live format; the default exists so
+     * simple fixtures stay readable.
+     */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.'),
     val error: BodyWeightEditorError? = null
 ) {
     /** The date field as a local epoch day, or null when the text is not a real `YYYY-MM-DD` date. */
@@ -35,7 +43,7 @@ data class BodyWeightEditorState(
 
     /** The weight field in display units, or null when the text is not a number. */
     val parsedDisplayWeight: Double?
-        get() = weightText.trim().toDoubleOrNull()
+        get() = parseLocalizedDecimal(weightText, numberFormat)
 }
 
 /** A validated new measurement awaiting the explicit duplicate-day replacement confirmation. */
@@ -61,7 +69,9 @@ data class BodyWeightUiState(
     val pendingDeleteDay: Long? = null,
     val goalInput: String = "",
     val goalError: Boolean = false,
-    val submitting: Boolean = false
+    val submitting: Boolean = false,
+    /** The number format used for every weight this state renders or parses. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 ) {
     /** The inclusive last day of the chart window: today in the re-sampled local offset. */
     val chartDayTo: Long

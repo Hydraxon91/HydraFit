@@ -31,8 +31,11 @@ import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
@@ -58,8 +61,16 @@ class SplitBuilderViewModel(
      * The user's distance display unit. Null keeps the measure dialog on metres; the plan stores
      * whole metres either way, so only the field and slot line change.
      */
-    private val distanceUnitRepository: DistanceUnitRepository? = null
+    private val distanceUnitRepository: DistanceUnitRepository? = null,
+    /**
+     * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
+     * the default; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
+
+    /** Frozen for the ViewModel's lifetime; editor text is parsed and rendered with it. */
+    private val numberFormat: PresentationNumberFormat = numberFormatProvider()
 
     private val _state = MutableStateFlow(SplitBuilderUiState())
     val state: StateFlow<SplitBuilderUiState> = _state.asStateFlow()
@@ -718,7 +729,9 @@ class SplitBuilderViewModel(
             MeasureMetric.REPS -> slot.reps
             MeasureMetric.SECONDS -> slot.durationSeconds
             MeasureMetric.DISTANCE -> slot.distanceMeters?.let(current.distanceUnit::displayWhole)
-            MeasureMetric.FORCE -> slot.forceNewtons?.let(::formatWeight)
+            MeasureMetric.FORCE ->
+                slot.forceNewtons
+                    ?.let { exactLocalizedDecimalText(it, numberFormat) }
         }
         _state.update {
             it.copy(
@@ -755,14 +768,15 @@ class SplitBuilderViewModel(
         }
     }
 
-    /** Keeps digits and at most one decimal point, so the field can never carry a sign. */
+    /** Keeps digits and at most one decimal separator, so the field can never carry a sign. */
     private fun forceInput(value: String): String {
         val filtered = StringBuilder()
         var seenDecimal = false
         value.forEach { character ->
             when {
                 character.isDigit() -> filtered.append(character)
-                character == '.' && !seenDecimal -> {
+                (character == '.' || character == numberFormat.decimalSeparator) &&
+                    !seenDecimal -> {
                     seenDecimal = true
                     filtered.append(character)
                 }
@@ -797,7 +811,7 @@ class SplitBuilderViewModel(
         }
         // Force is unitless canonical newtons, so the typed value is the stored value.
         val forceNewtons = if (dialog.metric == MeasureMetric.FORCE) {
-            dialog.value.toDoubleOrNull()
+            parseLocalizedDecimal(dialog.value, numberFormat)
         } else {
             null
         }

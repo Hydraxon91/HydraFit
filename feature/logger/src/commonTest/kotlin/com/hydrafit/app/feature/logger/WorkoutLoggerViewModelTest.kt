@@ -127,6 +127,8 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -1792,6 +1794,37 @@ class WorkoutLoggerViewModelTest {
         assertNull(viewModel.state.value.measureChange)
         assertEquals(30, viewModel.state.value.draftSets.single().durationSeconds)
         assertNull(viewModel.state.value.draftSets.single().reps)
+    }
+
+    @Test
+    fun aCommaLocaleSeedsTheMeasureDialogWithItsSeparator() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        val forceOccurrences = twoOccurrences().map { occurrence ->
+            if (occurrence.id != 30L) return@map occurrence
+            occurrence.copy(
+                entries = occurrence.entries.map { entry ->
+                    entry.copy(
+                        sets = 2,
+                        reps = null,
+                        durationSeconds = null,
+                        weightKg = null,
+                        forceNewtons = 247.35
+                    )
+                }
+            )
+        }
+        schedule.set(blockActivation(), forceOccurrences, selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        runCurrent()
+
+        viewModel.openMeasureChange(40L)
+        assertEquals("247,35", viewModel.state.value.measureChange?.value)
     }
 
     @Test
@@ -4221,6 +4254,117 @@ class WorkoutLoggerViewModelTest {
         val set = repository.all().single()
         assertEquals(31L, set.occurrenceId)
         assertEquals(2, set.dayIndex)
+    }
+
+    @Test
+    fun aCommaLocaleAcceptsACommaWeightAndWritesCanonicalKilograms() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("100,5")
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+
+        assertEquals(100.5, repository.all().single().weightKg!!, 1e-9)
+    }
+
+    @Test
+    fun aGroupingLikeEntryIsRejectedRatherThanGuessed() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onRepsChanged("5")
+        viewModel.onWeightChanged("1.234,5")
+
+        // Two separators are ambiguous, so the field is invalid and nothing is written.
+        assertFalse(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+        assertTrue(repository.all().isEmpty())
+    }
+
+    @Test
+    fun commaForceEntryIsStoredUnchangedAndPrefillsExactly() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onMetricChanged(SetMetric.FORCE)
+        viewModel.onForceChanged("247,35")
+        assertTrue(viewModel.state.value.canLog)
+        viewModel.log()
+        advanceUntilIdle()
+
+        val row = repository.all().single()
+        // Force is a plain newton reading: locale only changes the separator, never the value.
+        assertEquals(247.35, row.forceNewtons!!, 1e-9)
+        assertEquals(null, row.weightKg)
+
+        viewModel.onRecentSetSelected(viewModel.state.value.recentSets.single())
+        assertEquals("247,35", viewModel.state.value.forceNewtons)
+    }
+
+    @Test
+    fun commaDistanceEntryRoundsToWholeMetres() = runTest(dispatcher) {
+        val repository = FakeWorkoutLogRepository()
+        val viewModel = viewModel(
+            repository = repository,
+            numberFormat = PresentationNumberFormat(',')
+        )
+        advanceUntilIdle()
+
+        viewModel.onExerciseSelected("back-squat")
+        viewModel.onMetricChanged(SetMetric.DISTANCE)
+        viewModel.onDistanceChanged("100,4")
+        assertEquals(100, viewModel.state.value.manualDistanceMetres)
+        viewModel.log()
+        advanceUntilIdle()
+
+        // Distance keeps its whole-metre storage contract; the comma only changes the entry.
+        assertEquals(100, repository.all().single().distanceMeters)
+    }
+
+    @Test
+    fun clusterSegmentsAndWarmupEditorsAcceptTheLocaleSeparator() {
+        val comma = PresentationNumberFormat(',')
+        val cluster = ClusterLogState(
+            draft = DraftSet("back-squat", "Back Squat", 1, 5, 50.0),
+            position = 0,
+            weightUnit = WeightUnit.KG,
+            reps = "5",
+            weightInput = "55,5",
+            numberFormat = comma
+        )
+        assertTrue(cluster.canSave)
+
+        val warmup = WarmupGuidanceEditor(
+            target = WarmupEditTarget.Ramp(WarmupRampKey(1L, 0)),
+            repsInput = "5",
+            durationInput = "",
+            weightInput = "52,5",
+            timed = false,
+            hasWeight = true,
+            weightUnit = WeightUnit.KG,
+            numberFormat = comma
+        )
+        assertEquals(52.5, warmup.enteredWeightKg)
+        assertTrue(warmup.canSave)
     }
 
     @Test
@@ -7118,7 +7262,8 @@ class WorkoutLoggerViewModelTest {
         progression: ProgressionUseCases = progressionUseCases(
             FakeWorkoutScheduleRepository(),
             repository
-        )
+        ),
+        numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
     ): WorkoutLoggerViewModel = WorkoutLoggerViewModel(
         logMutations = logMutations(repository, sessionRepository),
         logWorkoutSet = logWorkoutSet(repository, sessionRepository),
@@ -7147,7 +7292,8 @@ class WorkoutLoggerViewModelTest {
         applyGuidedTargets = guidedTargetUseCase(repository),
         changeEntryMeasure = changeMeasureUseCase(repository),
         suggestSlotProgression = progression.suggest,
-        applySlotProgressionSuggestion = progression.apply
+        applySlotProgressionSuggestion = progression.apply,
+        numberFormatProvider = { numberFormat }
     )
 
     private fun sessionViewModel(
@@ -11168,6 +11314,8 @@ class WorkoutLoggerViewModelTest {
             BootIdentityProvider { "boot" },
             object : com.hydrafit.app.core.domain.startup.StartupReadiness {
                 override val isReady = ready
+                override val hasFailed = MutableStateFlow(false)
+                override fun retry() = Unit
             },
             alerts,
             StandardTestDispatcher(testScheduler),
@@ -11275,6 +11423,8 @@ class WorkoutLoggerViewModelTest {
             BootIdentityProvider { "boot" },
             object : com.hydrafit.app.core.domain.startup.StartupReadiness {
                 override val isReady = MutableStateFlow(true)
+                override val hasFailed = MutableStateFlow(false)
+                override fun retry() = Unit
             },
             alerts,
             StandardTestDispatcher(testScheduler),
@@ -11351,6 +11501,8 @@ class WorkoutLoggerViewModelTest {
             BootIdentityProvider { "boot" },
             object : com.hydrafit.app.core.domain.startup.StartupReadiness {
                 override val isReady = readiness
+                override val hasFailed = MutableStateFlow(false)
+                override fun retry() = Unit
             },
             alerts,
             StandardTestDispatcher(testScheduler),
@@ -11694,6 +11846,7 @@ class WorkoutLoggerViewModelTest {
         guidedTargets: GuidedWorkoutTargetsRepository? = null,
         progressionContexts: SlotProgressionContextRepository =
             FakeSlotProgressionContextRepository(),
+        numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT,
         progression: ProgressionUseCases = progressionUseCases(
             schedule,
             repository,
@@ -11732,7 +11885,8 @@ class WorkoutLoggerViewModelTest {
         applyGuidedTargets = guidedTargetUseCase(repository, schedule, guidedTargets),
         changeEntryMeasure = changeMeasureUseCase(repository, schedule, guidedTargets),
         suggestSlotProgression = progression.suggest,
-        applySlotProgressionSuggestion = progression.apply
+        applySlotProgressionSuggestion = progression.apply,
+        numberFormatProvider = { numberFormat }
     ).also { timerViewModels.add(it) }
 
     private fun blockActivation() = TrainingActivation(
@@ -14100,3 +14254,7 @@ class WorkoutLoggerViewModelTest {
         const val DAY = 24L * 60L * 60L * 1000L
     }
 }
+
+/** Dot-locale entry text for fixtures; production code always passes the live format. */
+private fun exactEntryText(value: Double): String =
+    exactLocalizedDecimalText(value, PresentationNumberFormat('.'))

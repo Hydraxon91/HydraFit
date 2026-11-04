@@ -24,7 +24,6 @@ import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
@@ -339,7 +338,7 @@ private fun SummarySetLine(
             Res.string.logger_summary_edit_set_force_description,
             set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
             position,
-            stringResource(Res.string.logger_force_value, formatWeight(forceNewtons))
+            stringResource(Res.string.logger_force_value, formatWeightForDisplay(forceNewtons))
         )
 
         distanceMeters != null -> stringResource(
@@ -384,7 +383,7 @@ private fun SummarySetLine(
                         Res.string.logger_history_set_force_line,
                         stringResource(
                             Res.string.logger_force_value,
-                            formatWeight(forceNewtons)
+                            formatWeightForDisplay(forceNewtons)
                         )
                     )
 
@@ -444,7 +443,7 @@ private fun prescribedTargetText(
         return stringResource(
             Res.string.logger_summary_target_sets_force,
             exercise.prescribedSets,
-            stringResource(Res.string.logger_force_value, formatWeight(force))
+            stringResource(Res.string.logger_force_value, formatWeightForDisplay(force))
         )
     }
     if (distance != null) {

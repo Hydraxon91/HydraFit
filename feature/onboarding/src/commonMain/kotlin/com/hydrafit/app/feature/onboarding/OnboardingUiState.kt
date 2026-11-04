@@ -8,6 +8,8 @@ import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.setup.SetupStepInput
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.navigation.AppTab
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 
 enum class OnboardingFailure { LOAD, SAVE, INVALID_INPUT, STALE_CONTEXT }
 
@@ -27,7 +29,9 @@ data class PersonalRecordEntryDraft(
     val exerciseId: String,
     val weightText: String = "",
     val repsText: String = "",
-    val origin: PersonalRecord? = null
+    val origin: PersonalRecord? = null,
+    /** The number format frozen when the entry opened. */
+    val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 )
 
 data class OnboardingUiState(
@@ -35,6 +39,8 @@ data class OnboardingUiState(
     val step: SetupStep = SetupStep.WELCOME,
     val input: SetupStepInput? = null,
     val entryUnit: WeightUnit = WeightUnit.KG,
+    /** The number format this screen parses and renders weights with. */
+    val numberFormat: PresentationNumberFormat = currentPresentationNumberFormat(),
     val equipment: List<Equipment> = emptyList(),
     val equipmentProfileName: String? = null,
     val eligibleExercises: List<Exercise> = emptyList(),

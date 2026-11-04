@@ -115,6 +115,8 @@ class OnboardingEntryViewModelTest {
         }
         private val readiness = object : StartupReadiness {
             override val isReady = this@Fixture.isReady
+            override val hasFailed = MutableStateFlow(false)
+            override fun retry() = Unit
         }
 
         fun viewModel() = OnboardingEntryViewModel(setup, readiness, dispatcher)

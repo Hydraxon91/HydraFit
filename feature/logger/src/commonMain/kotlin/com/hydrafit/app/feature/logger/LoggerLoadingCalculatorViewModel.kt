@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.equipment.formatNativeTicks
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileState
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,7 +30,11 @@ import kotlinx.coroutines.withContext
  */
 class LoggerLoadingCalculatorViewModel(
     private val profiles: EquipmentProfileRepository,
-    private val calculationDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val calculationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Supplies the number format for human-facing decimals; tests pass a fixed one. */
+    private val numberFormatProvider: () -> PresentationNumberFormat = {
+        currentPresentationNumberFormat()
+    }
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoggerLoadingCalculatorState())
@@ -75,7 +81,7 @@ class LoggerLoadingCalculatorViewModel(
         if (!loggerLoadingTargetEligible(loadKind, request.weightKg)) return
         val current = snapshot ?: return
         val unit = loggerLoadingInventoryUnit(current.active.loadingInventory.unit)
-        val target = loggerLoadingTargetFor(request, unit) ?: return
+        val target = loggerLoadingTargetFor(request, unit, numberFormatProvider()) ?: return
         manualSource = null
         occurrenceSource = request.occurrenceId
         open(seed = target, snapshot = current)

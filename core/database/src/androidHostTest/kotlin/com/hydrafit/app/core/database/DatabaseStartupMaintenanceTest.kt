@@ -23,6 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -161,48 +162,177 @@ class DatabaseStartupMaintenanceTest {
         driver.close()
     }
 
-    /** An [ApplyStagedBackupUseCase] whose staging store is empty, so `start()` applies nothing. */
-    private fun noStagedBackup(): ApplyStagedBackupUseCase = ApplyStagedBackupUseCase(
-        preview = PreviewBackupUseCase(
-            BackupValidator(
-                object : BackupCatalog {
-                    override fun seedExerciseIds(): Set<String> = emptySet()
-                    override fun builtInEquipmentIds(): Set<String> = emptySet()
-                }
-            )
-        ),
-        repository = object : BackupRepository {
-            override suspend fun export(appVersion: String, exportedAtMillis: Long): BackupFile =
-                emptyBackupFile(appVersion, exportedAtMillis)
+    /**
+     * A storage failure must not crash the process or leave the shell waiting on a gate that will
+     * never open: the failure is reported, the first screen stays closed and nothing is seeded from a
+     * half-maintained database.
+     */
+    @Test
+    fun reportsFailureInsteadOfCrashingWhenTheStagedBackupCannotBeRead() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        val maintenance = maintenance(
+            database = database,
+            staging = FailingStagingRepository { IllegalStateException("unable to open database") }
+        )
 
-            override suspend fun restore(file: BackupFile) = Unit
+        maintenance.start()
+        advanceUntilIdle()
 
-            override suspend fun mergeKeys(): BackupMergeKeys =
-                throw UnsupportedOperationException()
+        assertTrue(maintenance.hasFailed.value)
+        assertFalse(maintenance.isReady.value)
+        assertTrue(database.exerciseQueries.selectAll().executeAsList().isEmpty())
 
-            override suspend fun merge(selection: BackupMergeSelection) =
-                throw UnsupportedOperationException()
-        },
-        staging = object : BackupStagingRepository {
-            override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) =
-                Unit
+        driver.close()
+    }
 
-            override suspend fun staged(): PendingBackup? = null
+    @Test
+    fun retryRunsMaintenanceAgainAfterATransientStorageFailure() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        val staging = FailingStagingRepository(failOnce = true) {
+            IllegalStateException("database is locked")
+        }
+        val maintenance = maintenance(database = database, staging = staging)
 
-            override suspend fun clearStaged() = Unit
+        maintenance.start()
+        advanceUntilIdle()
+        assertTrue(maintenance.hasFailed.value)
 
-            override suspend fun recordApplyError(
-                failure: BackupFailure,
-                message: String?,
-                occurredAtMillis: Long
-            ) = Unit
+        maintenance.retry()
+        advanceUntilIdle()
 
-            override suspend fun applyError(): BackupApplyError? = null
+        assertFalse(maintenance.hasFailed.value)
+        assertTrue(maintenance.isReady.value)
+        assertEquals(2, staging.readAttempts)
+        assertTrue(database.exerciseQueries.selectAll().executeAsList().isNotEmpty())
 
-            override suspend fun clearApplyError() = Unit
-        },
-        timeProvider = TimeProvider { 0L }
+        driver.close()
+    }
+
+    /** A second `start()` must not race a second attempt against the first. */
+    @Test
+    fun startTwiceLaunchesOneAttempt() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        val staging = CountingStagingRepository()
+        val maintenance = maintenance(database = database, staging = staging)
+
+        maintenance.start()
+        maintenance.start()
+        advanceUntilIdle()
+
+        assertEquals(1, staging.reads)
+        assertTrue(maintenance.isReady.value)
+
+        driver.close()
+    }
+
+    @Test
+    fun retryBeforeAnyFailureDoesNotStartMaintenance() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        val maintenance = maintenance(database)
+
+        maintenance.retry()
+        advanceUntilIdle()
+
+        assertFalse(maintenance.isReady.value)
+        assertFalse(maintenance.hasFailed.value)
+        assertTrue(database.exerciseQueries.selectAll().executeAsList().isEmpty())
+
+        driver.close()
+    }
+
+    @Test
+    fun repeatedFailuresStayRetryableAndNeverReportReady() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        val staging = FailingStagingRepository { IllegalStateException("disk I/O error") }
+        val maintenance = maintenance(database = database, staging = staging)
+
+        maintenance.start()
+        advanceUntilIdle()
+        maintenance.retry()
+        advanceUntilIdle()
+        maintenance.retry()
+        advanceUntilIdle()
+
+        assertEquals(3, staging.readAttempts)
+        assertTrue(maintenance.hasFailed.value)
+        assertFalse(maintenance.isReady.value)
+
+        driver.close()
+    }
+
+    /** A shutdown must not be relabelled as a storage failure the user is asked to retry. */
+    @Test
+    fun cancellationIsNotReportedAsAStorageFailure() = runTest(dispatcher) {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        HydraFitDatabase.Schema.create(driver)
+        val database = HydraFitDatabase(driver)
+        val maintenance = maintenance(
+            database = database,
+            staging = FailingStagingRepository { CancellationException("scope ended") }
+        )
+
+        maintenance.start()
+        advanceUntilIdle()
+
+        assertFalse(maintenance.hasFailed.value)
+        assertFalse(maintenance.isReady.value)
+
+        driver.close()
+    }
+
+    private fun maintenance(
+        database: HydraFitDatabase,
+        staging: BackupStagingRepository = EmptyStagingRepository
+    ): DatabaseStartupMaintenance = DatabaseStartupMaintenance(
+        applyStagedBackup = stagedBackup(staging),
+        seedExerciseCatalog = SeedExerciseCatalog(database),
+        seedEquipmentCatalog = SeedEquipmentCatalog(database),
+        customExerciseDedupe = CustomExerciseDedupe(database),
+        workoutSessionBackfill = WorkoutSessionBackfill(database, TimeProvider { 0L }),
+        searchProjectionBackfill = SearchProjectionBackfill(database),
+        scope = CoroutineScope(dispatcher)
     )
+
+    /** An [ApplyStagedBackupUseCase] whose staging store is empty, so `start()` applies nothing. */
+    private fun noStagedBackup(): ApplyStagedBackupUseCase = stagedBackup(EmptyStagingRepository)
+
+    private fun stagedBackup(staging: BackupStagingRepository): ApplyStagedBackupUseCase =
+        ApplyStagedBackupUseCase(
+            preview = PreviewBackupUseCase(
+                BackupValidator(
+                    object : BackupCatalog {
+                        override fun seedExerciseIds(): Set<String> = emptySet()
+                        override fun builtInEquipmentIds(): Set<String> = emptySet()
+                    }
+                )
+            ),
+            repository = object : BackupRepository {
+                override suspend fun export(
+                    appVersion: String,
+                    exportedAtMillis: Long
+                ): BackupFile = emptyBackupFile(appVersion, exportedAtMillis)
+
+                override suspend fun restore(file: BackupFile) = Unit
+
+                override suspend fun mergeKeys(): BackupMergeKeys =
+                    throw UnsupportedOperationException()
+
+                override suspend fun merge(selection: BackupMergeSelection) =
+                    throw UnsupportedOperationException()
+            },
+            staging = staging,
+            timeProvider = TimeProvider { 0L }
+        )
 }
 
 private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupFile = BackupFile(
@@ -237,3 +367,65 @@ private fun emptyBackupFile(appVersion: String, exportedAtMillis: Long): BackupF
     exclusions = emptyList(),
     restPreferences = listOf(BackupRestPreferenceRecord(null, 120L))
 )
+
+/** A staging store with nothing pending. */
+private object EmptyStagingRepository : BackupStagingRepository {
+    override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) = Unit
+
+    override suspend fun staged(): PendingBackup? = null
+
+    override suspend fun clearStaged() = Unit
+
+    override suspend fun recordApplyError(
+        failure: BackupFailure,
+        message: String?,
+        occurredAtMillis: Long
+    ) = Unit
+
+    override suspend fun applyError(): BackupApplyError? = null
+
+    override suspend fun clearApplyError() = Unit
+}
+
+/** Counts how many maintenance attempts reached the staged-backup read. */
+private class CountingStagingRepository : BackupStagingRepository by EmptyStagingRepository {
+    var reads = 0
+        private set
+
+    override suspend fun staged(): PendingBackup? {
+        reads += 1
+        return null
+    }
+}
+
+/**
+ * A staging store whose first read fails like an unreadable database. With [failOnce] the following
+ * reads behave like an empty store, modelling a transient failure that a retry can clear.
+ */
+private class FailingStagingRepository(
+    private val failOnce: Boolean = false,
+    private val failure: () -> Exception
+) : BackupStagingRepository {
+    var readAttempts = 0
+        private set
+
+    override suspend fun stage(payload: String, appVersion: String, stagedAtMillis: Long) = Unit
+
+    override suspend fun staged(): PendingBackup? {
+        readAttempts += 1
+        if (!failOnce || readAttempts == 1) throw failure()
+        return null
+    }
+
+    override suspend fun clearStaged() = Unit
+
+    override suspend fun recordApplyError(
+        failure: BackupFailure,
+        message: String?,
+        occurredAtMillis: Long
+    ) = Unit
+
+    override suspend fun applyError(): BackupApplyError? = null
+
+    override suspend fun clearApplyError() = Unit
+}

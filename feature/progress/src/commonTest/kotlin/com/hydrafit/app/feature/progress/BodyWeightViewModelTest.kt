@@ -7,6 +7,7 @@ import com.hydrafit.app.core.userdata.measurements.BodyWeightException
 import com.hydrafit.app.core.userdata.measurements.BodyWeightFailureReason
 import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
 import com.hydrafit.app.core.userdata.measurements.BodyWeightRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -492,16 +493,63 @@ class BodyWeightViewModelTest {
         assertFalse(viewModel.state.value.submitting)
     }
 
+    // ── Locale-aware numeric entry ────────────────────────────────────────
+
+    @Test
+    fun aCommaLocaleAcceptsTheCommaAndRendersItBack() = runTest(dispatcher) {
+        val comma = PresentationNumberFormat(',')
+        val repository = FakeBodyWeightRepository()
+        val viewModel = viewModel(repository = repository, numberFormat = comma)
+        advanceUntilIdle()
+
+        viewModel.onAddMeasurement()
+        viewModel.onEditorWeightChanged("72,4")
+        viewModel.onEditorSubmit()
+        advanceUntilIdle()
+
+        // The comma was accepted and converted to canonical kilograms, not rejected or truncated.
+        assertEquals(72.4, repository.addCalls.single().weightKg, 1e-9)
+
+        viewModel.onEditMeasurement(localEpochDay(nowMillis, offsetMillis))
+        advanceUntilIdle()
+
+        // Reopening prefills the locale separator, and the untouched text still means the same value.
+        assertEquals("72,4", viewModel.state.value.editor?.initialWeightText)
+        assertEquals(
+            72.4,
+            requireNotNull(viewModel.state.value.editor?.parsedDisplayWeight),
+            1e-9
+        )
+    }
+
+    @Test
+    fun aGroupingSeparatorIsRejectedRatherThanGuessed() = runTest(dispatcher) {
+        val comma = PresentationNumberFormat(',')
+        val repository = FakeBodyWeightRepository()
+        val viewModel = viewModel(repository = repository, numberFormat = comma)
+        advanceUntilIdle()
+
+        viewModel.onAddMeasurement()
+        viewModel.onEditorWeightChanged("1.234,5")
+        viewModel.onEditorSubmit()
+        advanceUntilIdle()
+
+        assertEquals(BodyWeightEditorError.INVALID_WEIGHT, viewModel.state.value.editor?.error)
+        assertTrue(repository.addCalls.isEmpty())
+    }
+
     // ── Builders and fakes ────────────────────────────────────────────────
 
     private fun viewModel(
         repository: FakeBodyWeightRepository = FakeBodyWeightRepository(),
         unitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
-        clock: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis)
+        clock: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis),
+        numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
     ) = BodyWeightViewModel(
         bodyWeightRepository = repository,
         weightUnitRepository = unitRepository,
-        timeProvider = clock
+        timeProvider = clock,
+        numberFormatProvider = { numberFormat }
     )
 }
 

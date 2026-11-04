@@ -1,0 +1,18 @@
+# Contract and verification status: see README.md. No persistent writes.
+# Part 1 of the launch-failure journey. The parent makes the database unreadable before this flow
+# runs (`chmod 000`, recipe in the platform-verification reference) and restores the original mode
+# after this flow has asserted the failure screen. Part 2 is `startup-recovery-retry.yaml`.
+appId: com.hydrafit.app
+name: Unreadable database shows a retryable launch failure
+tags:
+  - recovery
+  - write-free
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- assertVisible: '^Can’t open your training data$'
+- assertNotVisible: '^Log workout$'
+- assertVisible: '^Try again$'

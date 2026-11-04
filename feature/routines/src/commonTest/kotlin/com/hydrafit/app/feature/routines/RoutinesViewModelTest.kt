@@ -57,6 +57,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.userdata.equipment.ExerciseExclusionRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
@@ -104,6 +105,28 @@ class RoutinesViewModelTest {
     @AfterTest
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun aCommaWeightIsAcceptedAndStoredAsCanonicalKilograms() = runTest(dispatcher) {
+        val viewModel = viewModel(numberFormat = PresentationNumberFormat(','))
+        advanceUntilIdle()
+
+        viewModel.onNewRoutine()
+        viewModel.onEditorNameChanged("Upper")
+        viewModel.onAddWorkout()
+        viewModel.onWorkoutNameChanged(0, "Day 1")
+        viewModel.onAddExercise(0)
+        viewModel.onPickerQueryChanged("bench")
+        viewModel.onPickerExerciseSelected("bench-press", "Barbell Bench Press")
+        viewModel.onEntrySetsChanged(0, 0, "4")
+        viewModel.onEntryRepsChanged(0, 0, "6")
+        viewModel.onEntryWeightChanged(0, 0, "72,5")
+        viewModel.onSaveEditor()
+        advanceUntilIdle()
+
+        val entry = viewModel.state.value.templates.single().workouts.single().entries.single()
+        assertEquals(72.5, entry.weightKg!!, 1e-9)
     }
 
     @Test
@@ -309,7 +332,9 @@ class RoutinesViewModelTest {
         val invalidInputs = listOf(
             "abc" to "Force must be a number",
             "0" to "Force must be greater than zero",
-            "Infinity" to "Force must be greater than zero",
+            // Non-finite text is refused as non-numeric by the locale-aware parser, rather than
+            // parsed as an infinite number and then rejected by the range check.
+            "Infinity" to "Force must be a number",
             "5001" to "Force must be between 0.1 and 5000.0 newtons"
         )
         invalidInputs.forEach { (input, message) ->
@@ -680,6 +705,101 @@ class RoutinesViewModelTest {
 
         val entry = viewModel.state.value.templates.single().workouts.single().entries.single()
         assertEquals(100.0, entry.weightKg)
+    }
+
+    @Test
+    fun aFailedRefreshKeepsLoadedRoutinesAndARetryRecovers() = runTest(dispatcher) {
+        val snapshot = SnapshotRoutineTemplateRepository()
+        snapshot.add(template("Existing"))
+        val viewModel = viewModel(routineRepository = snapshot)
+        advanceUntilIdle()
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+
+        snapshot.failReads = true
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.templatesLoadFailed)
+        assertFalse(viewModel.state.value.isLoading)
+        // The loaded list and the rest of the screen state survive a failed read.
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+
+        snapshot.failReads = false
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.templatesLoadFailed)
+        assertEquals(listOf("Existing"), viewModel.state.value.templates.map { it.name })
+    }
+
+    @Test
+    fun aFailedScheduleReadKeepsTheBlocksRowsAndARetryRecovers() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+        viewModel.onConfirmActivation()
+        advanceUntilIdle()
+        val loaded = viewModel.state.value.occurrences
+        assertTrue(loaded.isNotEmpty())
+
+        schedule.failOccurrences = true
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.occurrencesLoadFailed)
+        assertEquals(loaded, viewModel.state.value.occurrences)
+
+        schedule.failOccurrences = false
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.occurrencesLoadFailed)
+        assertEquals(loaded, viewModel.state.value.occurrences)
+    }
+
+    @Test
+    fun aFailedActivationReadIsRetryableAndKeepsTheLastBlock() = runTest(dispatcher) {
+        routines.seed(twoWorkoutTemplate())
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.onActivateRequested(viewModel.state.value.templates.single())
+        advanceUntilIdle()
+        viewModel.onConfirmActivation()
+        advanceUntilIdle()
+        val blockId = assertNotNull(viewModel.state.value.activeActivation).id
+
+        schedule.failActivation = true
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.activationLoadFailed)
+        assertEquals(blockId, viewModel.state.value.activeActivation?.id)
+
+        schedule.failActivation = false
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.activationLoadFailed)
+        assertEquals(blockId, viewModel.state.value.activeActivation?.id)
+    }
+
+    @Test
+    fun aFailedFirstLoadEndsLoadingAndLeavesARetryableFailure() = runTest(dispatcher) {
+        val snapshot = SnapshotRoutineTemplateRepository()
+        snapshot.failReads = true
+        val viewModel = viewModel(routineRepository = snapshot)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.state.value.isLoading)
+        assertTrue(viewModel.state.value.templatesLoadFailed)
+        assertTrue(viewModel.state.value.templates.isEmpty())
+
+        snapshot.failReads = false
+        viewModel.refresh()
+        advanceUntilIdle()
+        assertFalse(viewModel.state.value.templatesLoadFailed)
     }
 
     @Test
@@ -1665,7 +1785,8 @@ class RoutinesViewModelTest {
         preferredWeekdaysRepository: PreferredWeekdaysRepository =
             FakePreferredWeekdaysRepository(),
         timeProvider: TimeProvider = this.timeProvider,
-        distanceUnitRepository: DistanceUnitRepository? = null
+        distanceUnitRepository: DistanceUnitRepository? = null,
+        numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
     ): RoutinesViewModel {
         val preview = PreviewWorkoutScheduleUseCase()
         val createActivation = CreateTrainingActivationUseCase(schedule, preview, timeProvider)
@@ -1700,7 +1821,8 @@ class RoutinesViewModelTest {
             weightUnitRepository = weightUnitRepository,
             exclusionRepository = exclusionRepository,
             preferredWeekdaysRepository = preferredWeekdaysRepository,
-            distanceUnitRepository = distanceUnitRepository
+            distanceUnitRepository = distanceUnitRepository,
+            numberFormatProvider = { numberFormat }
         )
     }
 
@@ -1873,13 +1995,19 @@ private class SnapshotRoutineTemplateRepository : RoutineTemplateRepository {
     private val stored = mutableListOf<RoutineTemplate>()
     private var nextId = 1L
 
+    /** When true, the next read fails; the stored list is untouched. */
+    var failReads = false
+
     fun add(template: RoutineTemplate): Long {
         val id = nextId++
         stored += template.copy(id = id)
         return id
     }
 
-    override fun observeAll(): Flow<List<RoutineTemplate>> = flowOf(stored.toList())
+    override fun observeAll(): Flow<List<RoutineTemplate>> = flow {
+        if (failReads) throw IllegalStateException("template read failed")
+        emit(stored.toList())
+    }
 
     override suspend fun get(id: Long): RoutineTemplate? = stored.firstOrNull { it.id == id }
 
@@ -1898,6 +2026,12 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
     private val activationState = MutableStateFlow<List<TrainingActivation>>(emptyList())
     private val occurrenceState = MutableStateFlow<List<WorkoutOccurrence>>(emptyList())
     private val state = MutableStateFlow(WorkoutScheduleState())
+
+    /** When true, schedule reads throw; nothing is written or cleared. */
+    var failOccurrences = false
+
+    /** When true, the activation read throws; the last published block is retained. */
+    var failActivation = false
     private var nextActivationId = 1L
     private var nextWorkoutId = 1L
     private var nextActivationEntryId = 1L
@@ -1906,13 +2040,21 @@ private class FakeWorkoutScheduleRepository : WorkoutScheduleRepository {
 
     override fun observeScheduleState(): Flow<WorkoutScheduleState> = state.map { it }
 
-    override fun observeActiveActivation(): Flow<TrainingActivation?> =
-        activationState.map { list -> list.lastOrNull { it.status == ActivationStatus.ACTIVE } }
-
-    override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> =
-        occurrenceState.map { list ->
-            list.filter { it.activationId == activationId }.sortedBy { it.queuePosition }
+    override fun observeActiveActivation(): Flow<TrainingActivation?> = flow {
+        if (failActivation) throw IllegalStateException("activation read failed")
+        activationState.collect { list ->
+            emit(list.lastOrNull { it.status == ActivationStatus.ACTIVE })
         }
+    }
+
+    override fun observeOccurrences(activationId: Long): Flow<List<WorkoutOccurrence>> = flow {
+        if (failOccurrences) throw IllegalStateException("occurrence read failed")
+        occurrenceState.collect { list ->
+            emit(
+                list.filter { it.activationId == activationId }.sortedBy { it.queuePosition }
+            )
+        }
+    }
 
     override suspend fun scheduleState(): WorkoutScheduleState = state.value
 

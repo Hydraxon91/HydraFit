@@ -1668,3 +1668,45 @@ the user's approval remain the real controls.
 - The clamshell emulator kept its full display size in every posture and reported the
   app accessible while closed, so its pass does not establish Samsung cover-screen or
   reduced-height Flex behavior.
+
+## 0.13.2+0.13.3 batch use (2026-11-04)
+
+- **Task state:** a single durable record (`batch-0.13.2`) ran through contract init,
+  scope amend, repeated evidence and checkpoint events, and reconciliation of
+  repository drift after commits; it reached revision 20 with no unknown operations
+  or out-of-scope writes. A pre-flight `resume` correctly flagged drift before the
+  parent recorded a checkpoint rather than replaying anything.
+- **Review:** the read-only `reviewer` agent performed a full-range checkpoint, then
+  two targeted closure rounds. It found 12 findings plus one design note; all
+  mechanical findings were fixed and closed, and the design note was left for
+  0.13.4. No reviewer write occurred.
+- **Bounded runs:** every Gradle invocation went through `run-bounded.py` with a hard
+  timeout and a log file; the final matrix executed 432 tasks with zero up-to-date
+  tasks. The tool did not need to terminate a hung child in this batch.
+- **Not exercised:** `git-ops` delegation (the batch contract owns local Git
+  directly), parallel coder workers, the emulator lifecycle helper (the device was
+  already running), and Maestro runner delegation. Device interaction stayed
+  parent-owned and bounded; comma entry and contrast remain unverified on device.
+
+## 0.13.3 completion pass (2026-11-04)
+
+- **Prepared-journey preflight:** every delegated journey carried a version-2
+  contract validated by `scripts/ui-journey-preflight.py` with a 600-second
+  baseline age. The first runner attempt was correctly refused: the brief had no
+  contract, and the runner stopped before touching the device rather than inventing
+  one. That refusal is the behaviour the procedure asks for.
+- **Runner:** four `ui-runner` sessions executed six prepared journeys on
+  `emulator-5554`: the launch-failure screen (5s), its retry half (6s), navigation
+  smoke (26s), comma entry (18s), and navigation smoke again on `Pixel_Tablet`
+  (32s), `Pixel_Fold` (25s) and `6.7_Horizontal_Fold-in` (24s). The runner's first
+  flow attempt also demonstrated the limits of fixed swipes: two blind UP swipes
+  overshot the weight field, and the corrected flow needed `scrollUntilVisible`.
+  Diagnosis and the flow edit stayed with the parent.
+- **Emulator lifecycle:** the parent used `scripts/emulator-lifecycle.py` for four
+  sequential AVDs. Starts and stops reported the expected identity and process
+  exit; no wipe, uninstall or data clear. Restoring `Medium_Phone` last left its
+  database at the same 438,272 bytes and 30 sets/21 sessions it had before the
+  matrix.
+- **Still not covered:** TalkBack speech and pixel-sampled contrast. Contrast was
+  computed from the Material tokens instead; that distinction is recorded rather
+  than blurred into "verified".

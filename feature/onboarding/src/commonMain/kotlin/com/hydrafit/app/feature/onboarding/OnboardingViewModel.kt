@@ -17,6 +17,8 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
 import com.hydrafit.app.core.userdata.equipment.EquipmentRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.equipment.StaleEquipmentProfileException
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
 import com.hydrafit.app.core.userdata.settings.TrainingGoalRepository
@@ -61,9 +63,18 @@ class OnboardingViewModel(
     private val records: PersonalRecordRepository,
     private val catalog: ExerciseCatalog,
     private val readiness: StartupReadiness,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /**
+     * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
+     * the default; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
-    private val _state = MutableStateFlow(OnboardingUiState())
+
+    /** Frozen for the ViewModel's lifetime; open entries carry the same copy. */
+    private val numberFormat: PresentationNumberFormat = numberFormatProvider()
+
+    private val _state = MutableStateFlow(OnboardingUiState(numberFormat = numberFormat))
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
     private var contextRevision = 0L
     private var revisit = false
@@ -74,7 +85,7 @@ class OnboardingViewModel(
     fun open(revisit: Boolean = false) {
         val context = ++contextRevision
         this.revisit = revisit
-        _state.value = OnboardingUiState(loading = true)
+        _state.value = OnboardingUiState(loading = true, numberFormat = numberFormat)
         viewModelScope.launch {
             try {
                 writeJob?.join()
@@ -115,7 +126,8 @@ class OnboardingViewModel(
         val current = _state.value
         val draft = current.input as? SetupStepInput.PersonalRecords ?: return
         val entry = current.personalRecordEntry ?: return
-        val record = decidePersonalRecordEntry(entry, current.entryUnit) ?: return
+        val record =
+            decidePersonalRecordEntry(entry, current.entryUnit, entry.numberFormat) ?: return
         edit(draft.copy(edits = withDraftRecord(draft.edits, record)))
     }
 
@@ -139,7 +151,12 @@ class OnboardingViewModel(
         _state.update {
             it.copy(
                 input = staged,
-                personalRecordEntry = personalRecordEntryDraft(exerciseId, it.entryUnit, shown)
+                personalRecordEntry = personalRecordEntryDraft(
+                    exerciseId,
+                    it.entryUnit,
+                    shown,
+                    it.numberFormat
+                )
             )
         }
     }

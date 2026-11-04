@@ -19,6 +19,9 @@ tags:
 - assertVisible: '^Estimated muscle fatigue$'
 - assertVisible: '^Estimated from recorded working sets\. This is not a measurement of soreness, exhaustion or readiness\. Low values do not confirm recovery; recorded muscle mappings may be incomplete\.$'
 - takeScreenshot: numeric-estimate-note
+- extendedWaitUntil:
+    visible: '^Body map$'
+    timeout: 10000
 - tapOn:
     text: '^Body map$'
     retryTapIfNoChange: false

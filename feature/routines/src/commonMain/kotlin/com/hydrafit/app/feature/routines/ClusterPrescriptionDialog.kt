@@ -21,7 +21,10 @@ import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.routine.Superset
-import com.hydrafit.app.core.domain.unit.formatWeight
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.routines_cancel
 import hydrafit.feature.routines.generated.resources.routines_cluster_add_segment
@@ -62,7 +65,10 @@ internal sealed interface ClusterParseResult {
  * they belong to; a parsed but invalid prescription is mapped back to the rule it breaks. Nothing
  * is written when this returns [ClusterParseResult.Invalid].
  */
-internal fun parseClusterEditor(editor: ClusterEditorState): ClusterParseResult {
+internal fun parseClusterEditor(
+    editor: ClusterEditorState,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): ClusterParseResult {
     if (editor.segments.size < ClusterPrescription.MIN_SEGMENTS) {
         return ClusterParseResult.Invalid(ClusterError.TOO_FEW_SEGMENTS)
     }
@@ -72,7 +78,7 @@ internal fun parseClusterEditor(editor: ClusterEditorState): ClusterParseResult 
     val segments = editor.segments.map { segment ->
         val reps = segment.reps.trim().toIntOrNull()
             ?: return ClusterParseResult.Invalid(ClusterError.REPS_RANGE)
-        val load = segment.loadKg.trim().toDoubleOrNull()
+        val load = parseLocalizedDecimal(segment.loadKg, format)
             ?: return ClusterParseResult.Invalid(ClusterError.LOAD)
         val rir = segment.rir.trim().let { text ->
             if (text.isEmpty()) {
@@ -132,8 +138,12 @@ private fun ClusterPrescription.fieldError(): ClusterError {
 }
 
 /** The load sequence shown in the slot summary, e.g. "100/80/60", in stored kilograms. */
-internal fun clusterSummaryLoads(prescription: ClusterPrescription): String =
-    prescription.segments.joinToString("/") { formatWeight(it.weightKg) }
+internal fun clusterSummaryLoads(
+    prescription: ClusterPrescription,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = prescription.segments.joinToString("/") {
+    formatLocalizedDecimal(it.weightKg, format)
+}
 
 /** The segment count shown in the summary; a cluster's parts are segments, never sets. */
 internal fun clusterSummarySegmentCount(prescription: ClusterPrescription): Int =

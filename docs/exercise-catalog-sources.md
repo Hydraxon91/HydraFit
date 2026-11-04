@@ -1,6 +1,6 @@
 # Exercise catalog — sources & methodology (CAT-P0)
 
-Status: CAT-P0/P1 done; the CAT-P1 batch is seeded and verified (CAT-P2/P3/P4, P5 verified, 2026-10-06). This document
+Status: CAT-P0/P1 done; the CAT-P1 batch is seeded and verified (CAT-P2/P3/P4, P5 verified, 2026-10-06). Instruction coverage is complete as of 0.13.2: every seeded identity carries authored Setup/Execution text (see the batch tables below). This document
 defines where catalog facts come from and how per-muscle involvement weights are derived.
 It is documentation only (no code); implementation lives in `core/database`.
 
@@ -379,6 +379,300 @@ instruction content itself does not change catalog facts, involvements, stored d
 
 This 0.7.4 batch is not a claim of full catalog or localization coverage. Later text batches are
 separately scoped and must record their own authored IDs and provenance here.
+
+### 0.13.2 instruction coverage — batch 1 (2026-11-04)
+
+Twenty further entries, authored under the same contract as 0.7.4: original English HydraFit text,
+no copied or translated third-party instructions, no injury-prevention or performance claims. Each
+entry's editorial reference is its stable ID, canonical label, required equipment and movement
+pattern in `DefaultExercises.kt`; a cue that needs equipment the catalog does not record for that
+identity is not written. Editorial acceptance for this batch is recorded separately from code review
+in `docs/qa.md`.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `incline-dumbbell-press` | Incline Dumbbell Press | dumbbell + bench, horizontal push on an inclined bench | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-push-up` | Incline Push-up | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-fly` | Cable Fly | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `band-chest-press` | Band Chest Press | resistance band, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `dips` | Dips | bodyweight, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-row` | Barbell Row | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `pull-up` | Pull-up | pull-up bar, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `chin-up` | Chin-up | pull-up bar, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `band-row` | Band Row | resistance band, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `band-pull-apart` | Band Pull-Apart | resistance band, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-shoulder-press` | Dumbbell Shoulder Press | dumbbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-lateral-raise` | Cable Lateral Raise | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `face-pull` | Face Pull | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-curl` | Barbell Curl | barbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `band-curl` | Band Curl | resistance band, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-triceps-extension` | Overhead Triceps Extension | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `close-grip-bench-press` | Close-Grip Bench Press | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `front-squat` | Front Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `bodyweight-squat` | Bodyweight Squat | bodyweight, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `bulgarian-split-squat` | Bulgarian Split Squat | dumbbell + bench, lunge | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage is still partial: 37 of the seeded catalog's exercises carry instructions after this batch.
+The remaining batches retain the same contract and stay open until they close on set equality with
+the seed, which `ExerciseInstructionSeedCoverageTest` will assert in both directions.
+
+### 0.13.2 instruction coverage — batch 2 (2026-11-04)
+
+Twenty further entries under the same contract. `conventional-deadlift` and `dumbbell-rdl` already
+carry a technique consideration; the instruction describes control and setup and does not repeat or
+contradict it.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `leg-press` | Leg Press | leg press machine, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-rdl` | Dumbbell Romanian Deadlift | dumbbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `conventional-deadlift` | Conventional Deadlift | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `hip-thrust` | Hip Thrust | barbell + bench, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `glute-bridge` | Glute Bridge | bodyweight, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `kettlebell-swing` | Kettlebell Swing | kettlebell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `bodyweight-calf-raise` | Bodyweight Calf Raise | bodyweight, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `plank` | Plank | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-crunch` | Cable Crunch | cable machine, core | HydraFit-authored English Setup/Execution; no external text source |
+| `hammer-curl` | Hammer Curl | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `supinated-curl` | Supinated Curl | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `preacher-curl` | Preacher Curl | barbell + bench, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `close-grip-pulldown` | Close-Grip Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `wide-grip-pulldown` | Wide-Grip Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-barbell-press` | Incline Barbell Press | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `decline-barbell-press` | Decline Barbell Press | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `ez-bar-upright-row` | EZ Bar Upright Row | EZ bar, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-ez-bar-curl` | Seated EZ Bar Curl | EZ bar, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `trap-bar-deadlift` | Trap Bar Deadlift | trap bar, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-lunge` | Dumbbell Lunge | dumbbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 2 is 57 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
+### 0.13.2 instruction coverage — batch 3 (2026-11-04)
+
+Twenty further entries under the same contract. The advanced variants (`handstand-push-ups`,
+`single-arm-push-up`, `ab-roll`) and the behind-the-neck press describe a controlled range and a
+manageable starting variation; no entry presents a progression path or a safety guarantee.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `barbell-shoulder-press` | Barbell Shoulder Press | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `ab-roll` | Ab Roll | bodyweight + ab roller, core | HydraFit-authored English Setup/Execution; no external text source |
+| `leg-extension` | Leg Extension | leg extension machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-dumbbell-side-bend` | Standing Dumbbell Side Bend | dumbbell, core | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-triceps-overhead-extension` | Dumbbell Triceps Overhead Extension | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-front-to-lateral-raise-combo` | Dumbbell Front to Lateral Raise combo | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `bench-press-with-chains` | Bench Press with Chains | barbell + bench, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-chest-press` | Cable Chest Press | cable machine, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `handstand-push-ups` | Handstand Push-Ups | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-push-up-medium` | Incline Push-Up Medium | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-push-up-wide` | Incline Push-Up Wide | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-up-to-side-plank` | Push Up to Side Plank | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-up-wide` | Push-Up Wide | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `single-arm-push-up` | Single-Arm Push-Up | bodyweight, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-shoulder-press` | Cable Shoulder Press | cable machine, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `dip-machine` | Dip Machine | dip bar, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `double-kettlebell-push-press` | Double Kettlebell Push Press | kettlebell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-press` | Push Press | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `push-press-behind-the-neck` | Push Press - Behind the Neck | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-cable-shoulder-press` | Seated Cable Shoulder Press | cable machine, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 3 is 77 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
+### 0.13.2 instruction coverage — batch 4 (2026-11-04)
+
+Twenty further entries under the same contract, covering presses, rows, pulldowns and squats. The
+behind-the-neck variants describe a comfortable range and offer an in-front alternative; none
+presents a stretched position as a target.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `shoulder-press-with-bands` | Shoulder Press - With Bands | resistance band, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-military-press` | Standing Military Press | barbell, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-rear-delt-row` | Barbell Rear Delt Row | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `bent-over-barbell-row` | Bent Over Barbell Row | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-incline-row` | Dumbbell Incline Row | dumbbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `one-arm-dumbbell-row` | One-Arm Dumbbell Row | dumbbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `shotgun-row` | Shotgun Row | cable machine, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `t-bar-row-with-handle` | T-Bar Row with Handle | barbell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `upright-barbell-row` | Upright Barbell Row | barbell, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `upright-cable-row` | Upright Cable Row | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `close-grip-front-lat-pulldown` | Close-Grip Front Lat Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `full-range-of-motion-lat-pulldown` | Full Range-Of-Motion Lat Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `one-arm-lat-pulldown` | One Arm Lat Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `underhand-cable-pulldowns` | Underhand Cable Pulldowns | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `v-bar-pulldown` | V-Bar Pulldown | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `v-bar-pullup` | V-Bar Pullup | bodyweight, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `wide-grip-pulldown-behind-the-neck` | Wide-Grip Pulldown Behind The Neck | cable machine, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `wide-grip-rear-pull-up` | Wide-Grip Rear Pull-Up | bodyweight, vertical pull | HydraFit-authored English Setup/Execution; no external text source |
+| `box-squat` | Box Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-squat` | Dumbbell Squat | dumbbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 4 is 97 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
+### 0.13.2 instruction coverage — batch 5 (2026-11-04)
+
+Twenty further entries under the same contract, covering squat and deadlift variants, hip and
+posterior-chain work, and lunge/step-up variants. Variants requiring unusual positions name a
+simpler alternative rather than presenting the advanced version as the expected starting point.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `hack-squat` | Hack Squat | hack squat machine, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `kneeling-squat` | Kneeling Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `olympic-squat` | Olympic Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-squat` | Overhead Squat | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `squat-jerk` | Squat Jerk | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `squat-with-bands` | Squat with Bands | barbell, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `band-good-morning` | Band Good Morning | resistance band, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-hip-thrust` | Barbell Hip Thrust | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-deadlifts` | Cable Deadlifts | cable machine, squat | HydraFit-authored English Setup/Execution; no external text source |
+| `deadlift-with-bands` | Deadlift with Bands | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `deadlift-with-chains` | Deadlift with Chains | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `deficit-deadlift` | Deficit Deadlift | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `good-morning` | Good Morning | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `sumo-deadlift` | Sumo Deadlift | barbell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-lunge` | Barbell Lunge | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-step-ups` | Barbell Step Ups | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-walking-lunge` | Barbell Walking Lunge | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-rear-lunge` | Dumbbell Rear Lunge | dumbbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-step-ups` | Dumbbell Step Ups | dumbbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `elevated-back-lunge` | Elevated Back Lunge | barbell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 5 is 117 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
+### 0.13.2 instruction coverage — batch 6 (2026-11-04)
+
+Twenty further entries under the same contract, covering lunge/step-up variants, eight calf
+variants and six chest-fly variants. Calf entries keep the knee position the equipment implies and
+do not add a claimed range target.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `lunge-pass-through` | Lunge Pass Through | kettlebell, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `step-up-with-knee-raise` | Step-up with Knee Raise | bodyweight, lunge | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-seated-calf-raise` | Barbell Seated Calf Raise | barbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `calf-press` | Calf Press | calf raise machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `calf-raise-on-a-dumbbell` | Calf Raise On A Dumbbell | dumbbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `calf-raises-with-bands` | Calf Raises - With Bands | resistance band, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-calf-raise` | Seated Calf Raise | calf raise machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `smith-machine-calf-raise` | Smith Machine Calf Raise | Smith machine, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-barbell-calf-raise` | Standing Barbell Calf Raise | barbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-dumbbell-calf-raise` | Standing Dumbbell Calf Raise | dumbbell, calf raise | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-crossover` | Cable Crossover | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-iron-cross` | Cable Iron Cross | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `decline-dumbbell-flyes` | Decline Dumbbell Flyes | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-flyes` | Dumbbell Flyes | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-cable-flye` | Incline Cable Flye | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-dumbbell-flyes` | Incline Dumbbell Flyes | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-dumbbell-flyes-with-a-twist` | Incline Dumbbell Flyes - With A Twist | dumbbell, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `low-cable-crossover` | Low Cable Crossover | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-preacher-curl` | Cable Preacher Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `concentration-curls` | Concentration Curls | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 6 is 137 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
+### 0.13.2 instruction coverage — batch 7 (2026-11-04)
+
+Twenty further entries under the same contract, covering elbow-flexion and elbow-extension variants
+and shoulder raises. Triceps entries keep the upper arm still and stop at a comfortable elbow range.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `ez-bar-curl` | EZ-Bar Curl | EZ bar, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-hammer-curls` | Incline Hammer Curls | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-cable-curl` | Lying Cable Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-cable-curl` | Overhead Cable Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `reverse-cable-curl` | Reverse Cable Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `spider-curl` | Spider Curl | EZ bar, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `band-skull-crusher` | Band Skull Crusher | resistance band, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-lying-triceps-extension` | Cable Lying Triceps Extension | cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-one-arm-tricep-extension` | Cable One Arm Tricep Extension | cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `ez-bar-skullcrusher` | EZ-Bar Skullcrusher | EZ bar, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `low-cable-triceps-extension` | Low Cable Triceps Extension | cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-triceps-press` | Lying Triceps Press | EZ bar, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-triceps-press` | Seated Triceps Press | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `tricep-dumbbell-kickback` | Tricep Dumbbell Kickback | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-rear-delt-fly` | Cable Rear Delt Fly | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `front-cable-raise` | Front Cable Raise | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `front-dumbbell-raise` | Front Dumbbell Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `front-two-dumbbell-raise` | Front Two-Dumbbell Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-rear-delt-raise` | Lying Rear Delt Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `one-arm-side-laterals` | One-Arm Side Laterals | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 7 is 157 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
+### 0.13.2 instruction coverage — batch 8 (2026-11-04)
+
+Twenty further entries under the same contract, covering hip/leg isolation, core variants and two
+chest-fly variants. Core entries that raise the legs keep the lower back out of the cue as a range
+target and tell the reader to shorten the range if the back lifts.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `reverse-flyes` | Reverse Flyes | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `side-lateral-raise` | Side Lateral Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `band-hip-adductions` | Band Hip Adductions | resistance band, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `butt-lift-bridge` | Butt Lift (Bridge) | bodyweight, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-hip-adduction` | Cable Hip Adduction | cable machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `leg-lift` | Leg Lift | bodyweight, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-leg-curls` | Lying Leg Curls | leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-leg-curl` | Seated Leg Curl | leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `single-leg-glute-bridge` | Single Leg Glute Bridge | bodyweight, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-leg-curl` | Standing Leg Curl | leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `crunches` | Crunches | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `decline-crunch` | Decline Crunch | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `reverse-crunch` | Reverse Crunch | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `rope-crunch` | Rope Crunch | cable machine, core | HydraFit-authored English Setup/Execution; no external text source |
+| `scissor-kick` | Scissor Kick | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `sit-up` | Sit-Up | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `stomach-vacuum` | Stomach Vacuum | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `toe-touchers` | Toe Touchers | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `flat-bench-cable-fly` | Flat Bench Cable Fly | cable machine + bench, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `single-arm-cable-crossover` | Single-Arm Cable Crossover | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 8 is 177 of the seeded catalog. The final batch closes the remaining 18.
+
+### 0.13.2 instruction coverage — batch 9 (2026-11-04, coverage closed)
+
+The final eighteen entries close coverage on the seeded catalog. The two neck identities use
+isometric-style cues with light pressure, an explicit "skip if uncomfortable" instruction and no
+range or load target; they are the only entries written that way.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `seated-single-arm-cable-row` | Seated Single-Arm Cable Row | cable machine, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-floor-press` | Dumbbell Floor Press | dumbbell, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-arnold-dumbbell-press` | Seated Arnold Dumbbell Press | dumbbell + bench, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `single-arm-kettlebell-row` | Single-Arm Kettlebell Row | kettlebell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `single-leg-kettlebell-deadlift` | Single-Leg Kettlebell Deadlift | kettlebell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-dumbbell-curl` | Incline Dumbbell Curl | dumbbell + bench, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `single-leg-cable-kickback` | Single-Leg Cable Kickback | cable machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `bicycle-crunch` | Bicycle Crunch | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `machine-pec-deck-fly` | Machine Pec Deck Fly | pec deck machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `reverse-machine-fly` | Reverse Machine Fly | reverse fly machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-dumbbell-wrist-curl` | Seated Dumbbell Wrist Curl | dumbbell + bench, forearm isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-dumbbell-wrist-extension` | Seated Dumbbell Wrist Extension | dumbbell + bench, forearm isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-shrug` | Dumbbell Shrug | dumbbell, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `ez-bar-shrug` | EZ Bar Shrug | EZ bar, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `trap-bar-shrug` | Trap Bar Shrug | trap bar, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-shrug` | Barbell Shrug | barbell, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `forehead-neck-bridge` | Forehead Neck Bridge | bodyweight, neck isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `self-resisted-neck-lateral-flexion` | Self-Resisted Neck Lateral Flexion | bodyweight, neck isolation | HydraFit-authored English Setup/Execution; no external text source |
+
+**Coverage is complete: every seeded identity carries authored Setup and Execution text.**
+`ExerciseInstructionSeedCoverageTest` now asserts set equality between authored IDs and the seeded
+catalog in both directions, so a new seed without text, or text for no seed, fails the build. Custom
+exercises still resolve to the explicit unavailable state: instructions are keyed by stable seeded
+ID only.
+
+Editorial acceptance for batches 1–9 remains outstanding and is recorded separately from code
+review; code-level coverage is not editorial approval.
 
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 

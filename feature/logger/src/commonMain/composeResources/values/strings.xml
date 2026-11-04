@@ -47,7 +47,7 @@
     <string name="logger_progression_suggested_ordered_load">Suggested: %1$d sets · %2$s · %3$s</string>
     <string name="logger_progression_apply">Apply</string>
     <string name="logger_progression_apply_for">Apply for %1$s</string>
-    <string name="logger_progression_apply_failed">Couldn\'t apply the suggestion. Try again.</string>
+    <string name="logger_progression_apply_failed">Couldn’t apply the suggestion. Try again.</string>
     <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>
@@ -355,7 +355,7 @@
     <string name="logger_summary_records_title">Improvements</string>
     <string name="logger_summary_records_loading">Checking for improvements…</string>
     <string name="logger_summary_records_empty">No new records in this workout.</string>
-    <string name="logger_summary_records_failed">Couldn\'t check for improvements.</string>
+    <string name="logger_summary_records_failed">Couldn’t check for improvements.</string>
     <string name="logger_summary_records_retry">Retry</string>
     <string name="logger_summary_records_load_at_reps">%1$s for %2$d reps</string>
     <string name="logger_summary_records_reps_at_load">%1$d reps at %2$s</string>
@@ -388,12 +388,12 @@
     <string name="logger_warmup_guidance_editor_title">Edit warm-up</string>
     <string name="logger_warmup_guidance_editor_minutes">Minutes</string>
     <string name="logger_warmup_guidance_editor_reset">Reset to default</string>
-    <string name="logger_warmup_guidance_editor_weight_exceeds">That load is above your equipment\'s %1$s limit.</string>
+    <string name="logger_warmup_guidance_editor_weight_exceeds">That load is above your equipment’s %1$s limit.</string>
     <string name="logger_loading_calculator_open">Loading calculator</string>
     <string name="logger_loading_calculator_action">Calculate loading</string>
     <string name="logger_loading_calculator_title">Loading calculator</string>
     <string name="logger_loading_calculator_profile">Profile: %1$s</string>
-    <string name="logger_loading_calculator_unit_note">Amounts are in %1$s, this profile\'s inventory unit.</string>
+    <string name="logger_loading_calculator_unit_note">Amounts are in %1$s, this profile’s inventory unit.</string>
     <string name="logger_loading_calculator_equipment_label">Saved equipment</string>
     <string name="logger_loading_calculator_kind_plate">Bar and plates</string>
     <string name="logger_loading_calculator_kind_dumbbell">Dumbbell</string>

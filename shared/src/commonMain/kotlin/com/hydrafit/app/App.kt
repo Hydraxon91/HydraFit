@@ -4,10 +4,14 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -88,6 +96,9 @@ import hydrafit.shared.generated.resources.Res
 import hydrafit.shared.generated.resources.nav_library
 import hydrafit.shared.generated.resources.nav_progress
 import hydrafit.shared.generated.resources.nav_train
+import hydrafit.shared.generated.resources.startup_failure_body
+import hydrafit.shared.generated.resources.startup_failure_retry
+import hydrafit.shared.generated.resources.startup_failure_title
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -102,17 +113,20 @@ fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {})
         Surface(modifier = Modifier.fillMaxSize()) {
             val readiness: StartupReadiness = koinInject()
             val isReady by readiness.isReady.collectAsState()
-            if (isReady) {
-                // The first-run decision is read once the staged restore has finished, so a pending
-                // setup can be entered before any tab is shown.
-                OnboardingStartupGate {
-                    AppContent(
-                        requestedTabName = requestedTabName,
-                        onTabRequestConsumed = onTabRequestConsumed
-                    )
+            val hasFailed by readiness.hasFailed.collectAsState()
+            when {
+                isReady -> {
+                    // The first-run decision is read once the staged restore has finished, so a
+                    // pending setup can be entered before any tab is shown.
+                    OnboardingStartupGate {
+                        AppContent(
+                            requestedTabName = requestedTabName,
+                            onTabRequestConsumed = onTabRequestConsumed
+                        )
+                    }
                 }
-            } else {
-                StartupLoadingGate()
+                hasFailed -> StartupFailureGate(onRetry = readiness::retry)
+                else -> StartupLoadingGate()
             }
         }
     }
@@ -384,6 +398,45 @@ private fun StartupLoadingGate() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (showIndicator) {
             CircularProgressIndicator()
+        }
+    }
+}
+
+/**
+ * Shown when startup maintenance could not open the database. The app stays out of every feature, so
+ * no screen reads a half-prepared database, and Retry is the only action: nothing is reset, replaced
+ * or repaired automatically.
+ */
+@Composable
+private fun StartupFailureGate(onRetry: () -> Unit) {
+    // Centered when it fits, scrollable when a large font scale or short viewport would otherwise
+    // clip the only recovery action.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(Res.string.startup_failure_title),
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(Res.string.startup_failure_body),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = onRetry) {
+                Text(text = stringResource(Res.string.startup_failure_retry))
+            }
         }
     }
 }

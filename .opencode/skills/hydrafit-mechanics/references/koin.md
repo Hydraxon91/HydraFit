@@ -17,7 +17,7 @@ Composition files:
 | Feature `SettingsModule.kt` | `settingsModule` |
 | Feature `routines/RoutinesModule.kt` | `routinesModule`: eager, closeable `WorkoutReminderCoordinator`, `RoutinesViewModel` and `PrescriptionShareViewModel` |
 | Feature `OnboardingModule.kt` | `onboardingModule` (exported, aggregated by the shell; `OnboardingViewModel` + `OnboardingEntryViewModel`) |
-| Feature `progress/ProgressModule.kt` | `progressModule` (exported; one `ProgressViewModel`). Registered in the shell's aggregation separately from the six tab destinations; progress is a pushed, non-tab route. |
+| Feature `progress/ProgressModule.kt` | `progressModule` (exported; one `ProgressViewModel`). Registered in the shell's aggregation separately from the three bar destinations (Train, Progress, Library); progress is also a pushed route. |
 | Feature `cardio/CardioModule.kt` | `cardioModule`: `CardioViewModel` bound to `CardioRepository`, `DistanceUnitRepository` and `TimeProvider` |
 | Platform `AndroidDatabaseModule.kt` / `IosDatabaseModule.kt` | Driver, clock, key store, backup and reminder adapters |
 

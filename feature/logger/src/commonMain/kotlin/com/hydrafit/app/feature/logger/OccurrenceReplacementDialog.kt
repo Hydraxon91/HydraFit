@@ -13,7 +13,6 @@ import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
@@ -66,7 +65,7 @@ fun OccurrenceReplacementDialog(
                             val distance = entry.distanceMeters?.let {
                                 formatDistance(it, distanceUnit)
                             }
-                            val newtons = entry.forceNewtons?.let(::formatWeight)
+                            val newtons = entry.forceNewtons?.let { formatWeightForDisplay(it) }
                             val basis = loadBasisFor(
                                 requiresDumbbell = EquipmentTag.DUMBBELL in entry.requiredEquipment,
                                 isUnilateral = entry.isUnilateral

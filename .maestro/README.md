@@ -16,6 +16,26 @@ Equipment, Fatigue map, Exercise progress and Manage plan open from their group.
 Sections below dated before 2026-11-02 describe the retired six-tab shell and are
 kept as historical records of those runs.
 
+## Launch-failure journey (0.13.3)
+
+`startup-recovery.yaml` and `startup-recovery-retry.yaml` are two halves of one
+journey because the parent restores the database between them:
+
+1. Parent force-stops the app, sets `databases/hydrafit.db` to mode `000`, launches
+   it, and records the original mode from `ls -l`. `startup-recovery.yaml` asserts
+   the failure copy, the absent Train screen and the `Try again` action.
+2. Parent restores the original mode and reads it back.
+   `startup-recovery-retry.yaml` taps `Try again` and asserts the Train screen.
+
+Both halves are write-free except the retry's idempotent startup maintenance. Each
+needs its own prepared-journey contract; the flows cost ~5s and ~6s on
+`emulator-5554`. `comma-decimal-entry.yaml` types `12,5` into the manual weight
+field and asserts a comma decimal. It needs the app locale set to a comma locale
+(for example `de-DE`), a fresh Train screen and a run that stops before `Log set`;
+`scrollUntilVisible` is required because the nested exercise picker can absorb a
+plain swipe. Verified on `Medium_Phone` 2026-11-04: field text exactly `12,5`,
+nothing logged, locale restored afterwards.
+
 | Flow | Starting state | Allowed changes | Expected finish |
 | --- | --- | --- | --- |
 | `fatigue-body-map.yaml` | Debug build, Progress group reachable, no keyboard/dialog/editor | Read-only navigation through Progress and Fatigue map, open Body map, switch model/view and Close; no profile, set or preference writes | Estimate title and caveat asserted with a numeric-screen screenshot; all four loaded figure descriptions asserted and screenshots captured. System back leaves the member screen for Train, the shell's current behavior; does not verify numeric refresh, nonzero colours, font scaling or TalkBack traversal. |
@@ -713,6 +733,23 @@ all labels remain intact, and only the bottom row receives bottom system-bar pad
 Font scale was restored to 1.0. No persistent app data was changed.
 Run log: `/tmp/hydrafit-r060-fixes-navigation.log`. This does not verify TalkBack,
 rotation, alternate locales or themes.
+
+## Settings label drift correction (2026-11-04)
+
+`navigation-smoke.yaml` and `settings-guidance-denial.yaml` still asserted the retired
+Settings label `Planning engine`. The shipped label is `Planner engine`, so the checked-in
+navigation regression could not pass: the 0.13.1 tablet run stopped on exactly this text
+(`docs/qa.md` 0.13.1 evidence). Both flows now assert the shipped string.
+
+`navigation-smoke.yaml` passed syntax validation and all 27 runtime steps on
+`emulator-5554` (debug `0.12.0-dev-79a6e701`) after the correction, as part of the 0.13.2
+baseline. `settings-guidance-denial.yaml` is syntax-checked only: it still needs the
+approved permission-baseline handling described in its header. Neither run covers
+TalkBack, dark mode, text scaling or locale.
+
+The later 0.13.2 post-change build (code tip `0f91d9c0`) was installed and launched on
+`emulator-5554`, but these flows were not re-run against it in that pass; flow acceptance
+therefore still rests on the baseline run above.
 
 ## Earlier verification status (2026-10-09)
 

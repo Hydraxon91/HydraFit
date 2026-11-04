@@ -7,6 +7,22 @@ import kotlin.test.assertTrue
 
 class EquipmentProfilerUiStateTest {
 
+    @Test
+    fun aStationGridAcceptsTheLocaleSeparatorAndRefusesGrouping() {
+        val comma = com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat(',')
+        val valid = StationEditorState(
+            equipmentId = com.hydrafit.app.core.domain.equipment.EquipmentTag.BARBELL,
+            name = "Rack",
+            minInput = "20,5",
+            maxInput = "120,5",
+            incrementInput = "2,5",
+            numberFormat = comma
+        )
+        assertTrue(valid.canSave)
+        assertFalse(valid.copy(maxInput = "1.234,5").canSave)
+        assertFalse(valid.copy(incrementInput = "0").canSave)
+    }
+
     private val base = ExerciseEditorState(
         isNew = true,
         isCustom = true,

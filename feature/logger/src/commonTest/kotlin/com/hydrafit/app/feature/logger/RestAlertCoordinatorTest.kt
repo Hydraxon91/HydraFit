@@ -244,6 +244,8 @@ class RestAlertCoordinatorTest {
         boot = BootIdentityProvider { "boot" },
         readiness = object : StartupReadiness {
             override val isReady = MutableStateFlow(true)
+            override val hasFailed = MutableStateFlow(false)
+            override fun retry() = Unit
         },
         alerts = alerts,
         dispatcher = StandardTestDispatcher(testScheduler),

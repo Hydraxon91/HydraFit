@@ -5,6 +5,8 @@ import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.domain.workout.WarmupGuidance
 import com.hydrafit.app.core.domain.workout.WarmupPreparationItem
 import com.hydrafit.app.core.domain.workout.WarmupRampSet
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
 /** Identity of one ramp row inside a workout's guidance. */
 data class WarmupRampKey(val occurrenceEntryId: Long, val rampIndex: Int)
@@ -169,6 +171,11 @@ data class WarmupGuidanceEditor(
     /** The current equipment ceiling for a ramp, or null when unbounded/unknown. */
     val ceilingKg: Double? = null,
     /**
+     * The number format frozen when the editor opened, so a locale change mid-edit cannot reinterpret
+     * text the user already typed.
+     */
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT,
+    /**
      * True after Reset restored the derived default into the fields, so Save applies the default
      * rather than the typed value. Any further input clears it.
      */
@@ -185,7 +192,7 @@ data class WarmupGuidanceEditor(
      */
     internal val enteredWeightKg: Double?
         get() {
-            val entered = weightInput.toDoubleOrNull() ?: return null
+            val entered = parseLocalizedDecimal(weightInput, numberFormat) ?: return null
             val original = originalWeightKg
             return if (original != null && weightInput == originalWeightInput) {
                 original
@@ -215,7 +222,8 @@ data class WarmupGuidanceEditor(
                 minutes != null &&
                 minutes.toLong() * SECONDS_PER_MINUTE <= Int.MAX_VALUE
             val weightOk = !hasWeight ||
-                weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0.0 } == true
+                parseLocalizedDecimal(weightInput, numberFormat)
+                    ?.let { it.isFinite() && it >= 0.0 } == true
             return repsOk && durationOk && weightOk && !weightExceedsCeiling
         }
 

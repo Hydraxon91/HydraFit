@@ -70,7 +70,6 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionImportProblem
 import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
@@ -82,6 +81,7 @@ import hydrafit.feature.routines.generated.resources.focus_push
 import hydrafit.feature.routines.generated.resources.focus_upper
 import hydrafit.feature.routines.generated.resources.routines_activate
 import hydrafit.feature.routines.generated.resources.routines_activation_choose_date
+import hydrafit.feature.routines.generated.resources.routines_activation_load_failed
 import hydrafit.feature.routines.generated.resources.routines_activation_mode_sequence
 import hydrafit.feature.routines.generated.resources.routines_activation_mode_weekday
 import hydrafit.feature.routines.generated.resources.routines_activation_no_weekday
@@ -122,6 +122,8 @@ import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_force_label
 import hydrafit.feature.routines.generated.resources.routines_force_unit
+import hydrafit.feature.routines.generated.resources.routines_load_failed
+import hydrafit.feature.routines.generated.resources.routines_load_retry
 import hydrafit.feature.routines.generated.resources.routines_more_actions
 import hydrafit.feature.routines.generated.resources.routines_move_down
 import hydrafit.feature.routines.generated.resources.routines_move_up
@@ -136,6 +138,7 @@ import hydrafit.feature.routines.generated.resources.routines_occurrence_pending
 import hydrafit.feature.routines.generated.resources.routines_occurrence_scheduled
 import hydrafit.feature.routines.generated.resources.routines_occurrence_skipped
 import hydrafit.feature.routines.generated.resources.routines_occurrence_unscheduled
+import hydrafit.feature.routines.generated.resources.routines_occurrences_load_failed
 import hydrafit.feature.routines.generated.resources.routines_picker_empty
 import hydrafit.feature.routines.generated.resources.routines_picker_excluded
 import hydrafit.feature.routines.generated.resources.routines_picker_title
@@ -325,6 +328,22 @@ fun RoutinesScreen(
                     MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
                 }
                 ActiveBlockSection(state = state, viewModel = viewModel)
+                if (state.activationLoadFailed) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.routines_activation_load_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = viewModel::refresh) {
+                            Text(stringResource(Res.string.routines_load_retry))
+                        }
+                    }
+                }
                 var showArchived by rememberSaveable { mutableStateOf(false) }
                 val listedTemplates = visibleRoutines(state.templates, showArchived)
                 Row(
@@ -345,9 +364,36 @@ fun RoutinesScreen(
                     onClick = { showArchived = !showArchived },
                     label = { Text(stringResource(Res.string.routines_archived_filter)) }
                 )
+                if (state.templatesLoadFailed) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.routines_load_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = viewModel::refresh) {
+                            Text(stringResource(Res.string.routines_load_retry))
+                        }
+                    }
+                }
                 when {
                     state.isLoading -> CircularProgressIndicator()
-                    listedTemplates.isEmpty() -> Text(
+                    listedTemplates.isNotEmpty() -> listedTemplates.forEach { template ->
+                        TemplateRow(
+                            template = template,
+                            viewModel = viewModel,
+                            canExport = shareState.isSupported,
+                            onExportRequested = shareViewModel::onExportRequested
+                        )
+                    }
+                    // A failed read already shows its own message; claiming "no routines yet"
+                    // would assert an empty success the read never established.
+                    state.templatesLoadFailed -> Unit
+                    else -> Text(
                         stringResource(
                             if (showArchived) {
                                 Res.string.routines_archived_empty
@@ -356,14 +402,6 @@ fun RoutinesScreen(
                             }
                         )
                     )
-                    else -> listedTemplates.forEach { template ->
-                        TemplateRow(
-                            template = template,
-                            viewModel = viewModel,
-                            canExport = shareState.isSupported,
-                            onExportRequested = shareViewModel::onExportRequested
-                        )
-                    }
                 }
                 PrescriptionTransferSection(
                     shareState = shareState,
@@ -579,13 +617,32 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
             )
             val activation = state.activeActivation
             if (activation == null) {
-                Text(stringResource(Res.string.routines_no_active))
+                // A failed read already shows its own banner; never also claim there is no block.
+                if (!state.activationLoadFailed) {
+                    Text(stringResource(Res.string.routines_no_active))
+                }
                 return@Column
             }
             Text(
                 text = activation.name,
                 style = MaterialTheme.typography.bodyLarge
             )
+            if (state.occurrencesLoadFailed) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(Res.string.routines_occurrences_load_failed),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = viewModel::refresh) {
+                        Text(stringResource(Res.string.routines_load_retry))
+                    }
+                }
+            }
             val resolved = state.occurrences.count { it.isResolved }
             Text(
                 text = stringResource(
@@ -1218,14 +1275,14 @@ private fun progressionSummary(policy: SlotProgressionPolicy): String {
             Res.string.routines_progression_summary,
             policy.minReps,
             policy.maxReps,
-            formatWeight(policy.incrementKg)
+            formatRoutineWeightForDisplay(policy.incrementKg)
         )
     } else {
         stringResource(
             Res.string.routines_progression_summary_equipment,
             policy.minReps,
             policy.maxReps,
-            formatWeight(policy.incrementKg),
+            formatRoutineWeightForDisplay(policy.incrementKg),
             equipmentId
         )
     }
@@ -1558,7 +1615,10 @@ private fun setTargetsShapeLabel(shape: SetPrescriptionShape): String = when (sh
 @Composable
 private fun setTargetsPreviewLine(index: Int, target: SetTarget): String {
     val load = target.weightKg?.let {
-        stringResource(Res.string.routines_set_targets_load_single, formatWeight(it))
+        stringResource(
+            Res.string.routines_set_targets_load_single,
+            formatRoutineWeightForDisplay(it)
+        )
     } ?: stringResource(Res.string.routines_set_targets_preview_no_load)
     return stringResource(
         Res.string.routines_set_targets_preview_set,
@@ -1614,11 +1674,14 @@ private fun setTargetsSummary(targets: SlotSetTargets): String {
             if (lastLoad != null && lastLoad != firstLoad) {
                 stringResource(
                     Res.string.routines_set_targets_load_span,
-                    formatWeight(firstLoad),
-                    formatWeight(lastLoad)
+                    formatRoutineWeightForDisplay(firstLoad),
+                    formatRoutineWeightForDisplay(lastLoad)
                 )
             } else {
-                stringResource(Res.string.routines_set_targets_load_single, formatWeight(firstLoad))
+                stringResource(
+                    Res.string.routines_set_targets_load_single,
+                    formatRoutineWeightForDisplay(firstLoad)
+                )
             }
         )
     }
