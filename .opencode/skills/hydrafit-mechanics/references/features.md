@@ -44,6 +44,21 @@ and note, exercise picker and the manual form) renders only when
 `manualEntryExpanded` is set, through the **Other training** action in the header.
 The form is the same state, so opening it never clears entered values.
 
+## Adaptive feature presentation (0.13.1)
+
+The shell uses one bottom navigation row below 600dp available window width and a
+rail from 600dp, while keeping a single navigation host. Train's
+`loggerUsesTwoPane` and Progress's `progressUsesTwoPane` both require at least
+840dp feature width and 480dp height, after shell chrome/insets. Train additionally
+requires an active workout already in its training stage: a wide window cannot
+start training. Its overview sits beside the existing training list, whose
+composition site and hoisted lazy-list state remain stable. Short/narrow windows
+retain the compact workflow. Progress keeps its picker beside the same detail
+sections when wide, with query/selection/range/station state in its existing
+ViewModel and scroll/dialog intent hoisted above layout branches. Routine list
+and editor retain their workflow but cap content width at 800dp. No new
+feature dependencies, stored state or selectable planner behavior is introduced.
+
 ## Editor and dialog conventions (0.13.0)
 
 The changed editors follow one bounded rubric: the title states what is being edited and its
@@ -309,9 +324,14 @@ its measured value for an explicit retry, and an insert that already landed is n
 written again. A gate's own dialog resolves from the unmodified draft, so the measured
 value cannot be carried into it: the confirmation closes and an explicit notice says the
 measured seconds were discarded. The timer is foreground-only
-(`WorkoutLoggerViewModel` ticker in `viewModelScope`, cancelled by `onPause`, ViewModel
+(`WorkoutLoggerViewModel` ticker in `viewModelScope`, cancelled by a genuine background/leaving
+`onPause`, ViewModel
 clear, another timer/set start, a draft/edit context change, dismissal, Discard and a
 guided-preference change) with no notification, service, alarm or persisted state.
+Android configuration relaunches (rotation/fold layout changes) are exempt from the pause
+cancellation through `LoggerPausePolicy`; the retained ViewModel keeps the same elapsed-clock
+deadline. Actual backgrounding still cancels without recording. The iOS adapter retains the
+ordinary pause policy; no background or process-death continuation guarantee is added.
 The existing rest timer is untouched and still follows only a live guided completion.
 
 Equipment exposes Trap isolation (manual only) and Neck isolation (manual only) in the

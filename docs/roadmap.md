@@ -610,6 +610,14 @@ Verification-only closure does not require an otherwise empty APK release.
   selection survive fold/unfold without a restart or data loss. Phones stay portrait
   (the `values-sw600dp/` escape hatch is the entry point). No new feature module,
   fatigue/planner change, dependency or infrastructure change.
+  The 0.13.1 candidate uses a rail from 600dp window width, Train/Progress panes
+  from 840dp feature width and 480dp height, and bounded routine content. Preserve
+  explicit Start/Resume and foreground-only timed sets: configuration transitions
+  are exempt from pause cancellation, genuine backgrounding is not (approved
+  2026-11-04). User approved the 1200dp global content cap / 120dp rail. Required
+  timer and meaningful-scroll evidence now have independent targeted closure;
+  implementation is verified/reviewed, publication pending. Limits and non-blocking
+  review notes remain in `docs/qa.md`.
 - Full light/dark, approved text-scale/layout, screen-reader/focus, touch-target,
   colour-independent metrics and locale/date/number/resource coverage.
 - Consistent first-run, empty, loading, error, cancel, retry and recovery states;
