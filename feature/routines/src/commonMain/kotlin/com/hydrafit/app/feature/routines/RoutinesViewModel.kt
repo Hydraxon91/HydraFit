@@ -86,6 +86,9 @@ class RoutinesViewModel(
 
     private var occurrencesJob: Job? = null
 
+    /** The block whose rows are currently shown; null before the first activation read. */
+    private var observedActivationId: Long? = null
+
     /**
      * The in-flight activation-dialog resolution. A newer opening replaces it and a dismissal cancels
      * it, so a superseded read cannot publish and a dismissed dialog cannot be resurrected.
@@ -148,29 +151,49 @@ class RoutinesViewModel(
             distanceUnitRepository?.unitFlow()?.collect { distanceUnit = it }
         }
         viewModelScope.launch {
-            scheduleActions.observeActiveActivation().collect { activation ->
-                _state.update {
-                    it.copy(activeActivation = activation, occurrencesLoadFailed = false)
+            try {
+                scheduleActions.observeActiveActivation().collect { activation ->
+                    val previousId = observedActivationId
+                    observedActivationId = activation?.id
+                    _state.update {
+                        it.copy(
+                            activeActivation = activation,
+                            occurrencesLoadFailed = false,
+                            activationLoadFailed = false,
+                            // Rows belong to one block; keep them only while the block is unchanged
+                            // (a retry) and drop them as soon as a different block is shown.
+                            occurrences = if (previousId == activation?.id) {
+                                it.occurrences
+                            } else {
+                                emptyList()
+                            }
+                        )
+                    }
+                    if (activation == null) {
+                        occurrencesJob?.cancel()
+                    } else {
+                        startOccurrenceObservation(activation.id)
+                    }
                 }
-                if (activation == null) {
-                    occurrencesJob?.cancel()
-                    _state.update { it.copy(occurrences = emptyList()) }
-                } else {
-                    startOccurrenceObservation(activation.id)
-                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.update { it.copy(activationLoadFailed = true) }
             }
         }
     }
 
     /**
      * Reads the active block's schedule. A failed read marks the failure and keeps whatever was
-     * already loaded; it never writes anything, so retrying cannot replay a mutation.
+     * already loaded; it never writes anything, so retrying cannot replay a mutation. A late result
+     * for a block that is no longer shown is ignored.
      */
     private fun startOccurrenceObservation(activationId: Long) {
         occurrencesJob?.cancel()
         occurrencesJob = viewModelScope.launch {
             try {
                 scheduleActions.observeOccurrences(activationId).collect { occurrences ->
+                    if (_state.value.activeActivation?.id != activationId) return@collect
                     _state.update {
                         it.copy(occurrences = occurrences, occurrencesLoadFailed = false)
                     }
@@ -178,7 +201,9 @@ class RoutinesViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _state.update { it.copy(occurrencesLoadFailed = true) }
+                if (_state.value.activeActivation?.id == activationId) {
+                    _state.update { it.copy(occurrencesLoadFailed = true) }
+                }
             }
         }
     }

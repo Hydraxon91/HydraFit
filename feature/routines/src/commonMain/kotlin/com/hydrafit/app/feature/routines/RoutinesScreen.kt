@@ -81,6 +81,7 @@ import hydrafit.feature.routines.generated.resources.focus_push
 import hydrafit.feature.routines.generated.resources.focus_upper
 import hydrafit.feature.routines.generated.resources.routines_activate
 import hydrafit.feature.routines.generated.resources.routines_activation_choose_date
+import hydrafit.feature.routines.generated.resources.routines_activation_load_failed
 import hydrafit.feature.routines.generated.resources.routines_activation_mode_sequence
 import hydrafit.feature.routines.generated.resources.routines_activation_mode_weekday
 import hydrafit.feature.routines.generated.resources.routines_activation_no_weekday
@@ -327,6 +328,22 @@ fun RoutinesScreen(
                     MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
                 }
                 ActiveBlockSection(state = state, viewModel = viewModel)
+                if (state.activationLoadFailed) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.routines_activation_load_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = viewModel::refresh) {
+                            Text(stringResource(Res.string.routines_load_retry))
+                        }
+                    }
+                }
                 var showArchived by rememberSaveable { mutableStateOf(false) }
                 val listedTemplates = visibleRoutines(state.templates, showArchived)
                 Row(
@@ -365,7 +382,18 @@ fun RoutinesScreen(
                 }
                 when {
                     state.isLoading -> CircularProgressIndicator()
-                    listedTemplates.isEmpty() -> Text(
+                    listedTemplates.isNotEmpty() -> listedTemplates.forEach { template ->
+                        TemplateRow(
+                            template = template,
+                            viewModel = viewModel,
+                            canExport = shareState.isSupported,
+                            onExportRequested = shareViewModel::onExportRequested
+                        )
+                    }
+                    // A failed read already shows its own message; claiming "no routines yet"
+                    // would assert an empty success the read never established.
+                    state.templatesLoadFailed -> Unit
+                    else -> Text(
                         stringResource(
                             if (showArchived) {
                                 Res.string.routines_archived_empty
@@ -374,14 +402,6 @@ fun RoutinesScreen(
                             }
                         )
                     )
-                    else -> listedTemplates.forEach { template ->
-                        TemplateRow(
-                            template = template,
-                            viewModel = viewModel,
-                            canExport = shareState.isSupported,
-                            onExportRequested = shareViewModel::onExportRequested
-                        )
-                    }
                 }
                 PrescriptionTransferSection(
                     shareState = shareState,

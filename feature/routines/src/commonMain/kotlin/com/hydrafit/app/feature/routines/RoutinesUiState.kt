@@ -244,6 +244,8 @@ data class RoutinesUiState(
     val activation: ActivationUiState? = null,
     val activeActivation: TrainingActivation? = null,
     val occurrences: List<WorkoutOccurrence> = emptyList(),
+    /** True when the active block itself could not be read. */
+    val activationLoadFailed: Boolean = false,
     /** True when the active block's schedule read failed; loaded occurrences are kept. */
     val occurrencesLoadFailed: Boolean = false,
     val pendingPostpone: PendingPostpone? = null,
