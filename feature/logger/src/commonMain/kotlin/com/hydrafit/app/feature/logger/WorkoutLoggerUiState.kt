@@ -29,6 +29,11 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
 import com.hydrafit.app.core.exercisecontent.ExerciseCautions
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
 data class ExerciseOption(
     val id: String,
@@ -97,77 +102,92 @@ internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
 enum class SetMetric { REPETITIONS, DURATION, DISTANCE, FORCE }
 
 /**
- * True when the device fields describe a storable attribution: a blank name means no device and no
- * rating, and a rating must be finite and positive. A rating without a name is never accepted.
+ * The dot format fixtures and tests use. Production state always carries the live presentation
+ * format, so a comma locale parses and renders its own separator.
  */
-internal fun deviceInputIsValid(name: String, ratingKg: String): Boolean {
-    val trimmedName = name.trim()
-    val trimmedRating = ratingKg.trim()
-    return when {
-        trimmedName.isEmpty() -> trimmedRating.isEmpty()
-        trimmedRating.isEmpty() -> true
-        else -> trimmedRating.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true
-    }
-}
-
-/** The device an editor describes, or null when the name is blank. Rating stays descriptive. */
-internal fun deviceInputOrNull(name: String, ratingKg: String): DeviceAttribution? {
-    val trimmedName = name.trim()
-    if (trimmedName.isEmpty()) return null
-    return DeviceAttribution(trimmedName, ratingKg.trim().toDoubleOrNull())
-}
+internal val DEFAULT_PRESENTATION_FORMAT = PresentationNumberFormat('.')
 
 /**
- * The stored value as entry text that parses back to the *same* double.
+ * Renders a weight for display with the live presentation format.
+ *
+ * This keeps the previous display contract — at most one decimal place, with a trailing `.0`
+ * dropped — while swapping the decimal separator to the app locale. Canonical values are never
+ * rounded through this text; editable prefills use [exactLocalizedDecimalText] instead.
+ */
+internal fun formatWeightForDisplay(
+    value: Double,
+    format: PresentationNumberFormat = currentPresentationNumberFormat()
+): String = formatLocalizedDecimal(value, format)
+
+/**
+ * The stored value as entry text that parses back to the *same* double under [format].
  *
  * Force and a device rating are prefilled into an editable field and re-read on submit, so a
  * one-decimal display formatter would rewrite an untouched 247.35 N as 247.4 N. A weight avoids
  * that by remembering its original text; these fields instead round-trip exactly, which keeps every
  * prefill, quick-fill and no-op correction from drifting the measurement. Exponential output is
- * expanded to plain decimal digits, because the entry filters accept only digits and a dot.
+ * expanded to plain decimal digits, because the entry filters accept only digits and a separator.
+ *
+ * The default dot format exists for fixtures and unit tests; production code passes the live format.
  */
-internal fun exactEntryText(value: Double): String {
-    val text = value.toString()
-    if ('E' !in text && 'e' !in text) return text.removeSuffix(".0")
-    // A very small or very large value prints in exponential form, which the digits-and-dot entry
-    // filters would truncate on the next keystroke. Expand the mantissa textually so the whole
-    // representable range survives, including magnitudes beyond Long.
-    val marker = text.indexOfFirst { it == 'E' || it == 'e' }
-    val mantissa = text.substring(0, marker)
-    val exponent = text.substring(marker + 1).toInt()
-    val negative = mantissa.startsWith("-")
-    val unsigned = mantissa.removePrefix("-")
-    val dot = unsigned.indexOf('.')
-    val digits = unsigned.replace(".", "")
-    val integerDigits = if (dot < 0) unsigned.length else dot
-    val point = integerDigits + exponent
-    val raw = when {
-        point <= 0 -> "0." + "0".repeat(-point) + digits
-        point >= digits.length -> digits + "0".repeat(point - digits.length)
-        else -> digits.substring(0, point) + "." + digits.substring(point)
+internal fun exactEntryText(
+    value: Double,
+    format: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
+): String = exactLocalizedDecimalText(value, format)
+
+/**
+ * True when the device fields describe a storable attribution: a blank name means no device and no
+ * rating, and a rating must be finite and positive. A rating without a name is never accepted.
+ */
+internal fun deviceInputIsValid(
+    name: String,
+    ratingKg: String,
+    format: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
+): Boolean {
+    val trimmedName = name.trim()
+    val trimmedRating = ratingKg.trim()
+    return when {
+        trimmedName.isEmpty() -> trimmedRating.isEmpty()
+        trimmedRating.isEmpty() -> true
+        else -> parseLocalizedDecimal(trimmedRating, format)?.let { it.isFinite() && it > 0.0 } ==
+            true
     }
-    // Trailing zeros are only redundant after a decimal point; stripping them from a plain integer
-    // would change its magnitude.
-    val expanded = if ('.' in raw) raw.trimEnd('0').trimEnd('.') else raw
-    return if (negative) "-$expanded" else expanded
 }
 
-/** One recorded later cluster segment as editable text, entered in the editor's frozen unit. */
+/** The device an editor describes, or null when the name is blank. Rating stays descriptive. */
+internal fun deviceInputOrNull(
+    name: String,
+    ratingKg: String,
+    format: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
+): DeviceAttribution? {
+    val trimmedName = name.trim()
+    if (trimmedName.isEmpty()) return null
+    return DeviceAttribution(trimmedName, parseLocalizedDecimal(ratingKg, format))
+}
+
+/**
+ * One recorded later cluster segment as editable text, entered in the editor's frozen unit.
+ *
+ * [numberFormat] is the format frozen when the editor opened, so a locale change mid-edit cannot
+ * reinterpret the same digits.
+ */
 data class LoggedClusterSegmentEdit(
     val position: Int,
     val reps: String,
     val weightInput: String,
-    val rir: String = ""
+    val rir: String = "",
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ) {
     val isValid: Boolean
         get() = (reps.toIntOrNull() ?: 0) > 0 &&
-            weightInput.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true &&
+            parseLocalizedDecimal(weightInput, numberFormat)
+                ?.let { it.isFinite() && it > 0.0 } == true &&
             (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true)
 
     /** The performed segment this text describes, in canonical kilograms. */
     fun toPerformed(weightUnit: WeightUnit): PerformedClusterSegment? {
         val parsedReps = reps.toIntOrNull() ?: return null
-        val parsedWeight = weightInput.toDoubleOrNull() ?: return null
+        val parsedWeight = parseLocalizedDecimal(weightInput, numberFormat) ?: return null
         return PerformedClusterSegment(
             position = position,
             reps = parsedReps,
@@ -202,7 +222,12 @@ data class LoggedSetEdit(
      * own opening segment stays in the ordinary fields above, so editing a cluster never invents an
      * extra set position.
      */
-    val clusterSegments: List<LoggedClusterSegmentEdit> = emptyList()
+    val clusterSegments: List<LoggedClusterSegmentEdit> = emptyList(),
+    /**
+     * The number format frozen when the editor opened, so a locale change mid-edit cannot reinterpret
+     * text the user already typed.
+     */
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ) {
     /** True when this correction also rewrites a performed cluster's later segments. */
     val hasCluster: Boolean get() = row.cluster != null
@@ -212,10 +237,15 @@ data class LoggedSetEdit(
         (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true) &&
         (
             weightInput.isBlank() ||
-                weightInput.toDoubleOrNull()?.let { it.isFinite() && it >= 0 } == true
+                parseLocalizedDecimal(weightInput, numberFormat)
+                    ?.let { it.isFinite() && it >= 0 } == true
             ) &&
         // A cluster parent always records the opening segment's external load.
-        (!hasCluster || weightInput.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true) &&
+        (
+            !hasCluster ||
+                parseLocalizedDecimal(weightInput, numberFormat)
+                    ?.let { it.isFinite() && it > 0.0 } == true
+            ) &&
         clusterSegments.all { it.isValid }
 
     /**
@@ -223,15 +253,17 @@ data class LoggedSetEdit(
      * rating without a name is never valid.
      */
     val deviceIsValid: Boolean
-        get() = metric != SetMetric.FORCE || deviceInputIsValid(deviceName, deviceRatingKg)
+        get() = metric != SetMetric.FORCE ||
+            deviceInputIsValid(deviceName, deviceRatingKg, numberFormat)
 
     /** True when the selected metric holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
         get() = when (metric) {
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
-            SetMetric.DISTANCE -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
-            SetMetric.FORCE -> forceNewtons.toDoubleOrNull()
+            SetMetric.DISTANCE ->
+                (parseLocalizedDecimal(distanceMeters, numberFormat) ?: 0.0) > 0.0
+            SetMetric.FORCE -> parseLocalizedDecimal(forceNewtons, numberFormat)
                 ?.let { it.isFinite() && it > 0.0 } == true
         }
 
@@ -246,19 +278,24 @@ data class LoggedSetEdit(
     /** Whole metres to write, or null for a non-distance correction. */
     val correctionDistanceMeters: Int?
         get() = if (metric == SetMetric.DISTANCE) {
-            distanceMeters.toDoubleOrNull()?.let(distanceUnit::displayToMetres)
+            parseLocalizedDecimal(distanceMeters, numberFormat)
+                ?.let(distanceUnit::displayToMetres)
         } else {
             null
         }
 
     /** Measured newtons to write, or null for a non-force correction. */
     val correctionForceNewtons: Double?
-        get() = if (metric == SetMetric.FORCE) forceNewtons.toDoubleOrNull() else null
+        get() = if (metric == SetMetric.FORCE) {
+            parseLocalizedDecimal(forceNewtons, numberFormat)
+        } else {
+            null
+        }
 
     /** The desired device state for a force correction; null explicitly records no device. */
     val correctionDevice: DeviceAttribution?
         get() = if (metric == SetMetric.FORCE) {
-            deviceInputOrNull(deviceName, deviceRatingKg)
+            deviceInputOrNull(deviceName, deviceRatingKg, numberFormat)
         } else {
             null
         }
@@ -407,7 +444,12 @@ data class DraftEdit(
      */
     val laterSegments: List<ClusterSegmentInput> = emptyList(),
     /** True when Reset staged original guided prescription values for the next Apply. */
-    val resetGuidedTargets: Boolean = false
+    val resetGuidedTargets: Boolean = false,
+    /**
+     * The number format frozen when the editor opened, so a locale change mid-edit cannot reinterpret
+     * text the user already typed.
+     */
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ) {
     /** True when the frozen draft records elapsed seconds instead of repetitions. */
     val isTimed: Boolean get() = draft.durationSeconds != null
@@ -422,13 +464,15 @@ data class DraftEdit(
      * True when the device fields are storable. Only a force draft can carry one, and a rating
      * without a name is never valid.
      */
-    val deviceIsValid: Boolean get() = !isForce || deviceInputIsValid(deviceName, deviceRatingKg)
+    val deviceIsValid: Boolean
+        get() = !isForce || deviceInputIsValid(deviceName, deviceRatingKg, numberFormat)
 
     /** True when the frozen measure's field holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
         get() = when {
-            isForce -> forceNewtons.toDoubleOrNull()?.let { it.isFinite() && it > 0.0 } == true
-            isDistance -> (distanceMeters.toDoubleOrNull() ?: 0.0) > 0.0
+            isForce -> parseLocalizedDecimal(forceNewtons, numberFormat)
+                ?.let { it.isFinite() && it > 0.0 } == true
+            isDistance -> (parseLocalizedDecimal(distanceMeters, numberFormat) ?: 0.0) > 0.0
             isTimed -> (durationSeconds.toIntOrNull() ?: 0) > 0
             else -> (reps.toIntOrNull() ?: 0) > 0
         }
@@ -471,7 +515,12 @@ data class MeasureChangeDialog(
     /** True when the typed value is not a positive number; the screen shows its localized hint. */
     val invalidValue: Boolean = false,
     /** Why the last apply was refused; the dialog stays open so a corrected value can be sent. */
-    val error: String? = null
+    val error: String? = null,
+    /**
+     * The number format frozen when the dialog opened, so a locale change mid-edit cannot reinterpret
+     * text the user already typed.
+     */
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 )
 
 /**
@@ -612,6 +661,11 @@ data class WorkoutLoggerUiState(
     /** The device's stated resistance rating in kilograms, or blank for none. */
     val deviceRatingKg: String = "",
     val distanceUnit: DistanceUnit = DistanceUnit.METERS,
+    /**
+     * The presentation number format this screen parses and renders numbers with. Open editors carry
+     * their own copy, frozen when they opened.
+     */
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT,
     val weightInput: String = "",
     /** Canonical value represented by the manual weight text, retained across display-unit changes. */
     val manualWeightKg: Double? = null,
@@ -969,14 +1023,14 @@ data class WorkoutLoggerUiState(
     private val manualWeightIsValid: Boolean
         get() = !showWeightField ||
             weightInput.isBlank() ||
-            weightInput.toDoubleOrNull()?.let { value ->
+            parseLocalizedDecimal(weightInput, numberFormat)?.let { value ->
                 value.isFinite() && value >= 0.0 && manualWeightKg != null
             } == true
 
     private val manualDistanceIsValid: Boolean
         get() = metric != SetMetric.DISTANCE ||
             distanceMeters.isBlank() ||
-            distanceMeters.toDoubleOrNull()?.let { value ->
+            parseLocalizedDecimal(distanceMeters, numberFormat)?.let { value ->
                 value.isFinite() && manualDistanceMetres != null
             } == true
 
@@ -985,7 +1039,8 @@ data class WorkoutLoggerUiState(
      * device, and a rating without a name is never valid.
      */
     val deviceIsValid: Boolean
-        get() = metric != SetMetric.FORCE || deviceInputIsValid(deviceName, deviceRatingKg)
+        get() = metric != SetMetric.FORCE ||
+            deviceInputIsValid(deviceName, deviceRatingKg, numberFormat)
 
     /** True when the metric selected in the manual form holds a positive whole number. */
     val enteredMetricIsPositive: Boolean
@@ -993,7 +1048,7 @@ data class WorkoutLoggerUiState(
             SetMetric.REPETITIONS -> (reps.toIntOrNull() ?: 0) > 0
             SetMetric.DURATION -> (durationSeconds.toIntOrNull() ?: 0) > 0
             SetMetric.DISTANCE -> (manualDistanceMetres ?: 0) > 0
-            SetMetric.FORCE -> forceNewtons.toDoubleOrNull()
+            SetMetric.FORCE -> parseLocalizedDecimal(forceNewtons, numberFormat)
                 ?.let { it.isFinite() && it > 0.0 } == true
         }
 

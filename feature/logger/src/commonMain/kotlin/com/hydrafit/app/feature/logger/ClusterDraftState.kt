@@ -5,6 +5,9 @@ import com.hydrafit.app.core.domain.routine.ClusterSegmentTarget
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.WorkoutCluster
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
 /** One later cluster segment as the draft editor holds it: the entered text, not a parsed number. */
 data class ClusterSegmentInput(val reps: String = "", val weightInput: String = "")
@@ -17,10 +20,13 @@ data class ClusterLogState(
     val reps: String,
     val weightInput: String,
     val rir: String = "",
-    val failed: Boolean = false
+    val failed: Boolean = false,
+    /** The number format frozen when this editor opened. */
+    val numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ) {
     val canSave: Boolean get() = reps.toIntOrNull()?.let { it > 0 } == true &&
-        weightInput.toDoubleOrNull()?.let { it.isFinite() && it > 0 } == true &&
+        parseLocalizedDecimal(weightInput, numberFormat)
+            ?.let { it.isFinite() && it > 0 } == true &&
         (rir.isBlank() || rir.toIntOrNull()?.let { it in 0..10 } == true)
 }
 
@@ -49,11 +55,15 @@ enum class ClusterDraftError {
  * of a rounded display value.
  */
 internal fun ClusterPrescription.laterSegmentInputs(
-    weightUnit: WeightUnit
+    weightUnit: WeightUnit,
+    numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ): List<ClusterSegmentInput> = segments.drop(1).map { segment ->
     ClusterSegmentInput(
         reps = segment.reps.toString(),
-        weightInput = exactEntryText(weightUnit.kilogramsToDisplay(segment.weightKg))
+        weightInput = exactLocalizedDecimalText(
+            weightUnit.kilogramsToDisplay(segment.weightKg),
+            numberFormat
+        )
     )
 }
 
@@ -74,7 +84,8 @@ internal sealed interface ClusterSegments {
 internal fun laterClusterSegments(
     prescription: ClusterPrescription,
     inputs: List<ClusterSegmentInput>?,
-    weightUnit: WeightUnit
+    weightUnit: WeightUnit,
+    numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ): ClusterSegments {
     val prescribed = prescription.segments.drop(1)
     if (inputs == null) {
@@ -99,7 +110,8 @@ internal fun laterClusterSegments(
             return ClusterSegments.Refused(ClusterDraftError.MISSING_SEGMENT)
         }
         val reps = repsText.toIntOrNull()
-        val load = weightText.toDoubleOrNull()?.let(weightUnit::displayToKilograms)
+        val load = parseLocalizedDecimal(weightText, numberFormat)
+            ?.let(weightUnit::displayToKilograms)
         if (reps == null || reps <= 0 || load == null || !load.isFinite() || load <= 0.0) {
             return ClusterSegments.Refused(ClusterDraftError.NON_POSITIVE_SEGMENT)
         }
@@ -122,9 +134,12 @@ internal fun clusterDraftRefusal(
     parentWeightKg: Double?,
     parentRir: Int?,
     inputs: List<ClusterSegmentInput>?,
-    weightUnit: WeightUnit
+    weightUnit: WeightUnit,
+    numberFormat: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ): ClusterDraftError? {
-    val later = when (val outcome = laterClusterSegments(prescription, inputs, weightUnit)) {
+    val later = when (
+        val outcome = laterClusterSegments(prescription, inputs, weightUnit, numberFormat)
+    ) {
         is ClusterSegments.Refused -> return outcome.error
         is ClusterSegments.Ready -> outcome.segments
     }

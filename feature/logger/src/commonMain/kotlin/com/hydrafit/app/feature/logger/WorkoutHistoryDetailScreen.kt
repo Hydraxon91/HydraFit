@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
@@ -413,7 +412,7 @@ private fun WorkoutHistorySetRow(
                     Res.string.logger_history_set_force_line,
                     stringResource(
                         Res.string.logger_force_value,
-                        formatWeight(forceNewtons)
+                        formatWeightForDisplay(forceNewtons)
                     )
                 )
 

@@ -10,8 +10,9 @@ import com.hydrafit.app.core.domain.equipment.calculatePlateLoading
 import com.hydrafit.app.core.domain.equipment.formatNativeTicks
 import com.hydrafit.app.core.domain.equipment.parseNativeTicks
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -178,7 +179,8 @@ private const val EXACT_NATIVE_TOLERANCE = 1e-6
  */
 fun loggerLoadingTargetFor(
     request: LoggerLoadingCalculatorRequest,
-    unit: WeightUnit
+    unit: WeightUnit,
+    format: PresentationNumberFormat = DEFAULT_PRESENTATION_FORMAT
 ): LoggerLoadingCalculatorTarget? {
     val kilograms = request.weightKg ?: return null
     if (!kilograms.isFinite() || kilograms < 0.0) return null
@@ -192,7 +194,7 @@ fun loggerLoadingTargetFor(
         LoggerLoadingApproximation(
             nativeAmount = formatNativeTicks(ticks),
             unitLabel = unit.label,
-            prescribedKg = formatWeight(kilograms)
+            prescribedKg = formatLocalizedDecimal(kilograms, format)
         )
     }
     return LoggerLoadingCalculatorTarget(
