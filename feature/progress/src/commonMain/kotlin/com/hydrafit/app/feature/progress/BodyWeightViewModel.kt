@@ -5,11 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
-import com.hydrafit.app.core.domain.unit.formatWeight
 import com.hydrafit.app.core.userdata.measurements.BodyWeightException
 import com.hydrafit.app.core.userdata.measurements.BodyWeightFailureReason
 import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
 import com.hydrafit.app.core.userdata.measurements.BodyWeightRepository
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
+import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
+import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -31,10 +34,20 @@ import kotlinx.coroutines.launch
 class BodyWeightViewModel(
     private val bodyWeightRepository: BodyWeightRepository,
     weightUnitRepository: WeightUnitRepository,
-    private val timeProvider: TimeProvider
+    private val timeProvider: TimeProvider,
+    /**
+     * Supplies the number format for weights. Koin's explicit constructor call uses the default, so
+     * no binding is added; tests pass a fixed format to exercise a comma locale.
+     */
+    numberFormatProvider: () -> PresentationNumberFormat = { currentPresentationNumberFormat() }
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(BodyWeightUiState(todayLocalEpochDay = today()))
+    private val _state = MutableStateFlow(
+        BodyWeightUiState(
+            todayLocalEpochDay = today(),
+            numberFormat = numberFormatProvider()
+        )
+    )
     val state: StateFlow<BodyWeightUiState> = _state.asStateFlow()
 
     private var measurementsLoaded = false
@@ -77,7 +90,8 @@ class BodyWeightViewModel(
                 editor = BodyWeightEditorState(
                     previousLocalEpochDay = null,
                     initialDateText = progressDayLabel(day),
-                    initialWeightText = ""
+                    initialWeightText = "",
+                    numberFormat = it.numberFormat
                 ),
                 pendingDuplicate = null,
                 pendingDeleteDay = null
@@ -89,13 +103,17 @@ class BodyWeightViewModel(
         val current = _state.value
         val measurement =
             current.measurements.firstOrNull { it.localEpochDay == localEpochDay } ?: return
-        val weightText = formatWeight(current.weightUnit.kilogramsToDisplay(measurement.weightKg))
+        val weightText = exactLocalizedDecimalText(
+            current.weightUnit.kilogramsToDisplay(measurement.weightKg),
+            current.numberFormat
+        )
         _state.update {
             it.copy(
                 editor = BodyWeightEditorState(
                     previousLocalEpochDay = localEpochDay,
                     initialDateText = progressDayLabel(localEpochDay),
-                    initialWeightText = weightText
+                    initialWeightText = weightText,
+                    numberFormat = it.numberFormat
                 ),
                 pendingDuplicate = null,
                 pendingDeleteDay = null
@@ -231,7 +249,7 @@ class BodyWeightViewModel(
 
     fun onSaveGoal() {
         val current = _state.value
-        val display = current.goalInput.trim().toDoubleOrNull()
+        val display = parseLocalizedDecimal(current.goalInput, current.numberFormat)
         if (display == null || !display.isFinite() || display <= 0.0) {
             _state.update { it.copy(goalError = true) }
             return
