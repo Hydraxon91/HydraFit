@@ -150,7 +150,27 @@ class ExerciseInstructionSourceTest {
         "incline-dumbbell-flyes-with-a-twist",
         "low-cable-crossover",
         "cable-preacher-curl",
-        "concentration-curls"
+        "concentration-curls",
+        "ez-bar-curl",
+        "incline-hammer-curls",
+        "lying-cable-curl",
+        "overhead-cable-curl",
+        "reverse-cable-curl",
+        "spider-curl",
+        "band-skull-crusher",
+        "cable-lying-triceps-extension",
+        "cable-one-arm-tricep-extension",
+        "ez-bar-skullcrusher",
+        "low-cable-triceps-extension",
+        "lying-triceps-press",
+        "seated-triceps-press",
+        "tricep-dumbbell-kickback",
+        "cable-rear-delt-fly",
+        "front-cable-raise",
+        "front-dumbbell-raise",
+        "front-two-dumbbell-raise",
+        "lying-rear-delt-raise",
+        "one-arm-side-laterals"
     )
 
     @Test

@@ -576,6 +576,37 @@ do not add a claimed range target.
 Coverage after batch 6 is 137 of the seeded catalog. The remaining batches stay open until they
 close on set equality with the seed.
 
+### 0.13.2 instruction coverage — batch 7 (2026-11-04)
+
+Twenty further entries under the same contract, covering elbow-flexion and elbow-extension variants
+and shoulder raises. Triceps entries keep the upper arm still and stop at a comfortable elbow range.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `ez-bar-curl` | EZ-Bar Curl | EZ bar, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-hammer-curls` | Incline Hammer Curls | dumbbell, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-cable-curl` | Lying Cable Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `overhead-cable-curl` | Overhead Cable Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `reverse-cable-curl` | Reverse Cable Curl | cable machine, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `spider-curl` | Spider Curl | EZ bar, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `band-skull-crusher` | Band Skull Crusher | resistance band, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-lying-triceps-extension` | Cable Lying Triceps Extension | cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-one-arm-tricep-extension` | Cable One Arm Tricep Extension | cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `ez-bar-skullcrusher` | EZ-Bar Skullcrusher | EZ bar, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `low-cable-triceps-extension` | Low Cable Triceps Extension | cable machine, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-triceps-press` | Lying Triceps Press | EZ bar, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-triceps-press` | Seated Triceps Press | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `tricep-dumbbell-kickback` | Tricep Dumbbell Kickback | dumbbell, triceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-rear-delt-fly` | Cable Rear Delt Fly | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `front-cable-raise` | Front Cable Raise | cable machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `front-dumbbell-raise` | Front Dumbbell Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `front-two-dumbbell-raise` | Front Two-Dumbbell Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-rear-delt-raise` | Lying Rear Delt Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `one-arm-side-laterals` | One-Arm Side Laterals | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 7 is 157 of the seeded catalog. The remaining batches stay open until they
+close on set equality with the seed.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is
