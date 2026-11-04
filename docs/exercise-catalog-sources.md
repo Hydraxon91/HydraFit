@@ -607,6 +607,37 @@ and shoulder raises. Triceps entries keep the upper arm still and stop at a comf
 Coverage after batch 7 is 157 of the seeded catalog. The remaining batches stay open until they
 close on set equality with the seed.
 
+### 0.13.2 instruction coverage — batch 8 (2026-11-04)
+
+Twenty further entries under the same contract, covering hip/leg isolation, core variants and two
+chest-fly variants. Core entries that raise the legs keep the lower back out of the cue as a range
+target and tell the reader to shorten the range if the back lifts.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `reverse-flyes` | Reverse Flyes | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `side-lateral-raise` | Side Lateral Raise | dumbbell, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `band-hip-adductions` | Band Hip Adductions | resistance band, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `butt-lift-bridge` | Butt Lift (Bridge) | bodyweight, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `cable-hip-adduction` | Cable Hip Adduction | cable machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `leg-lift` | Leg Lift | bodyweight, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `lying-leg-curls` | Lying Leg Curls | leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-leg-curl` | Seated Leg Curl | leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `single-leg-glute-bridge` | Single Leg Glute Bridge | bodyweight, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `standing-leg-curl` | Standing Leg Curl | leg curl machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `crunches` | Crunches | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `decline-crunch` | Decline Crunch | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `reverse-crunch` | Reverse Crunch | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `rope-crunch` | Rope Crunch | cable machine, core | HydraFit-authored English Setup/Execution; no external text source |
+| `scissor-kick` | Scissor Kick | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `sit-up` | Sit-Up | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `stomach-vacuum` | Stomach Vacuum | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `toe-touchers` | Toe Touchers | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `flat-bench-cable-fly` | Flat Bench Cable Fly | cable machine + bench, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `single-arm-cable-crossover` | Single-Arm Cable Crossover | cable machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+
+Coverage after batch 8 is 177 of the seeded catalog. The final batch closes the remaining 18.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is

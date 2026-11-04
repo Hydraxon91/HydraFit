@@ -170,7 +170,27 @@ class ExerciseInstructionSourceTest {
         "front-dumbbell-raise",
         "front-two-dumbbell-raise",
         "lying-rear-delt-raise",
-        "one-arm-side-laterals"
+        "one-arm-side-laterals",
+        "reverse-flyes",
+        "side-lateral-raise",
+        "band-hip-adductions",
+        "butt-lift-bridge",
+        "cable-hip-adduction",
+        "leg-lift",
+        "lying-leg-curls",
+        "seated-leg-curl",
+        "single-leg-glute-bridge",
+        "standing-leg-curl",
+        "crunches",
+        "decline-crunch",
+        "reverse-crunch",
+        "rope-crunch",
+        "scissor-kick",
+        "sit-up",
+        "stomach-vacuum",
+        "toe-touchers",
+        "flat-bench-cable-fly",
+        "single-arm-cable-crossover"
     )
 
     @Test
