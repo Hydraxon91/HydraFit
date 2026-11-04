@@ -5,7 +5,7 @@
     <string name="routines_empty">No routines yet. Create one to reuse it offline.</string>
     <string name="routines_load_failed">Could not load your routines. Nothing was changed.</string>
     <string name="routines_load_retry">Retry</string>
-    <string name="routines_occurrences_load_failed">Could not load this block\'s schedule. Loaded routines are unchanged.</string>
+    <string name="routines_occurrences_load_failed">Could not load this block’s schedule. Loaded routines are unchanged.</string>
     <string name="routines_activation_load_failed">Could not load your active block. Loaded routines are unchanged.</string>
     <string name="routines_archived_empty">No archived routines.</string>
     <string name="routines_saved_title">Saved routines</string>
@@ -185,7 +185,7 @@
     <string name="focus_none">No focus</string>
 
     <string name="reminder_channel">Workout reminders</string>
-    <string name="reminder_title">Today\'s workout</string>
+    <string name="reminder_title">Today’s workout</string>
     <string name="reminder_body_named">Today: %1$s</string>
     <string name="reminder_body_generic">You have a workout planned today.</string>
 
