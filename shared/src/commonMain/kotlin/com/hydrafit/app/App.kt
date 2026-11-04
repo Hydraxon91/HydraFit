@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
@@ -33,8 +32,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -109,7 +106,11 @@ private const val STARTUP_INDICATOR_DELAY_MILLIS = 150L
 @Composable
 @Preview
 fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {}) {
-    MaterialTheme(colorScheme = appColorScheme(isSystemInDarkTheme())) {
+    MaterialTheme(
+        colorScheme = appColorScheme(isSystemInDarkTheme()),
+        typography = appTypography,
+        shapes = appShapes
+    ) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val readiness: StartupReadiness = koinInject()
             val isReady by readiness.isReady.collectAsState()
@@ -131,9 +132,6 @@ fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {})
         }
     }
 }
-
-internal fun appColorScheme(darkTheme: Boolean): ColorScheme =
-    if (darkTheme) darkColorScheme() else lightColorScheme()
 
 /**
  * Which existing feature routes belong to each bottom-bar group. The groups are a shell navigation
