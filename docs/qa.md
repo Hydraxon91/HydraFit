@@ -9,7 +9,10 @@ approval path. Verify a release artifact offline (checksum, `apksigner verify`, 
 A clean install/uninstall or data clear on the emulator still needs explicit approval. Historical
 release-check records below are evidence, not permission. AGENTS keeps automated UI checks off
 personal phones.
-Tabs: **Equipment · Fatigue · Plan · Log · Routines · Settings**.
+Shell: one bottom bar of **Train · Progress · Library**, with **Settings** in the toolbar.
+Train hosts Log workout, Workout history, Exercise progress, Cardio and Manage plan; Progress hosts
+Body weight and Fatigue map; Library hosts Routines and Equipment. The retired six-tab bar no longer
+exists, so old records that name those tabs describe the shell at the time of that run.
 
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
