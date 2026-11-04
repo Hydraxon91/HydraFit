@@ -190,7 +190,25 @@ class ExerciseInstructionSourceTest {
         "stomach-vacuum",
         "toe-touchers",
         "flat-bench-cable-fly",
-        "single-arm-cable-crossover"
+        "single-arm-cable-crossover",
+        "seated-single-arm-cable-row",
+        "dumbbell-floor-press",
+        "seated-arnold-dumbbell-press",
+        "single-arm-kettlebell-row",
+        "single-leg-kettlebell-deadlift",
+        "incline-dumbbell-curl",
+        "single-leg-cable-kickback",
+        "bicycle-crunch",
+        "machine-pec-deck-fly",
+        "reverse-machine-fly",
+        "seated-dumbbell-wrist-curl",
+        "seated-dumbbell-wrist-extension",
+        "dumbbell-shrug",
+        "ez-bar-shrug",
+        "trap-bar-shrug",
+        "barbell-shrug",
+        "forehead-neck-bridge",
+        "self-resisted-neck-lateral-flexion"
     )
 
     @Test

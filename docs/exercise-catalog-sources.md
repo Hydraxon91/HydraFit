@@ -638,6 +638,42 @@ target and tell the reader to shorten the range if the back lifts.
 
 Coverage after batch 8 is 177 of the seeded catalog. The final batch closes the remaining 18.
 
+### 0.13.2 instruction coverage — batch 9 (2026-11-04, coverage closed)
+
+The final eighteen entries close coverage on the seeded catalog. The two neck identities use
+isometric-style cues with light pressure, an explicit "skip if uncomfortable" instruction and no
+range or load target; they are the only entries written that way.
+
+| Stable exercise ID | Canonical label | Equipment / pattern | Content provenance |
+| --- | --- | --- | --- |
+| `seated-single-arm-cable-row` | Seated Single-Arm Cable Row | cable machine, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-floor-press` | Dumbbell Floor Press | dumbbell, horizontal push | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-arnold-dumbbell-press` | Seated Arnold Dumbbell Press | dumbbell + bench, vertical push | HydraFit-authored English Setup/Execution; no external text source |
+| `single-arm-kettlebell-row` | Single-Arm Kettlebell Row | kettlebell, horizontal pull | HydraFit-authored English Setup/Execution; no external text source |
+| `single-leg-kettlebell-deadlift` | Single-Leg Kettlebell Deadlift | kettlebell, hinge | HydraFit-authored English Setup/Execution; no external text source |
+| `incline-dumbbell-curl` | Incline Dumbbell Curl | dumbbell + bench, biceps isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `single-leg-cable-kickback` | Single-Leg Cable Kickback | cable machine, leg isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `bicycle-crunch` | Bicycle Crunch | bodyweight, core | HydraFit-authored English Setup/Execution; no external text source |
+| `machine-pec-deck-fly` | Machine Pec Deck Fly | pec deck machine, chest fly | HydraFit-authored English Setup/Execution; no external text source |
+| `reverse-machine-fly` | Reverse Machine Fly | reverse fly machine, shoulder isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-dumbbell-wrist-curl` | Seated Dumbbell Wrist Curl | dumbbell + bench, forearm isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `seated-dumbbell-wrist-extension` | Seated Dumbbell Wrist Extension | dumbbell + bench, forearm isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `dumbbell-shrug` | Dumbbell Shrug | dumbbell, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `ez-bar-shrug` | EZ Bar Shrug | EZ bar, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `trap-bar-shrug` | Trap Bar Shrug | trap bar, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `barbell-shrug` | Barbell Shrug | barbell, trap isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `forehead-neck-bridge` | Forehead Neck Bridge | bodyweight, neck isolation | HydraFit-authored English Setup/Execution; no external text source |
+| `self-resisted-neck-lateral-flexion` | Self-Resisted Neck Lateral Flexion | bodyweight, neck isolation | HydraFit-authored English Setup/Execution; no external text source |
+
+**Coverage is complete: every seeded identity carries authored Setup and Execution text.**
+`ExerciseInstructionSeedCoverageTest` now asserts set equality between authored IDs and the seeded
+catalog in both directions, so a new seed without text, or text for no seed, fails the build. Custom
+exercises still resolve to the explicit unavailable state: instructions are keyed by stable seeded
+ID only.
+
+Editorial acceptance for batches 1–9 remains outstanding and is recorded separately from code
+review; code-level coverage is not editorial approval.
+
 ### Approved calf catalog clarification (0.7.4 review follow-up)
 
 The existing `standing-calf-raise` identity has always required `DUMBBELL`; its canonical label is

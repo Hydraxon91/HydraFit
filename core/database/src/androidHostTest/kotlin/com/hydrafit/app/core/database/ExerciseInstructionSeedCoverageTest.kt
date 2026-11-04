@@ -38,9 +38,10 @@ class ExerciseInstructionSeedCoverageTest {
             "no authored instructions found in the bundled resources"
         )
         val seedIds = DefaultExercises.all.map { it.id }.toSet()
-        assertTrue(
-            seedIds.containsAll(sectionsById.keys),
-            "instruction IDs missing from the real seed"
+        assertEquals(
+            seedIds,
+            sectionsById.keys,
+            "authored instructions must cover the seeded catalog exactly"
         )
         sectionsById.forEach { (id, sections) ->
             assertEquals(setOf("setup", "execution"), sections, "$id has incomplete instructions")
