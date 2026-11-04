@@ -70,8 +70,8 @@ unverified.
   technical encoding.
 - Routines distinguishes loading, empty success and read failure, keeps loaded data and open
   editors on a failed refresh, and retries reads only.
-- Fresh evidence at the reviewed code tip: full host matrix `hf0132-full3.log` (432 tasks executed,
-  0 up-to-date; 338 suites, 3190 tests, 0 failures) including `verifySqlDelightMigration`;
+- Fresh evidence at the reviewed code tip: full host matrix `hf0132-full4.log` (432 tasks executed,
+  0 up-to-date; 338 suites, 3191 tests, 0 failures) including `verifySqlDelightMigration`;
   review-fix suites `hf0132-fix-test3.log`; iOS simulator compile `hf0132-ios3.log` (53 tasks
   executed, 0 up-to-date) for the logger, routines and equipment modules touched by the fixes. The
   earlier batch-wide iOS run `hf0132-ios2.log` covered every touched module before the fixes.
