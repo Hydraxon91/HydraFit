@@ -118,7 +118,7 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 
 ### 0.13.4 — Quiet Strength and Progress charts
 
-**Status 2026-11-04:** P0 selected tokens; P1 shared theme implemented with fresh full matrix (3211 host tests reported, migrations/lint/debug/both iOS compiles). P2 charts, P3 Logger and P4 Routines implemented; measured date labels and keyboard-open dialog actions corrected after UI checks. DeepSeek ui-runner passed the original pinned phone journeys at light/dark/2.0. Straight connecting lines were later approved, implemented, verified on phone at light/dark/2.0 and covered by a 3228-test matrix. Independent review returned INCOMPLETE: R134-01 and R134-03 are closed; R134-02 documentation closure is recorded and targeted closure was approved, and R134-04 is the user's decision whether to accept the missing cross-device/TalkBack/locale/fault/Routines-specific acceptance as publication limits. Nine implementation/design/evidence commits (`9cc976fc`..`2085d499`) hold the work and release-note draft; the chained status commits ending at `c9727f8a` finalize this line and are documentation-only. P1 is mixed main/coder implementation. No push or publication authorized. Evidence: `docs/qa.md` §0.13.4 and external task `quiet-strength-0134`.
+**Status 2026-11-04:** P0 selected tokens; P1 shared theme implemented. P2 charts, P3 Logger and P4 Routines implemented; measured date labels and keyboard-open dialog actions corrected after UI checks. Straight connecting lines are implemented and verified. Remaining acceptance now covers phone light/dark/2.0, pound display, Routines, empty Progress, tablet wide layouts and the unfolded foldable; TalkBack is permanently retired. Fold/unfold posture transitions and fault-injected chart errors remain unverified. Independent review and targeted closure approved the code; publication still needs explicit approval. Local commits end at the documentation status commit chain. Evidence: `docs/qa.md` §0.13.4 and external task `quiet-strength-0134`.
 
 **Scope and implementation owners approved 2026-11-04.** Baseline: `main` at
 `f8fa94e9`, after the published 0.13.2/0.13.3 merge. The user explicitly authorized
@@ -176,8 +176,9 @@ plus applicable graph checks. Every Gradle invocation uses the bounded wrapper; 
 are not fresh verification. UI acceptance covers light/dark, 2.0 text, long labels, comma decimals,
 keyboard-open editors, relevant empty/loading/error/retry states, phone/tablet/foldable layouts and
 selection/scroll/draft/timer continuity. Main authors/diagnoses bounded journeys; ui-runner executes
-prepared contracts. Explicit manual TalkBack speech acceptance remains required; semantics alone
-do not close it. Reference screenshots are not acceptance evidence.
+prepared contracts. Semantics and non-colour information remain required; TalkBack spoken-output
+acceptance was permanently retired by the 2026-11-04 decision. Reference screenshots are not
+acceptance evidence.
 
 **Docs:** main owns design-doc updates, QA consolidation, affected architecture/mechanics references
 and PLANS.md status updates. Existing body-map artwork/fatigue meanings remain unchanged. No schema,
@@ -189,12 +190,12 @@ against the boards and contrast criteria; P0 tokens were produced. Independent r
 by this contract, with in-scope mechanical corrections and later targeted closure; publication and
 push remain unapproved. Stop on missing permission, unexpected writes, unsafe data effects, exhausted
 budget, unavailable required checks, unresolved design decisions or the existing two-failed-fixes
-limit. Implementation and the prepared phone navigation/chart/editor/line acceptance are complete;
-Routines-specific visuals, TalkBack, tablet/foldable and locale/fault checks remain unverified and
-are not claimed. Independent review returned INCOMPLETE; R134-01 was corrected with its regression
-test, R134-02 documentation status was corrected, and R134-03 is recorded as the 32sp timer
-deviation. R134-04 remains the user's explicit decision: accept the missing acceptance checks as
-recorded publication limits, or request their execution.
+limit. Implementation and acceptance now cover phone light/dark/2.0, pound display, Routines,
+empty Progress, tablet wide layouts and the unfolded foldable. TalkBack is permanently retired by
+the 2026-11-04 decision. Fold/unfold posture transitions and fault-injected chart errors remain
+unverified. Independent review returned INCOMPLETE; R134-01 restored test, R134-02 documentation,
+and R134-03 32sp timer deviation are closed. R134-04's remaining checks were run after the review;
+publication still requires explicit approval.
 
 - During pre-1.0 development, a minor series represents a theme; its patch versions deliver smaller feature slices or explicitly labelled corrections. This approved 2026-10-11 policy supersedes the former corrective-only patch rule for future releases, not shipped history.
 - Each combined feature release has its own bounded acceptance, verification and separately requested review before publication; implementation chunks remain small and are verified individually. The [2026-10-15 grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15) governs publication boundaries. Required migrations, data portability, consumers, tests and docs ship with the affected capability; do not defer them to a later integration release.
@@ -2543,6 +2544,8 @@ behavior remains undecided until its gate is approved.
 - **Body-map verification carry-overs (deferred to 0.13.x; from 0.9.2).** `FinalArtworkCoverageTest` proves a non-empty region per muscle, not visibility after paint order, so it cannot detect a muscle fully covered by a later-drawn piece; and no test pins which side of the shoulder/rhomboid partition maps to which muscle. Device checks for dark/light, text scale, locale, screen-reader traversal, numeric-description scrolling, map-refresh journeys and isolated non-zero colouring of the separated shoulder, upper-back and hip regions, plus zero/mid/high value fixtures, are carried there as well. Presentation and test coverage only — no fatigue/planner, catalog, schema or dependency change. See `docs/roadmap.md`, 0.13 series.
 
 ## Decisions Made
+
+- **2026-11-04 — TalkBack speech acceptance is permanently retired (approved).** The user explicitly removed TalkBack as a release requirement: it is not to be scheduled, required or reported as pending verification for 0.13.4 or later work. Semantics, accessible labels, non-colour information and alternative numeric tables remain required and tested; this decision retires only spoken-output acceptance. The 0.13.4 remaining cross-device, pound-display, Routines-specific and empty/error checks are authorized to run.
 
 - **2026-10-25 — refined 0.10.5 overnight decisions (approved; record before execution).**
   Supersedes the initial triage/decision wording below where it differs. **(1)** Draft Apply edits

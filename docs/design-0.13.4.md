@@ -309,7 +309,7 @@ validation, provenance, warnings, destructive confirmations and errors visible.
   boundaries at 3:1 where applicable. Validate actual resolved colours, including
   overlays/states; a concept image or Material defaults are not measured evidence.
 - Preserve semantic names, roles, focus/traversal and readable non-colour values.
-  Screenshots do not prove TalkBack speech, focus order or successful interaction.
+  Screenshots do not prove focus order or successful interaction.
 - Cover relevant first-run, empty, insufficient-data, loading, failure, retry,
   cancellation, saving and disabled states. An empty-state proof is not evidence
   for the other states. Do not invent asynchronous states for static content.
@@ -351,8 +351,8 @@ Suggested refinement instruction:
 | Exact tokens | Light/dark colour pairs, type, shapes and component states specified and measured | Produced in this document; token-level contrast tests pass. Render sampling remains unverified |
 | Representative proofs | Actual workout overview, logging/rest, Progress, dialog and adaptive examples approved before integration | Implementation and phone light/dark/2.0 proofs reviewed; tablet/foldable proofs remain unverified |
 | Implementation plan | Exact files, implementation owner, tests, downstream checks, affected living docs and exclusions approved | Approved in PLANS.md; mixed main/DeepSeek ownership with local-correction authority |
-| Post-styling acceptance | Fresh visual, semantic, adaptive and state evidence on the implemented candidate | Phone nav/metrics/editor/line journeys passed; TalkBack speech, tablet/foldable and Routines-specific visual journeys remain unverified |
-| Review/release | Applicable independent/Plan-mode review, remaining readiness decisions and publication approvals | Independent review completed; targeted closure follows. Publication not approved |
+| Post-styling acceptance | Fresh visual, semantic, adaptive and state evidence on the implemented candidate | Phone, tablet and unfolded-foldable light/dark/2.0 journeys passed for navigation, charts, Routines, pound display, keyboard-open editor and empty states. Fold/unfold posture transitions and fault-injected chart errors remain unverified |
+| Review/release | Applicable independent/Plan-mode review, remaining readiness decisions and publication approvals | Independent review and targeted closure verified the code. The remaining cross-device, pound-display, Routines-specific and empty-state checks were run; TalkBack is permanently retired. Fold/unfold posture transitions and fault-injected chart errors remain unverified. Publication not approved |
 
 Visual acceptance should compare the implemented screens with the approved role
 hierarchy, not require pixel matching to generated images. Token/component checks
