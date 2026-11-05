@@ -458,10 +458,10 @@ internal enum class TabReselectionAction { NONE, POP_TO_ROOT, NAVIGATE_TO_ROOT }
 internal fun tabReselectionAction(
     isCurrentTab: Boolean,
     currentRoute: String?,
-    tabStartRoute: String?
+    tabRootRoute: String
 ): TabReselectionAction = when {
     !isCurrentTab -> TabReselectionAction.NAVIGATE_TO_ROOT
-    tabStartRoute == null || currentRoute == tabStartRoute -> TabReselectionAction.NONE
+    currentRoute == tabRootRoute -> TabReselectionAction.NONE
     else -> TabReselectionAction.POP_TO_ROOT
 }
 
@@ -483,8 +483,9 @@ private fun navigateToAppTab(
         current?.hierarchy?.mapNotNull { it.route }.orEmpty().toList(),
         groupRoutes
     )
-    val tabStartRoute = (navController.graph.findNode(route) as? NavGraph)?.startDestinationRoute
-    when (tabReselectionAction(isCurrentTab, current?.route, tabStartRoute)) {
+    val tabRootRoute = (navController.graph.findNode(route) as? NavGraph)
+        ?.startDestinationRoute ?: route
+    when (tabReselectionAction(isCurrentTab, current?.route, tabRootRoute)) {
         TabReselectionAction.NAVIGATE_TO_ROOT -> navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) { saveState = !isCurrentTab }
             launchSingleTop = true
@@ -492,8 +493,11 @@ private fun navigateToAppTab(
         }
 
         TabReselectionAction.POP_TO_ROOT -> {
-            val popped = tabStartRoute != null &&
-                navController.popBackStack(tabStartRoute, inclusive = false, saveState = false)
+            val popped = navController.popBackStack(
+                tabRootRoute,
+                inclusive = false,
+                saveState = false
+            )
             if (tabReselectionAfterFailedPop(popped) == TabReselectionAction.NAVIGATE_TO_ROOT) {
                 // Equipment was pushed without a Library root beneath it. Land on the Library home
                 // without restoring the child that was just left.

@@ -155,6 +155,15 @@ class AppColorSchemeTest {
             TabReselectionAction.NAVIGATE_TO_ROOT,
             tabReselectionAction(false, "equipment", "routines/home")
         )
+        // Progress is a leaf start route with pushed children: root means "progress".
+        assertEquals(
+            TabReselectionAction.POP_TO_ROOT,
+            tabReselectionAction(true, "progress/bodyweight", "progress")
+        )
+        assertEquals(
+            TabReselectionAction.NONE,
+            tabReselectionAction(true, "progress", "progress")
+        )
         assertEquals(
             TabReselectionAction.NONE,
             tabReselectionAfterFailedPop(popSucceeded = true)

@@ -1,5 +1,8 @@
 package com.hydrafit.app.feature.routines
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -9,6 +12,7 @@ import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.nav_label
+import org.koin.compose.viewmodel.koinViewModel
 
 val routinesRoute: String = "routines"
 
@@ -33,7 +37,20 @@ fun NavGraphBuilder.routinesGraph(navController: NavController) {
             )
         }
         composable(LibraryRoutes.ROUTINES) {
-            RoutinesRoute(onBack = { navController.popBackStack() })
+            // Scope the editor to the retained Library graph, not the list route: tab reselect/Back
+            // then returns to the list with the unsaved routine draft intact.
+            val viewModel = libraryRoutinesViewModel(navController) ?: return@composable
+            RoutinesRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
+}
+
+@Composable
+private fun libraryRoutinesViewModel(navController: NavController): RoutinesViewModel? {
+    val owner = remember { navController.getBackStackEntry(routinesRoute) }
+    if (owner.lifecycle.currentState == Lifecycle.State.DESTROYED) return null
+    return koinViewModel(viewModelStoreOwner = owner)
 }
