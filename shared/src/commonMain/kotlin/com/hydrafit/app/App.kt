@@ -5,16 +5,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -25,13 +30,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -43,11 +46,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -65,7 +73,7 @@ import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import com.hydrafit.app.core.navigation.NavTab
 import com.hydrafit.app.core.navigation.appTabForRequest
 import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
-import com.hydrafit.app.core.navigation.overlayRouteToClose
+import com.hydrafit.app.core.navigation.routeBelongsToGroup
 import com.hydrafit.app.core.navigation.selectedNavTab
 import com.hydrafit.app.feature.cardio.cardioGraph
 import com.hydrafit.app.feature.cardio.cardioRoute
@@ -92,6 +100,7 @@ import com.hydrafit.app.feature.splitbuilder.splitBuilderRoute
 import hydrafit.shared.generated.resources.Res
 import hydrafit.shared.generated.resources.nav_library
 import hydrafit.shared.generated.resources.nav_progress
+import hydrafit.shared.generated.resources.nav_settings
 import hydrafit.shared.generated.resources.nav_train
 import hydrafit.shared.generated.resources.startup_failure_body
 import hydrafit.shared.generated.resources.startup_failure_retry
@@ -108,7 +117,7 @@ private const val STARTUP_INDICATOR_DELAY_MILLIS = 150L
 fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {}) {
     MaterialTheme(
         colorScheme = appColorScheme(isSystemInDarkTheme()),
-        typography = appTypography,
+        typography = withFontFamily(appTypography, appFontFamily()),
         shapes = appShapes
     ) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -143,24 +152,81 @@ fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {})
 private val NAV_TAB_ROUTES: Map<NavTab, List<String>> = mapOf(
     NavTab.TRAIN to listOf(loggerRoute, splitBuilderRoute, cardioRoute),
     NavTab.PROGRESS to listOf(progressRoute, bodyWeightRoute, fatigueHeatmapRoute),
-    NavTab.LIBRARY to listOf(routinesRoute, equipmentRoute)
+    NavTab.LIBRARY to listOf(routinesRoute, equipmentRoute),
+    NavTab.SETTINGS to listOf(settingsRoute)
 )
 
-/** Top-level destinations that keep the shell toolbar and bottom bar on screen. */
+/** Parent graphs whose children keep the bottom bar or rail on screen. */
 private val chromeRoutes: Set<String> =
-    NAV_TAB_ROUTES.values.flatten().toSet() + settingsRoute
+    NAV_TAB_ROUTES.values.flatten().toSet()
 
 /** The route a tab returns to when it is selected from the bar. */
 private fun NavTab.startRoute(): String = when (this) {
     NavTab.TRAIN -> loggerRoute
     NavTab.PROGRESS -> progressRoute
     NavTab.LIBRARY -> routinesRoute
+    NavTab.SETTINGS -> settingsRoute
 }
 
 private fun NavTab.labelResource(): StringResource = when (this) {
     NavTab.TRAIN -> Res.string.nav_train
     NavTab.PROGRESS -> Res.string.nav_progress
     NavTab.LIBRARY -> Res.string.nav_library
+    NavTab.SETTINGS -> Res.string.nav_settings
+}
+
+/** Stable UI-automation identities for the four tab controls, not their accessible names. */
+private fun NavTab.testTag(): String = "app_tab_" + name.lowercase()
+
+/**
+ * The compact bar keeps four full labels if the measured labels plus their minimum item padding fit
+ * the available width; otherwise it uses two rows of two. No label is shortened, hidden or scaled.
+ */
+internal fun navigationRequiresTwoRows(
+    availableWidthDp: Float,
+    labelWidthsDp: List<Float>,
+    interItemSpacingDp: Float = 8f,
+    minimumItemWidthDp: Float = 48f
+): Boolean {
+    if (labelWidthsDp.isEmpty()) return false
+    val itemCount = labelWidthsDp.size
+    val perItemWidth = (availableWidthDp - interItemSpacingDp * (itemCount - 1)) / itemCount
+    return perItemWidth < minimumItemWidthDp || labelWidthsDp.any { it > perItemWidth }
+}
+
+/**
+ * One standard bottom-bar item. Both the one-row and two-row compact bars use it, so semantics,
+ * selection, icons, labels, test tags and the group-aware navigation callback stay identical.
+ */
+@Composable
+private fun RowScope.BottomTabItem(tab: NavTab, selected: Boolean, onClick: () -> Unit) {
+    NavigationBarItem(
+        selected = selected,
+        onClick = onClick,
+        icon = { AppNavigationIcon(tab) },
+        label = { Text(stringResource(tab.labelResource())) },
+        modifier = Modifier.testTag(tab.testTag())
+    )
+}
+
+/**
+ * Scaffold content padding when the IME is visible. The bottom bar already supplies its height in
+ * [innerPadding]; imePadding separately reserves the keyboard. Keeping both would double-count the
+ * bar and leave a blank band above the keyboard. Top/start/end are preserved; the bottom inset is
+ * dropped only while the IME is actually visible, and the caller still applies imePadding once.
+ */
+internal fun contentPaddingWithIme(
+    innerPadding: PaddingValues,
+    imeVisible: Boolean,
+    layoutDirection: LayoutDirection
+): PaddingValues = if (imeVisible) {
+    PaddingValues(
+        start = innerPadding.calculateStartPadding(layoutDirection),
+        top = innerPadding.calculateTopPadding(),
+        end = innerPadding.calculateEndPadding(layoutDirection)
+    )
+} else {
+    innerPadding
 }
 
 @Composable
@@ -184,7 +250,15 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     )
     // Lets a feature (e.g. SplitBuilder after "Save as routine") open a tab without importing it.
     val openTab: (AppTab) -> Unit = { tab ->
-        tabRoutes[tab]?.let { route -> navigateToAppTab(navController, route) }
+        tabRoutes[tab]?.let { route ->
+            if (tab == AppTab.EQUIPMENT) {
+                // Equipment is a Library section, also reachable from plan review. Push over the
+                // requesting screen so Back returns there instead of resetting its saved tab.
+                navController.navigate(route) { launchSingleTop = true }
+            } else {
+                navigateToAppTab(navController, route)
+            }
+        }
     }
     // The shell registers the setup routes and navigates to them; the feature owns the journey.
     val openSetup: () -> Unit = {
@@ -237,66 +311,83 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
     val currentDestination = backStackEntry?.destination
     val hierarchyRoutes = currentDestination?.hierarchy?.mapNotNull { it.route }?.toList()
         .orEmpty()
-    // Shell chrome rule: the toolbar and bar belong to the top-level destinations, never to a
-    // feature's pushed route (history, cardio, onboarding, ...).
+    // Nested feature pages inherit their graph's tab; standalone pushed routes retain their
+    // existing shell eligibility.
     val onAppTab = currentDestination == null ||
         hierarchyRoutes.any { route -> route in chromeRoutes }
     val selectedTab = selectedNavTab(hierarchyRoutes, NAV_TAB_ROUTES)
-    // The toolbar entry is only useful when Settings is not already the current screen; Settings
-    // itself carries the way back.
-    val onSettings = settingsRoute in hierarchyRoutes
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val useRail = usesNavigationRail(maxWidth)
+        val tabLabels = NavTab.entries.map { stringResource(it.labelResource()) }
+        val labelStyle = MaterialTheme.typography.labelMedium
+        val density = LocalDensity.current
+        val textMeasurer = rememberTextMeasurer()
+        val labelWidths = remember(tabLabels, labelStyle, density) {
+            tabLabels.map { label ->
+                textMeasurer.measure(AnnotatedString(label), style = labelStyle)
+                    .size.width / density.density
+            }
+        }
+        val twoRowBottomBar = navigationRequiresTwoRows(maxWidth.value, labelWidths)
+        val selectTab: (NavTab) -> Unit = { tab ->
+            navigateToAppTab(
+                navController,
+                tab.startRoute(),
+                NAV_TAB_ROUTES[tab].orEmpty()
+            )
+        }
         Scaffold(
             snackbarHost = { RestCompletionPresenter() },
-            topBar = {
-                if (onAppTab && !onSettings) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick = {
-                                // Settings is a toolbar destination, not a tab: pushing it keeps the
-                                // screen it was opened from underneath, so system Back returns there.
-                                navController.navigate(settingsDestination.route) {
-                                    launchSingleTop = true
-                                    restoreState = false
-                                }
-                            }
-                        ) {
-                            Text(stringResource(settingsDestination.label))
-                        }
-                    }
-                }
-            },
             bottomBar = {
                 if (onAppTab && !useRail) {
-                    NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                        NavTab.entries.forEach { tab ->
-                            NavigationBarItem(
-                                selected = selectedTab == tab,
-                                onClick = { navigateToAppTab(navController, tab.startRoute()) },
-                                icon = {},
-                                // Text-only tabs: the default pill would render an empty indicator
-                                // around the missing icon, so selection is carried by the label colour.
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = Color.Transparent
-                                ),
-                                label = { Text(stringResource(tab.labelResource())) }
-                            )
+                    if (twoRowBottomBar) {
+                        Column {
+                            NavigationBar(windowInsets = WindowInsets(0, 0, 0, 0)) {
+                                NavTab.entries.take(2).forEach { tab ->
+                                    BottomTabItem(
+                                        tab = tab,
+                                        selected = selectedTab == tab,
+                                        onClick = { selectTab(tab) }
+                                    )
+                                }
+                            }
+                            NavigationBar(
+                                windowInsets = NavigationBarDefaults.windowInsets
+                            ) {
+                                NavTab.entries.drop(2).forEach { tab ->
+                                    BottomTabItem(
+                                        tab = tab,
+                                        selected = selectedTab == tab,
+                                        onClick = { selectTab(tab) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        NavigationBar(
+                            windowInsets = NavigationBarDefaults.windowInsets
+                        ) {
+                            NavTab.entries.forEach { tab ->
+                                BottomTabItem(
+                                    tab = tab,
+                                    selected = selectedTab == tab,
+                                    onClick = { selectTab(tab) }
+                                )
+                            }
                         }
                     }
                 }
             }
         ) { innerPadding ->
-            Row(modifier = Modifier.fillMaxSize().padding(innerPadding).imePadding()) {
+            val density = LocalDensity.current
+            val imeVisible = WindowInsets.ime.getBottom(density) > 0
+            val contentPadding = contentPaddingWithIme(
+                innerPadding = innerPadding,
+                imeVisible = imeVisible,
+                layoutDirection = LocalLayoutDirection.current
+            )
+            Row(modifier = Modifier.fillMaxSize().padding(contentPadding).imePadding()) {
                 if (onAppTab && useRail) {
                     NavigationRail(
                         modifier = Modifier.width(120.dp).fillMaxHeight()
@@ -305,8 +396,16 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
                         NavTab.entries.forEach { tab ->
                             NavigationRailItem(
                                 selected = selectedTab == tab,
-                                onClick = { navigateToAppTab(navController, tab.startRoute()) },
-                                icon = { Text(stringResource(tab.labelResource())) }
+                                onClick = {
+                                    navigateToAppTab(
+                                        navController,
+                                        tab.startRoute(),
+                                        NAV_TAB_ROUTES[tab].orEmpty()
+                                    )
+                                },
+                                icon = { AppNavigationIcon(tab) },
+                                label = { Text(stringResource(tab.labelResource())) },
+                                modifier = Modifier.testTag(tab.testTag())
                             )
                         }
                     }
@@ -348,37 +447,65 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
 /**
  * Moves the bottom bar to a tab.
  *
- * A pushed shell overlay (Settings) closes first, without saving, so a later return to the tab it
- * was opened from shows that tab's own screen instead of the overlay. Its unsaved edits are
- * discarded with it.
- *
  * Selecting a different tab saves the one being left so its nested screens survive a return.
  * Re-selecting the tab that is already on screen instead returns it to its own root: the old
  * save-and-restore re-shows the nested screen it was on, and restoring that screen recomposes a
  * destination whose back stack entry the switch has already destroyed.
  */
-private fun navigateToAppTab(navController: NavController, route: String) {
-    val hierarchyRoutes = navController.currentDestination
-        ?.hierarchy
-        ?.mapNotNull { it.route }
-        ?.toList()
-        .orEmpty()
-    val overlayRoute = overlayRouteToClose(hierarchyRoutes, settingsRoute)
-    if (overlayRoute != null) {
-        navController.popBackStack(overlayRoute, inclusive = true, saveState = false)
-    }
+internal enum class TabReselectionAction { NONE, POP_TO_ROOT, NAVIGATE_TO_ROOT }
+
+/** Chooses the reselect action from the current route and the tab's start destination. */
+internal fun tabReselectionAction(
+    isCurrentTab: Boolean,
+    currentRoute: String?,
+    tabStartRoute: String?
+): TabReselectionAction = when {
+    !isCurrentTab -> TabReselectionAction.NAVIGATE_TO_ROOT
+    tabStartRoute == null || currentRoute == tabStartRoute -> TabReselectionAction.NONE
+    else -> TabReselectionAction.POP_TO_ROOT
+}
+
+/**
+ * When no existing tab root remains under the child (for example Equipment pushed from plan
+ * review), a failed pop must still land on the tab's own root. The fallback does not restore the
+ * child that was just left.
+ */
+internal fun tabReselectionAfterFailedPop(popSucceeded: Boolean): TabReselectionAction =
+    if (popSucceeded) TabReselectionAction.NONE else TabReselectionAction.NAVIGATE_TO_ROOT
+
+private fun navigateToAppTab(
+    navController: NavController,
+    route: String,
+    groupRoutes: Collection<String> = listOf(route)
+) {
     val current = navController.currentDestination
-    val isCurrentTab = current?.hierarchy?.any { it.route == route } == true
+    val isCurrentTab = routeBelongsToGroup(
+        current?.hierarchy?.mapNotNull { it.route }.orEmpty().toList(),
+        groupRoutes
+    )
     val tabStartRoute = (navController.graph.findNode(route) as? NavGraph)?.startDestinationRoute
-    when {
-        !isCurrentTab -> navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+    when (tabReselectionAction(isCurrentTab, current?.route, tabStartRoute)) {
+        TabReselectionAction.NAVIGATE_TO_ROOT -> navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = !isCurrentTab }
             launchSingleTop = true
-            restoreState = true
+            restoreState = !isCurrentTab
         }
-        tabStartRoute != null && current?.route != tabStartRoute ->
-            navController.popBackStack(tabStartRoute, inclusive = false, saveState = false)
-        else -> Unit
+
+        TabReselectionAction.POP_TO_ROOT -> {
+            val popped = tabStartRoute != null &&
+                navController.popBackStack(tabStartRoute, inclusive = false, saveState = false)
+            if (tabReselectionAfterFailedPop(popped) == TabReselectionAction.NAVIGATE_TO_ROOT) {
+                // Equipment was pushed without a Library root beneath it. Land on the Library home
+                // without restoring the child that was just left.
+                navController.navigate(route) {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = false }
+                    launchSingleTop = true
+                    restoreState = false
+                }
+            }
+        }
+
+        TabReselectionAction.NONE -> Unit
     }
 }
 

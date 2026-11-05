@@ -1,14 +1,20 @@
 package com.hydrafit.app
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -100,6 +106,136 @@ class AppColorSchemeTest {
                 assertTrue(contrast(scheme.outline, surface) >= 3.0, "outline, dark=$dark")
                 assertTrue(contrast(scheme.primary, surface) >= 3.0, "primary, dark=$dark")
             }
+        }
+    }
+
+    @Test
+    fun compactBarKeepsOneRowWhenMeasuredLabelsFit() {
+        // Approximate normal-scale measured widths for Train/Progress/Library/Settings.
+        assertFalse(navigationRequiresTwoRows(393f, listOf(38f, 62f, 48f, 60f)))
+    }
+
+    @Test
+    fun compactBarUsesTwoRowsWhenFullLabelsOverflowAtLargeText() {
+        assertTrue(navigationRequiresTwoRows(393f, listOf(64f, 142f, 78f, 132f)))
+    }
+
+    @Test
+    fun unequalLabelsAreCheckedAgainstEqualPerItemAllocation() {
+        // Summed widths fit below 393, but Progress/Settings exceed the 92.25dp equal allocation.
+        assertTrue(navigationRequiresTwoRows(393f, listOf(50f, 120f, 70f, 110f)))
+    }
+
+    @Test
+    fun boundaryUsesEqualAllocationWithRealInterItemSpacing() {
+        // (4*90)+24 = 384.
+        assertFalse(navigationRequiresTwoRows(384f, listOf(90f, 90f, 90f, 90f)))
+        assertTrue(navigationRequiresTwoRows(383.9f, listOf(90f, 90f, 90f, 90f)))
+        // Four narrow labels still reserve the 48dp minimum per item: (4*48)+24 = 216.
+        assertTrue(navigationRequiresTwoRows(215.9f, listOf(10f, 10f, 10f, 10f)))
+        assertFalse(navigationRequiresTwoRows(216f, listOf(10f, 10f, 10f, 10f)))
+    }
+
+    @Test
+    fun emptyLabelsNeverForceTwoRows() {
+        assertFalse(navigationRequiresTwoRows(0f, emptyList()))
+    }
+
+    @Test
+    fun reselectionFallsBackToTheTabRootWhenNoExistingRootPops() {
+        assertEquals(
+            TabReselectionAction.POP_TO_ROOT,
+            tabReselectionAction(true, "equipment", "routines/home")
+        )
+        assertEquals(
+            TabReselectionAction.NONE,
+            tabReselectionAction(true, "routines/home", "routines/home")
+        )
+        assertEquals(
+            TabReselectionAction.NAVIGATE_TO_ROOT,
+            tabReselectionAction(false, "equipment", "routines/home")
+        )
+        assertEquals(
+            TabReselectionAction.NONE,
+            tabReselectionAfterFailedPop(popSucceeded = true)
+        )
+        assertEquals(
+            TabReselectionAction.NAVIGATE_TO_ROOT,
+            tabReselectionAfterFailedPop(popSucceeded = false)
+        )
+    }
+
+    @Test
+    fun imeVisibleDropsOnlyTheBottomBarInset() {
+        val inner = PaddingValues(start = 4.dp, top = 12.dp, end = 6.dp, bottom = 80.dp)
+        val hidden = contentPaddingWithIme(inner, imeVisible = false, LayoutDirection.Ltr)
+        assertEquals(80.dp, hidden.calculateBottomPadding())
+
+        val visible = contentPaddingWithIme(inner, imeVisible = true, LayoutDirection.Ltr)
+        assertEquals(0.dp, visible.calculateBottomPadding())
+        assertEquals(4.dp, visible.calculateStartPadding(LayoutDirection.Ltr))
+        assertEquals(12.dp, visible.calculateTopPadding())
+        assertEquals(6.dp, visible.calculateEndPadding(LayoutDirection.Ltr))
+    }
+
+    @Test
+    fun imeVisiblePreservesRtlHorizontalPadding() {
+        val inner = PaddingValues(start = 10.dp, top = 2.dp, end = 3.dp, bottom = 20.dp)
+        val visible = contentPaddingWithIme(inner, imeVisible = true, LayoutDirection.Rtl)
+        assertEquals(
+            inner.calculateLeftPadding(LayoutDirection.Rtl),
+            visible.calculateLeftPadding(LayoutDirection.Rtl)
+        )
+        assertEquals(
+            inner.calculateRightPadding(LayoutDirection.Rtl),
+            visible.calculateRightPadding(LayoutDirection.Rtl)
+        )
+        assertEquals(2.dp, visible.calculateTopPadding())
+        assertEquals(0.dp, visible.calculateBottomPadding())
+    }
+
+    @Test
+    fun bundledFontFamilyIsAppliedToEveryTypographyRole() {
+        val family = FontFamily.SansSerif
+        val branded = withFontFamily(appTypography, family)
+        listOf(
+            branded.displayLarge,
+            branded.displayMedium,
+            branded.displaySmall,
+            branded.headlineLarge,
+            branded.headlineMedium,
+            branded.headlineSmall,
+            branded.titleLarge,
+            branded.titleMedium,
+            branded.titleSmall,
+            branded.bodyLarge,
+            branded.bodyMedium,
+            branded.bodySmall,
+            branded.labelLarge,
+            branded.labelMedium,
+            branded.labelSmall
+        ).forEach { role ->
+            assertEquals(family, role.fontFamily)
+        }
+        // The family swap must not alter the Quiet Strength size and weight scale.
+        assertEquals(24.sp, branded.headlineSmall.fontSize)
+        assertEquals(FontWeight.Bold, branded.headlineSmall.fontWeight)
+        assertEquals(40.sp, branded.displayMedium.fontSize)
+        assertEquals(16.sp, branded.bodyMedium.fontSize)
+    }
+
+    @Test
+    fun workoutHeroAndReversedActionKeepTextContrast() {
+        listOf(false, true).forEach { dark ->
+            val scheme = appColorScheme(dark)
+            assertTrue(
+                contrast(scheme.onPrimary, scheme.primary) >= 4.5,
+                "hero foreground, dark=$dark"
+            )
+            assertTrue(
+                contrast(scheme.primary, scheme.onPrimary) >= 4.5,
+                "reversed start action label, dark=$dark"
+            )
         }
     }
 

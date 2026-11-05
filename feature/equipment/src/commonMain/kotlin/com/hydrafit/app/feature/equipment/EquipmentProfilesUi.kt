@@ -169,6 +169,7 @@ data class LoadingCalculatorActions(
  * The equipment-profile section: the active profile, its rows and the actions that create, copy,
  * rename, switch and delete profiles. Loading configuration lives with the station group.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EquipmentProfilesSection(
     summary: EquipmentProfileSummary?,
@@ -199,7 +200,7 @@ internal fun EquipmentProfilesSection(
                 onDelete = actions.onDelete
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = actions.onNew) {
                 Text(stringResource(Res.string.equipment_profile_new))
             }

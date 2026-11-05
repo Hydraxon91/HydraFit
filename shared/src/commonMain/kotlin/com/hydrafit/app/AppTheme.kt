@@ -6,10 +6,17 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import hydrafit.shared.generated.resources.Res
+import hydrafit.shared.generated.resources.inter_bold
+import hydrafit.shared.generated.resources.inter_regular
+import hydrafit.shared.generated.resources.inter_semibold
+import org.jetbrains.compose.resources.Font
 
 /**
  * Fixed roles stay theme-invariant by Material contract, so both schemes share the Quiet Strength
@@ -159,6 +166,37 @@ internal val appTypography: Typography = Typography().let { defaults ->
         labelMedium = defaults.labelMedium.copy(fontSize = 14.sp, lineHeight = 20.sp)
     )
 }
+
+/** The bundled Inter faces, loaded from compose resources so the app never fetches a font. */
+@Composable
+internal fun appFontFamily(): FontFamily = FontFamily(
+    Font(Res.font.inter_regular, FontWeight.Normal),
+    Font(Res.font.inter_semibold, FontWeight.SemiBold),
+    Font(Res.font.inter_bold, FontWeight.Bold)
+)
+
+/**
+ * Applies [family] to every Material typography role. Pure so a host test can prove the family
+ * reaches all roles without instantiating the composable resource loader.
+ */
+internal fun withFontFamily(typography: Typography, family: FontFamily): Typography =
+    typography.copy(
+        displayLarge = typography.displayLarge.copy(fontFamily = family),
+        displayMedium = typography.displayMedium.copy(fontFamily = family),
+        displaySmall = typography.displaySmall.copy(fontFamily = family),
+        headlineLarge = typography.headlineLarge.copy(fontFamily = family),
+        headlineMedium = typography.headlineMedium.copy(fontFamily = family),
+        headlineSmall = typography.headlineSmall.copy(fontFamily = family),
+        titleLarge = typography.titleLarge.copy(fontFamily = family),
+        titleMedium = typography.titleMedium.copy(fontFamily = family),
+        titleSmall = typography.titleSmall.copy(fontFamily = family),
+        bodyLarge = typography.bodyLarge.copy(fontFamily = family),
+        bodyMedium = typography.bodyMedium.copy(fontFamily = family),
+        bodySmall = typography.bodySmall.copy(fontFamily = family),
+        labelLarge = typography.labelLarge.copy(fontFamily = family),
+        labelMedium = typography.labelMedium.copy(fontFamily = family),
+        labelSmall = typography.labelSmall.copy(fontFamily = family)
+    )
 
 internal val appShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),

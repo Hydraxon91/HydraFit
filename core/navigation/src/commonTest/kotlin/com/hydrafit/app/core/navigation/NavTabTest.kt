@@ -2,13 +2,16 @@ package com.hydrafit.app.core.navigation
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class NavTabTest {
     private val tabRoutes = mapOf(
         NavTab.TRAIN to listOf("log", "plan", "cardio"),
         NavTab.PROGRESS to listOf("progress", "progress/bodyweight", "fatigue"),
-        NavTab.LIBRARY to listOf("routines", "equipment")
+        NavTab.LIBRARY to listOf("routines", "equipment"),
+        NavTab.SETTINGS to listOf("settings")
     )
 
     @Test
@@ -28,9 +31,34 @@ class NavTabTest {
     }
 
     @Test
-    fun settingsAndUnknownRoutesSelectNoTab() {
-        assertNull(selectedNavTab(listOf("settings", "settings/home"), tabRoutes))
+    fun settingsAndItsCategoryPagesSelectSettings() {
+        assertEquals(
+            NavTab.SETTINGS,
+            selectedNavTab(listOf("settings", "settings/home"), tabRoutes)
+        )
+        assertEquals(
+            NavTab.SETTINGS,
+            selectedNavTab(listOf("settings", "settings/units"), tabRoutes)
+        )
+    }
+
+    @Test
+    fun unknownRoutesSelectNoTab() {
         assertNull(selectedNavTab(emptyList(), tabRoutes))
+        assertNull(selectedNavTab(listOf("unknown"), tabRoutes))
+    }
+
+    @Test
+    fun reselectingLibraryRecognisesEveryRouteInItsGroup() {
+        assertTrue(routeBelongsToGroup(listOf("equipment"), tabRoutes.getValue(NavTab.LIBRARY)))
+        assertTrue(
+            routeBelongsToGroup(
+                listOf("equipment", "equipment/home"),
+                tabRoutes.getValue(NavTab.LIBRARY)
+            )
+        )
+        assertFalse(routeBelongsToGroup(listOf("plan"), tabRoutes.getValue(NavTab.LIBRARY)))
+        assertEquals(NavTab.LIBRARY, selectedNavTab(listOf("equipment"), tabRoutes))
     }
 
     @Test

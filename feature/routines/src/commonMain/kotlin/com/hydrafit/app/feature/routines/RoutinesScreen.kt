@@ -102,6 +102,7 @@ import hydrafit.feature.routines.generated.resources.routines_archive
 import hydrafit.feature.routines.generated.resources.routines_archived_badge
 import hydrafit.feature.routines.generated.resources.routines_archived_empty
 import hydrafit.feature.routines.generated.resources.routines_archived_filter
+import hydrafit.feature.routines.generated.resources.routines_back
 import hydrafit.feature.routines.generated.resources.routines_cancel
 import hydrafit.feature.routines.generated.resources.routines_cancel_block
 import hydrafit.feature.routines.generated.resources.routines_cluster_action
@@ -119,7 +120,6 @@ import hydrafit.feature.routines.generated.resources.routines_editor_edit_title
 import hydrafit.feature.routines.generated.resources.routines_editor_new_title
 import hydrafit.feature.routines.generated.resources.routines_empty
 import hydrafit.feature.routines.generated.resources.routines_entry_excluded
-import hydrafit.feature.routines.generated.resources.routines_equipment
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_force_label
@@ -271,7 +271,7 @@ private val routinesContentMaxWidth = 800.dp
 fun RoutinesRoute(
     viewModel: RoutinesViewModel = koinViewModel(),
     shareViewModel: PrescriptionShareViewModel = koinViewModel(),
-    onOpenEquipment: () -> Unit
+    onBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shareState by shareViewModel.state.collectAsStateWithLifecycle()
@@ -287,7 +287,7 @@ fun RoutinesRoute(
         viewModel = viewModel,
         shareState = shareState,
         shareViewModel = shareViewModel,
-        onOpenEquipment = onOpenEquipment
+        onBack = onBack
     )
 }
 
@@ -297,7 +297,7 @@ fun RoutinesScreen(
     viewModel: RoutinesViewModel,
     shareState: PrescriptionShareUiState,
     shareViewModel: PrescriptionShareViewModel,
-    onOpenEquipment: () -> Unit = {}
+    onBack: () -> Unit = {}
 ) {
     if (state.editor != null) {
         RoutineEditor(
@@ -317,14 +317,18 @@ fun RoutinesScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = stringResource(Res.string.routines_title),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                // Library groups routines and equipment. Equipment is its own feature and route, so
-                // this screen asks the shell to open that group member instead of depending on it.
-                TextButton(onClick = onOpenEquipment) {
-                    Text(stringResource(Res.string.routines_equipment))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.routines_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onBack) {
+                        Text(stringResource(Res.string.routines_back))
+                    }
                 }
                 state.message?.let { message ->
                     MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
