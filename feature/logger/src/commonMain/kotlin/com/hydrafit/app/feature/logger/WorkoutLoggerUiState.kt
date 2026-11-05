@@ -34,6 +34,9 @@ import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberForm
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 
+/** Which Logger destination is composed; navigation owns the route, this selects its content. */
+enum class LoggerPresentation { HOME, MANUAL, EXERCISE_PICKER }
+
 data class ExerciseOption(
     val id: String,
     val name: String,
@@ -725,11 +728,6 @@ data class WorkoutLoggerUiState(
      * screen. Switching never writes anything: both stages read the same Logger state.
      */
     val workoutStage: WorkoutStage = WorkoutStage.OVERVIEW,
-    /**
-     * Whether the manual entry block is expanded while a workout is active. It stays one tap away
-     * rather than competing with the workout for the screen.
-     */
-    val manualEntryExpanded: Boolean = false,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
     val occurrenceMessage: String? = null,
     /**

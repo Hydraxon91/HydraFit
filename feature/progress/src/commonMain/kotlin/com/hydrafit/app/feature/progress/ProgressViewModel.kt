@@ -61,6 +61,7 @@ class ProgressViewModel(
     private var chartGeneration = 0L
 
     private var historyGeneration = 0L
+    private var historyJob: Job? = null
     private var historyNextCursor: ExerciseHistoryCursor? = null
     private var historyLoadMoreJob: Job? = null
 
@@ -164,6 +165,15 @@ class ProgressViewModel(
         startCharts()
     }
 
+    /**
+     * Changing the metric only reprojects the days already loaded. It deliberately does not restart
+     * a read, and the choice survives exercise, range and station changes for this ViewModel.
+     */
+    fun onMetricSelected(metric: ProgressMetric) {
+        if (_state.value.metric == metric) return
+        _state.update { it.copy(metric = metric) }
+    }
+
     // ── Charts, records ───────────────────────────────────────────────────
 
     fun onRetryCharts() {
@@ -246,6 +256,7 @@ class ProgressViewModel(
     private fun startHistory() {
         val id = _state.value.selectedExerciseId ?: return
         val generation = ++historyGeneration
+        historyJob?.cancel()
         historyPagingGeneration++
         historyLoadMoreJob?.cancel()
         historyLoadMoreJob = null
@@ -260,7 +271,7 @@ class ProgressViewModel(
                 loadMoreHistoryFailed = false
             )
         }
-        viewModelScope.launch {
+        historyJob = viewModelScope.launch {
             try {
                 progressRepository.observeHistory(ExerciseHistoryRequest(id)).collect { page ->
                     if (generation != historyGeneration) return@collect
@@ -432,6 +443,8 @@ class ProgressViewModel(
         chartGeneration++
         chartQuery.value = null
         historyGeneration++
+        historyJob?.cancel()
+        historyJob = null
         historyLoadMoreJob?.cancel()
         historyLoadMoreJob = null
         historyNextCursor = null

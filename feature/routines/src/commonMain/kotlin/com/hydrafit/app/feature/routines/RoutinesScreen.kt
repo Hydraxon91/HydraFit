@@ -1,5 +1,6 @@
 package com.hydrafit.app.feature.routines
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -100,6 +102,7 @@ import hydrafit.feature.routines.generated.resources.routines_archive
 import hydrafit.feature.routines.generated.resources.routines_archived_badge
 import hydrafit.feature.routines.generated.resources.routines_archived_empty
 import hydrafit.feature.routines.generated.resources.routines_archived_filter
+import hydrafit.feature.routines.generated.resources.routines_back
 import hydrafit.feature.routines.generated.resources.routines_cancel
 import hydrafit.feature.routines.generated.resources.routines_cancel_block
 import hydrafit.feature.routines.generated.resources.routines_cluster_action
@@ -117,7 +120,6 @@ import hydrafit.feature.routines.generated.resources.routines_editor_edit_title
 import hydrafit.feature.routines.generated.resources.routines_editor_new_title
 import hydrafit.feature.routines.generated.resources.routines_empty
 import hydrafit.feature.routines.generated.resources.routines_entry_excluded
-import hydrafit.feature.routines.generated.resources.routines_equipment
 import hydrafit.feature.routines.generated.resources.routines_finish_block
 import hydrafit.feature.routines.generated.resources.routines_focus_label
 import hydrafit.feature.routines.generated.resources.routines_force_label
@@ -269,7 +271,7 @@ private val routinesContentMaxWidth = 800.dp
 fun RoutinesRoute(
     viewModel: RoutinesViewModel = koinViewModel(),
     shareViewModel: PrescriptionShareViewModel = koinViewModel(),
-    onOpenEquipment: () -> Unit
+    onBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shareState by shareViewModel.state.collectAsStateWithLifecycle()
@@ -285,7 +287,7 @@ fun RoutinesRoute(
         viewModel = viewModel,
         shareState = shareState,
         shareViewModel = shareViewModel,
-        onOpenEquipment = onOpenEquipment
+        onBack = onBack
     )
 }
 
@@ -295,7 +297,7 @@ fun RoutinesScreen(
     viewModel: RoutinesViewModel,
     shareState: PrescriptionShareUiState,
     shareViewModel: PrescriptionShareViewModel,
-    onOpenEquipment: () -> Unit = {}
+    onBack: () -> Unit = {}
 ) {
     if (state.editor != null) {
         RoutineEditor(
@@ -315,14 +317,18 @@ fun RoutinesScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = stringResource(Res.string.routines_title),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                // Library groups routines and equipment. Equipment is its own feature and route, so
-                // this screen asks the shell to open that group member instead of depending on it.
-                TextButton(onClick = onOpenEquipment) {
-                    Text(stringResource(Res.string.routines_equipment))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.routines_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onBack) {
+                        Text(stringResource(Res.string.routines_back))
+                    }
                 }
                 state.message?.let { message ->
                     MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
@@ -584,7 +590,13 @@ private fun ScheduleChangeDialog(
 
 @Composable
 private fun MessageBanner(message: String, onDismiss: () -> Unit) {
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -604,11 +616,18 @@ private fun MessageBanner(message: String, onDismiss: () -> Unit) {
 @Composable
 private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewModel) {
     var showSchedule by rememberSaveable { mutableStateOf(false) }
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
@@ -619,13 +638,16 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
             if (activation == null) {
                 // A failed read already shows its own banner; never also claim there is no block.
                 if (!state.activationLoadFailed) {
-                    Text(stringResource(Res.string.routines_no_active))
+                    Text(
+                        text = stringResource(Res.string.routines_no_active),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 return@Column
             }
             Text(
                 text = activation.name,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.titleLarge
             )
             if (state.occurrencesLoadFailed) {
                 Row(
@@ -649,7 +671,9 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
                     Res.string.routines_active_progress,
                     resolved,
                     state.occurrences.size
-                )
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             TextButton(onClick = { showSchedule = !showSchedule }) {
                 Text(
@@ -703,14 +727,16 @@ private fun OccurrenceRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = workoutName, style = MaterialTheme.typography.bodyMedium)
+            Text(text = workoutName, style = MaterialTheme.typography.titleSmall)
             Text(
                 text = occurrenceScheduleText(occurrence),
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = occurrenceStatusText(occurrence.status),
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         if (!occurrence.isResolved) {
@@ -766,11 +792,18 @@ private fun TemplateRow(
 ) {
     var confirmDelete by rememberSaveable(template.id) { mutableStateOf(false) }
     var showActions by remember { mutableStateOf(false) }
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
@@ -778,29 +811,41 @@ private fun TemplateRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = template.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = template.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
                 if (template.isArchived) {
                     Text(
                         text = stringResource(Res.string.routines_archived_badge),
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Text(
                 text = stringResource(Res.string.routines_workout_count, template.workouts.size),
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             val archiveLabel = if (template.isArchived) {
                 Res.string.routines_unarchive
             } else {
                 Res.string.routines_archive
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { viewModel.onEditRoutine(template) }) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { viewModel.onEditRoutine(template) },
+                    shape = MaterialTheme.shapes.medium
+                ) {
                     Text(stringResource(Res.string.routines_edit))
                 }
                 if (!template.isArchived) {
-                    TextButton(onClick = { viewModel.onActivateRequested(template) }) {
+                    Button(
+                        onClick = { viewModel.onActivateRequested(template) },
+                        shape = MaterialTheme.shapes.medium
+                    ) {
                         Text(stringResource(Res.string.routines_activate))
                     }
                 }
@@ -925,14 +970,23 @@ private fun RoutineEditor(
                     viewModel = viewModel
                 )
             }
-            OutlinedButton(onClick = viewModel::onAddWorkout) {
+            OutlinedButton(
+                onClick = viewModel::onAddWorkout,
+                shape = MaterialTheme.shapes.medium
+            ) {
                 Text(stringResource(Res.string.routines_add_workout))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = viewModel::onSaveEditor) {
+                Button(
+                    onClick = viewModel::onSaveEditor,
+                    shape = MaterialTheme.shapes.medium
+                ) {
                     Text(stringResource(Res.string.routines_save))
                 }
-                OutlinedButton(onClick = viewModel::onEditorDismissed) {
+                OutlinedButton(
+                    onClick = viewModel::onEditorDismissed,
+                    shape = MaterialTheme.shapes.medium
+                ) {
                     Text(stringResource(Res.string.routines_cancel))
                 }
             }
@@ -950,11 +1004,18 @@ private fun WorkoutCard(
     excludedExerciseIds: Set<String>,
     viewModel: RoutinesViewModel
 ) {
-    Card {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedTextField(

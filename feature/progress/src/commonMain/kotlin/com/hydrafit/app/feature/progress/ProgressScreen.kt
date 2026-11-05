@@ -50,6 +50,9 @@ import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.bodyweight_cancel
 import hydrafit.feature.progress.generated.resources.progress_back
 import hydrafit.feature.progress.generated.resources.progress_body_weight
+import hydrafit.feature.progress.generated.resources.progress_chart_estimate_legend
+import hydrafit.feature.progress.generated.resources.progress_chart_metric_empty_estimate
+import hydrafit.feature.progress.generated.resources.progress_chart_metric_empty_volume
 import hydrafit.feature.progress.generated.resources.progress_chart_volume_legend
 import hydrafit.feature.progress.generated.resources.progress_charts_failed
 import hydrafit.feature.progress.generated.resources.progress_charts_no_eligible
@@ -76,6 +79,9 @@ import hydrafit.feature.progress.generated.resources.progress_history_note
 import hydrafit.feature.progress.generated.resources.progress_history_title
 import hydrafit.feature.progress.generated.resources.progress_history_warmup
 import hydrafit.feature.progress.generated.resources.progress_history_working
+import hydrafit.feature.progress.generated.resources.progress_metric_estimate
+import hydrafit.feature.progress.generated.resources.progress_metric_label
+import hydrafit.feature.progress.generated.resources.progress_metric_volume
 import hydrafit.feature.progress.generated.resources.progress_range_28
 import hydrafit.feature.progress.generated.resources.progress_range_365
 import hydrafit.feature.progress.generated.resources.progress_range_84
@@ -117,6 +123,7 @@ internal object ProgressTestTags {
     const val FATIGUE_ENTRY = "progress_fatigue_entry"
     fun exercise(exerciseId: String) = "progress_exercise_$exerciseId"
     fun range(range: ProgressRange) = "progress_range_${range.days}"
+    fun metric(metric: ProgressMetric) = "progress_metric_${metric.name.lowercase()}"
     fun record(index: Int) = "progress_record_$index"
 }
 
@@ -136,6 +143,7 @@ fun ProgressRoute(
         onExerciseQueryChanged = viewModel::onExerciseQueryChanged,
         onExerciseSelected = viewModel::onExerciseSelected,
         onRangeSelected = viewModel::onRangeSelected,
+        onMetricSelected = viewModel::onMetricSelected,
         onStationFilterSelected = viewModel::onStationFilterSelected,
         onRetryCharts = viewModel::onRetryCharts,
         onRetryHistory = viewModel::onRetryHistory,
@@ -154,6 +162,7 @@ fun ProgressScreen(
     onExerciseQueryChanged: (String) -> Unit,
     onExerciseSelected: (String) -> Unit,
     onRangeSelected: (ProgressRange) -> Unit,
+    onMetricSelected: (ProgressMetric) -> Unit,
     onStationFilterSelected: (StationFilter) -> Unit,
     onRetryCharts: () -> Unit,
     onRetryHistory: () -> Unit,
@@ -204,6 +213,7 @@ fun ProgressScreen(
                         ProgressDetail(
                             state = state,
                             onRangeSelected = onRangeSelected,
+                            onMetricSelected = onMetricSelected,
                             onStationFilterSelected = onStationFilterSelected,
                             onRetryCharts = onRetryCharts,
                             onRetryHistory = onRetryHistory,
@@ -230,6 +240,7 @@ fun ProgressScreen(
                     ProgressDetail(
                         state = state,
                         onRangeSelected = onRangeSelected,
+                        onMetricSelected = onMetricSelected,
                         onStationFilterSelected = onStationFilterSelected,
                         onRetryCharts = onRetryCharts,
                         onRetryHistory = onRetryHistory,
@@ -278,12 +289,18 @@ private fun ProgressHeader(
     onOpenBodyWeight: () -> Unit,
     onOpenFatigue: () -> Unit
 ) {
-    Text(
-        text = stringResource(Res.string.progress_title),
-        style = MaterialTheme.typography.headlineSmall
-    )
-    OutlinedButton(onClick = onBack) {
-        Text(stringResource(Res.string.progress_back))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(Res.string.progress_title),
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.weight(1f)
+        )
+        OutlinedButton(onClick = onBack) {
+            Text(stringResource(Res.string.progress_back))
+        }
     }
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -313,6 +330,7 @@ private fun ProgressHeader(
 private fun ProgressDetail(
     state: ProgressUiState,
     onRangeSelected: (ProgressRange) -> Unit,
+    onMetricSelected: (ProgressMetric) -> Unit,
     onStationFilterSelected: (StationFilter) -> Unit,
     onRetryCharts: () -> Unit,
     onRetryHistory: () -> Unit,
@@ -324,7 +342,7 @@ private fun ProgressDetail(
     SelectedExercise(state, onChangeExercise)
     RangeSelector(state.range, onRangeSelected)
     StationFilterSelector(state, onStationFilterSelected)
-    ChartsSection(state, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
+    ChartsSection(state, onMetricSelected, onRetryCharts, onShowSupportingSet, onCloseSupportingSet)
     HistorySection(state, onRetryHistory, onLoadMoreHistory)
 }
 
@@ -338,7 +356,7 @@ private fun SelectedExercise(state: ProgressUiState, onChangeExercise: (() -> Un
         val name = state.selectedExerciseName
         Text(
             text = name ?: stringResource(Res.string.progress_exercise_missing_name),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = if (name == null) MaterialTheme.colorScheme.error else Color.Unspecified,
             modifier = Modifier.weight(1f)
         )
@@ -402,6 +420,30 @@ private fun RangeSelector(range: ProgressRange, onRangeSelected: (ProgressRange)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun MetricSelector(metric: ProgressMetric, onSelected: (ProgressMetric) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(Res.string.progress_metric_label),
+            style = MaterialTheme.typography.labelLarge
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ProgressMetric.entries.forEach { option ->
+                FilterChip(
+                    selected = option == metric,
+                    onClick = { onSelected(option) },
+                    label = { Text(stringResource(option.labelResource())) },
+                    modifier = Modifier.testTag(ProgressTestTags.metric(option))
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun StationFilterSelector(state: ProgressUiState, onSelected: (StationFilter) -> Unit) {
     if (!state.hasStationOptions) return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -441,6 +483,7 @@ private fun StationFilterSelector(state: ProgressUiState, onSelected: (StationFi
 @Composable
 private fun ChartsSection(
     state: ProgressUiState,
+    onMetricSelected: (ProgressMetric) -> Unit,
     onRetryCharts: () -> Unit,
     onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
     onCloseSupportingSet: () -> Unit
@@ -450,6 +493,7 @@ private fun ChartsSection(
             text = stringResource(Res.string.progress_charts_title, state.range.days.toString()),
             style = MaterialTheme.typography.titleMedium
         )
+        MetricSelector(state.metric, onMetricSelected)
         when {
             state.chartsLoading -> CircularProgressIndicator()
             state.chartsFailed -> {
@@ -463,13 +507,24 @@ private fun ChartsSection(
             else -> {
                 ProgressChartCaption()
                 Text(
-                    text = stringResource(Res.string.progress_chart_volume_legend),
+                    text = stringResource(
+                        state.metric.legendResource(),
+                        state.weightUnit.label
+                    ),
                     style = MaterialTheme.typography.bodySmall
                 )
                 val dayFrom = state.chartDayFrom
                 val dayTo = state.chartDayTo
-                if (dayFrom != null && dayTo != null) {
-                    ProgressVolumeChart(state.days, dayFrom, dayTo)
+                if (state.chartsHaveNoSelectedMetricPoints) {
+                    Text(stringResource(state.metric.emptyResource()))
+                } else if (dayFrom != null && dayTo != null) {
+                    ProgressMetricChart(
+                        points = state.chartPoints,
+                        metric = state.metric,
+                        weightUnit = state.weightUnit,
+                        dayFrom = dayFrom,
+                        dayTo = dayTo
+                    )
                 }
                 ProgressDayTable(state.days, state.weightUnit, state.distanceUnit)
             }
@@ -798,4 +853,19 @@ internal fun ProgressRange.labelResource(): StringResource = when (this) {
     ProgressRange.DAYS_28 -> Res.string.progress_range_28
     ProgressRange.DAYS_84 -> Res.string.progress_range_84
     ProgressRange.DAYS_365 -> Res.string.progress_range_365
+}
+
+internal fun ProgressMetric.labelResource(): StringResource = when (this) {
+    ProgressMetric.EXTERNAL_VOLUME -> Res.string.progress_metric_volume
+    ProgressMetric.ESTIMATED_ONE_REP_MAX -> Res.string.progress_metric_estimate
+}
+
+internal fun ProgressMetric.legendResource(): StringResource = when (this) {
+    ProgressMetric.EXTERNAL_VOLUME -> Res.string.progress_chart_volume_legend
+    ProgressMetric.ESTIMATED_ONE_REP_MAX -> Res.string.progress_chart_estimate_legend
+}
+
+internal fun ProgressMetric.emptyResource(): StringResource = when (this) {
+    ProgressMetric.EXTERNAL_VOLUME -> Res.string.progress_chart_metric_empty_volume
+    ProgressMetric.ESTIMATED_ONE_REP_MAX -> Res.string.progress_chart_metric_empty_estimate
 }

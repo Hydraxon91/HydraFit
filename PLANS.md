@@ -116,6 +116,136 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
 | **Beyond 1.0** | iOS shipping, including Keychain-backed ApiKeyStore, and desktop. |
 
+### 0.13.4 — Quiet Strength, Progress charts, navigation and licensing
+
+**Status 2026-11-05:** Original P0–P5 implementation and targeted review closure are complete locally through `77f278b6`. The folded navigation, manual-form, Library/Equipment hubs, branding, local Inter and offline licensing work is implemented locally and passed a fresh integration matrix (819 tasks executed, 3,265 host tests, migration/lint/debug/both iOS, log folded0134-audit-fixes-matrix.log). Cross-device evidence: phone manual 49/49 (APK 68114168; earlier 46/46 superseded), dark/2.0 Library 68/68, keyboard white band visually fixed; tablet navigation/Library 68/68 and manual retention 42 commands (final Back scroll fix un-rerun); unfolded fold navigation/Library 68/68 and manual 49/49. F07 now renders correctly at phone 2.0; the synthetic write logged the planned 123.4 kg row but failed its post-log assertion at 32 commands, and corrected cleanup passed 12/12. No synthetic set row or empty-session header was observed; the active session was closed, and a closed zero-set session may remain by design; no DB read was performed. Final audit acceptance on APK c1fc98ea: navigation 25/25, routine-reselect 18/18, corrected progress-reselect 13/13, notices 29/29 normal/dark, About 2.0 mark stacked with no heading wrap. Remaining: timer/rest runtime, posture transitions/6.7_Horizontal_Fold-in, F02 actual NavController root, F03 intermediate-width render, signed-release/iOS/pixel-contrast limits. Local commits are completed through the prior fix commit; the audited follow-up fixes are independently reviewed and approved, R1/R2 documentation is corrected, and the audited fixes remain in the working tree pending local commit and publication approval, with no push or publication. The candidate is implemented/verified for the recorded accepted journeys but not release-approved or published. TalkBack speech remains permanently retired. No push or publication is authorized.
+
+**Folded scope addition, requested 2026-11-04 — documentation only at this step.**
+The user selected **Settings as the fourth bottom-bar/rail destination** and the
+**full dedicated manual-log screen**, then asked to record these together with the
+beautification and licensing recommendations. This supersedes the earlier proposal
+to put Settings inside Library; do not add both entries. Detailed composition,
+invariants, source anchors and acceptance are in
+[the folded design scope](docs/design-0.13.4.md#10-folded-scope-additions).
+
+**Brand selection, 2026-11-04:** the user supplied and selected **02B Tapered
+Hydra H** for the logo and transparent mark. Canonical sources are the existing
+`docs/design/HydraFit-02B-Logo.svg` and `docs/design/HydraFit-02B-Mark.svg`;
+preserve both unchanged. This resolves the previously pending icon-design choice
+and adds replacement of the template launcher artwork to the intended 0.13.4
+scope. It does not request asset generation, an app install or a splash redesign.
+
+| Addition | Recorded scope | Required outcome |
+| --- | --- | --- |
+| N1 — shell | Train · Progress · Library · Settings; remove the Settings-only top strip. Settings becomes a normal tab with nested category pages, not a pushed overlay. | Correct selected state, Back/reselection and saved-tab behavior; safe system-bar/keyboard insets; readable four-item bar at 2.0 text and four-item tablet rail. |
+| N2 — Train | Move the complete manual form off Train into Log other exercise, with a dedicated Select exercise page. Reuse existing Workout history, Exercise progress and Cardio destinations through compact Training tools rows. Keep workout/planned-draft content, session controls/notes and Recent sets available on Train. | Discoverable logging with or without an active workout; picker cancellation writes nothing; preserve prefill, all metrics, warm-ups, station identity, notes, failure/retry guards and timer/lifecycle behavior. An extra exercise retains its workout/session attribution but no prescribed-slot link; no plan/routine or prescribed-count change. |
+| N3 — Library/Equipment | Library becomes a Routines / Equipment hub. Equipment becomes a hub for Profile & loading, Inventory & stations, Exercise catalog, Exclusions, and Baseline records. | Real section pages and predictable Back behavior, not more inline disclosures. Preserve profile context, existing actions/editors, captured units, loading calculators and the distinction between manually entered baselines and performed records. |
+| V1 — stronger Quiet Strength | More prominent workout/progress context, differentiated exercise names/prescriptions, filled primary actions, quieter secondary controls, contrasting surfaces/edges, deliberate spacing and icon-plus-label navigation/hub rows. | Approve refreshed representative light/dark proofs before broad integration; retain semantic labels, large-text layout, information and controls. No decorative metrics, gradients, glows, new animation or fatigue-colour changes. |
+| B1 — selected logo/mark | Use the supplied 02B Tapered Hydra H logo and background-free mark as canonical artwork; derive platform launcher assets and appropriate in-app branding from them without redesigning the silhouette, colours or proportions. | Preserve the source SVGs; verify platform sizes, adaptive masks/safe areas, legibility and transparent-mark contrast. Confirm packaged launcher assets replace the templates, record provenance/licence terms, and add no logo-only top strip. Splash redesign is excluded. |
+| L1 — fonts and licences | Target locally bundled Inter under SIL OFL 1.1, subject to exact-file/version/provenance confirmation; audit redistributed libraries/native components, fonts, icons, artwork and data. Add offline Open-source licenses under Settings → About, with required licence texts, copyright notices and applicable NOTICE content. | A versioned inventory reconciles with the packaged app; notices are shipped and readable offline. Record unknowns as blockers, not a blanket copyright-free claim. No new library dependency is presumed. |
+
+**Ownership recommendation:** main agent for the coordinated navigation, theme and
+licensing work; cross-screen state/lifecycle and shell ownership make this unsuitable
+for an uncoordinated split. This is a recommendation for the next implementation
+plan, not approval of a new source/test writer or a resumed autonomous run. Original
+P0–P5 ownership and review evidence below describe the prior implementation only.
+
+**Still gated:** exact visual proofs/tokens and font artifacts; any new dependency,
+module/DI/configuration change; and unresolved asset provenance/licence terms. The
+logo/mark selection is settled by the supplied SVGs; splash redesign remains out
+of scope. Resolve the next bounded implementation write
+sets, owner and budget before code work. Recording this scope does not amend or extend
+the old four-hour execution contract or its external state record.
+
+**Fresh verification after implementation:** use Tier A at cross-cutting shell/theme
+boundaries and the full final integration matrix; include affected feature tests,
+producer-to-summary/history regressions for unplanned logging, navigation/state
+continuity and the offline-licence/package checks. Main authors bounded semantic UI
+journeys; `ui-runner` executes prepared acceptance on a verified emulator. Recheck
+phone light/dark/2.0, keyboard-open form/editor, tablet/foldable layouts and applicable
+empty/error/retry states. Preserve existing unverified limits; old evidence is not
+acceptance of these additions. Future implementation updates the architecture,
+mechanics references, QA, Maestro flows/README, licence inventory and unpublished
+release-note draft together. No commit, review execution or publication is requested
+by this documentation step.
+
+**Scope and implementation owners approved 2026-11-04.** Baseline: `main` at
+`f8fa94e9`, after the published 0.13.2/0.13.3 merge. The user explicitly authorized
+this detailed PLANS.md addition. Preserve the existing untracked design document
+and all reference boards in `docs/design/0.13.4/`.
+
+**Outcome:** apply the six latest Quiet Strength boards through bounded theme and
+screen changes, and deliver selectable **External load-volume / Estimated 1RM**
+charts. Existing training, data, navigation and adaptive-layout semantics stay intact.
+
+**Model selection:** use `opencode-go/deepseek-v4.1-flash` for `coder`, `ui-runner`
+and the separately authorized read-only reviewer. Main agent retains the shared
+theme, chart decisions/implementation, integration and documentation consolidation.
+Workers run serially; no concurrent shared-tree edits or device controllers.
+
+| Chunk | Owner and rationale | Files / work | Acceptance and checks |
+| --- | --- | --- | --- |
+| P0 — exact identity | Main; cohesive visual decisions | Update `docs/design-0.13.4.md` with the six latest boards; specify exact light/dark colour roles, typography, shapes, spacing and component states. Existing system font and Material components; no new dependencies. | Measured contrast table and approved token sheet before app integration. Boards are visual references, not pixel-level accessibility evidence. No additional generation round required. |
+| P1 — shared theme | Main; cross-cutting visual contract | `shared/.../App.kt`, new `AppTheme.kt`, `shared/.../AppColorSchemeTest.kt`. Complete theme roles, typography/shapes and navigation/surface states; replace tests pinning default Material palettes. | Tier A full matrix at this boundary; preserve system theme selection, navigation and startup/recovery behavior. |
+| P2 — Progress layout/charts | Main; coordinated metric/state/accessibility work | `feature/progress/.../{ProgressScreen,ProgressCharts,ProgressUiState,ProgressViewModel}.kt`, new internal `ProgressChartModel.kt`, resources and corresponding tests. | Tier C plus existing domain-calculator/database Progress tests. Compact exercise-first layout, metric/range/station controls, axes/grid, accessible daily values, records/supporting sets and independent history/paging recovery. |
+| P3 — Train/editors | Coder; bounded presentation-only work after tokens settle | `feature/logger/.../WorkoutLoggerScreen.kt`, `LoggedSetEditDialog.kt`, relevant resources/presentation tests. | Tier C; overview/focused/rest hierarchy, numeric readability, reachable keyboard-open editor actions; preserve all logging modes, drafts, guards, timers and failed-write recovery. Logger ViewModel/domain changes excluded. |
+| P4 — Routines and inherited surfaces | Coder for Routines; main for integration | `feature/routines/.../RoutinesScreen.kt`, relevant resources/tests. Inspect Settings, Manage plan, Equipment, Body weight, onboarding, instructions and recovery consumers under the new theme. | Tier C for localized changes. Prefer inherited styling; any additional source edit needs an exact bounded scope before implementation. Preserve actions, disclosures, scheduling, errors and confirmations. |
+| P5 — integration | Main consolidates; ui-runner executes prepared acceptance | Fresh full matrix, sequential emulator acceptance, living-doc updates and requested review checkpoint. | No completion inferred from earlier release evidence. Preserve verification limits and unresolved readiness decisions. |
+
+**User amendment 2026-11-04:** the user requested connecting lines. Both metrics draw straight
+segments between consecutive recorded observations across unlogged dates, with dots at recorded
+values and no interpolation, smoothing, fabricated days or forecasts. This supersedes the
+original marker-only wording but changes no stored, calculated or empty-state data.
+
+**Approved chart contract:**
+
+- Initial metric is External load-volume; keep 28/84/365-day ranges and existing station filters.
+- Both metrics use actual dated markers with straight segments joining consecutive recorded
+  observations across unlogged dates; no smoothing, invented zero days, interpolation or forecasts.
+- X-axis uses actual civil dates with non-overlapping labels. Volume is zero-based and labelled
+  `kg·reps` / `lb·reps`; Estimated 1RM uses clearly labelled padded automatic bounds in kg/lb,
+  including single/flat-value handling. Use restrained horizontal gridlines and readable ticks.
+- Retain metric selection across exercise/range/filter changes and resizing within the existing
+  ViewModel lifetime; add no persisted preference or process-death guarantee.
+- Reuse `ProgressDay.externalVolumeKg` and `estimatedOneRepMax`; no second Epley calculation,
+  planner baseline or repository replay on metric switching. Preserve eligibility and unit helpers.
+- Metric-specific missing-data messages never silently change selection or hide existing history.
+  Keep the numeric daily table, add daily estimated 1RM and explicit unavailable values.
+- All-time records, supporting-set access and paged history remain independently scoped. Preserve
+  the wide picker/detail arrangement; Change exercise stays secondary.
+- Tests cover metric projection/continuity, axes/bounds/ticks, kg/lb/localized decimals,
+  empty/single/flat/sparse observations, missing estimates with recorded history, loading/failure/
+  paging independence and unchanged Body weight consumers of existing chart helpers.
+
+**Verification:** scoped format pass, inspect its delta, then separate lint and fresh affected-module
+tests/debug assembly at each boundary. Final matrix: `testAndroidHostTest`,
+`:core:database:verifySqlDelightMigration`, `ktlintCheck`, `:androidApp:assembleDebug`,
+`:shared:compileKotlinIosSimulatorArm64`, `:core:network:compileKotlinIosSimulatorArm64`,
+plus applicable graph checks. Every Gradle invocation uses the bounded wrapper; inherited tasks
+are not fresh verification. UI acceptance covers light/dark, 2.0 text, long labels, comma decimals,
+keyboard-open editors, relevant empty/loading/error/retry states, phone/tablet/foldable layouts and
+selection/scroll/draft/timer continuity. Main authors/diagnoses bounded journeys; ui-runner executes
+prepared contracts. Semantics and non-colour information remain required; TalkBack spoken-output
+acceptance was permanently retired by the 2026-11-04 decision. Reference screenshots are not
+acceptance evidence.
+
+**Docs:** main owns design-doc updates, QA consolidation, affected architecture/mechanics references
+and PLANS.md status updates. Existing body-map artwork/fatigue meanings remain unchanged. No schema,
+backup-format, DI, dependency, module-graph, CI/signing, icon/splash, training-calculation change,
+automatic data cleanup or unrelated refactor is authorized. Push/publication needs separate approval.
+
+**Execution contract:** accepted four-hour autonomous run. Exact token selection was delegated
+against the boards and contrast criteria; P0 tokens were produced. Independent review is requested
+by this contract, with in-scope mechanical corrections and later targeted closure; publication and
+push remain unapproved. Stop on missing permission, unexpected writes, unsafe data effects, exhausted
+budget, unavailable required checks, unresolved design decisions or the existing two-failed-fixes
+limit. Implementation and acceptance now cover phone light/dark/2.0, pound display, Routines,
+empty Progress, tablet wide layouts and the unfolded foldable. TalkBack is permanently retired by
+the 2026-11-04 decision. Fold/unfold posture transitions and fault-injected chart errors remain
+unverified. Independent review returned INCOMPLETE; R134-01 restored test, R134-02 documentation,
+and R134-03 32sp timer deviation are closed. R134-04's remaining checks were run after the review;
+publication still requires explicit approval.
+
 - During pre-1.0 development, a minor series represents a theme; its patch versions deliver smaller feature slices or explicitly labelled corrections. This approved 2026-10-11 policy supersedes the former corrective-only patch rule for future releases, not shipped history.
 - Each combined feature release has its own bounded acceptance, verification and separately requested review before publication; implementation chunks remain small and are verified individually. The [2026-10-15 grouping and version assignment](docs/roadmap.md#combined-release-grouping-and-version-assignment-adopted-2026-10-15) governs publication boundaries. Required migrations, data portability, consumers, tests and docs ship with the affected capability; do not defer them to a later integration release.
 - Corrective releases take the next available patch number and shift later provisional targets. Reserved targets are not tags; never reuse a published version. Decision-only work gets no standalone APK, and unsupported research outcomes require explicit disposition rather than empty releases.
@@ -2463,6 +2593,8 @@ behavior remains undecided until its gate is approved.
 - **Body-map verification carry-overs (deferred to 0.13.x; from 0.9.2).** `FinalArtworkCoverageTest` proves a non-empty region per muscle, not visibility after paint order, so it cannot detect a muscle fully covered by a later-drawn piece; and no test pins which side of the shoulder/rhomboid partition maps to which muscle. Device checks for dark/light, text scale, locale, screen-reader traversal, numeric-description scrolling, map-refresh journeys and isolated non-zero colouring of the separated shoulder, upper-back and hip regions, plus zero/mid/high value fixtures, are carried there as well. Presentation and test coverage only — no fatigue/planner, catalog, schema or dependency change. See `docs/roadmap.md`, 0.13 series.
 
 ## Decisions Made
+
+- **2026-11-04 — TalkBack speech acceptance is permanently retired (approved).** The user explicitly removed TalkBack as a release requirement: it is not to be scheduled, required or reported as pending verification for 0.13.4 or later work. Semantics, accessible labels, non-colour information and alternative numeric tables remain required and tested; this decision retires only spoken-output acceptance. The 0.13.4 remaining cross-device, pound-display, Routines-specific and empty/error checks are authorized to run.
 
 - **2026-10-25 — refined 0.10.5 overnight decisions (approved; record before execution).**
   Supersedes the initial triage/decision wording below where it differs. **(1)** Draft Apply edits

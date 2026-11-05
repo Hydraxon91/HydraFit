@@ -7,9 +7,9 @@ import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 
 /**
- * Exercise Progress is a standalone, pushed destination registered by the app shell. It is not a
- * bottom-bar tab: entering it from the Logger pushes a new destination onto the Log graph, so an
- * in-progress draft stays owned by the Logger ViewModel and returning pops back to it.
+ * Exercise Progress is the Progress bottom-bar group's start destination. Body weight is pushed
+ * under it; the shell's group-aware reselection returns to this root from Body weight, while
+ * Fatigue map is a separate shell destination in the same group.
  */
 val progressRoute: String = "progress"
 

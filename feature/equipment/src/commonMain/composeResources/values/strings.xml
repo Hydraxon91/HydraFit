@@ -4,6 +4,17 @@
     <string name="equipment_technique_considerations">Technique considerations available</string>
     <string name="equipment_profiler_title">Equipment</string>
     <string name="nav_label">Equipment</string>
+    <string name="equipment_back">Back</string>
+    <string name="equipment_section_profile_title">Profile &amp; loading</string>
+    <string name="equipment_section_profile_description">The active profile, profile switching and the loading configuration for plates and dumbbells.</string>
+    <string name="equipment_section_inventory_title">Inventory &amp; stations</string>
+    <string name="equipment_section_inventory_description">Equipment you can use and the stations that keep each stack’s load history separate.</string>
+    <string name="equipment_section_catalog_title">Exercise catalog</string>
+    <string name="equipment_section_catalog_description">Search the catalog, review technique notes and edit custom exercises.</string>
+    <string name="equipment_section_exclusions_title">Exclusions</string>
+    <string name="equipment_section_exclusions_description">Exercises the planner leaves out, with the option to include them again.</string>
+    <string name="equipment_section_baselines_title">Baseline records</string>
+    <string name="equipment_section_baselines_description">Manually entered planning baselines. These are not performed workout sets.</string>
     <string name="equipment_add_label">Add equipment</string>
     <string name="equipment_add_button">Add</string>
     <string name="equipment_remove">Remove</string>

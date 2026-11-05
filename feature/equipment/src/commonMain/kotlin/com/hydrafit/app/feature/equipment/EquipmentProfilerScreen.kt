@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -59,6 +60,7 @@ import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_add_button
 import hydrafit.feature.equipment.generated.resources.equipment_add_exercise
 import hydrafit.feature.equipment.generated.resources.equipment_add_label
+import hydrafit.feature.equipment.generated.resources.equipment_back
 import hydrafit.feature.equipment.generated.resources.equipment_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_cancel
 import hydrafit.feature.equipment.generated.resources.equipment_custom_section
@@ -88,16 +90,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_load_external
 import hydrafit.feature.equipment.generated.resources.equipment_load_section
 import hydrafit.feature.equipment.generated.resources.equipment_load_unspecified
 import hydrafit.feature.equipment.generated.resources.equipment_manage
-import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_hide
 import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_note
-import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_show
-import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_title
-import hydrafit.feature.equipment.generated.resources.equipment_manage_catalog_hide
-import hydrafit.feature.equipment.generated.resources.equipment_manage_catalog_show
-import hydrafit.feature.equipment.generated.resources.equipment_manage_catalog_title
-import hydrafit.feature.equipment.generated.resources.equipment_manage_exclusions_hide
-import hydrafit.feature.equipment.generated.resources.equipment_manage_exclusions_show
-import hydrafit.feature.equipment.generated.resources.equipment_manage_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern
 import hydrafit.feature.equipment.generated.resources.equipment_movement_pattern_hint
@@ -119,7 +112,6 @@ import hydrafit.feature.equipment.generated.resources.equipment_preference_secti
 import hydrafit.feature.equipment.generated.resources.equipment_profile_failed
 import hydrafit.feature.equipment.generated.resources.equipment_profile_finding
 import hydrafit.feature.equipment.generated.resources.equipment_profile_unknown
-import hydrafit.feature.equipment.generated.resources.equipment_profiler_title
 import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
@@ -196,6 +188,8 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun EquipmentProfilerRoute(
+    section: EquipmentSection,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: EquipmentProfilerViewModel = koinViewModel(),
     planningSettings: ExercisePlanningSettingsViewModel = koinViewModel()
@@ -207,6 +201,8 @@ fun EquipmentProfilerRoute(
     val utcOffsetMillis = planningSettings.utcOffsetMillis()
     EquipmentProfilerScreen(
         state = state,
+        section = section,
+        onBack = onBack,
         exercisePreferences = exercisePreferences,
         exclusions = exclusions,
         nowMillis = nowMillis,
@@ -312,6 +308,8 @@ fun EquipmentProfilerRoute(
 @Composable
 fun EquipmentProfilerScreen(
     state: EquipmentProfilerUiState,
+    section: EquipmentSection,
+    onBack: () -> Unit,
     exercisePreferences: Map<String, ExercisePreference>,
     exclusions: List<ExerciseExclusion>,
     nowMillis: Long,
@@ -386,162 +384,173 @@ fun EquipmentProfilerScreen(
             onDismiss = onDismissInstructions
         )
     }
-    var showCatalog by remember { mutableStateOf(false) }
-    var showExclusions by remember { mutableStateOf(false) }
-    var showBaselines by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(16.dp)
+            .testTag(section.contentTag),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = stringResource(Res.string.equipment_profiler_title),
-            style = MaterialTheme.typography.headlineSmall
-        )
-        EquipmentProfilesSection(
-            summary = state.profile,
-            failure = state.profileFailure,
-            actions = equipmentProfileActions
-        )
-        InventorySection(
-            state = state,
-            onTagToggled = onTagToggled,
-            onManageEquipment = onManageEquipment,
-            onNewEquipmentNameChanged = onNewEquipmentNameChanged,
-            onAddEquipment = onAddEquipment
-        )
-        state.profile?.let { summary ->
-            LoadingConfigurationRow(
-                summary = summary,
-                onOpenLoading = equipmentProfileActions.onOpenLoading,
-                onOpenCalculator = equipmentProfileActions.onOpenCalculator
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(section.title),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f)
             )
+            TextButton(onClick = onBack) {
+                Text(stringResource(Res.string.equipment_back))
+            }
         }
-        StationsSection(
-            stations = state.activeStations,
-            onAdd = onAddStation,
-            onEdit = onEditStation
-        )
-        ManagementSectionHeader(
-            title = Res.string.equipment_manage_catalog_title,
-            expanded = showCatalog,
-            showLabel = Res.string.equipment_manage_catalog_show,
-            hideLabel = Res.string.equipment_manage_catalog_hide,
-            onToggle = { showCatalog = !showCatalog }
-        )
-        if (showCatalog) {
-            OutlinedTextField(
-                value = state.search,
-                onValueChange = onSearchChanged,
-                label = { Text(stringResource(Res.string.equipment_search_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (state.customExercises.isNotEmpty()) {
-                Text(
-                    text = stringResource(Res.string.equipment_custom_section),
-                    style = MaterialTheme.typography.titleMedium
+        when (section) {
+            EquipmentSection.PROFILE_LOADING -> {
+                EquipmentProfilesSection(
+                    summary = state.profile,
+                    failure = state.profileFailure,
+                    actions = equipmentProfileActions
                 )
-                state.customExercises.forEach { exercise ->
+                state.profile?.let { summary ->
+                    LoadingConfigurationRow(
+                        summary = summary,
+                        onOpenLoading = equipmentProfileActions.onOpenLoading,
+                        onOpenCalculator = equipmentProfileActions.onOpenCalculator
+                    )
+                }
+            }
+
+            EquipmentSection.INVENTORY_STATIONS -> {
+                InventorySection(
+                    state = state,
+                    onTagToggled = onTagToggled,
+                    onManageEquipment = onManageEquipment,
+                    onNewEquipmentNameChanged = onNewEquipmentNameChanged,
+                    onAddEquipment = onAddEquipment
+                )
+                StationsSection(
+                    stations = state.activeStations,
+                    onAdd = onAddStation,
+                    onEdit = onEditStation
+                )
+            }
+
+            EquipmentSection.EXERCISE_CATALOG -> {
+                OutlinedTextField(
+                    value = state.search,
+                    onValueChange = onSearchChanged,
+                    label = { Text(stringResource(Res.string.equipment_search_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (state.customExercises.isNotEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.equipment_custom_section),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    state.customExercises.forEach { exercise ->
+                        ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(Res.string.equipment_exercise_section),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    TextButton(onClick = onNewCustomExercise) {
+                        Text(stringResource(Res.string.equipment_add_exercise))
+                    }
+                }
+                state.builtInExercises.forEach { exercise ->
                     ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
                 }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(Res.string.equipment_exercise_section),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                TextButton(onClick = onNewCustomExercise) {
-                    Text(stringResource(Res.string.equipment_add_exercise))
+
+            EquipmentSection.EXCLUSIONS -> {
+                if (exclusions.isNotEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.equipment_exclusions_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    val names = state.exercises.associate { it.id to it.name }
+                    exclusions
+                        .sortedBy { names[it.exerciseId] ?: it.exerciseId }
+                        .forEach { exclusion ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = names[exclusion.exerciseId]
+                                            ?: exclusion.exerciseId,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Text(
+                                        text = exclusionSummary(
+                                            exclusion,
+                                            nowMillis,
+                                            utcOffsetMillis
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                TextButton(
+                                    onClick = { onIncludeExercise(exclusion.exerciseId) }
+                                ) {
+                                    Text(stringResource(Res.string.equipment_include))
+                                }
+                            }
+                        }
                 }
             }
-            state.builtInExercises.forEach { exercise ->
-                ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
-            }
-        }
-        ManagementSectionHeader(
-            title = Res.string.equipment_manage_exclusions_title,
-            expanded = showExclusions,
-            showLabel = Res.string.equipment_manage_exclusions_show,
-            hideLabel = Res.string.equipment_manage_exclusions_hide,
-            onToggle = { showExclusions = !showExclusions }
-        )
-        if (showExclusions && exclusions.isNotEmpty()) {
-            Text(
-                text = stringResource(Res.string.equipment_exclusions_title),
-                style = MaterialTheme.typography.titleMedium
-            )
-            val names = state.exercises.associate { it.id to it.name }
-            exclusions.sortedBy { names[it.exerciseId] ?: it.exerciseId }.forEach { exclusion ->
+
+            EquipmentSection.BASELINE_RECORDS -> {
+                Text(
+                    text = stringResource(Res.string.equipment_manage_baselines_note),
+                    style = MaterialTheme.typography.bodySmall
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = names[exclusion.exerciseId] ?: exclusion.exerciseId,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = exclusionSummary(exclusion, nowMillis, utcOffsetMillis),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    TextButton(onClick = { onIncludeExercise(exclusion.exerciseId) }) {
-                        Text(stringResource(Res.string.equipment_include))
+                    Text(
+                        text = stringResource(Res.string.equipment_personal_records),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    TextButton(onClick = onNewPersonalRecord) {
+                        Text(stringResource(Res.string.equipment_add_button))
                     }
                 }
-            }
-        }
-        ManagementSectionHeader(
-            title = Res.string.equipment_manage_baselines_title,
-            expanded = showBaselines,
-            showLabel = Res.string.equipment_manage_baselines_show,
-            hideLabel = Res.string.equipment_manage_baselines_hide,
-            onToggle = { showBaselines = !showBaselines }
-        )
-        if (showBaselines) {
-            Text(
-                text = stringResource(Res.string.equipment_manage_baselines_note),
-                style = MaterialTheme.typography.bodySmall
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(Res.string.equipment_personal_records),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                TextButton(onClick = onNewPersonalRecord) {
-                    Text(stringResource(Res.string.equipment_add_button))
-                }
-            }
-            state.personalRecords.forEach { record ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = record.exerciseName, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            text = "${formatEquipmentWeightForDisplay(
-                                record.weightKg
-                            )} kg × ${record.reps}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
-                        Text(stringResource(Res.string.equipment_remove))
+                state.personalRecords.forEach { record ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = record.exerciseName,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "${formatEquipmentWeightForDisplay(
+                                    record.weightKg
+                                )} kg × ${record.reps}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
+                            Text(stringResource(Res.string.equipment_remove))
+                        }
                     }
                 }
             }
@@ -858,30 +867,6 @@ private fun StationsSection(
                     Text(stringResource(Res.string.equipment_edit))
                 }
             }
-        }
-    }
-}
-
-/** A collapsed management area: its heading and the text toggle that reveals its contents. */
-@Composable
-private fun ManagementSectionHeader(
-    title: StringResource,
-    expanded: Boolean,
-    showLabel: StringResource,
-    hideLabel: StringResource,
-    onToggle: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = stringResource(title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        TextButton(onClick = onToggle) {
-            Text(stringResource(if (expanded) hideLabel else showLabel))
         }
     }
 }

@@ -9,13 +9,48 @@ approval path. Verify a release artifact offline (checksum, `apksigner verify`, 
 A clean install/uninstall or data clear on the emulator still needs explicit approval. Historical
 release-check records below are evidence, not permission. AGENTS keeps automated UI checks off
 personal phones.
-Shell: one bottom bar of **Train · Progress · Library**, with **Settings** in the toolbar.
-Train hosts Log workout, Workout history, Exercise progress, Cardio and Manage plan; Progress hosts
-Body weight and Fatigue map; Library hosts Routines and Equipment. The retired six-tab bar no longer
-exists, so old records that name those tabs describe the shell at the time of that run.
+Shell: one bottom bar (or adaptive rail) of **Train · Progress · Library · Settings**, with no
+Settings toolbar strip. Train hosts Log workout, the dedicated manual form/picker, Workout history,
+Exercise progress, Cardio and Manage plan; Progress hosts Body weight and Fatigue map; Library is a
+Routines/Equipment hub, and Equipment has five section pages. The retired three-tab/toolbar and
+six-tab shells no longer exist, so old records that name them describe the shell at the time of
+that run.
 
 Legend: each item is a step → expected result. Note failures with the tab, the action, and the
 exact on-screen text.
+
+## 0.13.4 implementation evidence (2026-11-04)
+
+The evidence below covers the original candidate through `77f278b6` plus the folded
+[navigation, visual hierarchy and licensing additions](design-0.13.4.md#10-folded-scope-additions)
+requested later on 2026-11-04. Those additions are implemented locally with partial
+normal-font runtime evidence; the expanded manual/Library revisions and the full cross-device
+matrix remain unverified. See the folded acceptance ledger at the end of this file. This is not
+release acceptance or an independent review verdict.
+
+In progress on base `f8fa94e9`; not release acceptance or an independent review verdict.
+P1 is mixed implementation: parent wrote the initial theme/wiring/tests; DeepSeek
+V4.1 Flash on OpenCode Go completed fixed-role coverage, tests and owning docs.
+
+| Scope | Fresh evidence | Limits |
+| --- | --- | --- |
+| Shared Quiet Strength theme | `/tmp/hf0134-p1-shared-test2.log`: seven identity/contrast/type/shape tests; full theme includes the installed Material fixed roles | Token contrast is computed; phone light/dark/2.0 and tablet/unfolded-foldable light/dark rendering was viewed. Pixel sampling, fold/unfold posture transitions and signed-release runtime remain unverified |
+| P1 full matrix | `/tmp/hf0134-p1-fulltest2.log`: reported 3211 host tests; `hf0134-p1-root-ktlint2.log`, `hf0134-p1-assemble2.log`, `hf0134-p1-ios-shared2.log`, `hf0134-p1-ios-network2.log`, `hf0134-p1-migration2.log` (all under `/tmp`) show BUILD SUCCESSFUL with tasks freshly executed via `--rerun-tasks` | This evidence predates later feature chunks; it is not final integration evidence |
+| Final implementation/review closure | `/tmp/hf0134-lines-final-matrix.log`: fresh 3228 host tests with 817/817 tasks executed, including migration verification, root lint, debug assembly and both iOS compiles. Reviewer R134-01 restored the pre-existing weight-unit flow test; `/tmp/hf0134-closure-progress-test.log` reran all 78 Progress tests (0 failures, including the restored test), and `/tmp/hf0134-closure-ktlint.log` passed 23 executed lint tasks. Documentation-only changes and the local commits followed; the full matrix was not rerun after those docs changes | Independent review verified the code and targeted closure; the remaining acceptance checks were then run below. Fold/unfold posture transitions and fault-injected Progress errors remain unverified |
+| Progress charts and UI corrections | `/tmp/hf0134-ui01-final-matrix.log`: fresh 3226 host tests after measured date-label fix. DeepSeek ui-runner original pinned flows passed on the UI02 dialog-inset build at light 1.0, dark 1.0 and light 2.0: navigation 27/27, chart journey 30/30, editor 15/15 each; viewed screenshots confirmed no date-label collisions and both editor actions above the open keyboard. Runner artifacts `/tmp/hf0134-phone-retry-{normal,dark,large}` | Superseded for line rendering by `/tmp/hf0134-lines-v2-*`; this record remains valid for layout, ranges, keyboard and editor behavior |
+| Remaining 0.13.4 acceptance | `/tmp/hf0134-extra-{normal,dark,dark2}`: pound display shows `lb·reps`/`lb` legends and converts 480 kg·reps to 1058.2 lb·reps and 76 kg to 167.6 lb, then restores kg; Routines checked light/dark/2.0; Ab Roll empty Progress shows explicit no-data messages with no fake chart; dark+2.0 lines/labels checked. `/tmp/hf0134-tablet-{light,dark}`: rail, wide two-pane Train and wide Progress picker/detail, width-bounded Routines. `/tmp/hf0134-fold-{light,dark}`: unfolded foldable rail, compact Progress at ≈841dp and Routines, light/dark | Fold/unfold posture transition was not simulated. Fault-injected error/retry states for the new charts were not exercised; no signed-release install or physical-device claim |
+| 0.13.4 UI limits | Material token contrast is computed, not pixel-sampled. No signed-release install, data-clear or physical-device claim | TalkBack speech is permanently retired by the 2026-11-04 decision and is not a pending check. Fold/unfold posture transitions, fault-injected chart errors and pixel sampling remain unverified. Publication is not authorized; release notes are drafted but no push or tag exists |
+
+Format and lint were separate bounded invocations. Parent confirmed changed paths
+within P1 scope and inspected execution markers. The later UI02 correction moved the keyboard
+inset to the whole logged-set dialog after the runner found its actions under the IME; the
+original pinned editor flow then passed. P2 charts, P3 Logger and P4 Routines are implemented.
+Connecting lines were added after the first UI pass and verified on phone at light/dark/2.0 with
+the 3228-test matrix; the reviewer's restored weight-unit test was then rerun in the Progress module
+(78 tests). Independent review first returned INCOMPLETE for missing acceptance. The user then had
+the remaining checks run: pound display, Routines light/dark/2.0, empty Progress, dark+2.0 charts,
+tablet wide layouts and the unfolded foldable. TalkBack is permanently retired. Fold/unfold posture
+transitions and fault-injected chart errors remain the disclosed limits.
 
 ## 0.13.2 baseline (2026-11-04)
 
@@ -5214,3 +5249,186 @@ behavior.
 - **Not verified:** signed-upgrade installation and on-device runtime behavior of the
   published artifact. The emulator stays on debug builds; the release APK was not installed
   anywhere. The verification limits listed above for the UI passes are unchanged.
+
+### 0.13.4 folded acceptance ledger (2026-11-05, candidate only)
+
+This candidate has passed the fresh integration matrix and cross-device runtime acceptance for
+phone, tablet rail and unfolded fold (manual/Library/navigation/keyboard inset), but **not**
+independent review, commits or publication. Remaining runtime gaps are listed below. The original
+0.13.4 acceptance records describe a smaller historical scope and do not cover the folded
+four-tab/manual/Library/Equipment/branding/licensing additions.
+
+- **Fresh matrix:** `testAndroidHostTest`, `:core:database:verifySqlDelightMigration`,
+  `ktlintCheck`, `:androidApp:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` and
+  `:core:network:compileKotlinIosSimulatorArm64` with `--rerun-tasks`: 819 tasks executed,
+  0 inherited, 3,265 host tests in 344 classes across 16 modules, 0 failures/errors/skips,
+  19 lint checks, migration verification, debug APK and both iOS compiles successful.
+  Log: `folded0134-audit-fixes-matrix.log` (external scratch), the latest source matrix.
+  APK SHA256 `c1fc98eae1146b2d7576c79372a6536f5d31791bdeb6b57223bec59b78c43434`
+  (latest audit-fix source; cross-device evidence below was captured on prior APKs
+  `f6a3f719…`/`25e28c95…` before these fixes).
+  Earlier `folded0134-final-matrix.log` and `folded0134-targeted-corrections-matrix.log`
+  recorded prior candidates with their own lower test counts.
+- **Cross-device candidate:** earlier cross-device manual/Library/F07 evidence used APK `68114168`
+  and `25e28c95`; the later audit-fix navigation/routine-reselect/progress-reselect/licenses
+  evidence used APK `c1fc98ea`. The phone manual **49/49** current-flow run was on `68114168` with
+  Logger source unchanged since; it is not asserted as a `c1fc98ea` run. No training/session/
+  profile/set writes occurred in those acceptance runs; only in-memory manual query/selection/reps
+  and temporary font/night settings, restored to 1.0/light. The separate synthetic unplanned
+  write/cleanup journey is recorded below.
+- **Review mechanical corrections (F134-01/02):** the shared graph-scoped Logger ViewModel now
+  installs one lifecycle observer on the retained Log graph, and the shell's tab reselection uses
+  the same group membership as selection. `WorkoutHistoryNavigationTest` exercises the lifecycle
+  helper with an unsafe `LifecycleRegistry`: one resume per graph resume, pause only on a real
+  pause, configuration-change exemption and helper detachment. The `WorkoutLoggerViewModelTest`
+  assertion only checks that the actual VM stores/replaces its owner reference; it does not drive
+  lifecycles, count observers or invoke callbacks, so it would not by itself detect duplicate
+  attachment or an undetached old observer. Actual-VM idempotence, old-callback cessation,
+  new-callback use and clear-time cleanup remain **unverified**. `AppColorSchemeTest` covers
+  Library group membership and the no-existing-root fallback decision; `NavTabTest` covers Library
+  classification for Equipment. These are host-level checks, not UI timer/history/navigation
+  runtime passes.
+- **Adaptive compact navigation and About mark:** `AppColorSchemeTest` covers one-row fit, unequal
+  labels against equal per-item allocation, 8dp inter-item boundary, 48dp minimum and empty labels;
+  `AcknowledgmentsScreenTest` covers canonical/square/wide/tall mark geometry and uniform scaling.
+  These are pure layout and geometry checks, not 2.0 phone/rail rendered acceptance. The About mark
+  no longer stretches on one axis.
+- **Four tabs/rail, no top strip:** `navigation-smoke` passed 25 commands on
+  `emulator-5554` (2026-11-05, normal font/light); artifact `/tmp/folded0134-navigation-run`.
+  Library hub, no toolbar Settings, Train/Library/Equipment navigation and reselection passed.
+- **Initial manual page/picker Back:** `logger-manual-navigation` passed 17 commands
+  (`/tmp/folded0134-pages-manual`). Parent viewed the Train-tools, manual and picker captures.
+- **Initial Library/Equipment/Profile:** `library-section-navigation` passed 28 commands
+  (`/tmp/folded0134-pages-library`). Parent viewed Library, Equipment-hub and Profile & loading
+  captures; subsequent Library frames showed no ghosting.
+- **Offline notices (normal font):** `open-source-licenses` passed 25 commands after adding the
+  bounded About scroll (`/tmp/folded0134-license-corrected`). The app button was present; the
+  flow had not scrolled to it. No app defect established.
+- **Whole checked-in manual flow:** phone **49/49 PASS** on `68114168` (artifact
+  `/tmp/folded0134-phone-final-manual.log`; earlier 46/46 revision superseded), unfolded fold
+  **49/49 PASS** including final-Back scroll, and tablet retention **42 commands PASS**. The tablet
+  run's final convenience Back then failed because the header was above the scrolled form; the
+  flow's subsequent final-Back scroll fix was not re-run on tablet. Query repair, selection, edited
+  reps `5`, hideKeyboard and picker retention are covered. Artifacts:
+  `/tmp/folded0134-clean3-manual`, `/tmp/folded0134-imefix-manual`,
+  `/tmp/folded0134-fold-manual2`, `/tmp/folded0134-tablet-manual2`.
+- **Keyboard-open inset correction:** the phone capture originally showed a nav-bar-height white
+  band between content and keyboard from double-reserving bottom-bar and IME padding. App content
+  now drops only the bottom inset while the IME is visible, keeps top/start/end, and applies IME
+  padding once. The latest phone keyboard-open screenshot shows the band gone; hidden-keyboard
+  layout is unchanged. Pure tests cover hidden/visible-IME and RTL horizontal padding. About
+  mark passed normal and 2.0 on prior APK `68114168`; geometry is unchanged since.
+- **Library/Equipment:** phone dark/2.0 **68/68 PASS** with all five pages, Stations and final hub,
+  and full-word two-row labels; tablet and unfolded-fold Library each **68/68 PASS**, with no clip
+  and Profile actions visible. Notices passed normal 25/25 and dark/2.0 later; navigation passed
+  25/25 on the tablet and fold rails. Earlier `Routines`/5s `Stations` and final-hub failures are
+  historical, with the settle/30s wait now in the flow.
+- **Expanded manual selection/input: FAILED historically.** First corrected attempt tapped the
+  focused query field because result and query shared the exact text. The next attempt concatenated
+  the retained query (`BarbellBenchPressBenchPress`). No selection, reps value or persisted write
+  was established then. Artifacts: `/tmp/folded0134-expanded-manual*`,
+  `/tmp/folded0134-expanded-corrected-start*`, `/tmp/folded0134-expanded-proven-manual*`.
+- **External manual continuation: PASS (17 commands) on candidate 68114168.** From the observed open
+  platform menu, Select all → erase one selected query → exact replacement → result selection →
+  Change exercise → one Back restored the selected exercise and prefilled `8` reps/`100` kg.
+  Query replacement, selection and picker-Back retention are evidenced; **the edited reps input and
+  Log set success remain unproven**. This is a separate external artifact, not a run of the current
+  whole checked-in repository flow.
+- **Blocked handoff:** one intervening manual attempt was blocked because the parent baseline
+  misidentified the picker heading as the manual placeholder. Handoff/baseline defect, not app
+  evidence.
+- **Manual retry history:** historical expanded attempts exhausted their retry limit; a later
+  external continuation passed query replacement/selection, and the checked-in whole flow then
+  passed the current 49/49 revision after the empty-branch and keyboard/back fixes (earlier 46/46
+  is superseded). Earlier failure evidence remains historical.
+- **Expanded Library light: PASS (66 commands) on candidate `408ef542`.** All five Equipment
+  sections and bounded Back reachability passed. Artifact
+  `/tmp/folded0134-renewed-equipment-light/2026-11-05_082306/`.
+- **Library dark/2.0:** latest phone run **68/68 PASS**, including all five pages, final hub and
+  full-word two-row labels. Tablet/fold rail Library also passed 68/68. The earlier early-`Routines`
+  spinner, 5s Stations timeout and final-hub readiness failures remain historical; content
+  bottom/nav top were both 1917, refuting missing insets.
+- **Notices dark/2.0: PASS (29 commands).** The earlier About failure was a missing bounded scroll,
+  now fixed in the flow. Artifact `/tmp/folded0134-renewed-licenses-dark2/2026-11-05_082538/`.
+- **Adaptive two-row navigation:** full words are visible at 2.0 in the new two-row bar. The older
+  `Progre`/`ss` and `Setting`/`s` wrap is historical and its visual decision is resolved.
+- **F02/F03/F04:** absent-Library-root fallback and equal-allocation fit are source/test-covered but
+  actual NavController runtime is pending; the Plan-review probe did not reproduce an absent root,
+  so the no-root path is not claimed runtime-reproduced. F03 rendered intermediate-width boundary
+  remains pending. F04 mark geometry is source-closed; its rendered About mark passed normal and
+  2.0 on prior APK `68114168`, with no geometry change since; the final audit at 2.0 stacks the
+  mark above a full `Acknowledgments` title with no mid-word wrap.
+- **F01:** source-supported owner handling exists, but actual-VM idempotence, old-callback
+  cessation, new-callback use, clear-time cleanup, timer/rest lifecycle and background runtime
+  remain unverified. No production regression or stale-activity defect is confirmed.
+- **F07: rendered PASS on `f6a3f719`.** In the phone dark/2.0 Library run (68/68 PASS) the
+  Profile & loading screenshot shows `New profile`/`Copy active` on the first line and `Rename`
+  alone on the second, fully visible and unclipped. The old clip is fixed. Unrelated clips remain in
+  the Equipment hub description/nav overlap and catalog content under the nav; they are noted, not
+  claimed fixed.
+- **Synthetic unplanned write: failed at 32 commands; the set was nevertheless logged.** The
+  external write flow logged Barbell Bench Press, 5 reps, 123.4 kg, then failed at
+  `assertVisible '^Change exercise$'` immediately after Log set. Its later Back, `0 of 6`, Recent
+  sets and screenshot steps did not run, and no `write-unplanned-saved` screenshot exists. A later
+  reconciliation found the row `Barbell Bench Press 5 reps · 123.4 kg · Week 1 · Day 1`; cleanup
+  deleted it and verified `0 of 6` preserved. Artifact:
+  `/tmp/folded0134-write-unplanned/2026-11-05_104356/`. Do not claim this flow passed or produced
+  that screenshot. The separate manual acceptance flow is the current 49/49 phone run and does not
+  tap Log set.
+- **Cleanup evidence correction:** the first cleanup report claimed success but independent
+  reconciliation found the row still present with a recorded session; that claim was **false/unknown**
+  and is not hidden. The rerun then failed because the lazy Recent-sets row was not composed. The
+  corrected cleanup flow scrolls to the 123.4 kg row before Delete and then passed **12/12**:
+  123.4 was absent and `0 of 6` preserved. Artifacts `/tmp/folded0134-reconcile-recent.csv`,
+  `/tmp/folded0134-reconcile-recent.log`, `/tmp/folded0134-reconcile-recent.png` and the
+  `/tmp/folded0134-delete-unplanned-final/` run directory.
+- **Session residue resolved:** deleting the set left an empty active session. One End session tap
+  closed it; no empty-session header was observed and `0 of 6` persisted. The active session was
+  closed, but a closed zero-set session may remain by design; no DB read was performed. Artifacts
+  `/tmp/folded0134-end-session-post.csv`, `/tmp/folded0134-end-session-post.log`,
+  `/tmp/folded0134-end-session-post.png`, `/tmp/folded0134-end-session-recent.csv`,
+  `/tmp/folded0134-end-session-recent.log`, `/tmp/folded0134-end-session-recent.png`.
+- **Still unverified on the current candidate:** timer/rest lifecycle runtime; fold/unfold posture
+  transitions; the 6.7_Horizontal_Fold-in AVD; F02 actual NavController root paths; F03
+  intermediate-width rendered boundary; signed-release/iOS runtime and native inventory; pixel-contrast
+  measurement. Independent review remains incomplete overall;
+  F05 stays partial. Tablet/fold Library/manual coverage is latest-candidate evidence; About
+  normal/2.0 is prior-APK evidence with unchanged geometry.
+- **Restoration:** temporary font scale/night settings were restored to 1.0/light and verified;
+  final state was the Settings root (`/tmp/folded0134-equipment-restored.*`). As part of the
+  explicitly approved synthetic journey, one unplanned Barbell Bench Press set at 123.4 kg and its
+  session were written; the set was then deleted and the empty active session closed. No residual
+  synthetic row or empty session was observed, and prescribed progress stayed `0 of 6`. All other
+  training, profile, session and set data was not written.
+- **Flow odds and ends:** the current checked-in manual flow passed 49/49 on phone and 49/49 on
+  unfolded fold; tablet retention passed 42 commands with only the later convenience-Back scroll
+  fix unre-run there. The whole manual acceptance flow does not tap Log set; a
+  separate synthetic write flow did tap Log set, logged the 123.4 kg row, but failed at 32 commands
+  on the post-log form assertion, after which cleanup deleted the row and closed the empty session.
+  Historical expanded manual failures remain; the light expanded Library flow passed all five
+  sections.
+- **Final audit fixes (local):** Routines draft now survives Library tab reselect via a
+  Library-graph-scoped ViewModel; Progress leaf-root reselect works from Body weight/Fatigue; About
+  moves the licenses action directly under the header/version and stacks the mark above title/version
+  at fontScale ≥1.5; the notices asset now includes HydraFit's own MIT text; Progress cancels the
+  previous history collector when selection changes. Host tests cover the reselect helper, About
+  threshold, P-01 cancellation, and the notices loader. The external routine/progress reselect
+  flows passed on the audit APK as recorded below.
+- **Final audit device acceptance (phone, APK `c1fc98ea`):** navigation-smoke 25/25; external
+  routine-reselect 18/18 (unsaved name retained across Library reselect, then Cancel, no save);
+  corrected progress-reselect 13/13 (Body weight → Progress root; Fatigue → Progress root); notices
+  29/29 normal and 29/29 dark/2.0. About license action is above Credits at 1.0; at 2.0 the mark
+  stacks above a full `Acknowledgments` title with no mid-word wrap. Settings restored to
+  1.0/light; no training/session/save/delete/profile/note writes. A-03 bundles the full HydraFit MIT
+  text (asset 382,219 bytes, SHA
+  `016b16cebf2657f1e7ebf6109baac2894fa6daf9f0a250c6dfe468c19a1eada2`).
+- **Final matrix/publication readiness:** 819 executed / 0 inherited; 3,265 tests / 344 classes,
+  0 issues; `lintVitalRelease` 370 tasks exit 0. Logs `folded0134-audit-fixes-matrix.log` and
+  `folded0134-audit-fixes-lintvital.log`. APK SHA
+  `c1fc98eae1146b2d7576c79372a6536f5d31791bdeb6b57223bec59b78c43434`.
+- **Final status:** the audited source fixes are independently reviewed/approved and R1/R2 docs
+  are corrected. The fixes remain in the working tree pending local commit and publication approval;
+  no push or publication has occurred. Remaining limits: timer/rest lifecycle, posture/6.7 fold,
+  F01 runtime, F02 absent-root, F03 intermediate boundary, signed/iOS/native/pixel. The candidate is
+  implemented/verified for recorded accepted journeys but not release-approved or published.
+  TalkBack speech remains permanently retired.

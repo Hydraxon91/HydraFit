@@ -6,7 +6,9 @@ HydraFit is an open-source Android app for planning and logging strength workout
 
 It's a solo project in active development. You can [download the latest signed Android APK](https://github.com/Hydraxon91/HydraFit/releases/latest), but it isn't on an app store yet.
 
-The app currently uses standard Material 3 styling. Screenshots and a fuller design pass are still to come.
+The app uses a Quiet Strength Material 3 identity with bundled Inter typography and calm
+graphite/teal surfaces in light and dark themes. Screenshots and a fuller design pass are
+still to come.
 
 ## What it does
 
@@ -15,7 +17,7 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 - Set up on first launch, or any time from Settings: pick your unit, equipment and training goal, choose your usual training days, and optionally record best sets you already know. Every step is optional and can be skipped or revisited, and setup never writes workout history.
 - Generate a plan for 2–6 days a week using Full Body, Upper-Lower or Push-Pull-Legs splits. Set your equipment and weight limits, choose exercise preferences, or exclude exercises you don't want to use.
 - Keep more than one equipment profile — for example home and the gym — each with its own equipment, weight limits and loading setup (plates you own, bars with their collar weight, and fixed or adjustable dumbbells). Work out which plates to load for a target weight, or the nearest weight you can actually reach, from Equipment or while logging. The calculator only calculates: it never changes what you log or your plan.
-- Build, reorder, duplicate and archive your own routines. Schedule a routine or generated plan on chosen weekdays, or work through it as a next-workout sequence. Missed workouts stay pending until you finish or skip them.
+- Build, reorder, duplicate and archive your own routines. An unsaved routine draft survives reselecting the Library tab, and reselecting Progress from Body weight or Fatigue returns to Exercise progress. Schedule a routine or generated plan on chosen weekdays, or work through it as a next-workout sequence. Missed workouts stay pending until you finish or skip them.
 - Get suggested working weights from your logged history or manual personal records, with automatic progression and a deload week in each four-week cycle.
 
 ### Log your workouts
@@ -33,6 +35,8 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 
 - Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement (tier shortcuts or an exact 0–1 value).
 - Back up and restore your data locally. Core planning and logging work offline; AI options are not required.
+- Read the complete bundled third-party notices offline from Settings → About → Open-source licenses, including licence texts, provenance, the exact Public Suffix List source and HydraFit's own MIT text. HydraFit-authored source is MIT; libraries, fonts, data and artwork keep their own terms.
+- Open a dedicated manual form from Train's Training tools, with its own searchable exercise picker. The form, picker and Logger share one workout state, so drafts and entered Logger values survive internal Logger navigation; timer behavior follows the existing pause/background policy. The form stays available after a successful log for repeated sets. Session controls and the session note stay on Train.
 - View a per-muscle fatigue heatmap and an offline anatomical Body map with Male/Female and Front/Back choices. See performed coverage alongside it (seven-day working-set counts, estimated involvement credits and last-trained dates), and explanations of planned direct and estimated indirect arm work. Body regions and softened colour boundaries are schematic; the fatigue index is a planning estimate, not a measurement of recovery or readiness.
 
 ## Download and build

@@ -1,15 +1,14 @@
 package com.hydrafit.app.core.navigation
 
 /**
- * The bottom bar's three destinations.
+ * The bottom bar and adaptive rail's four destinations.
  *
  * Each one groups existing feature screens. The features keep their own routes, Koin modules and
  * graphs; grouping is a navigation decision made by the shell, so no feature depends on another.
  *
- * Settings sits outside these groups. It is reached from the shell toolbar, so no bottom-bar
- * destination is selected while Settings is open.
+ * Nested category pages belong to their parent group, including Settings.
  */
-enum class NavTab { TRAIN, PROGRESS, LIBRARY }
+enum class NavTab { TRAIN, PROGRESS, LIBRARY, SETTINGS }
 
 /**
  * The tab that owns [hierarchyRoutes], or null when the current screen is not part of any group.
@@ -21,9 +20,14 @@ fun selectedNavTab(
     hierarchyRoutes: Collection<String>,
     tabRoutes: Map<NavTab, Collection<String>>
 ): NavTab? = NavTab.entries.firstOrNull { tab ->
-    val routes = tabRoutes[tab].orEmpty()
-    hierarchyRoutes.any { it in routes }
+    routeBelongsToGroup(hierarchyRoutes, tabRoutes[tab].orEmpty())
 }
+
+/** True when any route in the current hierarchy belongs to the tab's own group mapping. */
+fun routeBelongsToGroup(
+    hierarchyRoutes: Collection<String>,
+    groupRoutes: Collection<String>
+): Boolean = hierarchyRoutes.any { it in groupRoutes }
 
 /**
  * The pushed shell overlay to close before a bottom-bar switch, or null when none is open.

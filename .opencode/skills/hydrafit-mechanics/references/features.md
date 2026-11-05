@@ -34,20 +34,35 @@ same occurrence. `showsTrainingStage` also forces training while `restTimer` or
 `setTimer` is live, so a running timer is never collapsed away.
 
 Replace is hidden for a slot in `frozenEntryIds`, because
-`ReplaceOccurrenceExerciseUseCase` refuses a slot that already holds recorded
+`ReplaceOccurrenceExerciseUseCase` refuses a slot that already has recorded
 work; an untouched slot still replaces for this occurrence only. The overview target line names
 the slot's actual measure — reps, seconds, the display-unit distance or newtons — from
 resource templates, so a force slot reads its prescribed newtons rather than a null rep count. With
-an active
-workout the manual entry block (history/progress/cardio entries, session controls
-and note, exercise picker and the manual form) renders only when
-`manualEntryExpanded` is set, through the **Other training** action in the header.
-The form is the same state, so opening it never clears entered values.
+an active workout Train keeps session controls and the session note at the hub. The dedicated
+`log/manual` page holds the manual fields, and its `log/manual/exercises` child is the searchable
+picker; both share the graph-scoped Logger ViewModel and lifecycle owner, so moving between
+them keeps drafts and live timers. The shared ViewModel installs one observer on the retained Log
+graph entry; child destinations do not install their own pause/resume observers, so internal
+navigation cannot cancel a timer or repeat resume work, while a real graph pause/background uses
+the existing configuration-aware policy. Selecting an exercise returns to the form, Back preserves the
+prior selection and inputs, and a successful log leaves the form mounted for another set. While the
+IME is visible the shell drops only the bottom-bar content inset and keeps one IME inset, avoiding a
+blank band above the keyboard; hidden-keyboard padding is unchanged. A recent
+set tap prefills through the existing path and opens the manual form. The unplanned-set write keeps
+the current occurrence/session linkage with a null slot; it does not credit the prescription or
+mutate routines/plans. An explicit confirmation or recent-set prefill never writes on its own.
+Recording the set still needs the existing Log set action.
 
 ## Adaptive feature presentation (0.13.1)
 
 The shell uses one bottom navigation row below 600dp available window width and a
-rail from 600dp, while keeping a single navigation host. Train's
+rail from 600dp, while keeping a single navigation host. On the compact bottom bar the four
+full labels are measured with the active typography/font resolver and density; fit is checked
+against each item's equal share after real inter-item spacing and the 48dp minimum, not a sum of
+labels. When they do not fit the shell uses two rows of two instead of shortening or hiding
+labels. Reselecting the active tab returns its root; a leaf root such as `progress` is also a
+valid reselect target even when Body weight was pushed. The rail keeps its existing text-labelled
+controls. Train's
 `loggerUsesTwoPane` and Progress's `progressUsesTwoPane` both require at least
 840dp feature width and 480dp height, after shell chrome/insets. Train additionally
 requires an active workout already in its training stage: a wide window cannot
@@ -75,17 +90,20 @@ framework, a full-screen conversion, or any persistence or process-death guarant
 not change captured units, precision, cluster identity, station load basis or occurrence-only
 replacement rules.
 
-## Equipment screen structure (0.13.0)
+## Equipment screen structure (0.13.4)
 
-`EquipmentProfilerScreen` leads with the active profile and inventory: profiles with their
-create/copy/rename/activate/delete actions, then equipment chips each carrying its own Manage
-action on a line beneath the chip (a long chip must never squeeze that label), then **Loading
-configuration** and **Stations** as one group so the calculator stays with the equipment it
-describes. Catalog administration, planner exclusions and manual baseline records sit in three
-independent, collapsed-by-default disclosures (**Manage catalog**, **Exercise exclusions**,
-**Baseline records**); the baseline section states that those numbers are manually entered
-planning baselines, not performed sets. These are presentation states only: no profile, station,
-unit, ceiling, attribution or loading behavior changes.
+`EquipmentHomeScreen` is a hub of five rows: **Profile & loading**, **Inventory & stations**,
+**Exercise catalog**, **Exclusions** and **Baseline records**. Each row opens a child page that
+renders its existing content group and keeps the profile/planning ViewModels scoped to the
+Equipment graph. Section Back returns to the hub; hub Back returns to Library or the plan review
+that opened it. **Profile & loading** keeps the active profile's rows and the loading configuration
+with the calculator; its New profile/Copy active/Rename actions use a wrapping FlowRow so full labels
+and 48dp targets survive phone 2.0 without clipping. **Inventory & stations** keeps equipment chips,
+add-equipment and stations.
+Catalog administration, planner exclusions and manual baselines remain the existing interactions;
+the baseline page states that those numbers are manually entered planning baselines, not performed
+sets. The old collapsed disclosures and their show/hide state are gone. These are presentation and
+routing changes only: no profile, station, unit, ceiling, attribution or loading behavior changes.
 
 ## Progress screen structure (0.13.0)
 
@@ -94,10 +112,18 @@ actions under the title, not stacked primary buttons. With nothing selected, the
 and option list render inline; with a selection, the screen shows the exercise name and a
 **Change exercise** action whose dialog hosts the same search and list, applies the existing
 selection callback and closes. Nothing is auto-selected, and opening the dialog neither resets
-nor prefills the query. Range and station chips use wrapping flow rows, with a `Station` label
-above the station chips. Trend, all-time records and recorded history keep separate headings,
-notes and independent loading, error, empty and paging states, so changing the chart range
-never changes record scope or history paging.
+nor prefills the query. Range, metric and station chips use wrapping flow rows, with a
+`Station` label above the station chips. The metric selector offers **External load-volume**
+(initial) and **Estimated 1RM**; changing it only reprojects the days already loaded, keeps
+the selected exercise, range and station, and persists for the ViewModel's lifetime. Trend,
+all-time records and recorded history keep separate headings, notes and independent loading,
+error, empty and paging states, so changing the chart range or metric never changes record
+scope or history paging. A metric with no observations in the range shows its own message while
+the numeric day table, records and history stay visible. Both metrics draw one dated mark per
+recorded day and join consecutive observations with straight lines, including across unlogged
+dates; the line never invents a daily value or crosses without a recorded endpoint. Volume uses a
+zero baseline and `kg·reps`/`lb·reps` labels; estimates use padded automatic kg/lb bounds. Date
+labels are reduced or stacked from measured widths rather than dropped or overlapped.
 
 `BodyWeightScreen` leads with **Add measurement** and the trend. Goal editing sits behind a
 collapsed **Edit goal** disclosure that still shows the current goal line; the input,
@@ -213,7 +239,9 @@ block and Cancel block stay visible. Saved routines are listed under their own h
 hide archived templates by default behind an `Archived` filter chip, and each row keeps
 Edit and the start action visible with Duplicate, prescription Export, Archive/Restore
 and Delete inside a `More actions` menu. `visibleRoutines(templates, showArchived)` is
-the pure filter, covered in `RoutinesPresentationTest`.
+the pure filter, covered in `RoutinesPresentationTest`. The `RoutinesViewModel` is
+scoped to the retained Library graph, so an unsaved editor draft survives a Library tab
+reselect/Back to the library list instead of being recreated with the list route.
 
 The routine editor keeps a slot's name, measure choice, sets, measure value, load and
 move controls visible, and discloses Progression, Per-set targets, Cluster and the
@@ -224,6 +252,21 @@ transferring it between slots. New slots all share the default local id until sa
 new-routine path moving two unsaved slots can still reset or carry an open state; that residual is
 accepted rather than giving unsaved entries a new identity contract. These are presentation states only:
 no ViewModel field, persisted value, ordering rule, pairing rule or unit changes.
+
+## Quiet Strength presentation in Logger and Routines (0.13.4)
+
+Logger and Routines take the Quiet Strength identity from `MaterialTheme` only: their grouped
+sections use the grouped surface role with a modest medium shape and an outline-variant boundary,
+screen/workout names use the large/title roles, exercise names use the title role, and supporting
+target, progress and schedule lines use the small body role with supporting text colour. The active
+rest timer sits on a `primaryContainer` strip with `onPrimaryContainer` content; it keeps the
+existing countdown, cancel, duration editing and dismissal behavior. The workout Start/Resume
+action, the current guided set's Start and completion actions, and Routines' Activate and editor
+Save are filled primary actions with the medium shape. Ordinary guided Log set, Replace, Edit,
+Cancel and Add workout actions are outlined or text treatments. Workout actions, Guided actions,
+Advanced and More actions stay labelled menus or disclosures, so overflow, confirmation and
+destructive copy are unchanged. These are presentation roles and spacing only: no callback,
+condition, write guard, timer, schedule, save/cancel, unit or ordering behavior changes.
 
 ## Ordered per-set prescription surfaces (0.10.2)
 
@@ -1042,9 +1085,16 @@ name disappears), observes a 28/84/365-day chart window plus all-time records fr
 `observeHistory`, and resolves one contributing set with `observeSet`. Charts plot a mark at each
 recorded day's actual position with no interpolation or fake zero days, and every canvas has a
 numeric `ProgressDayTable` equivalent; the canvas is `clearAndSetSemantics` so it is not announced
-twice. Units are display-only (`WeightUnit`). Load kinds stay separate populations, and the
-`ESTIMATED_ONE_REP_MAX` record is backed by external load only. Nothing is written, so no draft,
-session or log state changes.
+twice. The metric selector (external load-volume by default, estimated 1RM second) reprojects
+`ProgressDay.externalVolumeKg` or `ProgressDay.estimatedOneRepMax.value` without re-reading; a
+missing estimate is never fabricated or auto-substituted. Volume axes start at zero in kg·reps
+or lb·reps; estimated-1RM axes pad the observed bounds by 5% of their span (or a fixed minimum for
+a flat/single value), clamp the lower bound at zero, and use deterministic 1/2/5 × 10^n ticks.
+Dates stay actual ISO civil days, reduced to fit the measured width with the first and last always
+shown; the numeric table states each day's estimated 1RM or that it is unavailable, including on
+metric-empty days. Units are display-only (`WeightUnit`). Load kinds stay separate populations,
+and the `ESTIMATED_ONE_REP_MAX` record is backed by external load only. Nothing is written, so no
+draft, session or log state changes.
 
 The 0.9.0 equipment-profile section is split across four new files plus the extended screen/state/
 ViewModel. `EquipmentProfilePresentation.kt` owns the presentation projections: `EquipmentProfileRow`,

@@ -168,8 +168,9 @@ cancelled so the posted summary stays visible. Debug
 policy, the coordinator's reconciliation and the ledger claim; OS alarm delivery and the zone
 transition resolution remain emulator acceptance, not host claims.
 
-The shared app shell selects Material3's standard light/dark palette from the system theme;
-light mode preserves the default palette. Android's existing `enableEdgeToEdge()` follows
+The shared app shell selects the Quiet Strength Material3 palette from the system theme, applying
+its colour roles, typography and shapes through `MaterialTheme` (tokens and measured contrast in
+`docs/design-0.13.4.md`). Android's existing `enableEdgeToEdge()` follows
 system night mode for bar icon appearance; there is no separate app theme preference.
 
 Load `hydrafit-ui-testing` before emulator work. Maestro semantic flows are the

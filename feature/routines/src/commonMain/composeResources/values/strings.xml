@@ -2,6 +2,10 @@
 <resources>
     <string name="nav_label">Routines</string>
     <string name="routines_title">Routines</string>
+    <string name="library_title">Library</string>
+    <string name="library_routines_description">Saved routines, your active block and its schedule.</string>
+    <string name="library_equipment_description">Equipment profiles, loading, exercises and baseline records.</string>
+    <string name="routines_back">Back</string>
     <string name="routines_empty">No routines yet. Create one to reuse it offline.</string>
     <string name="routines_load_failed">Could not load your routines. Nothing was changed.</string>
     <string name="routines_load_retry">Retry</string>

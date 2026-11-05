@@ -27,37 +27,46 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   deps), `feature/logger/build.gradle.kts` (depends on `:core:domain`, `:core:userdata`,
   `:core:navigation` only). `feature/progress` is registered by the shell and is the
   Progress group's start destination.
-- **Navigation groups (0.13.0, adaptive in 0.13.1):** the shell has three destinations —
-  Train (`log`, `plan`, `cardio`), Progress (`progress`, `progress/bodyweight`,
-  `fatigue`) and Library (`routines`, `equipment`) — and Settings is a pushed
-  toolbar destination. A bottom-bar tap closes that pushed Settings entry without
-  saving it before the tab switch, so the target tab restores its own last screen
-  rather than the overlay; unsaved Settings field edits are discarded by the
-  switch. Inside its nested graph Settings is a short hub with category pages
-  (Workout preferences, Notifications, Planner engine, Units, Backup & data,
-  About); each page is a child route of the Settings hub, Back from a page
-  returns to the hub, and Back from the hub closes the overlay. No bottom-bar
-  destination is selected while Settings is open, because Settings is not a bar
-  member; the bar highlights only Train, Progress or Library. Leaving a
-  page discards its unsaved field edits while saved changes remain persisted.
-  `core/navigation/NavTab.kt` maps a destination hierarchy to
-  its group; features keep their own routes, graphs and bindings and none of them
-  knows which group it belongs to. `AppTab` remains the per-feature identity used
-  by external tab requests, onboarding handoffs and `LocalAppTabNavigator`, so a
-  notification still names a concrete screen. History stays inside the Logger
-  graph because it shares the Logger ViewModel, so it selects Train.
-  Below 600dp available window width they use a single bottom row; from 600dp they
-  use a text-labelled rail. Both call the same tab-navigation function, with one
-  `NavController` and one `NavHost` at a stable composition site. Resizing changes
-  the chrome, not the destination, graph or ViewModel owner. The shared content
-  area is centered and capped at 1200dp; feature-specific panes remain feature-owned.
-- **Group members (0.13.0):** because the bar has only three destinations, the
-  absorbed screens are reachable from inside their group: Train's header offers
-  **Manage plan** (`AppTab.PLAN`), Progress offers **Fatigue map**
-  (`AppTab.FATIGUE`) and Library's routines screen offers **Equipment**
-  (`AppTab.EQUIPMENT`). Each feature asks the shell through
-  `LocalAppTabNavigator`, so no feature imports another feature's route. A
-  group's own start screen is unchanged.
+- **Navigation groups (0.13.4):** the shell has four destinations — Train (`log`, `plan`,
+  `cardio`), Progress (`progress`, `progress/bodyweight`, `fatigue`), Library (`routines`,
+  `equipment`) and Settings (`settings`). There is no Settings toolbar strip. Each tab keeps
+  its own nested graph, and reselecting a tab returns that tab's root rather than restoring a
+  child page. Settings is a hub with category pages (Workout preferences, Notifications,
+  Planner engine, Units, Backup & data, About); Back from a page returns to the hub. About
+  opens Acknowledgments and then the offline Open-source licenses page. Library is a hub with
+  **Routines** and **Equipment** rows; Routines opens the routine list as a child page, and its
+  ViewModel is scoped to the retained Library graph so an unsaved editor draft survives Library tab
+  reselect/Back. Equipment opens its own hub with **Profile & loading**, **Inventory & stations**,
+  **Exercise catalog**, **Exclusions** and **Baseline records**. Equipment is pushed over the
+  requesting screen (Library or plan review) so Back returns there. The Train graph includes
+  `log/home`, the dedicated `log/manual` form and its `log/manual/exercises` picker; the manual
+  form and picker share the graph-scoped Logger state, so drafts and entered values survive
+  internal Logger navigation. A single lifecycle observer is installed by the shared
+  graph-scoped Logger ViewModel on the retained Logger graph entry; child destinations only resolve
+  that ViewModel, so internal navigation does not dispatch pause/resume, while a genuine graph pause
+  or background still follows the existing configuration-aware timer-cancellation policy. Timer/rest
+  runtime remains a separate acceptance limit. History stays inside the Logger graph because it
+  shares the Logger ViewModel, so it selects Train. `core/navigation/NavTab.kt` maps a
+  destination hierarchy to its tab; features keep their own routes, graphs and bindings.
+  `AppTab` remains the per-feature identity used by external tab requests, onboarding handoffs
+  and `LocalAppTabNavigator`. Below 600dp available window width the shell uses a compact
+  bottom bar; from 600dp it uses a text-labelled rail. The bar measures the four full labels with
+  the active typography, font resolver and density: if they fit with minimum item padding it stays
+  one row of four, otherwise it uses two rows of two. Labels keep their wording and font scaling;
+  no ellipsis, hiding or scale cap. Fit is checked against the actual equal per-item allocation after
+  inter-item spacing and the 48dp minimum, not a sum of labels alone. Reselecting the current tab
+  returns its root; leaf tab roots (for example Progress at `progress` with pushed Body weight) use
+  that route as the root, and if a pushed group child has no existing tab root beneath it (for
+  example Equipment opened from plan review), reselection falls back to the tab's own start
+  destination without restoring the child just left. Both layouts call the same tab-navigation function and
+  group mapping, with one `NavController` and one `NavHost` at a stable composition site. The taller
+  bar remains the Scaffold's bottom bar, so content insets account for it. The shared content area
+  is centered and capped at 1200dp.
+- **Group members (0.13.4):** Train's header offers **Manage plan** (`AppTab.PLAN`); Progress
+  offers **Fatigue map** (`AppTab.FATIGUE`); Library's Equipment row opens
+  `AppTab.EQUIPMENT` through `LocalAppTabNavigator`. The Logger's Training tools rows open the
+  dedicated manual form, Workout history, Exercise progress and Cardio. No feature imports
+  another feature's route, and each group's start screen is unchanged.
 - **Consistency:** high. No `feature/*` depends on another feature, or on `:core:database` /
   `:core:network`. `:shared` depends on everything but imports `:core:database`/`:core:network` only
   in DI wiring (`AndroidDatabaseModule.kt`, `IosDatabaseModule.kt`, `Koin.kt`, `DomainModule.kt`).
@@ -658,9 +667,10 @@ Compose `expect`/`actual` APIs where a platform-specific UI or clock is needed.
   `commonMain` declarations with Android/iOS implementations. Settings also uses a narrow
   modifier adapter to expose guidance and storage test tags as Android resource IDs, with a no-op on iOS.
 - **Consistency:** high; `:core:domain` stays platform-free.
-- **Theme:** the shared app shell follows the system theme using Material3's standard light/dark
-  palettes, preserving the default light palette. Android's `enableEdgeToEdge()` follows system
-  night mode for bar icons; there is no separate app theme setting.
+- **Theme:** the shared app shell follows the system theme using the Quiet Strength Material3 palette
+  (`AppTheme.kt`: graphite/teal roles plus matching typography and shapes; tokens and measured
+  contrast in `docs/design-0.13.4.md`). Android's `enableEdgeToEdge()` follows system night mode for
+  bar icons; there is no separate app theme setting.
 - **Orientation and insets:** phones are portrait-locked and large screens (>= 600dp) may rotate, via
   a size-qualified `screen_orientation` integer applied by `MainActivity` at runtime (manifest
   orientation cannot vary by screen-size configuration); iOS locks iPhone to portrait and leaves iPad free.

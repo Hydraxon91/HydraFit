@@ -37,9 +37,11 @@ tags:
     retryTapIfNoChange: false
 - assertNotVisible: '^Routine name$'
 - assertVisible: '^New routine$'
+# Routines is a Library child page; its Back returns to the Library hub.
 - tapOn:
-    text: '^Equipment$'
+    text: '^Back$'
     retryTapIfNoChange: false
+- assertVisible: '^Equipment$'
 - assertVisible:
     selected: true
     containsDescendants:

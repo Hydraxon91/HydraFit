@@ -3,6 +3,9 @@ package com.hydrafit.app.feature.progress
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressDay
+import com.hydrafit.app.core.domain.workout.ProgressRecord
+import com.hydrafit.app.core.domain.workout.ProgressRecordKey
+import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import hydrafit.feature.progress.generated.resources.Res
@@ -21,6 +24,39 @@ class ProgressPresentationTest {
         // 100 kg rounds to 220.5 lb at one decimal place.
         assertEquals("220.5 lb", displayWeight(100.0, WeightUnit.LB))
         assertEquals("0 kg", displayWeight(0.0, WeightUnit.KG))
+    }
+
+    @Test
+    fun displayVolumeConvertsOnlyTheKilogramRepsMagnitude() {
+        assertEquals("1000 kg·reps", displayVolume(1000.0, WeightUnit.KG))
+        assertEquals("2204.6 lb·reps", displayVolume(1000.0, WeightUnit.LB))
+    }
+
+    @Test
+    fun theInitialMetricIsVolumeAndMetricEmptinessStaysSeparateFromRangeEmptiness() {
+        val state = ProgressUiState(
+            utcOffsetMillis = 0L,
+            selectedExerciseId = "squat",
+            selectedExerciseName = "Squat",
+            days = listOf(progressDayForTest(localEpochDay = 1L)),
+            chartsLoading = false,
+            chartsFailed = false
+        )
+        assertEquals(ProgressMetric.EXTERNAL_VOLUME, state.metric)
+        assertFalse(state.chartsHaveNoEligibleDays)
+        assertFalse(state.chartsHaveNoSelectedMetricPoints)
+
+        val noEstimate = state.copy(metric = ProgressMetric.ESTIMATED_ONE_REP_MAX)
+        assertTrue(noEstimate.chartsHaveNoSelectedMetricPoints)
+        // The recorded day still exists, so the numeric table, records and history stay available.
+        assertFalse(noEstimate.chartsHaveNoEligibleDays)
+        assertEquals(1, noEstimate.days.size)
+
+        val withEstimate = noEstimate.copy(
+            days = listOf(progressDayForTest(localEpochDay = 1L, estimate = 120.0))
+        )
+        assertFalse(withEstimate.chartsHaveNoSelectedMetricPoints)
+        assertEquals(120.0, withEstimate.chartPoints.single().value)
     }
 
     @Test
@@ -122,14 +158,27 @@ class ProgressPresentationTest {
     }
 }
 
-private fun progressDayForTest(localEpochDay: Long, totalDurationSeconds: Long) = ProgressDay(
+private fun progressDayForTest(
+    localEpochDay: Long,
+    totalDurationSeconds: Long = 0L,
+    estimate: Double? = null
+) = ProgressDay(
     localEpochDay = localEpochDay,
     workingSets = 3,
     totalReps = 30L,
     externalVolumeKg = 1000.0,
     bestLoads = emptyList(),
     bestReps = emptyList(),
-    estimatedOneRepMax = null,
+    estimatedOneRepMax = estimate?.let {
+        ProgressRecord(
+            key = ProgressRecordKey(
+                type = ProgressRecordType.ESTIMATED_ONE_REP_MAX,
+                loadKind = LoadKind.EXTERNAL
+            ),
+            value = it,
+            setIds = emptyList()
+        )
+    },
     totalDurationSeconds = totalDurationSeconds
 )
 

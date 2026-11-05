@@ -1,0 +1,196 @@
+# Contract and verification status: see README.md. Navigation-only; no data is written.
+# Library is a hub of Routines and Equipment; Equipment is a hub of five section pages.
+# Every target is reached with a bounded scroll because the 2.0 layout can put later rows below
+# the fold. No Manage/chip/Add-station/Edit action is tapped.
+appId: com.hydrafit.app
+name: Library and Equipment section navigation
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Library$'
+    retryTapIfNoChange: false
+# The hub may briefly show its centered loading spinner; wait for content, never retap.
+- extendedWaitUntil:
+    visible: '^Routines$'
+    timeout: 15000
+- assertVisible: '^Library$'
+- assertVisible: '^Routines$'
+- assertVisible: '^Equipment$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Library$'
+- waitForAnimationToEnd
+- takeScreenshot: library-hub
+- tapOn:
+    text: '^Routines$'
+    retryTapIfNoChange: false
+- assertVisible: '^New routine$'
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible: '^Equipment$'
+    timeout: 15000
+- tapOn:
+    text: '^Equipment$'
+    retryTapIfNoChange: false
+- assertVisible: '^Profile & loading$'
+- assertVisible: '^Inventory & stations$'
+- waitForAnimationToEnd
+- takeScreenshot: equipment-hub
+- tapOn:
+    text: '^Profile & loading$'
+    retryTapIfNoChange: false
+- assertVisible: '^Profile & loading$'
+- scrollUntilVisible:
+    element:
+      text: '^Loading configuration$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- assertVisible: '^Loading configuration$'
+- waitForAnimationToEnd
+- takeScreenshot: equipment-profile-loading
+# The page header/Back scrolls with the content.
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Inventory & stations$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Inventory & stations$'
+    retryTapIfNoChange: false
+- assertVisible: '^Inventory & stations$'
+# Stations follow the equipment grid on the same page.
+- scrollUntilVisible:
+    element:
+      text: '^Add station$'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '^Stations$'
+- assertVisible: '^Add station$'
+- waitForAnimationToEnd
+- takeScreenshot: equipment-section-inventory-stations
+# Back is inside the page's vertical scroll, so bring it back up with a bounded scroll.
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Exercise catalog$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Exercise catalog$'
+    retryTapIfNoChange: false
+- assertVisible: '^Exercise catalog$'
+- assertVisible: '^Search exercises$'
+# Optional custom rows can precede the catalog heading/actions.
+- scrollUntilVisible:
+    element:
+      text: '^New exercise$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- assertVisible: '^New exercise$'
+- waitForAnimationToEnd
+- takeScreenshot: equipment-section-exercise-catalog
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Exclusions$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Exclusions$'
+    retryTapIfNoChange: false
+# The exclusions list is conditional; the page heading is always present.
+- assertVisible: '^Exclusions$'
+- waitForAnimationToEnd
+- takeScreenshot: equipment-section-exclusions
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Baseline records$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Baseline records$'
+    retryTapIfNoChange: false
+- assertVisible: '^Baseline records$'
+- assertVisible: '^Personal records$'
+- scrollUntilVisible:
+    element:
+      text: '^Manually entered baselines used for planning, not performed workout sets\.$'
+    direction: DOWN
+    timeout: 5000
+    visibilityPercentage: 60
+- assertVisible: '^Manually entered baselines used for planning, not performed workout sets\.$'
+- waitForAnimationToEnd
+- takeScreenshot: equipment-section-baseline-records
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+# Equipment Back returns to the Library hub, with Library still selected.
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: '^Routines$'
+    timeout: 30000
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Library$'

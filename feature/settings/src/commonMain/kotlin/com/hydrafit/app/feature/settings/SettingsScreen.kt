@@ -51,7 +51,7 @@ val settingsRoute: String = "settings"
 
 /**
  * Category page routes. Each one is nested under [settingsRoute], so Back from a page returns to
- * the hub. Settings is not a bottom-bar destination, so no tab is selected while it is open.
+ * the hub, while the Settings tab remains selected.
  */
 internal object SettingsRoutes {
     const val HOME = "settings/home"
@@ -60,6 +60,7 @@ internal object SettingsRoutes {
     const val PLANNER_ENGINE = "settings/planner-engine"
     const val UNITS = "settings/units"
     const val BACKUP_AND_DATA = "settings/backup-and-data"
+    const val LICENSES = "settings/licenses"
 }
 
 val settingsDestination: FeatureDestination = FeatureDestination(
@@ -70,8 +71,7 @@ val settingsDestination: FeatureDestination = FeatureDestination(
 
 fun NavGraphBuilder.settingsGraph(navController: NavController) {
     // A real nested graph makes every category page a child of Settings, not a sibling, and keeps
-    // Back from a page returning to the hub; Back from the hub closes the overlay. Settings is not
-    // a bottom-bar destination, so the shell selects no tab while any of these routes is open.
+    // Back from a page returning to the hub, with one Settings tab for the entire graph.
     navigation(startDestination = SettingsRoutes.HOME, route = settingsRoute) {
         composable(SettingsRoutes.HOME) {
             SettingsHomeRoute(
@@ -83,8 +83,7 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
                 onOpenUnits = { navController.navigate(SettingsRoutes.UNITS) },
                 onOpenBackupAndData = { navController.navigate(SettingsRoutes.BACKUP_AND_DATA) },
                 onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) },
-                onOpenSetup = LocalSetupNavigator.current,
-                onBack = { navController.popBackStack() }
+                onOpenSetup = LocalSetupNavigator.current
             )
         }
         composable(SettingsRoutes.WORKOUT_PREFERENCES) {
@@ -103,7 +102,13 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
             BackupAndDataRoute(onBack = { navController.popBackStack() })
         }
         composable(acknowledgmentsRoute) {
-            AcknowledgmentsRoute(onBack = { navController.popBackStack() })
+            AcknowledgmentsRoute(
+                onBack = { navController.popBackStack() },
+                onOpenLicenses = { navController.navigate(SettingsRoutes.LICENSES) }
+            )
+        }
+        composable(SettingsRoutes.LICENSES) {
+            OpenSourceLicensesRoute(onBack = { navController.popBackStack() })
         }
     }
 }
@@ -117,7 +122,6 @@ fun SettingsHomeRoute(
     onOpenBackupAndData: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel()
 ) {
@@ -134,7 +138,6 @@ fun SettingsHomeRoute(
         onOpenBackupAndData = onOpenBackupAndData,
         onOpenAcknowledgments = onOpenAcknowledgments,
         onOpenSetup = onOpenSetup,
-        onBack = onBack,
         modifier = modifier
     )
 }
@@ -149,7 +152,6 @@ fun SettingsHomeScreen(
     onOpenBackupAndData: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -159,7 +161,10 @@ fun SettingsHomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SettingsPageHeader(title = stringResource(Res.string.settings_title), onBack = onBack)
+        Text(
+            text = stringResource(Res.string.settings_title),
+            style = MaterialTheme.typography.headlineSmall
+        )
         SettingsCategoryRow(
             title = stringResource(Res.string.settings_home_workout_preferences),
             description = stringResource(
@@ -201,8 +206,7 @@ fun SettingsHomeScreen(
 }
 
 /**
- * The title row shared by the hub and its category pages. Settings opens over a tab, so it owns
- * its own way out rather than relying on the system Back gesture alone.
+ * Category pages carry an explicit way back to the Settings hub.
  */
 @Composable
 internal fun SettingsPageHeader(title: String, onBack: () -> Unit) {
