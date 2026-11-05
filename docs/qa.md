@@ -5404,5 +5404,9 @@ four-tab/manual/Library/Equipment/branding/licensing additions.
   on the post-log form assertion, after which cleanup deleted the row and closed the empty session.
   Historical expanded manual failures remain; the light expanded Library flow passed all five
   sections.
-- **TalkBack speech remains permanently retired, not pending.** No review passed; the candidate is
-  partial, uncommitted and not published.
+- **TalkBack speech remains permanently retired, not pending.** Local commits are completed through
+  `3f6e67a4` with a clean working tree; no push or publication has occurred. Overall independent
+  review remains **INCOMPLETE** for the documented limits (timer/rest lifecycle, posture/6.7 fold,
+  F01 runtime, F02 absent-root, F03 intermediate boundary, About heading mid-word, signed/iOS/
+  native/pixel). The candidate is implemented and verified for the recorded accepted journeys but
+  is not release-approved or published.
