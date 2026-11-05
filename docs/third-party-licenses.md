@@ -25,9 +25,10 @@ terms; Gradle cache metadata does not carry licence names.
 
 The bundled, offline notice asset is
 `feature/settings/src/commonMain/composeResources/files/licenses/THIRD-PARTY-NOTICES.txt`
-(SHA256 `1665ebfe59b9e13871485bb17d99ac9b97a2428eddfb67dd072309bacf4b1b33`,
-381100 bytes). It is generated from the resolved coordinate list and verified upstream
-texts, then read from app resources by Settings → About → Open-source licenses. No notice
+(SHA256 `016b16cebf2657f1e7ebf6109baac2894fa6daf9f0a250c6dfe468c19a1eada2`,
+382219 bytes). It is generated from the resolved coordinate list and verified upstream
+texts, then read from app resources by Settings → About → Open-source licenses. It includes the
+exact HydraFit MIT text (Copyright (c) 2026 Hydraxon91) as its own labelled section. No notice
 or font is fetched at runtime.
 
 ## Bundled runtime components

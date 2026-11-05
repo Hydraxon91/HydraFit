@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.AnnotatedString
@@ -106,22 +107,12 @@ fun AcknowledgmentsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            HydraMark()
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = stringResource(Res.string.acknowledgments_title),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                Text(
-                    text = stringResource(Res.string.acknowledgments_version, state.versionName),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+        AboutHeader(
+            versionName = state.versionName,
+            stacks = aboutHeaderStacks(LocalDensity.current.fontScale)
+        )
+        TextButton(onClick = onOpenLicenses) {
+            Text(stringResource(Res.string.settings_licenses_open))
         }
         Text(
             text = stringResource(Res.string.acknowledgments_credits_heading),
@@ -145,12 +136,44 @@ fun AcknowledgmentsScreen(
         TextButton(onClick = { uriHandler.openUri(REPOSITORY_URL) }) {
             Text(stringResource(Res.string.acknowledgments_repo))
         }
-        TextButton(onClick = onOpenLicenses) {
-            Text(stringResource(Res.string.settings_licenses_open))
-        }
         OutlinedButton(onClick = onBack) {
             Text(stringResource(Res.string.acknowledgments_back))
         }
+    }
+}
+
+internal fun aboutHeaderStacks(fontScale: Float): Boolean = fontScale >= 1.5f
+
+@Composable
+private fun AboutHeader(versionName: String, stacks: Boolean) {
+    if (stacks) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HydraMark()
+            AboutHeaderTexts(versionName)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            HydraMark()
+            AboutHeaderTexts(versionName)
+        }
+    }
+}
+
+@Composable
+private fun AboutHeaderTexts(versionName: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = stringResource(Res.string.acknowledgments_title),
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = stringResource(Res.string.acknowledgments_version, versionName),
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 

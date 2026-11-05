@@ -7,6 +7,14 @@ import kotlin.test.assertTrue
 class AcknowledgmentsScreenTest {
 
     @Test
+    fun headerStacksOnlyAtLargeText() {
+        assertEquals(false, aboutHeaderStacks(1.0f))
+        assertEquals(false, aboutHeaderStacks(1.49f))
+        assertEquals(true, aboutHeaderStacks(1.5f))
+        assertEquals(true, aboutHeaderStacks(2.0f))
+    }
+
+    @Test
     fun canonicalViewBoxScalesUniformlyWithoutOffsets() {
         val geometry = markGeometry(74f, 68f)
         assertEquals(1f, geometry.scale, 0.0001f)
