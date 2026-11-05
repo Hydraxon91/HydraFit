@@ -1,0 +1,110 @@
+# Contract and verification status: see README.md. Navigation-only; no setting is changed.
+# Settings > About > Open-source licenses reads the bundled notices offline.
+# Both pages are vertically scrollable: the licenses entry sits near the end of About, and the
+# notices are rendered as <=3,500-character text blocks, so heading assertions match the full block.
+appId: com.hydrafit.app
+name: Offline open-source licenses navigation
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Settings$'
+    retryTapIfNoChange: false
+- assertVisible: '^Planner engine$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Settings$'
+# At 2.0 the About row sits below the hub fold; reach it with one bounded scroll.
+- scrollUntilVisible:
+    element:
+      text: '^About$'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^About$'
+    retryTapIfNoChange: false
+- scrollUntilVisible:
+    element:
+      text: '^Acknowledgments$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '^Acknowledgments$'
+# The licenses entry and Back sit below the credits; bring the entry into view before tapping.
+- scrollUntilVisible:
+    element:
+      text: '^Open-source licenses$'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '^Open-source licenses$'
+- waitForAnimationToEnd
+- takeScreenshot: about-with-licenses-entry
+- tapOn:
+    text: '^Open-source licenses$'
+    retryTapIfNoChange: false
+- assertVisible: '^Open-source licenses$'
+- scrollUntilVisible:
+    element:
+      text: '(?s).*HydraFit third-party notices.*'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '(?s).*HydraFit third-party notices.*'
+- scrollUntilVisible:
+    element:
+      text: '(?s).*2\. Apache License 2\.0.*'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '(?s).*2\. Apache License 2\.0.*'
+- waitForAnimationToEnd
+- takeScreenshot: open-source-licenses
+# The licenses page Back is in its header, so scroll back up before tapping it.
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+# About restores its previous bottom scroll position; scroll up to assert the header.
+- scrollUntilVisible:
+    element:
+      text: '^Acknowledgments$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '^Acknowledgments$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Settings$'
+# About's own Back is below the credits after restoring the bottom position.
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+# Settings restores its previous bottom scroll position; bring Planner engine back into view.
+- scrollUntilVisible:
+    element:
+      text: '^Planner engine$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- assertVisible: '^Planner engine$'

@@ -6,7 +6,9 @@ HydraFit is an open-source Android app for planning and logging strength workout
 
 It's a solo project in active development. You can [download the latest signed Android APK](https://github.com/Hydraxon91/HydraFit/releases/latest), but it isn't on an app store yet.
 
-The app currently uses standard Material 3 styling. Screenshots and a fuller design pass are still to come.
+The app uses a Quiet Strength Material 3 identity with bundled Inter typography and calm
+graphite/teal surfaces in light and dark themes. Screenshots and a fuller design pass are
+still to come.
 
 ## What it does
 
@@ -33,6 +35,8 @@ The app currently uses standard Material 3 styling. Screenshots and a fuller des
 
 - Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement (tier shortcuts or an exact 0–1 value).
 - Back up and restore your data locally. Core planning and logging work offline; AI options are not required.
+- Read the complete bundled third-party notices offline from Settings → About → Open-source licenses, including licence texts, provenance and the exact Public Suffix List source. HydraFit-authored source is MIT; libraries, fonts, data and artwork keep their own terms.
+- Open a dedicated manual form from Train's Training tools, with its own searchable exercise picker. The form, picker and Logger share one workout state, so drafts and running timers survive navigation; the form stays available after a successful log for repeated sets. Session controls and the session note stay on Train.
 - View a per-muscle fatigue heatmap and an offline anatomical Body map with Male/Female and Front/Back choices. See performed coverage alongside it (seven-day working-set counts, estimated involvement credits and last-trained dates), and explanations of planned direct and estimated indirect arm work. Body regions and softened colour boundaries are schematic; the fatigue index is a planning estimate, not a measurement of recovery or readiness.
 
 ## Download and build

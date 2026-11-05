@@ -490,17 +490,25 @@ release is distinct from the former 0.13.4 slice mapped to 0.13.1 above.
 | 0.13.1 | Adaptive tablet layouts and wide-window navigation; seamless foldable layouts and posture transitions (former `0.13.3`–`0.13.4`). **Published 2026-11-04 as `v0.13.1`** | UX-01; rail/single-row navigation and useful multi-pane layouts; tablet foundation, draft/workout/scroll/selection continuity |
 | 0.13.2 | Final accessibility remediation; final localization and instruction-coverage remediation (former `0.13.5`–`0.13.6`) | Light/dark, text scale, screen reader/focus, touch targets and colour-independent access; locale/date/number/resources, remaining agreed content batches and CAT-01 media coverage/disposition |
 | 0.13.3 | Final UI-state and recovery remediation; integration of preceding scopes (former `0.13.7`–`0.13.8`). **Folded into 0.13.2 and completed 2026-11-04**: Routines read recovery, launch-time storage failure with retry, fatigue-map load states, UI-state audit, backup/ledger/licence evidence and bounded device matrix | First-run/empty/loading/error/cancel/retry, separately bounded fixes; upgrade/backup/regression, ledger/performance checks, docs, licenses and supported-device limits. Signed-release runtime upgrade, measured contrast and TalkBack speech remain unverified with the reasons in `docs/qa.md` §0.13.3 |
-| 0.13.4 | Visual identity and final integration (added 2026-11-02) | QL-01; distinctive light/dark palette, typography, surfaces, shapes and consistent component styling; user-approved visual proofs before integration; preserve training/data behaviour; verify affected screens, contrast, text scaling and colour-independent information, then complete final integration and 1.0-readiness closure |
+| 0.13.4 | Visual identity and final integration (added 2026-11-02); navigation, stronger visual hierarchy, branding and licensing additions folded in 2026-11-04. **Implemented locally; latest 0.13.4 matrix passed (3,263 tests). Same-APK acceptance: phone manual 46/46 + dark/2.0 Library 68/68 + keyboard inset visually fixed; tablet rails/Library 68/68, manual retention 42 commands; unfolded fold rails/Library 68/68, manual 49/49. F07 renders correctly at phone 2.0; synthetic unplanned write 46 commands and corrected cleanup 12/12 passed, residual empty session closed. Timer/rest, posture transitions, F02 root runtime, F03 intermediate width and About-heading wrap remain pending. Review/publication pending** | QL-01; distinctive light/dark palette, typography, surfaces, shapes and consistent components; fourth Settings tab with no top strip, dedicated manual logging/picker, Library/Equipment hubs, selected 02B Tapered Hydra H logo/mark replacing template launcher artwork, local Inter font target and offline licence notices/inventory. User-approved visual proofs before integration; preserve training/data behaviour and verify affected screens, contrast, text scaling and colour-independent information. Additions implemented locally; acceptance is partial and review/publication remain pending. Details in PLANS.md and the design scope. |
 
-**0.13.4 P0 — visual direction (scope approved 2026-11-02; design pending):**
-Approve the palette, typography and representative screen proofs before
-implementation. Apply the approved identity through bounded shared-token and
-screen/component changes, not a wholesale rewrite. App icon/splash changes remain
-a separate decision. Preserve existing body-map artwork and fatigue colour
-meanings unless explicitly approved otherwise. Recheck the affected 0.13.1
-adaptive layouts, 0.13.2 accessibility criteria and 0.13.3 UI states after styling;
-earlier verification is not evidence for the new palette or typography. This
-roadmap decision does not authorize implementation or publication.
+**0.13.4 visual direction and folded additions:** the original Quiet Strength
+theme/charts are implemented and locally reviewed; the user requested further
+navigation, visual hierarchy and licensing work in the same unpublished version
+on 2026-11-04. [The detailed folded scope](design-0.13.4.md#10-folded-scope-additions)
+supersedes toolbar Settings and the inline manual form: use Train · Progress ·
+Library · Settings, a dedicated manual-log/picker journey and real Library/Equipment
+section pages. Refresh representative light/dark proofs before broad integration;
+record the local Inter font target and close licence-notice/inventory gaps without
+assuming all material is public domain. The user selected the 02B Tapered Hydra H
+logo and transparent mark in `docs/design/` for template launcher replacement;
+preserve those canonical SVGs and verify derived sizes/masks and provenance/licence
+terms. Exact font artifacts and implementation ownership/budget retain their gates;
+splash redesign remains a separate decision. Preserve body-map artwork, fatigue meanings and
+training/data behavior. Recheck affected adaptive layouts, semantic/large-text
+access and UI states; old evidence is not acceptance of the additions. TalkBack
+speech is permanently retired. This scope record authorizes no implementation,
+commit or publication.
 
 **0.13.0 design direction (approved, implementation pending):** Put the current workout first:
 an overview for reviewing targets and replacing an untouched exercise for this occurrence only,

@@ -34,20 +34,33 @@ same occurrence. `showsTrainingStage` also forces training while `restTimer` or
 `setTimer` is live, so a running timer is never collapsed away.
 
 Replace is hidden for a slot in `frozenEntryIds`, because
-`ReplaceOccurrenceExerciseUseCase` refuses a slot that already holds recorded
+`ReplaceOccurrenceExerciseUseCase` refuses a slot that already has recorded
 work; an untouched slot still replaces for this occurrence only. The overview target line names
 the slot's actual measure — reps, seconds, the display-unit distance or newtons — from
 resource templates, so a force slot reads its prescribed newtons rather than a null rep count. With
-an active
-workout the manual entry block (history/progress/cardio entries, session controls
-and note, exercise picker and the manual form) renders only when
-`manualEntryExpanded` is set, through the **Other training** action in the header.
-The form is the same state, so opening it never clears entered values.
+an active workout Train keeps session controls and the session note at the hub. The dedicated
+`log/manual` page holds the manual fields, and its `log/manual/exercises` child is the searchable
+picker; both share the graph-scoped Logger ViewModel and lifecycle owner, so moving between
+them keeps drafts and live timers. The shared ViewModel installs one observer on the retained Log
+graph entry; child destinations do not install their own pause/resume observers, so internal
+navigation cannot cancel a timer or repeat resume work, while a real graph pause/background uses
+the existing configuration-aware policy. Selecting an exercise returns to the form, Back preserves the
+prior selection and inputs, and a successful log leaves the form mounted for another set. While the
+IME is visible the shell drops only the bottom-bar content inset and keeps one IME inset, avoiding a
+blank band above the keyboard; hidden-keyboard padding is unchanged. A recent
+set tap prefills through the existing path and opens the manual form. The unplanned-set write keeps
+the current occurrence/session linkage with a null slot; it does not credit the prescription or
+mutate routines/plans. An explicit confirmation or recent-set prefill never writes on its own.
+Recording the set still needs the existing Log set action.
 
 ## Adaptive feature presentation (0.13.1)
 
 The shell uses one bottom navigation row below 600dp available window width and a
-rail from 600dp, while keeping a single navigation host. Train's
+rail from 600dp, while keeping a single navigation host. On the compact bottom bar the four
+full labels are measured with the active typography/font resolver and density; fit is checked
+against each item's equal share after real inter-item spacing and the 48dp minimum, not a sum of
+labels. When they do not fit the shell uses two rows of two instead of shortening or hiding
+labels. The rail keeps its existing text-labelled controls. Train's
 `loggerUsesTwoPane` and Progress's `progressUsesTwoPane` both require at least
 840dp feature width and 480dp height, after shell chrome/insets. Train additionally
 requires an active workout already in its training stage: a wide window cannot
@@ -75,17 +88,20 @@ framework, a full-screen conversion, or any persistence or process-death guarant
 not change captured units, precision, cluster identity, station load basis or occurrence-only
 replacement rules.
 
-## Equipment screen structure (0.13.0)
+## Equipment screen structure (0.13.4)
 
-`EquipmentProfilerScreen` leads with the active profile and inventory: profiles with their
-create/copy/rename/activate/delete actions, then equipment chips each carrying its own Manage
-action on a line beneath the chip (a long chip must never squeeze that label), then **Loading
-configuration** and **Stations** as one group so the calculator stays with the equipment it
-describes. Catalog administration, planner exclusions and manual baseline records sit in three
-independent, collapsed-by-default disclosures (**Manage catalog**, **Exercise exclusions**,
-**Baseline records**); the baseline section states that those numbers are manually entered
-planning baselines, not performed sets. These are presentation states only: no profile, station,
-unit, ceiling, attribution or loading behavior changes.
+`EquipmentHomeScreen` is a hub of five rows: **Profile & loading**, **Inventory & stations**,
+**Exercise catalog**, **Exclusions** and **Baseline records**. Each row opens a child page that
+renders its existing content group and keeps the profile/planning ViewModels scoped to the
+Equipment graph. Section Back returns to the hub; hub Back returns to Library or the plan review
+that opened it. **Profile & loading** keeps the active profile's rows and the loading configuration
+with the calculator; its New profile/Copy active/Rename actions use a wrapping FlowRow so full labels
+and 48dp targets survive phone 2.0 without clipping. **Inventory & stations** keeps equipment chips,
+add-equipment and stations.
+Catalog administration, planner exclusions and manual baselines remain the existing interactions;
+the baseline page states that those numbers are manually entered planning baselines, not performed
+sets. The old collapsed disclosures and their show/hide state are gone. These are presentation and
+routing changes only: no profile, station, unit, ceiling, attribution or loading behavior changes.
 
 ## Progress screen structure (0.13.0)
 

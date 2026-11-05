@@ -1,8 +1,8 @@
 # Contract and verification status: see README.md. No persistent writes.
-# The shell owns one bottom row (Train, Progress, Library) and a toolbar Settings entry. Library
-# groups Routines and Equipment, so Equipment is reached through it rather than from the bar.
+# Four tabs/rail destinations: Train, Progress, Library and Settings. There is no Settings
+# toolbar strip; Library is a hub of Routines and Equipment, not its own routine list.
 appId: com.hydrafit.app
-name: Three top-level destinations and the Settings toolbar entry
+name: Four top-level destinations and reselection
 tags:
   - smoke
   - read-only
@@ -17,7 +17,6 @@ tags:
     containsDescendants:
       - text: '^Train$'
 - assertNotVisible: '^Routine name$'
-# Each group exposes the members it absorbed from the old bar.
 - assertVisible: '^Manage plan$'
 - tapOn:
     text: '^Progress$'
@@ -31,7 +30,8 @@ tags:
 - tapOn:
     text: '^Library$'
     retryTapIfNoChange: false
-- assertVisible: '^New routine$'
+- assertVisible: '^Library$'
+- assertVisible: '^Routines$'
 - assertVisible: '^Equipment$'
 - assertVisible:
     selected: true
@@ -42,27 +42,22 @@ tags:
     text: '^Settings$'
     retryTapIfNoChange: false
 - assertVisible: '^Planner engine$'
-# Settings carries its own way back, so the toolbar entry cannot become a dead end.
-- assertVisible: '^Back$'
-- tapOn:
-    text: '^Back$'
-    retryTapIfNoChange: false
-- assertVisible: '^New routine$'
-# A tab switch cancels Settings instead of saving it with the tab it was opened from.
-- tapOn:
-    text: '^Settings$'
-    retryTapIfNoChange: false
-- assertVisible: '^Planner engine$'
+- assertVisible: '^About$'
+- assertNotVisible: '^Manage plan$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Settings$'
+# Reselecting the active tab returns its root without saving the previous child page.
 - tapOn:
     text: '^Train$'
     retryTapIfNoChange: false
-- assertVisible: '^Manage plan$'
+- assertVisible: '^Log workout$'
 - assertNotVisible: '^Planner engine$'
 - tapOn:
     text: '^Train$'
     retryTapIfNoChange: false
-- assertVisible: '^Manage plan$'
-- assertNotVisible: '^Planner engine$'
+- assertVisible: '^Log workout$'
 - assertVisible:
     selected: true
     containsDescendants:

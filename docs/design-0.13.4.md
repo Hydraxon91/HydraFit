@@ -1,10 +1,19 @@
-# 0.13.4 design proposal — Quiet Strength
+# 0.13.4 design scope — Quiet Strength
 
 **Status:** Implementation scope approved, 2026-11-04, under PLANS.md's 0.13.4
 contract. The user delegated exact token selection and authorized both chart
 metrics, independent review and in-scope mechanical corrections within a four-hour
 budget. Publication remains separately gated. Implementation/verification status
 is recorded in PLANS.md and docs/qa.md, not inferred from these concepts.
+
+**Folded addition, 2026-11-04:** the user requested the navigation, stronger visual
+hierarchy and licensing scope in [§10](#10-folded-scope-additions) be recorded in
+this same unpublished version. That section supersedes the original toolbar,
+inline-manual-form and system-font-only direction where stated. The additions are
+implemented locally and have partial runtime evidence only; they are not review
+approved or published. The original implementation/review evidence through
+`77f278b6` does not close them, and the earlier four-hour contract is not extended
+by this documentation update.
 
 ## Approved reference authority and exact tokens
 
@@ -51,7 +60,7 @@ all resolved component roles, opacity states or rendered pixels. Complete theme
 role coverage and rendered evidence remain required. Dark primary buttons use
 dark labels rather than blindly copying white labels from the generated boards.
 
-Use the existing sans-serif with 24sp screen titles, 22sp exercise headings,
+The original candidate uses the existing sans-serif with 24sp screen titles, 22sp exercise headings,
 18sp section headings, 16sp body/inputs, 14sp supporting text, 32sp active numeric
 values and 40sp timers where the existing component exposes those roles. The rest
 timer uses the 32sp `displaySmall` role rather than the 40sp `displayMedium` start
@@ -75,13 +84,16 @@ direction and refinements here remain proposals, not recorded user acceptance.
 This is a bounded visual pass, not a replacement of the current application:
 
 - Preserve training, planning, logging, persistence, backup and unit semantics.
-- Preserve Train / Progress / Library navigation, toolbar Settings access and
-  existing Back behavior. Do not add duplicate Settings controls inside features.
+- The original candidate uses Train / Progress / Library with toolbar Settings.
+  The folded §10 scope replaces that strip with a fourth Settings tab and defines
+  the new submenu navigation; do not add duplicate Settings controls in Library.
 - Keep the current workout-first Train experience and adaptive layouts.
 - Preserve body-map artwork and neutral-to-red fatigue meanings.
 - Do not introduce metrics, scores, social features, accounts or network needs.
-- App icon, splash screen, new fonts/dependencies and shared-module changes are
-  not authorized by these concepts and need their own applicable decisions.
+- Dependency/module-graph changes and splash redesign retain their separate gates.
+  The folded §10 scope records the Inter font target, bounded shell/theme work and
+  the user's selected logo/mark for replacing template launcher artwork. This
+  documentation step does not execute asset conversion or app changes.
 - Do not use this design work to close unrelated 1.0-readiness or verification debt.
 
 ## 2. Reference boards
@@ -344,6 +356,9 @@ Suggested refinement instruction:
 
 ## 8. Approval and verification checkpoints
 
+These checkpoints describe the original candidate through `77f278b6`. The folded
+§10 additions still need their own implementation, proofs, acceptance and review.
+
 | Checkpoint | Required outcome | Current status |
 | --- | --- | --- |
 | Visual direction | User accepts identity, hierarchy and intentional departures from the boards | Approved; six latest boards authoritative |
@@ -392,3 +407,347 @@ an explicitly approved plan; the concepts do not require a new design-system mod
 Related guidance: [roadmap](roadmap.md), [QA ledger](qa.md),
 [UI verification procedure](agent-ui-verification.md) and
 [project reference](agent-project-reference.md).
+
+## 10. Folded scope additions
+
+### Status, precedence and ownership
+
+Recorded at the user's request on 2026-11-04 against clean HEAD `77f278b6`.
+Include these additions in **0.13.4**, not a separate follow-up version. They
+describe intended work, not shipped behavior, passed acceptance or publication
+permission. The user explicitly selected the fourth Settings tab and the complete
+manual-form move. The earlier Library → Settings suggestion is superseded.
+
+The main agent is the recommended implementation owner because shell navigation,
+graph-scoped state and shared typography cross the affected screens. Before source
+or test edits, present the bounded implementation write sets, settled remaining
+decisions, owner and execution budget for approval. No new autonomous task, review
+exception, commit permission or extension of the original run is created here.
+
+### Navigation and screen hierarchy
+
+```text
+Bottom bar / adaptive rail
+  Train · Progress · Library · Settings
+
+Train
+  Current workout / Planned today
+  Training tools
+    Log other exercise >
+    Workout history >
+    Exercise progress >
+    Cardio >
+  Recent sets
+  Existing session controls / session note
+
+Log other exercise
+  Select exercise >
+  Selected exercise + Change exercise >
+  Manual set form
+
+Library
+  Routines >
+  Equipment >
+
+Equipment
+  Profile & loading >
+  Inventory & stations >
+  Exercise catalog >
+  Exclusions >
+  Baseline records >
+
+Settings
+  Existing category pages
+  About > Open-source licenses >
+```
+
+Training tools precede the potentially long Recent sets list so manual logging and
+history are not buried below old records. They are compact navigation rows, not a
+second full-screen tools hub. Keep session controls/notes grouped below the workout
+context without promoting them above the current workout. Exact spacing and large-text
+arrangement belong in the refreshed proofs.
+
+- **Settings:** remove the standalone `Scaffold.topBar` Settings row, not the
+  system/status-bar safe area. Use normal tab selection/restoration; remove the
+  Settings-overlay special case. The Settings home no longer needs an overlay-close
+  Back button; category pages retain Back to the home. Tab reselection returns to
+  that tab's root. Verify system Back from roots rather than inventing a special
+  exit policy. Show four destinations on both the compact bar and adaptive rail.
+- **Manual logging:** give the whole manual form its own Logger destination and
+  the searchable exercise picker its own child page. Show a Select exercise row
+  when nothing is selected and a Change exercise row otherwise; selecting returns
+  to the form, while cancel/Back preserves the prior selection and pending input.
+  Retain the form after a successful log for repeated sets. Reuse the graph-scoped
+  Logger state, not a second independent logging ViewModel.
+- **History/progress/cardio:** reuse their current destinations. Workout history
+  is already a Logger subgraph; no additional intermediary browser is needed.
+  History and manual-log child pages remain owned by Train. Progress and Cardio
+  keep their existing navigation contracts unless a later bounded plan states a
+  required change.
+- **Library:** show only the Routines and Equipment entry rows at its root. Each
+  feature still owns its screens, graph and bindings; the shell aggregates exports.
+  Do not introduce a routines-to-equipment module dependency or inline feature UI
+  into `shared`. Routines retains Active block, Saved routines, schedule disclosure,
+  archived filter, import/export and all editor/actions behind its entry.
+- **Equipment:** replace the long combined page and its catalog/exclusion/baseline
+  disclosures with section destinations. Retain a coherent graph-scoped profile
+  context, all existing editors and loading calculators. Prefer **Baseline records**
+  over an unqualified “PRs” label: these manually entered planning baselines must
+  not be confused with performed all-time records shown in Progress.
+
+### Logging and state invariants
+
+The existing active-workout path is **Workout actions → Other training → Search
+exercises → choose exercise → enter performance → Log set**. Without an active
+workout, the form is currently inline. The new route replaces those presentation
+entry points, not the write path or planning behavior.
+
+- An unplanned Bench Press set in an active workout retains that workout's
+  `occurrenceId`, has no prescribed `occurrenceEntryId`, and follows the existing
+  session-resolution rules. It appears in Recent sets, session history and the
+  workout summary's additional work. It neither creates a plan slot nor changes
+  the routine, prescribed denominator or credit toward a different slot.
+- An exercise that already matches a prescribed slot retains the existing slot
+  attribution; the manual route is not an instruction to force all manual sets
+  into “extra work.” Without an active workout, retain ordinary manual/session
+  logging and do not create a block automatically.
+- Preserve accepted-plan drafts, guided/batch logging, warm-ups, supersets,
+  clusters and timed/distance/force measurements. The current manual visibility
+  block also surrounds planned-draft UI: extract by responsibility, not by moving
+  that entire conditional into the manual screen.
+- Recent-set selection opens the manual form with the existing prefill semantics;
+  correction editors remain distinct. Preserve canonical unit values, station/load
+  identity, instructions, backdating, RIR, setup notes and failed-write input.
+- Share the existing submission action and repeat-tap guard. Internal navigation
+  must not duplicate lifecycle observers, reset pending drafts or accidentally
+  change timer/session behavior. Trace the current Logger `ON_PAUSE` handling and
+  helper/dialog ownership before moving composition sites; genuine-background
+  and configuration-change policies remain unchanged.
+- Session controls and session notes remain available on Train, not exclusively
+  behind an exercise form. Picker opening/cancellation and navigation write no
+  training records. Changing recurring prescriptions remains a routine-edit action.
+
+### Bolder Quiet Strength, without decorative clutter
+
+The reported flatness comes from weak separation between headings, prescriptions,
+supporting text and many equal-weight teal text actions. Fix that hierarchy rather
+than adding a shadow to every row or only changing the font.
+
+1. Make the current workout the visual focal point: a stronger teal/graphite
+   surface, clear workout identity and completed/prescribed progress, and one
+   visually dominant Start/Resume action where applicable. Keep the actual numeric
+   count readable; do not invent a readiness score or progress meaning.
+2. Separate exercise name, prescription and explanatory text through weight,
+   spacing and alignment. Emphasize real load/repetition/timer values with their
+   units; long names wrap rather than shrinking to fit.
+3. Use filled treatment for the applicable Confirm/Log primary action, quieter
+   secondary controls and the existing labeled overflow menus. Preserve access to
+   Details, Instructions, Dismiss and destructive confirmations; do not add or
+   remove a write action merely to match a proof.
+4. Establish depth using contrasting surfaces, restrained edges and deliberate
+   whitespace. Avoid nested-card clutter, gradients, glow, ornamental shadows or
+   a new animation system. Preserve body-map art and fatigue-colour meanings.
+5. Use simple icons **with labels**, a visible selected navigation indicator and
+   consistent title/description/chevron hub rows. Prefer original vector geometry
+   or verified already-bundled assets; no new icon-package dependency is presumed.
+6. Target locally bundled Inter for consistent typography, including suitable
+   tabular numerals for training values. A changed font must be checked across
+   inherited screens, dialogs, charts and fallback glyphs, not only the headline.
+
+Before broad integration, approve refreshed light/dark proofs for Train,
+manual-log/picker, Library/Equipment hubs and four-tab navigation. Preserve at
+least 48dp touch targets, system insets, font scaling and readable contrast. At
+2.0 text, adapt layout rather than silently shrinking, clipping or dropping labels.
+
+### Selected logo and mark
+
+**02B Tapered Hydra H — selected by the user on 2026-11-04.** The supplied SVGs
+already exist in `docs/design/` and are the canonical artwork. This selection
+resolves the earlier open icon-design decision and includes replacement of the
+Android/iOS template launcher artwork in the intended 0.13.4 scope. No alternate
+logo generation or redesign is requested.
+
+| Asset | Canonical source | Supplied geometry and colours |
+| --- | --- | --- |
+| Logo with background | [HydraFit-02B-Logo.svg](design/HydraFit-02B-Logo.svg) | 128×128, `viewBox="0 0 128 128"`; background `#1B2528`, corner radius 28; mark `#C2DEDA`, with the supplied `translate(64 64) scale(1.30 1.14) translate(-64 -59)` transform. |
+| Transparent mark | [HydraFit-02B-Mark.svg](design/HydraFit-02B-Mark.svg) | 74×68, `viewBox="27 17 74 68"`; no background; mark `#C2DEDA`, with the supplied `scale(1 .86)` transform. |
+
+Source SHA-256 at selection:
+
+```text
+Logo: 37f1b3b82c25c8bf3ab3baa7ba42c421e4a458df914fdaca0d798f6af7276ffa
+Mark: 264cde497c265019442b9bb25d0028792684b4d8ac34a1706f89673b7adef44b
+```
+
+- Preserve both source files byte-for-byte, including the path, transforms, fills,
+  view boxes and title metadata. Their framing/proportions differ intentionally;
+  do not normalize them into a newly drawn or stretched variant.
+- Derive platform-specific launcher layers/raster sizes non-destructively. Check
+  Android adaptive/round masks and safe areas, and applicable iOS export/masking
+  requirements, without clipping the heads or lower H. Retain the supplied colour
+  treatment; launcher padding/canvas adaptation must not silently redraw the mark.
+- Use the transparent mark only on a sufficiently contrasting surface; its pale
+  fill is not an approved pale-on-white treatment. Any new colour variant needs a
+  separate design decision. In-app placements should serve an existing branding
+  context, not add another logo-only toolbar or replace meaningful control icons.
+- Check the app icon at actual launcher sizes, not only in an enlarged SVG preview.
+  Verify exported/package contents and use appropriate accessible naming where the
+  mark conveys information. Splash-screen redesign remains outside this selection.
+- Record the provenance as **user-supplied and approved for HydraFit use**. Do not
+  infer authorship, public-domain status, MIT licensing or trademark clearance from
+  the SVG alone; record the applicable creator/licence declaration before distribution.
+
+### Font, asset and dependency licensing
+
+The requirement is **permission to use and redistribute the shipped material with
+its conditions satisfied**, not a claim that everything is public domain. MIT,
+Apache-2.0 and OFL material remains copyrighted and keeps its own licence; the root
+MIT licence applies to HydraFit-authored source.
+
+- **Font target:** [Inter](https://rsms.me/inter/) is published under
+  [SIL OFL 1.1](https://github.com/rsms/inter/blob/master/LICENSE.txt), which permits
+  bundling with software subject to its conditions. Before import, pin the exact
+  upstream release, unmodified font files/weights, source, checksums, copyright
+  notice and matching licence. Bundle locally for offline use, preserve OFL terms
+  and fallback glyph support, and add no remote font/CDN requirement. Do not copy
+  an OS-provided font out of a device into the APK.
+- **Inventory:** reconcile the actual packaged runtime dependencies, transitive
+  and native components, font files, UI/launcher icons, body-map paths and seeded
+  data/content with a component/version/source/licence/notices/shipped-path record.
+  The earlier `docs/third-party-licenses.md` sweep is a starting point, not fresh
+  clearance of the expanded artifact. Assess iOS assets separately without claiming
+  an iOS distribution audit from an Android build.
+- **Offline notices:** add Open-source licenses under Settings → About using local
+  resources, including applicable copyright text, complete licence terms and
+  upstream NOTICE content. Retain existing acknowledgments for data/artwork and
+  distinguish licence obligations from research citations. Test that the reader
+  works offline and that the corresponding assets are actually packaged.
+- **Known gap:** the existing inventory records missing comprehensive runtime
+  notices; listing library names or linking to a website alone does not close it.
+  Do not remove third-party notices through packaging or relabel dependencies MIT.
+- **Launcher artwork:** replace the current Android robot and iOS Compose template
+  artwork with assets derived from the selected 02B logo/mark above. Inspect the
+  final package for remaining template artwork, and retain any notices needed for
+  material that is still shipped. Google's
+  [Android guidance](https://developer.android.com/distribute/marketing-tools/brand-guidelines)
+  applies if robot artwork remains. The design choice is now settled; new-asset
+  provenance/licence recording and export verification are still required. Splash
+  redesign is not included.
+- Unknown origin, incompatible terms or missing notices remain explicit blockers.
+  Do not silently swap dependencies, remove assets or declare blanket IP clearance
+  to force a successful audit. No paid artwork, copied exercise imagery, model
+  weights or provider change is introduced by this scope.
+
+### Implementation anchors and acceptance
+
+These are planning targets, **not an approved implementation write set**:
+
+| Area | Primary source anchors | Consumer-backed acceptance |
+| --- | --- | --- |
+| Shell/Settings | `core/navigation/.../NavTab.kt` and tests; `shared/.../{App,AppTheme}.kt`, theme tests/resources; `feature/settings/.../SettingsScreen.kt` and route tests | Four selected destinations, no wasted Settings strip or system-bar overlap, normal Settings tab behavior, category Back, tab restoration/reselection and large-text rail/bar layout. |
+| Manual logging | Logger `WorkoutLoggerScreen.kt`, `WorkoutLoggerUiState.kt`, `WorkoutLoggerViewModel.kt`, `WorkoutHistoryNavigation.kt`, test tags/resources/tests; new manual-form/picker components as settled in the implementation plan | UI entry → existing submit path → stored attribution → history/summary; extra and prescribed exercise cases, no active workout, picker cancel, recent-set prefill, unit/station context, repeat tap, failure/retry and lifecycle/draft/timer continuity. |
+| Library/Equipment | Routines `RoutinesNavigation.kt` / `RoutinesScreen.kt`; Equipment `EquipmentNavigation.kt` / `EquipmentProfilerScreen.kt`, resources and route/state tests | Hub → section → Back; correct Library selection, coherent profile context, available existing actions, editor cancellation, baseline wording and no navigation-induced data mutation. |
+| Branding | Canonical `docs/design/HydraFit-02B-{Logo,Mark}.svg`; Android launcher resources under `androidApp/src/main/res/`; iOS `Assets.xcassets/AppIcon.appiconset`; any exact in-app placement paths settled in the implementation plan | Canonical SVG hashes unchanged; faithful derived assets, correct sizes/masks/contrast, template replacement confirmed in package, provenance/licence recorded and no extra top strip. |
+| Fonts/licences | Shared typography/font resources; Settings acknowledgment/navigation/resources and proposed licence reader; `docs/third-party-licenses.md` | Pinned OFL files, required offline notices readable and present in the packaged app; reconciled inventory with no unexplained shipped component or provenance claim. |
+
+Run Tier A verification for the cross-cutting shell/theme boundary and the full
+fresh final integration matrix, plus targeted affected-feature/graph tests as
+applicable. Use scoped Kotlin format then separate lint/test invocations. Changes
+to existing Maestro entry paths ship with the affected flows and `.maestro/README.md`.
+Update the architecture, mechanics features reference, licence inventory and QA
+alongside the implementation; update the unpublished release-note draft only to
+describe actually completed work.
+
+Parent owns bounded hierarchy exploration/flow authoring; `ui-runner` executes
+prepared coherent acceptance under the usual device, mutation, cleanup and evidence
+contract. Cover phone light/dark/2.0, long labels, keyboard-open forms/editors,
+tablet/foldable arrangements and relevant empty/error/retry states. View screenshots
+and assert semantic outcomes; a green build does not establish these criteria.
+TalkBack speech stays permanently retired; semantic labels and non-colour access
+remain required. Retain the existing posture/fault/pixel/signed-runtime limits until
+actually verified or explicitly dispositioned. The expanded candidate needs a fresh,
+separately authorized review and publication decision; prior approval of the smaller
+candidate does not cover these additions.
+
+### Implementation and verification evidence (2026-11-05)
+
+The folded additions are implemented locally: four tab/rail destinations without a Settings
+toolbar strip, Settings as a normal hub, Library as a Routines/Equipment hub, Equipment's five
+section pages, the dedicated manual form and exercise picker with graph-owned Logger state,
+the Quiet Strength hierarchy, bundled Inter 4.1, selected 02B launcher artwork and the complete
+offline notices page.
+
+A fresh candidate-wide matrix passed with `--rerun-tasks`: 819 tasks executed, 0 inherited;
+3,263 host tests in 344 classes across 16 modules with 0 failures/errors/skips; migration
+verification, 19 lint checks, debug assembly and both iOS simulator compiles. The packaged
+notices asset is 381,100 bytes and byte-identical to the repository asset. Launcher/font
+hashes, adaptive geometry and exact licence-source hashes were checked separately.
+
+Runtime evidence is partial. At normal font/light, `navigation-smoke` passed 25 commands,
+the initial manual/picker flow 17 and the initial Library/Profile flow 28; the corrected offline
+notices flow passed 25 after a bounded About scroll. The **expanded** manual flow failed twice
+(query/result duplicate targeting, then retained-query concatenation) and reached its retry limit;
+no selection, reps or persisted write was established. The expanded Library flow failed at the
+`Stations` expectation on the 16-row inventory grid in light mode, and at `Routines` during a
+loading spinner in dark/2.0 (transient vs sustained unknown); notices dark/2.0 needed a bounded
+scroll to About. At font scale 2.0 the navigation labels wrap (`Progre`/`ss`, `Setting`/`s`), an
+observed visual concern awaiting a behavioural decision.
+
+Settings were restored to font scale 1.0/light and verified at the Settings root; no training,
+session, profile or set data was written. Earlier narrower flow revisions passed; the final
+expanded revisions did not. Exercise catalog, Exclusions, Baseline records, tablet/foldable,
+full dark/large manual, keyboard retention and synthetic write journeys remain unverified.
+Launcher-mask, iOS-runtime, signed-runtime and pixel-contrast limits remain. The candidate is
+partial, unreviewed, uncommitted and unpublished.
+
+**F07 and synthetic write (updated):** the approved `FlowRow` fix renders correctly at phone 2.0:
+`New profile`/`Copy active` wrap to a first line and `Rename` is fully visible on the second; phone
+dark/2.0 Library passed 68/68. The synthetic unplanned write passed 46 commands on `f6a3f719`
+(Barbell Bench Press, 5 reps, 123.4 kg, `0 of 6` unchanged). The first cleanup success claim was
+false/unknown; reconciliation found the row still present, the corrected scroll-to-row cleanup then
+passed 12/12, and the resulting empty active session was closed with one End session tap. No
+synthetic row/session remains. Unrelated Equipment-hub description/nav and catalog/nav clips remain
+observed, not fixed. Timer/rest, posture transitions, F02 root runtime, F03 intermediate-width
+render, About-heading 2.0 wrap and signed/iOS/pixel limits remain.
+
+**Cross-device final evidence:** same latest APK on phone/tablet/unfolded fold — phone manual 46/46,
+dark/2.0 Library 68/68, keyboard white band visually gone; tablet navigation and Library 68/68 with
+rail labels full and manual retention 42 commands (final convenience Back scroll fix un-rerun);
+unfolded fold navigation/Library 68/68 and manual 49/49 including final Back. About mark normal/2.0
+passed on prior APK with unchanged geometry. Remaining: timer/rest runtime, synthetic set→history/
+summary UI writes, posture transitions and 6.7_Horizontal_Fold-in, F02 actual NavController root,
+F03 intermediate-width rendered boundary, signed-release/iOS runtime, pixel contrast. F07 Profile
+action-row Rename clip at phone 2.0 is pre-existing and outside path; About heading wraps mid-word
+at 2.0 while the mark is correct. Overall review incomplete.
+
+**Latest UI evidence:** the whole checked-in manual flow passed 46/46 after dismissing the IME
+before opening the picker; all five Equipment pages plus Stations passed in dark/2.0; the final
+Library hub needed a settle plus a 30s bounded readiness wait. A keyboard-open capture showed a
+blank band from double-reserving the bottom bar and IME; App content now drops only the bottom
+inset while the IME is visible, keeping top/start/end and one IME padding. A pure padding-helper
+test covers hidden/visible-IME and RTL horizontal padding boundaries; rendered keyboard proof remains pending. Query
+replacement/selection/prefill retention passed externally (17 commands), but edited reps/Log
+success is only covered by the later 46/46 manual repository run, not a full current-candidate
+re-run of every surface. Dark/2.0 Library previously timed out at 5s Stations; later it passed the
+five pages/Stations with the final-hub timing fix. The Profile action-row clip remains a
+pre-existing `EquipmentProfilesUi.kt` issue awaiting a separate path amendment; the missing-inset
+claim is refuted.
+
+### Adaptive compact navigation and canonical About mark (2026-11-05)
+
+The user approved a two-row compact bottom navigation instead of shortening labels. The shell now
+measures the four full labels with the active typography/font resolver and density and compares each
+against its actual equal per-item share after real inter-item spacing and the 48dp minimum (not a
+sum of labels); if they do not fit it renders two rows of two standard selected tab controls.
+Wording, font scaling, icons, selected semantics, test tags and the group-aware navigation callback
+are unchanged. Reselecting the current tab returns its root; when a pushed group child has no
+existing tab root beneath it, the fallback navigates to the tab's own start destination without
+restoring the child just left. The rail behaviour at wide widths is unchanged; the taller bottom
+bar remains the Scaffold's bottom bar, so content insets account for it. Runtime phone/2.0/rail
+screenshots and TouchTarget/large-text visual acceptance remain pending.
+
+The About mark now scales the canonical 74×68 Mark uniformly (`min(width/74, height/68)`) and
+centers it inside the existing dark tile, removing the previous independent-axis 8.8% vertical
+stretch. The source viewBox, `.86` transform, mint/dark colours and decorative semantics are
+unchanged. Pure geometry tests cover square/wide/tall/canonical canvases and uniform scaling;
+rendered 2.0/visual proof remains pending. No SVG asset changed.

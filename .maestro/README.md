@@ -4,6 +4,41 @@ Load `hydrafit-ui-testing` and follow AGENTS.md before interaction. These flows
 are local development tests, not CI or a security sandbox. No production
 dependency, permissions/configuration change or automatic clear-state is added.
 
+## 0.13.4 folded navigation and licence flows (2026-11-05)
+
+Runtime status is recorded per revision and device. The current whole manual flow passed on phone
+and unfolded fold; tablet retention passed with only the later final-Back scroll fix un-rerun.
+
+| Flow / artifact | Journey | Latest status |
+| --- | --- | --- |
+| `navigation-smoke.yaml` | Four tabs/rail, Library hub, no Settings top strip, reselection | **PASS** 25/25 phone; **PASS** 25/25 tablet and unfolded-fold rails |
+| `logger-manual-navigation.yaml` | Query repair → selection → edited reps 5 → hideKeyboard → one Back retention → Train | **PASS** 46/46 phone; **PASS** 49/49 unfolded fold (final-Back scroll); tablet retention **42 commands PASS**, final convenience Back failed before the scroll fix and was not re-run |
+| `library-section-navigation.yaml` | All five Equipment sections, final hub | **PASS** 68/68 dark/2.0 phone; **PASS** 68/68 tablet; **PASS** 68/68 unfolded fold; earlier 66-command light pass and old timeout failures remain historical |
+| `open-source-licenses.yaml` | Settings → About → licenses | **PASS** 25/25 normal and **29/29** dark/2.0 |
+| external About-mark check | About mark normal and 2.0 | **PASS** on prior APK `68114168`; geometry unchanged |
+| external synthetic write | Manual unplanned set 5 reps × 123.4 kg | **PASS** 46 commands on `f6a3f719`; `0 of 6` unchanged |
+| external synthetic cleanup | Scroll to row → Delete → verify absence | **PASS** 12/12 after corrected scroll; first cleanup claim was false/unknown and independently reconciled; empty session closed with one End session tap |
+| historical `logger-manual-navigation.yaml` revisions | Expanded query/selection | **FAILED historically**: duplicate target, then concatenated query; retry limit reached |
+| `logger-workout-actions.yaml` | Workout menu no longer offers Other training | syntax OK; runtime pending |
+| `routine-editor-cancel.yaml` | Unsaved routine Cancel → list → Back to Library hub | syntax OK; runtime pending |
+| `equipment-profiles.yaml` | Equipment hub → Profile & loading | syntax OK; runtime pending |
+
+Keyboard-open white band is fixed and visually confirmed on phone with the latest APK. Full-word
+two-row labels are confirmed at 2.0. F07 action wrapping is rendered-correct at phone 2.0; unrelated
+Equipment-hub/catalog clip observations remain. The About heading still wraps mid-word at 2.0 while
+the mark renders correctly. External write/cleanup files live only in approved scratch, not this
+repository.
+
+Selectors in the current files are source-backed or observed. Confirm label text, row order and
+scroll positions against a fresh hierarchy before treating any flow as a pass.
+
+Legacy write/assumption flows remain gated for this candidate: `logger-exercise-note.yaml`
+may clear a pre-existing note and needs a unique owned fixture plus prior-value cleanup;
+`logger-history-correction.yaml`, `logger-force-set*.yaml` and `logger-session-controls.yaml`
+retain sessions/sets; `comma-decimal-entry.yaml` requires an app-locale change and force-stop
+cleanup; the routine set-target flows retain archived fixtures. Do not run them as part of
+the navigation-only acceptance without an explicitly approved fixture/cleanup contract.
+
 ## Contracts
 
 English UI, HydraFit already foregrounded, connected Android emulator, no keyboard,

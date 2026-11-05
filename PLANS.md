@@ -116,9 +116,58 @@ Versions are assigned when a release scope is agreed; they do **not** grant impl
 | **1.0.0** | All pre-1.0 roadmap work delivered or explicitly dispositioned under [readiness criteria](docs/roadmap.md#100-readiness); stability/verification gate. |
 | **Beyond 1.0** | iOS shipping, including Keychain-backed ApiKeyStore, and desktop. |
 
-### 0.13.4 — Quiet Strength and Progress charts
+### 0.13.4 — Quiet Strength, Progress charts, navigation and licensing
 
-**Status 2026-11-04:** P0 selected tokens; P1 shared theme implemented. P2 charts, P3 Logger and P4 Routines implemented; measured date labels and keyboard-open dialog actions corrected after UI checks. Straight connecting lines are implemented and verified. Remaining acceptance now covers phone light/dark/2.0, pound display, Routines, empty Progress, tablet wide layouts and the unfolded foldable; TalkBack is permanently retired. Fold/unfold posture transitions and fault-injected chart errors remain unverified. Independent review and targeted closure approved the code; publication still needs explicit approval. Local commits end at the documentation status commit chain. Evidence: `docs/qa.md` §0.13.4 and external task `quiet-strength-0134`.
+**Status 2026-11-05:** Original P0–P5 implementation and targeted review closure are complete locally through `77f278b6`. The folded navigation, manual-form, Library/Equipment hubs, branding, local Inter and offline licensing work is implemented locally and passed a fresh integration matrix (819 tasks executed, 3,263 host tests, migration/lint/debug/both iOS, log folded0134-finish-matrix2.log). Cross-device latest-APK evidence: phone manual 46/46, dark/2.0 Library 68/68, keyboard white band visually fixed; tablet navigation/Library 68/68 and manual retention 42 commands (final Back scroll fix un-rerun); unfolded fold navigation/Library 68/68 and manual 49/49. F07 now renders correctly at phone 2.0; synthetic unplanned write passed 46 commands and corrected cleanup passed 12/12 with the residual empty session closed and no synthetic row/session left. Remaining: timer/rest runtime, posture transitions/6.7_Horizontal_Fold-in, F02 actual NavController root, F03 intermediate-width render, About-heading 2.0 wrap, signed-release/iOS/pixel-contrast limits. Independent review remains incomplete; candidate partial, uncommitted and unpublished. TalkBack speech remains permanently retired. No push or publication is authorized.
+
+**Folded scope addition, requested 2026-11-04 — documentation only at this step.**
+The user selected **Settings as the fourth bottom-bar/rail destination** and the
+**full dedicated manual-log screen**, then asked to record these together with the
+beautification and licensing recommendations. This supersedes the earlier proposal
+to put Settings inside Library; do not add both entries. Detailed composition,
+invariants, source anchors and acceptance are in
+[the folded design scope](docs/design-0.13.4.md#10-folded-scope-additions).
+
+**Brand selection, 2026-11-04:** the user supplied and selected **02B Tapered
+Hydra H** for the logo and transparent mark. Canonical sources are the existing
+`docs/design/HydraFit-02B-Logo.svg` and `docs/design/HydraFit-02B-Mark.svg`;
+preserve both unchanged. This resolves the previously pending icon-design choice
+and adds replacement of the template launcher artwork to the intended 0.13.4
+scope. It does not request asset generation, an app install or a splash redesign.
+
+| Addition | Recorded scope | Required outcome |
+| --- | --- | --- |
+| N1 — shell | Train · Progress · Library · Settings; remove the Settings-only top strip. Settings becomes a normal tab with nested category pages, not a pushed overlay. | Correct selected state, Back/reselection and saved-tab behavior; safe system-bar/keyboard insets; readable four-item bar at 2.0 text and four-item tablet rail. |
+| N2 — Train | Move the complete manual form off Train into Log other exercise, with a dedicated Select exercise page. Reuse existing Workout history, Exercise progress and Cardio destinations through compact Training tools rows. Keep workout/planned-draft content, session controls/notes and Recent sets available on Train. | Discoverable logging with or without an active workout; picker cancellation writes nothing; preserve prefill, all metrics, warm-ups, station identity, notes, failure/retry guards and timer/lifecycle behavior. An extra exercise retains its workout/session attribution but no prescribed-slot link; no plan/routine or prescribed-count change. |
+| N3 — Library/Equipment | Library becomes a Routines / Equipment hub. Equipment becomes a hub for Profile & loading, Inventory & stations, Exercise catalog, Exclusions, and Baseline records. | Real section pages and predictable Back behavior, not more inline disclosures. Preserve profile context, existing actions/editors, captured units, loading calculators and the distinction between manually entered baselines and performed records. |
+| V1 — stronger Quiet Strength | More prominent workout/progress context, differentiated exercise names/prescriptions, filled primary actions, quieter secondary controls, contrasting surfaces/edges, deliberate spacing and icon-plus-label navigation/hub rows. | Approve refreshed representative light/dark proofs before broad integration; retain semantic labels, large-text layout, information and controls. No decorative metrics, gradients, glows, new animation or fatigue-colour changes. |
+| B1 — selected logo/mark | Use the supplied 02B Tapered Hydra H logo and background-free mark as canonical artwork; derive platform launcher assets and appropriate in-app branding from them without redesigning the silhouette, colours or proportions. | Preserve the source SVGs; verify platform sizes, adaptive masks/safe areas, legibility and transparent-mark contrast. Confirm packaged launcher assets replace the templates, record provenance/licence terms, and add no logo-only top strip. Splash redesign is excluded. |
+| L1 — fonts and licences | Target locally bundled Inter under SIL OFL 1.1, subject to exact-file/version/provenance confirmation; audit redistributed libraries/native components, fonts, icons, artwork and data. Add offline Open-source licenses under Settings → About, with required licence texts, copyright notices and applicable NOTICE content. | A versioned inventory reconciles with the packaged app; notices are shipped and readable offline. Record unknowns as blockers, not a blanket copyright-free claim. No new library dependency is presumed. |
+
+**Ownership recommendation:** main agent for the coordinated navigation, theme and
+licensing work; cross-screen state/lifecycle and shell ownership make this unsuitable
+for an uncoordinated split. This is a recommendation for the next implementation
+plan, not approval of a new source/test writer or a resumed autonomous run. Original
+P0–P5 ownership and review evidence below describe the prior implementation only.
+
+**Still gated:** exact visual proofs/tokens and font artifacts; any new dependency,
+module/DI/configuration change; and unresolved asset provenance/licence terms. The
+logo/mark selection is settled by the supplied SVGs; splash redesign remains out
+of scope. Resolve the next bounded implementation write
+sets, owner and budget before code work. Recording this scope does not amend or extend
+the old four-hour execution contract or its external state record.
+
+**Fresh verification after implementation:** use Tier A at cross-cutting shell/theme
+boundaries and the full final integration matrix; include affected feature tests,
+producer-to-summary/history regressions for unplanned logging, navigation/state
+continuity and the offline-licence/package checks. Main authors bounded semantic UI
+journeys; `ui-runner` executes prepared acceptance on a verified emulator. Recheck
+phone light/dark/2.0, keyboard-open form/editor, tablet/foldable layouts and applicable
+empty/error/retry states. Preserve existing unverified limits; old evidence is not
+acceptance of these additions. Future implementation updates the architecture,
+mechanics references, QA, Maestro flows/README, licence inventory and unpublished
+release-note draft together. No commit, review execution or publication is requested
+by this documentation step.
 
 **Scope and implementation owners approved 2026-11-04.** Baseline: `main` at
 `f8fa94e9`, after the published 0.13.2/0.13.3 merge. The user explicitly authorized

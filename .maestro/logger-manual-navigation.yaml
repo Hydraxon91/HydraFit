@@ -1,0 +1,166 @@
+# Contract and verification status: see README.md. Navigation and unsaved in-memory selection/input
+# only; **never taps Log set or Start workout**. Final state keeps the chosen exercise and reps in
+# the Logger ViewModel (no persistence). Preconditions: Train root, no keyboard/dialog, and no
+# pre-existing unsaved manual draft selection/input (parent confirmed the current empty state).
+# If that precondition is no longer true, stop instead of replacing an unknown draft.
+appId: com.hydrafit.app
+name: Manual log selection and unsaved input retention
+tags:
+  - smoke
+  - read-only
+---
+- launchApp:
+    stopApp: false
+    clearState: false
+    permissions:
+      all: unset
+- tapOn:
+    text: '^Train$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- scrollUntilVisible:
+    element:
+      text: '^Training tools$'
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 60
+- waitForAnimationToEnd
+- takeScreenshot: train-training-tools
+- tapOn:
+    text: '^Log other exercise$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log other exercise$'
+- assertVisible: '^Select exercise$'
+- waitForAnimationToEnd
+- takeScreenshot: manual-log-select-exercise
+- tapOn:
+    text: '^Select exercise$'
+    retryTapIfNoChange: false
+- assertVisible: '^Search exercises$'
+# The seeded catalog name is "Barbell Bench Press"; search narrows the picker to that row.
+- tapOn:
+    text: '^Search exercises$'
+    retryTapIfNoChange: false
+- assertVisible:
+    focused: true
+    containsChild:
+      text: '^Search exercises$'
+# Query handling is state-aware. Existing flow starts with no retained selection, but the current
+# acceptance state can already hold the known "Barbell Bench Press" query. Clear only that known
+# nonempty query through the observed platform menu; an empty query skips clearing. Any other
+# retained query is rejected by the exact full-value assertion after input rather than overwritten.
+- runFlow:
+    when:
+      visible:
+        text: '^Barbell Bench Press$'
+        focused: true
+        containsChild:
+          text: '^Search exercises$'
+    commands:
+      - longPressOn:
+          text: '^Barbell Bench Press$'
+          focused: true
+          containsChild:
+            text: '^Search exercises$'
+          retryTapIfNoChange: false
+      - waitForAnimationToEnd
+      - assertVisible: '^Select all$'
+      - tapOn:
+          text: '^Select all$'
+          retryTapIfNoChange: false
+      - eraseText: 1
+# The known-query branch clears via the observed platform menu. A truly empty focused field has no
+# text attribute and simply skips it; an unknown nonempty query also skips and is rejected by the
+# mandatory exact full-value assertion after input, rather than being silently overwritten.
+- inputText: 'Barbell Bench Press'
+- assertVisible:
+    text: '^Barbell Bench Press$'
+    focused: true
+    containsChild:
+      text: '^Search exercises$'
+- tapOn:
+    text: '^Barbell Bench Press$'
+    focused: false
+    below:
+      text: '^Search exercises$'
+    retryTapIfNoChange: false
+# Selection returns to the form and is shown on the exercise row.
+- assertVisible:
+    text: '^Barbell Bench Press$'
+    focused: false
+    above:
+      text: '^Change exercise$'
+- assertVisible: '^Change exercise$'
+- waitForAnimationToEnd
+- takeScreenshot: manual-selected-exercise
+# The reps field sits below the metric chips; assert its focused EditText container. UNVERIFIED:
+# selecting this exercise prefills reps 8 (and weight 100), but the existing eraseText: 10 has not
+# been runtime-proven against that prefill. The flow keeps the existing stage and must fail honestly
+# if the final ^5$ assertion is not reached; do not claim robust reps clearing.
+- tapOn:
+    text: '^Reps$'
+    below:
+      text: '^Force$'
+    retryTapIfNoChange: false
+- assertVisible:
+    below:
+      text: '^Force$'
+    focused: true
+    containsChild:
+      text: '^Reps$'
+- eraseText: 10
+- inputText: '5'
+- assertVisible:
+    text: '^5$'
+    below:
+      text: '^Force$'
+- waitForAnimationToEnd
+- takeScreenshot: manual-reps-keyboard-open
+# The IME is positively open here. Dismiss it once while still on the form; a visible manual-form
+# control proves the form was retained even when the header/Change row is above the fold.
+- hideKeyboard
+- waitForAnimationToEnd
+- assertVisible: '^Instructions$'
+# Bring the selected-exercise row back into view before tapping Change exercise.
+- scrollUntilVisible:
+    element:
+      text: '^Change exercise$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- waitForAnimationToEnd
+# Navigate to the picker with the keyboard already closed, then one Back returns to the form.
+- tapOn:
+    text: '^Change exercise$'
+    retryTapIfNoChange: false
+- assertVisible: '^Search exercises$'
+- waitForAnimationToEnd
+- takeScreenshot: manual-change-exercise-picker
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- assertVisible:
+    text: '^Barbell Bench Press$'
+    focused: false
+    above:
+      text: '^Change exercise$'
+- assertVisible: '^5$'
+- waitForAnimationToEnd
+- takeScreenshot: manual-retained-selection-and-input
+# Final Back is a convenience exit; the header may be above the tablet form scroll.
+- scrollUntilVisible:
+    element:
+      text: '^Back$'
+    direction: UP
+    timeout: 10000
+    visibilityPercentage: 60
+- waitForAnimationToEnd
+- tapOn:
+    text: '^Back$'
+    retryTapIfNoChange: false
+- assertVisible: '^Log workout$'
+- assertVisible:
+    selected: true
+    containsDescendants:
+      - text: '^Train$'
