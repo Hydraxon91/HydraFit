@@ -18,6 +18,7 @@ class SettingsRoutesTest {
         SettingsRoutes.PLANNER_ENGINE,
         SettingsRoutes.UNITS,
         SettingsRoutes.BACKUP_AND_DATA,
+        SettingsRoutes.LICENSES,
         acknowledgmentsRoute
     )
 

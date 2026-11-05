@@ -83,7 +83,12 @@
     <string name="acknowledgments_credit_musclemap">Melih Colpan (MuscleMap, MIT) — anatomical body-map artwork</string>
     <string name="acknowledgments_credit_body_highlighter">ELABBASSI Hicham (react-native-body-highlighter, MIT) — body-map artwork paths</string>
     <string name="acknowledgments_license_heading">License</string>
-    <string name="acknowledgments_license_text">HydraFit is open-source software released under the MIT License.</string>
+    <string name="acknowledgments_license_text">HydraFit-authored source is released under the MIT License. Libraries, fonts, data and artwork keep their own terms; see Open-source licenses for the complete notices.</string>
+    <string name="settings_licenses_open">Open-source licenses</string>
+    <string name="settings_licenses_title">Open-source licenses</string>
+    <string name="settings_licenses_loading">Loading licenses…</string>
+    <string name="settings_licenses_failed">Could not load the bundled licenses. Try again.</string>
+    <string name="settings_licenses_retry">Retry</string>
     <string name="acknowledgments_author">Built by Hydraxon.</string>
     <string name="acknowledgments_repo">View on GitHub</string>
     <string name="acknowledgments_back">Back</string>
