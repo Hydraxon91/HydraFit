@@ -1,5 +1,7 @@
 package com.hydrafit.app.feature.logger
 
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -121,6 +123,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.domain.workout.buildWorkoutSummary
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileContext
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
@@ -195,6 +198,20 @@ class WorkoutLoggerViewModelTest {
     @AfterTest
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun graphLifecycleOwnershipIsIdempotentAndReplacesTheOwner() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        val first = TestLifecycleOwner()
+        val second = TestLifecycleOwner()
+
+        viewModel.observeGraphLifecycle(first) { false }
+        viewModel.observeGraphLifecycle(first) { false }
+        assertEquals(first, viewModel.graphLifecycleOwnerForTesting())
+
+        viewModel.observeGraphLifecycle(second) { false }
+        assertEquals(second, viewModel.graphLifecycleOwnerForTesting())
     }
 
     @Test
@@ -11168,6 +11185,49 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun manualLogOfAnUnplannedExerciseKeepsOccurrenceLinkageWithoutSlotCredit() =
+        runTest(dispatcher) {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            val sessions = FakeWorkoutSessionRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            val viewModel = occurrenceViewModel(repository, schedule, sessions = sessions)
+            advanceUntilIdle()
+
+            // Bench press is in the catalog but not in the selected squat occurrence.
+            viewModel.onExerciseSelected("bench-press")
+            viewModel.onRepsChanged("6")
+            viewModel.onWeightChanged("60")
+            viewModel.log()
+            advanceUntilIdle()
+
+            val logged = repository.all().single()
+            assertEquals(30L, logged.occurrenceId)
+            assertNull(logged.occurrenceEntryId)
+            assertNotNull(logged.sessionId)
+
+            val occurrence = requireNotNull(schedule.getOccurrence(30L))
+            assertEquals(2, occurrence.entries.single().sets, "the prescription is unchanged")
+            val summary = buildWorkoutSummary(
+                occurrence = occurrence,
+                sets = repository.all(),
+                sessions = sessions.all(),
+                sessionNotes = emptyMap(),
+                activation = blockActivation(),
+                exerciseNames = mapOf("bench-press" to "Bench Press")
+            )
+            val slot = summary.exercises.single()
+            assertEquals(2, slot.prescribedSets)
+            assertTrue(slot.performedSets.isEmpty(), "an unplanned set earns no slot credit")
+            assertEquals(2, slot.remainingSets)
+            assertEquals(1, summary.extraSets.size)
+            assertEquals(logged.id, summary.extraSets.single().id)
+            assertEquals(1, summary.recordedWorkingSets)
+            assertEquals("Upper", summary.workoutName)
+            assertEquals(logged.sessionId, summary.sessions.single().sessionId)
+        }
+
+    @Test
     fun warmupStartBreaksTheWorkingSetCoachingStreak() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()
@@ -14246,6 +14306,10 @@ class WorkoutLoggerViewModelTest {
         runCurrent()
         assertFalse(viewModel.state.value.sessionNoteSaved)
         assertEquals("B note", noteRepo.notes[second])
+    }
+
+    private class TestLifecycleOwner : LifecycleOwner {
+        override val lifecycle: LifecycleRegistry = LifecycleRegistry.createUnsafe(this)
     }
 
     private companion object {

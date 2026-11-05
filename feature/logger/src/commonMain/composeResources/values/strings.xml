@@ -265,6 +265,10 @@
     <string name="logger_session_note_failed">Could not save session note. Keep your edits and try again.</string>
     <string name="logger_session_note_load_failed">Could not load session note. Tap to retry.</string>
     <string name="logger_history_open">Workout history</string>
+    <string name="logger_training_tools">Training tools</string>
+    <string name="logger_manual_title">Log other exercise</string>
+    <string name="logger_select_exercise">Select exercise</string>
+    <string name="logger_change_exercise">Change exercise</string>
     <string name="logger_progress_open">Exercise progress</string>
     <string name="logger_cardio_open">Cardio</string>
     <string name="logger_history_title">Workout history</string>

@@ -48,7 +48,10 @@ internal val summaryRoute: String = "log/summary"
 internal fun sharedLoggerViewModel(navController: NavController): WorkoutLoggerViewModel? {
     val owner = remember { navController.getBackStackEntry(loggerRoute) }
     if (!canOwnViewModels(owner.lifecycle.currentState)) return null
-    return koinViewModel(viewModelStoreOwner = owner)
+    val viewModel = koinViewModel<WorkoutLoggerViewModel>(viewModelStoreOwner = owner)
+    val configurationChange = rememberConfigurationChangeCheck()
+    viewModel.observeGraphLifecycle(owner, configurationChange)
+    return viewModel
 }
 
 /** The history browser's ViewModel, scoped to the history sub-graph so its filters survive details. */

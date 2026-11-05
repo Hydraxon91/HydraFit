@@ -1,5 +1,8 @@
 package com.hydrafit.app.feature.logger
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.AcceptedDay
@@ -95,6 +98,24 @@ private data class OccurrenceRecordedSets(
     val frozenEntryIds: Set<Long>,
     val anyRecorded: Boolean
 )
+
+/** Installs the one Log-graph pause/resume policy; returning the observer lets callers detach it. */
+internal fun loggerGraphLifecycleObserver(
+    owner: LifecycleOwner,
+    configurationChange: () -> Boolean,
+    onResume: () -> Unit,
+    onPause: () -> Unit
+): LifecycleEventObserver {
+    val observer = LifecycleEventObserver { _, event ->
+        when (event) {
+            Lifecycle.Event.ON_RESUME -> onResume()
+            Lifecycle.Event.ON_PAUSE -> handleLoggerPause(configurationChange, onPause)
+            else -> Unit
+        }
+    }
+    owner.lifecycle.addObserver(observer)
+    return observer
+}
 
 class WorkoutLoggerViewModel(
     private val logMutations: WorkoutLogMutations,
@@ -427,9 +448,41 @@ class WorkoutLoggerViewModel(
     }
 
     override fun onCleared() {
+        detachGraphLifecycle()
         cancelSetTimer()
         invalidateRestTimer(clearPersisted = false)
         super.onCleared()
+    }
+
+    private var graphLifecycleOwner: LifecycleOwner? = null
+    private var graphLifecycleObserver: LifecycleEventObserver? = null
+
+    /**
+     * Installs the one foreground policy for this retained Log graph. Every Logger destination calls
+     * this through the shared ViewModel; the first owner wins and later child compositions are a
+     * no-op, so moving between Home, manual, picker, history and summary neither re-runs onResume nor
+     * dispatches a pause. The observer is removed on graph destroy or ViewModel clear.
+     */
+    fun observeGraphLifecycle(owner: LifecycleOwner, configurationChange: () -> Boolean) {
+        if (graphLifecycleOwner === owner) return
+        detachGraphLifecycle()
+        graphLifecycleObserver = loggerGraphLifecycleObserver(
+            owner = owner,
+            configurationChange = configurationChange,
+            onResume = ::onResume,
+            onPause = ::onPause
+        )
+        graphLifecycleOwner = owner
+    }
+
+    /** Test-only observation of the retained graph owner; no production caller reads this. */
+    internal fun graphLifecycleOwnerForTesting(): LifecycleOwner? = graphLifecycleOwner
+    private fun detachGraphLifecycle() {
+        graphLifecycleObserver?.let { observer ->
+            graphLifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+        graphLifecycleObserver = null
+        graphLifecycleOwner = null
     }
 
     private fun invalidateRestTimer(clearPersisted: Boolean = true) {
@@ -3331,7 +3384,6 @@ class WorkoutLoggerViewModel(
                 it.copy(
                     activeOccurrence = null,
                     workoutStage = WorkoutStage.OVERVIEW,
-                    manualEntryExpanded = false,
                     draftSets = emptyList(),
                     draftEdit = null,
                     missingLoadPrompt = null,
@@ -3505,7 +3557,6 @@ class WorkoutLoggerViewModel(
                     started -> WorkoutStage.TRAINING
                     else -> WorkoutStage.OVERVIEW
                 },
-                manualEntryExpanded = sameOccurrence && it.manualEntryExpanded,
                 draftSets = displayDrafts,
                 measureChangeEntryIds = measureChangeEntryIds,
                 measureChange = it.measureChange?.takeIf { dialog ->
@@ -3867,11 +3918,6 @@ class WorkoutLoggerViewModel(
     fun showWorkoutOverview() {
         if (_state.value.activeOccurrence == null) return
         _state.update { it.copy(workoutStage = WorkoutStage.OVERVIEW) }
-    }
-
-    /** Expands or collapses the manual entry block while a workout is active. */
-    fun toggleManualEntry() = _state.update {
-        it.copy(manualEntryExpanded = !it.manualEntryExpanded)
     }
 
     /**
