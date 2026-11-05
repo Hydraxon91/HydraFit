@@ -127,6 +127,46 @@ class ProgressViewModelTest {
     )
 
     @Test
+    fun selectingAnotherExerciseCancelsThePreviousHistoryCollector() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository()
+            var active = 0
+            var maxActive = 0
+            repository.historyFlow = {
+                flow {
+                    active++
+                    maxActive = maxOf(maxActive, active)
+                    try {
+                        emit(ExerciseHistoryPage(emptyList(), hasMore = false))
+                        awaitCancellation()
+                    } finally {
+                        active--
+                    }
+                }
+            }
+            val vm = viewModel(
+                repository = repository,
+                catalog = FakeCatalog(
+                    listOf(exercise("squat", "Squat"), exercise("bench", "Bench"))
+                )
+            )
+            advanceUntilIdle()
+            vm.onExerciseSelected("squat")
+            advanceUntilIdle()
+            assertEquals(1, active)
+
+            vm.onExerciseSelected("bench")
+            advanceUntilIdle()
+            assertEquals(1, active)
+            assertEquals(1, maxActive, "the previous history collector must be cancelled")
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun selectingAnExerciseRequestsInclusiveTrailingRangeAtTheCurrentOffset() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
