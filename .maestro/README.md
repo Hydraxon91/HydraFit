@@ -12,12 +12,14 @@ and unfolded fold; tablet retention passed with only the later final-Back scroll
 | Flow / artifact | Journey | Latest status |
 | --- | --- | --- |
 | `navigation-smoke.yaml` | Four tabs/rail, Library hub, no Settings top strip, reselection | **PASS** 25/25 phone; **PASS** 25/25 tablet and unfolded-fold rails |
-| `logger-manual-navigation.yaml` | Query repair → selection → edited reps 5 → hideKeyboard → one Back retention → Train | **PASS** 46/46 phone; **PASS** 49/49 unfolded fold (final-Back scroll); tablet retention **42 commands PASS**, final convenience Back failed before the scroll fix and was not re-run |
+| `logger-manual-navigation.yaml` | Query repair → selection → edited reps 5 → hideKeyboard → one Back retention → Train | **PASS** 49/49 phone; **PASS** 49/49 unfolded fold; tablet retention **42 commands PASS**, final convenience Back failed before the scroll fix and was not re-run |
 | `library-section-navigation.yaml` | All five Equipment sections, final hub | **PASS** 68/68 dark/2.0 phone; **PASS** 68/68 tablet; **PASS** 68/68 unfolded fold; earlier 66-command light pass and old timeout failures remain historical |
 | `open-source-licenses.yaml` | Settings → About → licenses | **PASS** 25/25 normal and **29/29** dark/2.0 |
 | external About-mark check | About mark normal and 2.0 | **PASS** on prior APK `68114168`; geometry unchanged |
-| external synthetic write | Manual unplanned set 5 reps × 123.4 kg | **PASS** 46 commands on `f6a3f719`; `0 of 6` unchanged |
-| external synthetic cleanup | Scroll to row → Delete → verify absence | **PASS** 12/12 after corrected scroll; first cleanup claim was false/unknown and independently reconciled; empty session closed with one End session tap |
+| external synthetic write | Manual unplanned set 5 reps × 123.4 kg | **FAILED at 32 commands** at `Change exercise` after Log set; the set was logged, later reconciled and deleted. No `write-unplanned-saved` screenshot. The separate manual acceptance flow is the current 49/49 run and does not tap Log set. |
+| external synthetic cleanup | Scroll to row → Delete → verify absence | **PASS** 12/12 after corrected scroll; first cleanup claim was false/unknown and independently reconciled; empty active session closed with one End session tap; closed zero-set session may remain (no DB read) |
+| external routine reselect | Library → Routines → unsaved editor → Library reselect → Routines | **PASS** 18/18 phone; draft name retained, then Cancel; no save |
+| external progress reselect | Exercise progress → Body weight/Fatigue → Progress reselect → root | **PASS** 13/13 phone; both Body weight and Fatigue return to Exercise progress |
 | historical `logger-manual-navigation.yaml` revisions | Expanded query/selection | **FAILED historically**: duplicate target, then concatenated query; retry limit reached |
 | `logger-workout-actions.yaml` | Workout menu no longer offers Other training | syntax OK; runtime pending |
 | `routine-editor-cancel.yaml` | Unsaved routine Cancel → list → Back to Library hub | syntax OK; runtime pending |
@@ -25,8 +27,9 @@ and unfolded fold; tablet retention passed with only the later final-Back scroll
 
 Keyboard-open white band is fixed and visually confirmed on phone with the latest APK. Full-word
 two-row labels are confirmed at 2.0. F07 action wrapping is rendered-correct at phone 2.0; unrelated
-Equipment-hub/catalog clip observations remain. The About heading still wraps mid-word at 2.0 while
-the mark renders correctly. External write/cleanup files live only in approved scratch, not this
+Equipment-hub/catalog clip observations remain. At 2.0 the About mark stacks above a full
+`Acknowledgments` title with no mid-word wrap, and the license action is above Credits. The notices
+include HydraFit's own MIT text. External write/cleanup files live only in approved scratch, not this
 repository.
 
 Selectors in the current files are source-backed or observed. Confirm label text, row order and
@@ -45,11 +48,11 @@ English UI, HydraFit already foregrounded, connected Android emulator, no keyboa
 dialog or existing unsaved editor. Inspect these preconditions before running;
 do not cancel someone else's draft or restart the app to establish them.
 
-Navigation in the current shell is one bottom row of **Train**, **Progress** and
-**Library**, with Settings in the toolbar; member screens such as Routines,
-Equipment, Fatigue map, Exercise progress and Manage plan open from their group.
-Sections below dated before 2026-11-02 describe the retired six-tab shell and are
-kept as historical records of those runs.
+Navigation in the current shell is four bottom-bar/rail destinations: **Train**, **Progress**,
+**Library** and **Settings**, with no Settings toolbar strip. Library is a Routines/Equipment hub;
+Progress contains Exercise progress and pushed Body weight/Fatigue map; Train contains the
+dedicated manual form/picker. Sections below dated before 2026-11-02 describe the retired six-tab
+shell and are kept as historical records of those runs.
 
 ## Launch-failure journey (0.13.3)
 
@@ -79,8 +82,8 @@ nothing logged, locale restored afterwards.
 | `equipment-exercise-cautions.yaml` | Equipment filtered to exactly Conventional Deadlift, row visible, no keyboard/editor/dialog | Read-only instruction open/Close | Same filtered row and Edit action; no catalog, preference or record write |
 | `logger-exercise-cautions.yaml` | Manual Conventional Deadlift selected; Instructions visible, no keyboard/dialog | Read-only instruction open/Close, no input editing or logging | Indication and Instructions action still present; no set/progress/rest/note write |
 | `logger-slot-exercise-cautions.yaml` | Approved Conventional Deadlift fixture slot visible in planned-draft or guided mode; pass its freshly inspected instruction id as `ACTION_ID` | Read-only instruction open/Close; fixture writes and restoration are outside the flow | Same slot action visible; compare progress, draft and form snapshots outside the flow |
-| `navigation-smoke.yaml` | Train selected, no dialog/editor | Tab navigation only: Progress, Library, the toolbar Settings entry and Settings' own Back | Each group asserts the member it absorbed from the old bar (Train shows Manage plan, Progress shows Fatigue map, Library shows Equipment), every destination asserts its selected state and a screen heading, and Settings returns through its own Back button. A tab tapped while Settings is open cancels Settings and is not restored on the next visit. Equipment is still reached through Library, not the bar. Scroll position is not asserted |
-| `routine-editor-cancel.yaml` | Library group reachable, no dialog/editor | Navigate to Library → Routines, new unsaved name, semantic Cancel, then open Equipment | Editor closed before opening Equipment; the Library tab stays selected; Save is never tapped |
+| `navigation-smoke.yaml` | Train selected, no dialog/editor | Tab navigation only: Progress, Library, Settings and Settings' own Back | Four full tab/rail destinations; Progress shows Exercise progress/Fatigue map, Library shows Routines/Equipment, Settings opens its hub. Each destination asserts selected state and a heading; reselecting a tab returns its root. Equipment is reached through Library, not the bar. Scroll position is not asserted |
+| `routine-editor-cancel.yaml` | Library group reachable, no dialog/editor | Navigate to Library → Routines, new unsaved name, semantic Cancel, then Back to the Library hub | Editor closed; Library tab stays selected; Save is never tapped |
 | `logger-session-controls.yaml` | No active session, no dialog/editor | Navigate to Logger only | No active session; End disabled and New label visible/enabled; neither action is tapped |
 | `settings-guidance-denial.yaml` | Settings hub reachable, both guidance switches OFF, English permission prompt available | Open Settings → Notifications, coaching ON, notification request denied, reopen Settings → Notifications, coaching OFF | Alerts OFF and coaching restored OFF; external permission-flag restoration is still required. Revised for the 0.13.0 Settings hub; **syntax-checked only** after the move, not re-run |
 | `logger-history-browser.yaml` | Train selected, no dialog/editor | History navigation, search, clear filters, Back | Train with the Train tab still selected; no data written |
@@ -108,11 +111,10 @@ nothing logged, locale restored afterwards.
 | `logger-force-set-cleanup.yaml` | The synthetic force set is visible in Recent sets | Delete only the row carrying the `Grip meter` device line | Device line gone. The row proved unreachable with centre-screen `scrollUntilVisible` because the nested exercise picker absorbs the swipe; use `scripts/maestro-scroll.sh --container-id logger_list --direction up` first, or the edit/delete flow below. |
 | `logger-force-set-verify.yaml` / `logger-force-set-edit-delete.yaml` | Resume flows for the same synthetic set (verify assumes the row is scrolled into view) | Verify asserts the history detail and corrects only RIR; edit/delete corrects RIR in the Recent-sets row and deletes that row | One-decimal display and device identity survive the correction, then the set is removed. Written during the 2026-10-26 acceptance attempt; the RIR correction and deletion were completed manually and are **user-verified**, not flow-asserted. |
 
-The navigation flow visits the three top-level destinations (Train, Progress,
-Library) and the toolbar Settings entry, asserting the selected state after each
-tap; visible navigation labels alone are not a success oracle. It is also the
-regression flow for the single-row, fully labeled navigation layout and for
-Settings returning to the screen it was opened from.
+The navigation flow visits the four top-level destinations (Train, Progress,
+Library, Settings), asserting the selected state after each tap; visible navigation labels alone are
+not a success oracle. It is also the regression flow for the adaptive compact bottom bar (one row or
+two rows with full labels) and four-tab/rail selection.
 
 **Active-workout flows (0.13.0).** A workout with an active block now opens on
 its overview. `logger-prescribed-effort.yaml`, `logger-warmup-checkbox.yaml`,

@@ -678,9 +678,10 @@ the Quiet Strength hierarchy, bundled Inter 4.1, selected 02B launcher artwork a
 offline notices page.
 
 A fresh candidate-wide matrix passed with `--rerun-tasks`: 819 tasks executed, 0 inherited;
-3,263 host tests in 344 classes across 16 modules with 0 failures/errors/skips; migration
+3,265 host tests in 344 classes across 16 modules with 0 failures/errors/skips; migration
 verification, 19 lint checks, debug assembly and both iOS simulator compiles. The packaged
-notices asset is 381,100 bytes and byte-identical to the repository asset. Launcher/font
+notices asset is 382,219 bytes, includes HydraFit's own MIT text, and is byte-identical to the
+repository asset. Launcher/font
 hashes, adaptive geometry and exact licence-source hashes were checked separately.
 
 Runtime evidence is partial. At normal font/light, `navigation-smoke` passed 25 commands,
@@ -690,48 +691,65 @@ notices flow passed 25 after a bounded About scroll. The **expanded** manual flo
 no selection, reps or persisted write was established. The expanded Library flow failed at the
 `Stations` expectation on the 16-row inventory grid in light mode, and at `Routines` during a
 loading spinner in dark/2.0 (transient vs sustained unknown); notices dark/2.0 needed a bounded
-scroll to About. At font scale 2.0 the navigation labels wrap (`Progre`/`ss`, `Setting`/`s`), an
-observed visual concern awaiting a behavioural decision.
+scroll to About. In that earlier run at font scale 2.0 the navigation labels wrapped
+(`Progre`/`ss`, `Setting`/`s`); the later adaptive two-row work supersedes that observation.
 
-Settings were restored to font scale 1.0/light and verified at the Settings root; no training,
-session, profile or set data was written. Earlier narrower flow revisions passed; the final
-expanded revisions did not. Exercise catalog, Exclusions, Baseline records, tablet/foldable,
-full dark/large manual, keyboard retention and synthetic write journeys remain unverified.
-Launcher-mask, iOS-runtime, signed-runtime and pixel-contrast limits remain. The candidate is
-partial, unreviewed, uncommitted and unpublished.
+Settings were restored to font scale 1.0/light and verified at the Settings root; those earlier
+runs wrote no training, session, profile or set data. Earlier narrower flow revisions passed; the
+final expanded revisions at that time did not. The later evidence below records the final adaptive
+labels, keyboard inset, F07 render and the synthetic write/cleanup. Launcher-mask, iOS-runtime,
+signed-runtime and pixel-contrast limits remain. The candidate is
+implemented and locally committed, with overall review still incomplete and no publication.
 
-**F07 and synthetic write (updated):** the approved `FlowRow` fix renders correctly at phone 2.0:
+**F07 and synthetic write:** the approved `FlowRow` fix renders correctly at phone 2.0:
 `New profile`/`Copy active` wrap to a first line and `Rename` is fully visible on the second; phone
-dark/2.0 Library passed 68/68. The synthetic unplanned write passed 46 commands on `f6a3f719`
-(Barbell Bench Press, 5 reps, 123.4 kg, `0 of 6` unchanged). The first cleanup success claim was
-false/unknown; reconciliation found the row still present, the corrected scroll-to-row cleanup then
-passed 12/12, and the resulting empty active session was closed with one End session tap. No
-synthetic row/session remains. Unrelated Equipment-hub description/nav and catalog/nav clips remain
-observed, not fixed. Timer/rest, posture transitions, F02 root runtime, F03 intermediate-width
-render, About-heading 2.0 wrap and signed/iOS/pixel limits remain.
+dark/2.0 Library passed 68/68. The external synthetic write logged Barbell Bench Press, 5 reps,
+123.4 kg, then **failed at 32 commands** on the post-log `Change exercise` assertion; no
+`write-unplanned-saved` screenshot exists. Reconciliation found the row, the corrected scroll-to-row
+cleanup passed 12/12, and the resulting empty active session was closed with one End session tap.
+No synthetic row or empty header was observed; a closed zero-set session may remain by design (no DB
+read). The separate checked-in manual acceptance flow is the current 49/49 phone run and never
+taps Log set.
+Unrelated Equipment-hub description/nav and catalog/nav clips remain observed, not fixed.
+Timer/rest, posture transitions, F02 root runtime, F03 intermediate-width render and signed/iOS/
+pixel limits remain.
 
-**Cross-device final evidence:** same latest APK on phone/tablet/unfolded fold — phone manual 46/46,
+**Final audit acceptance:** on APK `c1fc98ea`, phone navigation passed 25/25; external routine
+reselect passed 18/18 (unsaved routine name retained across Library reselect, then Cancel); corrected
+Progress reselect passed 13/13 from Body weight and Fatigue back to Exercise progress root; notices
+passed 29/29 normal and 29/29 dark/2.0. About license action sits above Credits at 1.0; at 2.0 the
+mark stacks above a full `Acknowledgments` title with no mid-word wrap. The notices asset includes
+the full HydraFit MIT text. These source-closed A-01/A-02/A-07/A-08/P-01 changes are locally
+implemented; timer/rest, posture, F02/F03, signed/iOS/pixel limits remain.
+
+**Cross-device final evidence:** earlier manual/Library/F07 evidence used APK `68114168`/
+`25e28c95`; audit-fix navigation/routine/progress/licenses evidence used `c1fc98ea`. Phone manual
+**49/49** on `68114168` (earlier 46/46 superseded),
 dark/2.0 Library 68/68, keyboard white band visually gone; tablet navigation and Library 68/68 with
 rail labels full and manual retention 42 commands (final convenience Back scroll fix un-rerun);
 unfolded fold navigation/Library 68/68 and manual 49/49 including final Back. About mark normal/2.0
 passed on prior APK with unchanged geometry. Remaining: timer/rest runtime, synthetic set→history/
-summary UI writes, posture transitions and 6.7_Horizontal_Fold-in, F02 actual NavController root,
-F03 intermediate-width rendered boundary, signed-release/iOS runtime, pixel contrast. F07 Profile
-action-row Rename clip at phone 2.0 is pre-existing and outside path; About heading wraps mid-word
-at 2.0 while the mark is correct. Overall review incomplete.
+summary UI writes beyond the logged-and-deleted row, posture transitions and 6.7_Horizontal_Fold-in,
+F02 actual NavController root, F03 intermediate-width rendered boundary, signed-release/iOS runtime,
+pixel contrast. F07 action wrapping renders correctly; unrelated
+Equipment-hub/catalog clips remain observed. Local commits completed through the prior fix commit;
+the audited follow-up fixes are in the working tree pending parent commit, with no push/publication.
+Overall review incomplete.
 
-**Latest UI evidence:** the whole checked-in manual flow passed 46/46 after dismissing the IME
+**Latest UI evidence:** the whole checked-in manual flow passed the current 49/49 phone revision
+after dismissing the IME
 before opening the picker; all five Equipment pages plus Stations passed in dark/2.0; the final
 Library hub needed a settle plus a 30s bounded readiness wait. A keyboard-open capture showed a
 blank band from double-reserving the bottom bar and IME; App content now drops only the bottom
-inset while the IME is visible, keeping top/start/end and one IME padding. A pure padding-helper
-test covers hidden/visible-IME and RTL horizontal padding boundaries; rendered keyboard proof remains pending. Query
-replacement/selection/prefill retention passed externally (17 commands), but edited reps/Log
-success is only covered by the later 46/46 manual repository run, not a full current-candidate
-re-run of every surface. Dark/2.0 Library previously timed out at 5s Stations; later it passed the
-five pages/Stations with the final-hub timing fix. The Profile action-row clip remains a
-pre-existing `EquipmentProfilesUi.kt` issue awaiting a separate path amendment; the missing-inset
-claim is refuted.
+inset while the IME is visible, keeping top/start/end and one IME padding. Rendered keyboard proof
+was obtained on phone, tablet and unfolded fold; pure tests retain the hidden/visible-IME and RTL
+padding boundaries. Query replacement, selection and edited reps 5 are covered by the 49/49 manual
+flow, which never taps Log set. Logged-row behavior was exercised only by the separate synthetic
+write (the row was logged, then reconciled and deleted; its post-log assertion failed off-screen);
+a full current-candidate Log-success journey remains unverified. Dark/2.0 Library previously timed
+out at 5s Stations; later it passed the five pages/Stations with the final-hub timing fix. The Profile action-row clip is fixed and
+rendered at phone 2.0; unrelated Equipment-hub/catalog observations remain. The missing-inset claim
+is refuted.
 
 ### Adaptive compact navigation and canonical About mark (2026-11-05)
 

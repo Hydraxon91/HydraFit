@@ -60,7 +60,9 @@ rail from 600dp, while keeping a single navigation host. On the compact bottom b
 full labels are measured with the active typography/font resolver and density; fit is checked
 against each item's equal share after real inter-item spacing and the 48dp minimum, not a sum of
 labels. When they do not fit the shell uses two rows of two instead of shortening or hiding
-labels. The rail keeps its existing text-labelled controls. Train's
+labels. Reselecting the active tab returns its root; a leaf root such as `progress` is also a
+valid reselect target even when Body weight was pushed. The rail keeps its existing text-labelled
+controls. Train's
 `loggerUsesTwoPane` and Progress's `progressUsesTwoPane` both require at least
 840dp feature width and 480dp height, after shell chrome/insets. Train additionally
 requires an active workout already in its training stage: a wide window cannot
@@ -237,7 +239,9 @@ block and Cancel block stay visible. Saved routines are listed under their own h
 hide archived templates by default behind an `Archived` filter chip, and each row keeps
 Edit and the start action visible with Duplicate, prescription Export, Archive/Restore
 and Delete inside a `More actions` menu. `visibleRoutines(templates, showArchived)` is
-the pure filter, covered in `RoutinesPresentationTest`.
+the pure filter, covered in `RoutinesPresentationTest`. The `RoutinesViewModel` is
+scoped to the retained Library graph, so an unsaved editor draft survives a Library tab
+reselect/Back to the library list instead of being recreated with the list route.
 
 The routine editor keeps a slot's name, measure choice, sets, measure value, load and
 move controls visible, and discloses Progression, Per-set targets, Cluster and the

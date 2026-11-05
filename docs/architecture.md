@@ -34,16 +34,18 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   child page. Settings is a hub with category pages (Workout preferences, Notifications,
   Planner engine, Units, Backup & data, About); Back from a page returns to the hub. About
   opens Acknowledgments and then the offline Open-source licenses page. Library is a hub with
-  **Routines** and **Equipment** rows; Routines opens the routine list as a child page, and
-  Equipment opens its own hub with **Profile & loading**, **Inventory & stations**,
+  **Routines** and **Equipment** rows; Routines opens the routine list as a child page, and its
+  ViewModel is scoped to the retained Library graph so an unsaved editor draft survives Library tab
+  reselect/Back. Equipment opens its own hub with **Profile & loading**, **Inventory & stations**,
   **Exercise catalog**, **Exclusions** and **Baseline records**. Equipment is pushed over the
   requesting screen (Library or plan review) so Back returns there. The Train graph includes
   `log/home`, the dedicated `log/manual` form and its `log/manual/exercises` picker; the manual
-  form and picker share the graph-scoped Logger state and lifecycle owner so moving between
-  them does not cancel a foreground timer. A single lifecycle observer is installed by the shared
+  form and picker share the graph-scoped Logger state, so drafts and entered values survive
+  internal Logger navigation. A single lifecycle observer is installed by the shared
   graph-scoped Logger ViewModel on the retained Logger graph entry; child destinations only resolve
   that ViewModel, so internal navigation does not dispatch pause/resume, while a genuine graph pause
-  or background still follows the existing configuration-aware timer-cancellation policy. History stays inside the Logger graph because it
+  or background still follows the existing configuration-aware timer-cancellation policy. Timer/rest
+  runtime remains a separate acceptance limit. History stays inside the Logger graph because it
   shares the Logger ViewModel, so it selects Train. `core/navigation/NavTab.kt` maps a
   destination hierarchy to its tab; features keep their own routes, graphs and bindings.
   `AppTab` remains the per-feature identity used by external tab requests, onboarding handoffs
@@ -53,9 +55,10 @@ implementations and platform glue; `:core:exercisecontent` bundles app-owned cat
   one row of four, otherwise it uses two rows of two. Labels keep their wording and font scaling;
   no ellipsis, hiding or scale cap. Fit is checked against the actual equal per-item allocation after
   inter-item spacing and the 48dp minimum, not a sum of labels alone. Reselecting the current tab
-  returns its root; if a pushed group child has no existing tab root beneath it (for example
-  Equipment opened from plan review), reselection falls back to the tab's own start destination
-  without restoring the child just left. Both layouts call the same tab-navigation function and
+  returns its root; leaf tab roots (for example Progress at `progress` with pushed Body weight) use
+  that route as the root, and if a pushed group child has no existing tab root beneath it (for
+  example Equipment opened from plan review), reselection falls back to the tab's own start
+  destination without restoring the child just left. Both layouts call the same tab-navigation function and
   group mapping, with one `NavController` and one `NavHost` at a stable composition site. The taller
   bar remains the Scaffold's bottom bar, so content insets account for it. The shared content area
   is centered and capped at 1200dp.
