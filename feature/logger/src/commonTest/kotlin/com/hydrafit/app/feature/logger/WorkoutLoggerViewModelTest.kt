@@ -9825,6 +9825,122 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
+    fun completionSheetLogsConfirmedValuesForThatSetOnlyAtTheFrozenCompletion() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        var elapsedNow = 50_000L
+        val viewModel = occurrenceViewModel(
+            repository,
+            schedule,
+            guided = true,
+            elapsedNow = { elapsedNow }
+        )
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        elapsedNow = 50_750L
+        viewModel.beginGuidedSetCompletion(40L)
+        runCurrent()
+
+        // Marking the set complete only opens the sheet, prefilled with the target.
+        assertEquals(0, repository.all().size)
+        val sheet = assertNotNull(viewModel.state.value.draftEdit)
+        assertTrue(sheet.logsLiveSet)
+        assertEquals("8", sheet.reps)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.onDraftWeightChanged("95")
+        viewModel.onDraftRirChanged("1")
+
+        // Time spent in the sheet does not lengthen the measured set.
+        elapsedNow = 58_000L
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        val logged = repository.all().single()
+        assertEquals(6, logged.reps)
+        assertEquals(95.0, logged.weightKg)
+        assertEquals(1, logged.rir)
+        assertEquals(WorkoutTimingProvenance.LIVE, logged.timingProvenance)
+        assertEquals(50_000L, logged.startedAtElapsedMillis)
+        assertEquals(50_750L, logged.completedAtElapsedMillis)
+        assertNull(viewModel.state.value.draftEdit)
+        assertNull(viewModel.state.value.startedSetEntryId)
+        // The actual values never become the remaining set's target.
+        val remaining = viewModel.state.value.draftSets.first { it.occurrenceEntryId == 40L }
+        assertEquals(8, remaining.reps)
+        assertEquals(100.0, remaining.weightKg)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
+    fun cancellingTheCompletionSheetKeepsTheSetStartedAndTakesAFreshCompletionTime() =
+        runTimerTest {
+            val repository = FakeWorkoutLogRepository()
+            val schedule = MutableWorkoutScheduleRepository()
+            schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+            var elapsedNow = 50_000L
+            val viewModel = occurrenceViewModel(
+                repository,
+                schedule,
+                guided = true,
+                elapsedNow = { elapsedNow }
+            )
+            advanceUntilIdle()
+
+            viewModel.startGuidedSet(40L)
+            elapsedNow = 50_750L
+            viewModel.beginGuidedSetCompletion(40L)
+            viewModel.cancelDraftEdit()
+            runCurrent()
+
+            assertEquals(0, repository.all().size)
+            assertNull(viewModel.state.value.draftEdit)
+            assertEquals(40L, viewModel.state.value.startedSetEntryId)
+
+            elapsedNow = 52_000L
+            viewModel.beginGuidedSetCompletion(40L)
+            viewModel.confirmDraftEdit()
+            runCurrent()
+
+            val logged = repository.all().single()
+            assertEquals(50_000L, logged.startedAtElapsedMillis)
+            assertEquals(52_000L, logged.completedAtElapsedMillis)
+            viewModel.cancelRestTimer()
+        }
+
+    @Test
+    fun aFailedCompletionSheetWriteKeepsTheEntriesForARetryAndRepeatTapsWriteOnce() = runTimerTest {
+        val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.beginGuidedSetCompletion(40L)
+        viewModel.onDraftRepsChanged("7")
+        viewModel.confirmDraftEdit()
+        advanceUntilIdle()
+
+        assertEquals(0, repository.all().size)
+        assertTrue(viewModel.state.value.guidedSetWriteFailed)
+        val kept = assertNotNull(viewModel.state.value.draftEdit)
+        assertTrue(kept.logsLiveSet)
+        assertEquals("7", kept.reps)
+        assertEquals(40L, viewModel.state.value.startedSetEntryId)
+
+        // The submission guard is claimed synchronously, so a second tap cannot log twice.
+        viewModel.confirmDraftEdit()
+        viewModel.confirmDraftEdit()
+        runCurrent()
+
+        assertEquals(7, repository.all().single().reps)
+        assertNull(viewModel.state.value.draftEdit)
+        viewModel.cancelRestTimer()
+    }
+
+    @Test
     fun liveTimerUsesGlobalDefaultAndRemembersOrResetsExerciseOverride() = runTimerTest {
         val repository = FakeWorkoutLogRepository()
         val schedule = MutableWorkoutScheduleRepository()

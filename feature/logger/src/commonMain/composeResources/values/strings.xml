@@ -129,6 +129,8 @@
     <string name="logger_draft_edit">Edit draft</string>
     <string name="logger_draft_edit_apply">Apply edit</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
+    <string name="logger_live_set_title">Log %1$s</string>
+    <string name="logger_live_set_note">Enter what you actually did in this set. Only this set is logged with these values; your remaining targets stay as they are.</string>
     <string name="logger_draft_cluster_segments_title">Cluster segments</string>
     <string name="logger_cluster_log_open">Log or resume cluster: %1$s</string>
     <string name="logger_cluster_log_position">Segment %1$d of %2$d · %3$d saved</string>

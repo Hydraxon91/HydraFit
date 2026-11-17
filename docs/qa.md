@@ -1205,6 +1205,11 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   No fixture writes or Delete taps. Null-label visuals, quick-fill/edit/delete interactions,
   font/theme/locale variants and TalkBack traversal remain unverified; host regressions cover
   boundary/null/order/refresh logic and existing action/load/RIR behavior. B6 limits remain unchanged.
+- Guided **Start set** → **Set completed now** opens a "Log <exercise>" sheet prefilled with the target; **Log set**
+  records the entered values for that set only and leaves remaining targets unchanged, **Cancel** keeps the
+  set started. Covered by three Logger ViewModel tests (values and frozen completion time, cancel, failed
+  write plus repeat tap). **Not checked on a device:** the emulator's guided mode is off and starting a workout
+  writes a session, so the sheet's layout and the confirm path were not run.
 - Other permanent removals now ask first: accepted plan **Delete** (Manage plan → Plan history), **Cancel block**
   (Library → Routines), custom exercise **Delete**, custom equipment **Delete** and baseline record **Remove**
   (Library → Equipment). Cancel-path flows for the first three were run on `emulator-5554` 2026-11-17 with the

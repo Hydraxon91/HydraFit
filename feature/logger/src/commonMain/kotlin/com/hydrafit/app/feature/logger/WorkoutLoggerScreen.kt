@@ -234,6 +234,8 @@ import hydrafit.feature.logger.generated.resources.logger_history_set_duration_l
 import hydrafit.feature.logger.generated.resources.logger_history_set_force_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_instructions
+import hydrafit.feature.logger.generated.resources.logger_live_set_note
+import hydrafit.feature.logger.generated.resources.logger_live_set_title
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
 import hydrafit.feature.logger.generated.resources.logger_load_basis
@@ -725,7 +727,8 @@ fun WorkoutLoggerRoute(
         onSkipWorkout = viewModel::skipWorkout,
         onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
         onConfirmGuidedSet = viewModel::confirmGuidedSet,
-        onConfirmGuidedSetNow = viewModel::confirmGuidedSetNow,
+        // "Set completed now" asks for the performed values before anything is written.
+        onConfirmGuidedSetNow = viewModel::beginGuidedSetCompletion,
         onStartGuidedSet = viewModel::startGuidedSet,
         onEditGuidedSet = viewModel::editGuidedSet,
         onSkipSupersetTurn = viewModel::skipSupersetTurn,
@@ -2712,9 +2715,17 @@ fun WorkoutLoggerScreen(
                         else -> true
                     },
                 // A guided draft's editor only applies values to the pending set; logging is separate.
-                appliesOnly = state.isGuidedActive && edit.draft.occurrenceEntryId != null,
-                saving = state.guidedTargetsSaving,
-                failed = state.guidedTargetsFailed,
+                // The completion sheet is the exception: it logs the started set with these values.
+                appliesOnly = state.isGuidedActive &&
+                    edit.draft.occurrenceEntryId != null &&
+                    !edit.logsLiveSet,
+                saving = if (edit.logsLiveSet) {
+                    state.draftWriteInProgress
+                } else {
+                    state.guidedTargetsSaving
+                },
+                failed = state.guidedTargetsFailed && !edit.logsLiveSet,
+                liveSetFailed = state.guidedSetWriteFailed && edit.logsLiveSet,
                 clusterDraftError = state.clusterDraftError,
                 onRepsChanged = onDraftRepsChanged,
                 onDurationSecondsChanged = onDraftDurationSecondsChanged,
@@ -2814,6 +2825,7 @@ private fun DraftEditDialog(
     appliesOnly: Boolean,
     saving: Boolean,
     failed: Boolean,
+    liveSetFailed: Boolean,
     clusterDraftError: ClusterDraftError?,
     onRepsChanged: (String) -> Unit,
     onDurationSecondsChanged: (String) -> Unit,
@@ -2838,7 +2850,18 @@ private fun DraftEditDialog(
     val anchor = edit.performedAtMillis ?: nowMillis
     AlertDialog(
         onDismissRequest = { if (!saving) onCancel() },
-        title = { Text(stringResource(Res.string.logger_draft_edit_title, edit.draft.name)) },
+        title = {
+            Text(
+                stringResource(
+                    if (edit.logsLiveSet) {
+                        Res.string.logger_live_set_title
+                    } else {
+                        Res.string.logger_draft_edit_title
+                    },
+                    edit.draft.name
+                )
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -2847,9 +2870,18 @@ private fun DraftEditDialog(
                 if (appliesOnly) {
                     Text(stringResource(Res.string.logger_guided_edit_remaining_note))
                 }
+                if (edit.logsLiveSet) {
+                    Text(stringResource(Res.string.logger_live_set_note))
+                }
                 if (failed) {
                     Text(
                         stringResource(Res.string.logger_guided_edit_failed),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (liveSetFailed) {
+                    Text(
+                        stringResource(Res.string.logger_guided_set_failed),
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -2988,19 +3020,22 @@ private fun DraftEditDialog(
                         )
                     }
                 }
-                TextButton(onClick = {
-                    showDate = true
-                    timeError = false
-                }) {
-                    Text(stringResource(Res.string.logger_set_time))
+                // The completion sheet logs at the moment the set was marked complete.
+                if (!edit.logsLiveSet) {
+                    TextButton(onClick = {
+                        showDate = true
+                        timeError = false
+                    }) {
+                        Text(stringResource(Res.string.logger_set_time))
+                    }
+                    TextButton(onClick = {
+                        timeError = false
+                        onTimeChanged(null)
+                    }) {
+                        Text(stringResource(Res.string.logger_use_now))
+                    }
+                    if (timeError) Text(stringResource(Res.string.logger_future_time_error))
                 }
-                TextButton(onClick = {
-                    timeError = false
-                    onTimeChanged(null)
-                }) {
-                    Text(stringResource(Res.string.logger_use_now))
-                }
-                if (timeError) Text(stringResource(Res.string.logger_future_time_error))
             }
         },
         confirmButton = {
@@ -3010,10 +3045,10 @@ private fun DraftEditDialog(
             ) {
                 Text(
                     stringResource(
-                        if (appliesOnly) {
-                            Res.string.logger_draft_edit_apply
-                        } else {
-                            Res.string.logger_confirm
+                        when {
+                            edit.logsLiveSet -> Res.string.logger_set_timer_log_set
+                            appliesOnly -> Res.string.logger_draft_edit_apply
+                            else -> Res.string.logger_confirm
                         }
                     )
                 )
@@ -3021,8 +3056,10 @@ private fun DraftEditDialog(
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onReset, enabled = !saving) {
-                    Text(stringResource(Res.string.logger_draft_reset))
+                if (!edit.logsLiveSet) {
+                    TextButton(onClick = onReset, enabled = !saving) {
+                        Text(stringResource(Res.string.logger_draft_reset))
+                    }
                 }
                 TextButton(onClick = onCancel, enabled = !saving) {
                     Text(stringResource(Res.string.logger_cancel))

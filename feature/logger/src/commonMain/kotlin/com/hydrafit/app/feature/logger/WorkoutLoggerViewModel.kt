@@ -2016,6 +2016,8 @@ class WorkoutLoggerViewModel(
     }
 
     fun onDraftPerformedAtChanged(millis: Long?): Boolean {
+        // The completion sheet's time is the frozen completion moment; it offers no time controls.
+        if (_state.value.draftEdit?.logsLiveSet == true) return false
         if (millis != null && millis > runtime.nowMillis()) return false
         if (millis != null) clearLiveSetStart()
         resolvedBackdatedSessionId = null
@@ -2026,6 +2028,14 @@ class WorkoutLoggerViewModel(
 
     fun cancelDraftEdit() {
         if (draftSubmissionInProgress) return
+        if (_state.value.draftEdit?.logsLiveSet == true) {
+            // Backing out of the completion sheet keeps the set started; only the frozen completion
+            // moment is dropped, so the next "Set completed now" takes a fresh time.
+            liveSetCompletedAtElapsedMillis = null
+            liveSetCompletedAtWallMillis = null
+            _state.update { it.copy(draftEdit = null, guidedSetWriteFailed = false) }
+            return
+        }
         clearLiveSetStart()
         _state.update {
             it.copy(draftEdit = null, confirmingAllDrafts = false, clusterDraftError = null)
@@ -2034,6 +2044,9 @@ class WorkoutLoggerViewModel(
 
     fun resetDraftEdit() {
         val edit = _state.value.draftEdit ?: return
+        // The completion sheet records what was performed; resetting it to the prescription is
+        // not a staged target change, so it is not offered.
+        if (edit.logsLiveSet) return
         if (isGuidedActive && edit.draft.occurrenceEntryId != null) {
             val base = originalDraftFor(edit.draft)
             _state.update { current ->
@@ -2122,6 +2135,10 @@ class WorkoutLoggerViewModel(
     fun confirmDraftEdit() {
         val edit = _state.value.draftEdit ?: return
         if (!edit.enteredMetricIsPositive || !edit.deviceIsValid) return
+        if (edit.logsLiveSet) {
+            logLiveSetFromEdit(edit)
+            return
+        }
         val draft = edit.draft
         val entryId = draft.occurrenceEntryId
         if (isGuidedActive && entryId != null) {
@@ -4306,6 +4323,59 @@ class WorkoutLoggerViewModel(
     fun confirmGuidedSetNow(occurrenceEntryId: Long) {
         if (_state.value.startedSetEntryId != occurrenceEntryId) return
         confirmGuidedSet(occurrenceEntryId, liveCompletion = true)
+    }
+
+    /**
+     * Marks the started set complete and asks for what was actually performed before anything is
+     * written. The completion moment is frozen now, so time spent in the sheet never lengthens the
+     * measured set. A cluster or a draft that still needs a legacy-load decision keeps the direct
+     * completion through [confirmGuidedSetNow], which owns those flows.
+     */
+    fun beginGuidedSetCompletion(occurrenceEntryId: Long) {
+        if (_state.value.startedSetEntryId != occurrenceEntryId) return
+        if (draftSubmissionInProgress) return
+        val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
+            ?: return
+        if (draft.cluster != null ||
+            (retryFor(draft) == null && legacyResolutionFor(listOf(draft)) != null)
+        ) {
+            confirmGuidedSetNow(occurrenceEntryId)
+            return
+        }
+        cancelSetTimer()
+        if (guidedSetIntent?.entryId != occurrenceEntryId) {
+            guidedSetIntent = GuidedSetIntent(occurrenceEntryId, _state.value.isWarmup)
+        }
+        liveSetIntentEntryId = occurrenceEntryId
+        if (liveSetCompletedAtElapsedMillis == null) {
+            liveSetCompletedAtElapsedMillis = runtime.elapsedRealtimeMillis()
+            liveSetCompletedAtWallMillis = runtime.nowMillis()
+        }
+        _state.update { it.copy(guidedSetWriteFailed = false) }
+        editDraft(draft)
+        _state.update { it.copy(draftEdit = it.draftEdit?.copy(logsLiveSet = true)) }
+    }
+
+    /**
+     * Writes the started set with the values confirmed in the completion sheet, for that set only.
+     * If the start was lost meanwhile (for example a cancelled load prompt), the sheet just closes.
+     */
+    private fun logLiveSetFromEdit(edit: DraftEdit) {
+        val entryId = edit.draft.occurrenceEntryId ?: return
+        if (draftSubmissionInProgress) return
+        if (_state.value.startedSetEntryId != entryId) {
+            _state.update { it.copy(draftEdit = null) }
+            return
+        }
+        val resolved = editedDraft(edit)
+        if (resolved.forceNewtons == null &&
+            resolved.loadKind == LoadKind.EXTERNAL &&
+            resolved.weightKg == null
+        ) {
+            setMissingLoadPrompt(edit.draft)
+            return
+        }
+        launchGuidedWrite(resolved, edit, liveCompletion = true)
     }
 
     /**

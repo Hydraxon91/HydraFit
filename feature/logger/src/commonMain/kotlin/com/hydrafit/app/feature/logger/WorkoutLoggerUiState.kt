@@ -432,6 +432,12 @@ data class DraftEdit(
     /** True when Reset staged original guided prescription values for the next Apply. */
     val resetGuidedTargets: Boolean = false,
     /**
+     * True when the editor confirms the actual values of a started guided set that was just marked
+     * complete. Its values are written for that one set only and never applied to remaining targets;
+     * the performed time is the frozen completion moment, so the time controls are not offered.
+     */
+    val logsLiveSet: Boolean = false,
+    /**
      * The number format frozen when the editor opened, so a locale change mid-edit cannot reinterpret
      * text the user already typed.
      */
