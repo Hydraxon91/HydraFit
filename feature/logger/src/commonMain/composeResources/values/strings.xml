@@ -54,7 +54,6 @@
     <string name="logger_delete_set_title">Delete this set?</string>
     <string name="logger_delete_set_message">This %1$s set will be permanently removed from your history. This can’t be undone.</string>
     <string name="logger_delete_set_confirm">Delete set</string>
-    <string name="logger_edit_time">Edit time</string>
     <string name="logger_edit_set">Edit set</string>
     <string name="logger_edit_set_title">Edit set: %1$s</string>
     <string name="logger_save_set">Save changes</string>
@@ -111,8 +110,6 @@
     <string name="logger_workout_overview_target_force">%1$d × %2$s</string>
     <string name="logger_workout_overview_target_sets">%1$d sets</string>
     <string name="logger_workout_actions">Workout actions</string>
-    <string name="logger_other_training_show">Other training</string>
-    <string name="logger_other_training_hide">Hide other training</string>
     <string name="logger_plan_open">Manage plan</string>
     <string name="logger_finish">Finish</string>
     <string name="logger_finish_partial">Finish partially</string>
@@ -426,7 +423,6 @@
     <string name="logger_loading_calculator_missing_lower">This inventory has no reachable load below the target.</string>
     <string name="logger_loading_calculator_missing_upper">This inventory has no reachable load above the target.</string>
     <string name="logger_loading_calculator_read_only_note">This helper only calculates. It never changes your logged sets or the prescription.</string>
-    <string name="logger_station_label">Station</string>
     <string name="logger_station_none">No station</string>
     <string name="logger_station_choose">Choose station</string>
     <string name="logger_station_attributed">Station: %1$s</string>
