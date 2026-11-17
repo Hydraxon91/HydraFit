@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -1028,6 +1029,11 @@ fun WorkoutLoggerScreen(
         val prescribed = timer.draft.durationSeconds ?: timer.measuredSeconds
         AlertDialog(
             onDismissRequest = onCancelSetTimer,
+            // A measured set is only discarded by its explicit button, never by a stray tap or back.
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            ),
             title = { Text(stringResource(Res.string.logger_set_timer_confirm_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -2453,8 +2459,7 @@ fun WorkoutLoggerScreen(
                         if (groups.last.isNotEmpty()) {
                             item {
                                 TextButton(
-                                    onClick = { lastSessionExpanded = !lastSessionExpanded },
-                                    modifier = Modifier.semantics { heading() }
+                                    onClick = { lastSessionExpanded = !lastSessionExpanded }
                                 ) {
                                     Text(
                                         stringResource(
@@ -2879,6 +2884,8 @@ private fun DraftEditDialog(
     val anchor = edit.performedAtMillis ?: nowMillis
     AlertDialog(
         onDismissRequest = { if (!saving) onCancel() },
+        // A tap outside must not throw away typed values; Cancel and back stay explicit.
+        properties = DialogProperties(dismissOnClickOutside = false),
         title = {
             Text(
                 stringResource(
