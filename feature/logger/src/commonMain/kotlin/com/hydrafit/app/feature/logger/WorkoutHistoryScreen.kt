@@ -27,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -114,6 +116,9 @@ fun WorkoutHistoryScreen(
     var pickingDayFrom by remember { mutableStateOf(false) }
     var pickingDayTo by remember { mutableStateOf(false) }
     val openEntryLabel = stringResource(Res.string.logger_history_open_entry)
+    val dayStarts = remember(state.entries, state.utcOffsetMillis) {
+        historyDayStartKeys(state.entries, state.utcOffsetMillis)
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -208,12 +213,23 @@ fun WorkoutHistoryScreen(
             }
 
             else -> items(items = state.entries, key = { it.historyRowKey() }) { entry ->
-                WorkoutHistoryRow(
-                    entry = entry,
-                    utcOffsetMillis = state.utcOffsetMillis,
-                    openLabel = openEntryLabel,
-                    onClick = { onEntrySelected(entry) }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (entry.historyRowKey() in dayStarts) {
+                        Text(
+                            text = localDateLabel(
+                                localDateTimeParts(entry.timestampMillis, state.utcOffsetMillis)
+                            ),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                    }
+                    WorkoutHistoryRow(
+                        entry = entry,
+                        utcOffsetMillis = state.utcOffsetMillis,
+                        openLabel = openEntryLabel,
+                        onClick = { onEntrySelected(entry) }
+                    )
+                }
             }
         }
         if (state.hasMore || state.loadMoreFailed) {

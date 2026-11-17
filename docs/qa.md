@@ -5538,3 +5538,15 @@ ViewModel tests for refresh on session change and a failed read.
 
 Not verified: the demo button opening YouTube, the launcher shortcut on a device, and the rendered
 weekly card. A started session with no logged sets still counts as a session.
+
+## Post-0.15.0 cleanup (unreleased, 2026-11-17)
+
+Workout history now shows one date heading above each local day's entries (`historyDayStartKeys`; a
+later page that continues a day does not repeat its heading). The logger's set-timer confirmation can
+no longer be dismissed by a tap outside or back (only its explicit Discard or Log set buttons act),
+the draft-edit dialog ignores taps outside so typed values are not lost, and the "last session"
+toggle is a plain button instead of a heading. `FilterExercisesByEquipmentUseCase`, used only by its
+own test, was removed.
+
+Automated: day-heading grouping tests (newest first, local offset, paging, empty). Not verified: the
+rendered headings and the dialog dismissal behavior on a device.
