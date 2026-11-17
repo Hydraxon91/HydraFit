@@ -371,6 +371,9 @@ than disguising an old fixture as the latest schema.
 `20.sqm` demonstrates a table rebuild for column removal: Android minSdk 24
 predates SQLite 3.35's `DROP COLUMN` support.
 
+`selectSessionsFromLocalDay` (0.15.0, queries only) backs `WorkoutSessionRepository.sessionsFromLocalDay` for
+the Train weekly card; the session table is small, so it has no index of its own.
+
 Migration `66.sqm` (schema 66→67) adds two `workoutSet` indexes, `workoutSet_performedAt` and
 `workoutSet_occurrenceEntryId`, for the Logger's bounded reads (`selectLatestSessionIdExcluding`,
 `selectExerciseIdsBetween`, `selectSetsForOccurrenceOrEntries`). It changes no rows, so backup format

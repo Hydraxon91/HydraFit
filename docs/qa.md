@@ -5516,3 +5516,23 @@ leaves none) and the progress module verification.
 Not verified: the rendered section on a device. A read-only aggregate of the phone database copy
 found no recent chin-up or pull-up sets and no logged body weight, so there was no real pair to
 compare.
+
+## 0.15.0 — demo link, Train shortcut and weekly summary (2026-11-17)
+
+Scope: `ExerciseDemoLink.searchUrl` (UTF-8 percent-encoded YouTube search for the name plus "proper
+form") and a **Watch a demo on YouTube** button in the shared `ExerciseInstructionDialog`, opened with
+the platform URI handler only on tap; `res/xml/shortcuts.xml` declares a static **Train** launcher
+shortcut that sends the notification tab request for `AppTab.LOG` and never starts a session;
+`ObserveWeeklyTrainingSummaryUseCase` counts sessions per Monday-to-Sunday week for four weeks
+(`sessionsFromLocalDay`, queries only, no migration) and the Train home shows a `WeeklySummaryCard`
+with sessions this week, the latest plan's days per week, a deload label and four quiet bars. There is
+no streak, target or warning state by design.
+
+Automated: link encoding tests (spaces, reserved characters, UTF-8, unreserved characters, blank
+names), `LauncherShortcutTest` tying the XML to the extra name, tab, target class and manifest hook,
+week-boundary and aggregation tests (Monday anchor, Sunday, window edges, duplicates, future days),
+use-case tests (planned days, deload), a database equivalence test for `sessionsFromLocalDay`, and
+ViewModel tests for refresh on session change and a failed read.
+
+Not verified: the demo button opening YouTube, the launcher shortcut on a device, and the rendered
+weekly card. A started session with no logged sets still counts as a session.
