@@ -59,6 +59,7 @@ REQUIRED_KEYS = {
     "skills": ("name", "description"),
 }
 VALID_EFFECTS = ("allow", "deny", "ask")
+SKILL_NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 # Required structure of the coder workflow section in .opencode/agents/coder.md.
 CODER_WORKFLOW_HEADING = "### Coder workflow"
@@ -163,6 +164,13 @@ def definition_findings(path: pathlib.Path, kind: str) -> list[str]:
             findings.append(f"{path}: missing required key '{key}'")
         elif not scalars[key]:
             findings.append(f"{path}: required key '{key}' is empty")
+    if kind == "skills" and scalars.get("name"):
+        # OpenCode and Claude Code both expect a lowercase-hyphen name equal to the folder name.
+        if not SKILL_NAME_RE.fullmatch(scalars["name"]) or scalars["name"] != path.parent.name:
+            findings.append(
+                f"{path}: skill name {scalars['name']!r} must be lowercase-hyphen and match "
+                f"its folder {path.parent.name!r}"
+            )
     if kind == "agents":
         for index, rule in enumerate(permission_rules(frontmatter), start=1):
             missing = [key for key in ("action", "resource", "effect") if key not in rule]

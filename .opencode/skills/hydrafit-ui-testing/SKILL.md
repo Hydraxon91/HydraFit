@@ -1,5 +1,5 @@
 ---
-name: HydraFit UI testing
+name: hydrafit-ui-testing
 description: Use before any HydraFit emulator inspection, UI interaction, Maestro flow authoring or debugging, or visual verification. Defines bounded semantic testing and safe failure recovery.
 ---
 

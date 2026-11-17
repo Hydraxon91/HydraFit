@@ -161,6 +161,16 @@ class DefinitionTests(unittest.TestCase):
             self.assertIn("missing required key 'description'", vt.definition_findings(command, "commands")[0])
             self.assertIn("missing required key 'description'", vt.definition_findings(skill, "skills")[0])
 
+    def test_skill_name_must_be_lowercase_hyphen_and_match_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            good = write(root, ".opencode/skills/demo-skill/SKILL.md", "---\nname: demo-skill\ndescription: d\n---\n")
+            spaced = write(root, ".opencode/skills/demo/SKILL.md", "---\nname: Demo skill\ndescription: d\n---\n")
+            mismatch = write(root, ".opencode/skills/other/SKILL.md", "---\nname: demo\ndescription: d\n---\n")
+            self.assertEqual([], vt.definition_findings(good, "skills"))
+            self.assertIn("must be lowercase-hyphen", vt.definition_findings(spaced, "skills")[0])
+            self.assertIn("match its folder", vt.definition_findings(mismatch, "skills")[0])
+
 
 class ReferenceTests(unittest.TestCase):
     def _root_with_agents_md(self, body: str) -> tuple[pathlib.Path, pathlib.Path]:
