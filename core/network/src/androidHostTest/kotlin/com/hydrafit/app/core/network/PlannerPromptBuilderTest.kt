@@ -131,7 +131,7 @@ class PlannerPromptBuilderTest {
         )
         assertTrue(on.text.contains("Estimated one-rep maximums"), on.text)
         assertTrue(on.text.contains("bench-press: 90.0kg"), on.text)
-        assertTrue(on.text.contains("do not copy them into"), on.text)
+        assertTrue(on.text.contains("not working weights"), on.text)
         assertEquals(1, Regex("Estimated one-rep maximums").findAll(on.text).count())
     }
 
