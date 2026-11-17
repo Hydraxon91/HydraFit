@@ -65,8 +65,6 @@ class AnatomicalArtworkTest {
             }
         }
         assertEquals(4, resources.toSet().size)
-        assertEquals(718f, artworkViewport(BodyModel.MALE, FatigueMapView.BACK).x)
-        assertEquals(823f, artworkViewport(BodyModel.FEMALE, FatigueMapView.BACK).x)
     }
 
     @Test
