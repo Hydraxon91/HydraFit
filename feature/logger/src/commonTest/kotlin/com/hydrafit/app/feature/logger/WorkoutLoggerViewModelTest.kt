@@ -9824,6 +9824,63 @@ class WorkoutLoggerViewModelTest {
         viewModel.cancelRestTimer()
     }
 
+    private fun recentRow(id: Long, sessionId: String?) = LoggedSetRow(
+        id = id,
+        performedAtMillis = 1_000L * id,
+        exerciseId = "squat",
+        exerciseName = "Squat",
+        reps = 5,
+        weightKg = 100.0,
+        isWarmup = false,
+        sessionId = sessionId
+    )
+
+    @Test
+    fun recentSetsGroupTheOpenSessionAndOnlyTheMostRecentOtherSession() {
+        // Newest first, as the Logger publishes them.
+        val rows = listOf(
+            recentRow(9, "now"),
+            recentRow(8, "now"),
+            recentRow(7, "yesterday"),
+            recentRow(6, "yesterday"),
+            recentRow(5, null),
+            recentRow(4, "older"),
+            recentRow(3, "older")
+        )
+
+        val groups = groupRecentSets(rows, activeSessionId = "now")
+
+        assertEquals(listOf(9L, 8L), groups.current.map { it.id })
+        assertEquals(listOf(7L, 6L), groups.last.map { it.id })
+    }
+
+    @Test
+    fun withoutAnOpenSessionTheLatestSessionIsTheCollapsedLastOne() {
+        val rows = listOf(
+            recentRow(9, "yesterday"),
+            recentRow(8, "yesterday"),
+            recentRow(7, "older")
+        )
+
+        val groups = groupRecentSets(rows, activeSessionId = null)
+
+        assertTrue(groups.current.isEmpty())
+        assertEquals(listOf(9L, 8L), groups.last.map { it.id })
+    }
+
+    @Test
+    fun setsWithoutARecordedSessionAndASingleSessionNeverFormALastGroup() {
+        val only = listOf(recentRow(3, "now"), recentRow(2, "now"), recentRow(1, null))
+        val groups = groupRecentSets(only, activeSessionId = "now")
+        assertEquals(listOf(3L, 2L), groups.current.map { it.id })
+        assertTrue(groups.last.isEmpty())
+
+        val legacy = listOf(recentRow(2, null), recentRow(1, null))
+        val none = groupRecentSets(legacy, activeSessionId = null)
+        assertTrue(none.current.isEmpty())
+        assertTrue(none.last.isEmpty())
+    }
+
     @Test
     fun completionSheetLogsConfirmedValuesForThatSetOnlyAtTheFrozenCompletion() = runTimerTest {
         val repository = FakeWorkoutLogRepository()

@@ -612,6 +612,13 @@ the UI shows "Recorded session" at each boundary, including a returning identity
 Each null-session row instead has its own "Session not recorded" subtitle. No date/gap inference,
 ordinal identity or duration is introduced. Boundaries are derived anew after correction/deletion.
 
+Train's **Recent sets** are no longer the whole log: `groupRecentSets` (UiState file) splits the published
+`recentSets` into the open session's rows and the single most recent other session, shown as a folded
+**Show last session (date) · Sets: N** row (`lastSessionExpanded`, `rememberSaveable`), plus **See all in
+workout history**. Sets without a recorded session belong to neither group and appear only in Workout
+history. `recentSets` itself is unchanged and still comes from a full-log read in `refreshRecentSets`, which
+remains an unbounded read to fix separately (it needs a bounded repository query and its test fakes).
+
 **Delete** on a recent set only opens a confirmation (`pendingDeleteSetId`, a `rememberSaveable` row id in
 `WorkoutLoggerScreen`); the dialog names the exercise, states the removal is permanent, and only
 **Delete set** calls `deleteSet`. Cancel/dismiss writes nothing, and a stale id shows no dialog. There is

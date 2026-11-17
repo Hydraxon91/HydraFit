@@ -38,6 +38,10 @@
     <string name="focus_lower">Lower</string>
     <string name="focus_full_body">Full body</string>
     <string name="logger_recent">Recent sets</string>
+    <string name="logger_recent_none_this_session">No sets recorded in this session yet.</string>
+    <string name="logger_recent_see_all">See all in workout history</string>
+    <string name="logger_last_session_show">Show last session (%1$s) · Sets: %2$d</string>
+    <string name="logger_last_session_hide">Hide last session (%1$s)</string>
     <string name="logger_planned_today">Planned today</string>
     <string name="logger_confirm">Confirm</string>
     <string name="logger_set_week_day">Week %1$d · Day %2$d</string>
@@ -84,7 +88,6 @@
     <string name="logger_replace_target_timed">%1$s · %2$d sets × %3$d s · %4$s</string>
     <string name="logger_replace_target_distance">%1$s · %2$d sets × %3$s · %4$s</string>
     <string name="logger_replace_target_force">%1$s · %2$d sets × %3$s N</string>
-    <string name="logger_session_not_recorded">Session not recorded</string>
     <string name="logger_end_session">End session</string>
     <string name="logger_new_session">New session</string>
     <string name="logger_time_live">Logging now</string>

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -84,6 +83,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
@@ -234,6 +234,8 @@ import hydrafit.feature.logger.generated.resources.logger_history_set_duration_l
 import hydrafit.feature.logger.generated.resources.logger_history_set_force_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_instructions
+import hydrafit.feature.logger.generated.resources.logger_last_session_hide
+import hydrafit.feature.logger.generated.resources.logger_last_session_show
 import hydrafit.feature.logger.generated.resources.logger_live_set_note
 import hydrafit.feature.logger.generated.resources.logger_live_set_title
 import hydrafit.feature.logger.generated.resources.logger_load_added
@@ -279,6 +281,8 @@ import hydrafit.feature.logger.generated.resources.logger_progression_suggested
 import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered
 import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered_load
 import hydrafit.feature.logger.generated.resources.logger_recent
+import hydrafit.feature.logger.generated.resources.logger_recent_none_this_session
+import hydrafit.feature.logger.generated.resources.logger_recent_see_all
 import hydrafit.feature.logger.generated.resources.logger_replace
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
@@ -294,7 +298,6 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_seconds_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
-import hydrafit.feature.logger.generated.resources.logger_session_not_recorded
 import hydrafit.feature.logger.generated.resources.logger_session_note_failed
 import hydrafit.feature.logger.generated.resources.logger_session_note_label
 import hydrafit.feature.logger.generated.resources.logger_session_note_load_failed
@@ -302,7 +305,6 @@ import hydrafit.feature.logger.generated.resources.logger_session_note_loading
 import hydrafit.feature.logger.generated.resources.logger_session_note_none
 import hydrafit.feature.logger.generated.resources.logger_session_note_open
 import hydrafit.feature.logger.generated.resources.logger_session_note_saved
-import hydrafit.feature.logger.generated.resources.logger_session_recorded
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_timer_cancel
 import hydrafit.feature.logger.generated.resources.logger_set_timer_confirm_measured
@@ -1008,6 +1010,8 @@ fun WorkoutLoggerScreen(
     // Deleting recorded work is permanent, so a tap only asks; the row is looked up again when the
     // dialog shows, which closes it if the set is already gone (for example after a recreation).
     var pendingDeleteSetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // The previous session's sets stay folded until asked for, so Train stays short.
+    var lastSessionExpanded by rememberSaveable { mutableStateOf(false) }
     val trainingScrollState = rememberLazyListState()
     val overviewScrollState = rememberLazyListState()
     val measureChangeLabel = stringResource(Res.string.logger_measure_change_action)
@@ -2349,19 +2353,9 @@ fun WorkoutLoggerScreen(
                         }
                     }
                     if (presentation == LoggerPresentation.HOME) {
-                        itemsIndexed(
-                            state.recentSets
-                        ) { index, row ->
+                        val groups = groupRecentSets(state.recentSets, state.activeSession?.id)
+                        val recentRow: @Composable (LoggedSetRow) -> Unit = { row ->
                             Column {
-                                if (row.startsSessionAfter(state.recentSets.getOrNull(index - 1))) {
-                                    Text(
-                                        text = stringResource(Res.string.logger_session_recorded),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.padding(bottom = 8.dp).semantics {
-                                            heading()
-                                        }
-                                    )
-                                }
                                 val unit = state.weightUnit
                                 val weight = loadWeightText(row.loadKind, row.weightKg, unit)
                                 val warmupSuffix = if (row.isWarmup) {
@@ -2442,14 +2436,48 @@ fun WorkoutLoggerScreen(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                if (row.sessionId == null) {
+                            }
+                        }
+                        if (groups.current.isEmpty()) {
+                            item {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_recent_none_this_session
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                        items(groups.current, key = { it.id }) { row -> recentRow(row) }
+                        if (groups.last.isNotEmpty()) {
+                            item {
+                                TextButton(
+                                    onClick = { lastSessionExpanded = !lastSessionExpanded },
+                                    modifier = Modifier.semantics { heading() }
+                                ) {
                                     Text(
-                                        text = stringResource(
-                                            Res.string.logger_session_not_recorded
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall
+                                        stringResource(
+                                            if (lastSessionExpanded) {
+                                                Res.string.logger_last_session_hide
+                                            } else {
+                                                Res.string.logger_last_session_show
+                                            },
+                                            isoLocalDateTime(
+                                                groups.last.first().performedAtMillis,
+                                                state.utcOffsetMillis
+                                            ).substringBefore(' '),
+                                            groups.last.size
+                                        )
                                     )
                                 }
+                            }
+                            if (lastSessionExpanded) {
+                                items(groups.last, key = { it.id }) { row -> recentRow(row) }
+                            }
+                        }
+                        item {
+                            TextButton(onClick = onOpenHistory) {
+                                Text(stringResource(Res.string.logger_recent_see_all))
                             }
                         }
                     }

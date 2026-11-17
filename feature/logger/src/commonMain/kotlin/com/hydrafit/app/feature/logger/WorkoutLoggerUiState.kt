@@ -92,6 +92,32 @@ data class LoggedSetRow(
     val cluster: WorkoutClusterSummary? = null
 )
 
+/**
+ * What Train's recent sets show: the open session's sets, and apart from them the single most
+ * recent other session. Everything older lives in Workout history. Sets without a recorded session
+ * belong to no group, so they appear only there.
+ */
+internal data class RecentSetGroups(val current: List<LoggedSetRow>, val last: List<LoggedSetRow>)
+
+/** [rows] must already be newest first, as the Logger publishes them. */
+internal fun groupRecentSets(rows: List<LoggedSetRow>, activeSessionId: String?): RecentSetGroups {
+    val current = if (activeSessionId == null) {
+        emptyList()
+    } else {
+        rows.filter { it.sessionId == activeSessionId }
+    }
+    val lastSessionId = rows.firstOrNull { it.sessionId != null && it.sessionId != activeSessionId }
+        ?.sessionId
+    val last = if (lastSessionId ==
+        null
+    ) {
+        emptyList()
+    } else {
+        rows.filter { it.sessionId == lastSessionId }
+    }
+    return RecentSetGroups(current = current, last = last)
+}
+
 /** Null identity is unrecorded, never a shared session boundary. */
 internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
     sessionId != null && (previous == null || sessionId != previous.sessionId)

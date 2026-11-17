@@ -1205,6 +1205,11 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   No fixture writes or Delete taps. Null-label visuals, quick-fill/edit/delete interactions,
   font/theme/locale variants and TalkBack traversal remain unverified; host regressions cover
   boundary/null/order/refresh logic and existing action/load/RIR behavior. B6 limits remain unchanged.
+- Train → Recent sets shows the open session's sets (or "No sets recorded in this session yet."), a folded
+  **Show last session (date) · Sets: N** row that expands to that session's rows with Edit/Delete, and **See all
+  in workout history**; older and unrecorded-session sets are in Workout history only. Checked on
+  `emulator-5554` 2026-11-17 with no open session (collapse/expand, no writes, 31 sets before and after); the
+  open-session group is covered by the grouping tests, not seen on a device.
 - Guided **Start set** → **Set completed now** opens a "Log <exercise>" sheet prefilled with the target; **Log set**
   records the entered values for that set only and leaves remaining targets unchanged, **Cancel** keeps the
   set started. Covered by three Logger ViewModel tests (values and frozen completion time, cancel, failed
