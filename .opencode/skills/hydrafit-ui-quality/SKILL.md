@@ -21,7 +21,8 @@ additional features, broad audits, or changes outside the approved slice.
 ## Design system (Quiet Strength, 0.13.4)
 
 - The approved colour roles, typography, spacing, shape, component hierarchy and
-  reference boards are in `docs/design-0.13.4.md` (boards under `design/0.13.4/`).
+  reference boards are described in `docs/design-0.13.4.md` (the board image files it names are not
+  stored in this repository, so rely on the written tokens and rules).
   PLANS.md holds the full 0.13.4 contract. Read the sections for the screen you touch.
 - Take colour, type and spacing from the existing theme and tokens
   (`shared/src/commonMain/kotlin/com/hydrafit/app/AppTheme.kt`), never ad-hoc values.

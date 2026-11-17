@@ -1138,7 +1138,7 @@ private fun EquipmentEditorDialog(
     if (confirmDelete) {
         ConfirmRemovalDialog(
             title = stringResource(Res.string.equipment_delete_tag_title),
-            message = stringResource(Res.string.equipment_delete_tag_message, state.name),
+            message = stringResource(Res.string.equipment_delete_tag_message),
             confirmLabel = stringResource(Res.string.equipment_delete_tag_confirm),
             onConfirm = {
                 confirmDelete = false
@@ -1225,7 +1225,7 @@ private fun ExerciseEditorDialog(
     if (confirmDelete) {
         ConfirmRemovalDialog(
             title = stringResource(Res.string.equipment_delete_exercise_title),
-            message = stringResource(Res.string.equipment_delete_exercise_message, state.name),
+            message = stringResource(Res.string.equipment_delete_exercise_message),
             confirmLabel = stringResource(Res.string.equipment_delete_exercise_confirm),
             onConfirm = {
                 confirmDelete = false

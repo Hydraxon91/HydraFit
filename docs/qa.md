@@ -1209,6 +1209,9 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   "already logged today" filter or workout progress; each uses a bounded query that the database tests prove
   equal to the in-memory rule. Re-checked on `emulator-5554` 2026-11-17 (view only, 31 sets before and after).
   Not timed: no benchmark was run, so the gain is structural, not measured.
+- **Known limit (accepted):** a set with no recorded session (very old or restored data) is not listed on
+  Train, so it can be edited from Workout history but not deleted anywhere. Normal logging always records a
+  session; a 2026-11-17 copy of the author's phone database held none.
 - Train → Recent sets shows the open session's sets (or "No sets recorded in this session yet."), a folded
   **Show last session (date) · Sets: N** row that expands to that session's rows with Edit/Delete, and **See all
   in workout history**; older and unrecorded-session sets are in Workout history only. Checked on
