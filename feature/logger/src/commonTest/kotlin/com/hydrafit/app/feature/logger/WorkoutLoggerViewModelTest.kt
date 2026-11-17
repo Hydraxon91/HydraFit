@@ -9992,6 +9992,66 @@ class WorkoutLoggerViewModelTest {
         }
 
     @Test
+    fun cancellingTheMissingWeightPromptClosesTheCompletionSheetWithTheLostStart() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.beginGuidedSetCompletion(40L)
+        viewModel.onDraftWeightChanged("")
+        viewModel.confirmDraftEdit()
+        runCurrent()
+        assertNotNull(viewModel.state.value.missingLoadPrompt)
+
+        viewModel.cancelMissingLoadPrompt()
+        runCurrent()
+
+        // The start is gone, so a sheet left open could only discard what was typed.
+        assertNull(viewModel.state.value.draftEdit)
+        assertNull(viewModel.state.value.startedSetEntryId)
+        assertEquals(0, repository.all().size)
+    }
+
+    @Test
+    fun endingTheSessionClosesTheCompletionSheet() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.beginGuidedSetCompletion(40L)
+        assertNotNull(viewModel.state.value.draftEdit)
+
+        viewModel.endSession()
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.draftEdit)
+        assertNull(viewModel.state.value.startedSetEntryId)
+        assertEquals(0, repository.all().size)
+    }
+
+    @Test
+    fun aRepeatedCompletionDispatchKeepsWhatWasTypedInTheSheet() = runTimerTest {
+        val repository = FakeWorkoutLogRepository()
+        val schedule = MutableWorkoutScheduleRepository()
+        schedule.set(blockActivation(), twoOccurrences(), selectedOccurrenceId = 30L)
+        val viewModel = occurrenceViewModel(repository, schedule, guided = true)
+        advanceUntilIdle()
+
+        viewModel.startGuidedSet(40L)
+        viewModel.beginGuidedSetCompletion(40L)
+        viewModel.onDraftRepsChanged("6")
+        viewModel.beginGuidedSetCompletion(40L)
+
+        assertEquals("6", assertNotNull(viewModel.state.value.draftEdit).reps)
+    }
+
+    @Test
     fun aFailedCompletionSheetWriteKeepsTheEntriesForARetryAndRepeatTapsWriteOnce() = runTimerTest {
         val repository = FakeWorkoutLogRepository(failOnAddAttempt = 1)
         val schedule = MutableWorkoutScheduleRepository()

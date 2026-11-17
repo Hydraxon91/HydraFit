@@ -554,7 +554,14 @@ class WorkoutLoggerViewModel(
         liveSetStartedAtElapsedMillis = null
         liveSetCompletedAtElapsedMillis = null
         liveSetCompletedAtWallMillis = null
-        _state.update { it.copy(startedSetEntryId = null) }
+        // The completion sheet belongs to the start being cleared; leaving it open would show a
+        // sheet whose Log set can no longer write.
+        _state.update {
+            it.copy(
+                startedSetEntryId = null,
+                draftEdit = it.draftEdit?.takeUnless { edit -> edit.logsLiveSet }
+            )
+        }
     }
 
     fun onExerciseSelected(exerciseId: String) {
@@ -4320,6 +4327,8 @@ class WorkoutLoggerViewModel(
     fun beginGuidedSetCompletion(occurrenceEntryId: Long) {
         if (_state.value.startedSetEntryId != occurrenceEntryId) return
         if (draftSubmissionInProgress) return
+        // An open sheet keeps what was typed; a repeat dispatch must not re-seed it from the target.
+        if (_state.value.draftEdit?.logsLiveSet == true) return
         val draft = _state.value.draftSets.firstOrNull { it.occurrenceEntryId == occurrenceEntryId }
             ?: return
         if (draft.cluster != null ||
