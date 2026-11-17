@@ -67,7 +67,13 @@ import hydrafit.feature.equipment.generated.resources.equipment_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_cancel
 import hydrafit.feature.equipment.generated.resources.equipment_custom_section
 import hydrafit.feature.equipment.generated.resources.equipment_delete
+import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_message
+import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_title
 import hydrafit.feature.equipment.generated.resources.equipment_delete_personal_record_blocked
+import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_message
+import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_title
 import hydrafit.feature.equipment.generated.resources.equipment_edit
 import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
@@ -117,6 +123,9 @@ import hydrafit.feature.equipment.generated.resources.equipment_profile_failed
 import hydrafit.feature.equipment.generated.resources.equipment_profile_finding
 import hydrafit.feature.equipment.generated.resources.equipment_profile_unknown
 import hydrafit.feature.equipment.generated.resources.equipment_remove
+import hydrafit.feature.equipment.generated.resources.equipment_remove_record_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_remove_record_message
+import hydrafit.feature.equipment.generated.resources.equipment_remove_record_title
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
 import hydrafit.feature.equipment.generated.resources.equipment_station_add
@@ -555,6 +564,22 @@ fun EquipmentProfilerScreen(
                         Text(stringResource(Res.string.equipment_add_button))
                     }
                 }
+                var pendingClearRecord by remember { mutableStateOf<PersonalRecordRow?>(null) }
+                pendingClearRecord?.let { record ->
+                    ConfirmRemovalDialog(
+                        title = stringResource(Res.string.equipment_remove_record_title),
+                        message = stringResource(
+                            Res.string.equipment_remove_record_message,
+                            record.exerciseName
+                        ),
+                        confirmLabel = stringResource(Res.string.equipment_remove_record_confirm),
+                        onConfirm = {
+                            pendingClearRecord = null
+                            onClearPersonalRecord(record.exerciseId)
+                        },
+                        onDismiss = { pendingClearRecord = null }
+                    )
+                }
                 state.personalRecords.forEach { record ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -573,7 +598,7 @@ fun EquipmentProfilerScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
+                        TextButton(onClick = { pendingClearRecord = record }) {
                             Text(stringResource(Res.string.equipment_remove))
                         }
                     }
@@ -1109,6 +1134,19 @@ private fun EquipmentEditorDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        ConfirmRemovalDialog(
+            title = stringResource(Res.string.equipment_delete_tag_title),
+            message = stringResource(Res.string.equipment_delete_tag_message, state.name),
+            confirmLabel = stringResource(Res.string.equipment_delete_tag_confirm),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1121,7 +1159,7 @@ private fun EquipmentEditorDialog(
         },
         dismissButton = {
             if (!state.isBuiltIn) {
-                TextButton(onClick = onDelete) {
+                TextButton(onClick = { confirmDelete = true }) {
                     Text(stringResource(Res.string.equipment_delete))
                 }
             }
@@ -1183,6 +1221,19 @@ private fun ExerciseEditorDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        ConfirmRemovalDialog(
+            title = stringResource(Res.string.equipment_delete_exercise_title),
+            message = stringResource(Res.string.equipment_delete_exercise_message, state.name),
+            confirmLabel = stringResource(Res.string.equipment_delete_exercise_confirm),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1198,7 +1249,7 @@ private fun ExerciseEditorDialog(
                     }
                 }
                 if (state.isCustom && !state.isNew) {
-                    TextButton(onClick = onDelete) {
+                    TextButton(onClick = { confirmDelete = true }) {
                         Text(stringResource(Res.string.equipment_delete))
                     }
                 } else if (!state.isCustom) {
@@ -1545,6 +1596,30 @@ private fun exclusionSummary(
             isoLocalDateTime(expiresAt, utcOffsetMillis).substringBefore(' ')
         )
     }
+}
+
+/** Asks before an action that permanently removes data; only [confirmLabel] runs [onConfirm]. */
+@Composable
+private fun ConfirmRemovalDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(confirmLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.equipment_cancel))
+            }
+        }
+    )
 }
 
 @Composable

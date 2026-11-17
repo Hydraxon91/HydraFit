@@ -20,6 +20,15 @@
     <string name="equipment_remove">Remove</string>
     <string name="equipment_manage">Manage</string>
     <string name="equipment_delete">Delete</string>
+    <string name="equipment_delete_tag_title">Delete this equipment?</string>
+    <string name="equipment_delete_tag_message">“%1$s” is removed from your equipment together with its stations. Logged workouts keep the labels they were recorded with. This can’t be undone.</string>
+    <string name="equipment_delete_tag_confirm">Delete equipment</string>
+    <string name="equipment_delete_exercise_title">Delete this exercise?</string>
+    <string name="equipment_delete_exercise_message">“%1$s” is deleted together with its planner preference, exclusion and rest setting. This can’t be undone.</string>
+    <string name="equipment_delete_exercise_confirm">Delete exercise</string>
+    <string name="equipment_remove_record_title">Remove this baseline record?</string>
+    <string name="equipment_remove_record_message">Planning will no longer use the baseline record for %1$s. Logged workouts are not affected.</string>
+    <string name="equipment_remove_record_confirm">Remove record</string>
     <string name="equipment_name_label">Name</string>
     <string name="equipment_max_weight">Max weight (kg, blank = unlimited)</string>
     <string name="equipment_search_label">Search exercises</string>
