@@ -1021,22 +1021,32 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun aDeloadWeekDoesNotAddExercisesToChaseTheFullVolumeTarget() {
-        val normal = engine.plan(
-            request(daysPerWeek = 4, equipment = everything),
-            catalog()
-        )
-        val deload = engine.plan(
-            request(daysPerWeek = 4, equipment = everything, isDeload = true),
-            catalog()
-        )
+    fun aDeloadWeekStopsAddingExercisesOnceItsScaledVolumeTargetIsMet() {
+        // Every exercise loads only the biceps, so the week's ledger reaches the scaled deload
+        // target (0.7 x 11 = 7.7) well before the unscaled one (11). Without the scaling the
+        // deload day keeps chasing the full target and fills to the six-exercise ceiling.
+        val catalog = listOf(
+            exercise("squat", MovementPattern.SQUAT, MuscleGroup.BICEPS),
+            exercise("press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.BICEPS),
+            exercise("row", MovementPattern.HORIZONTAL_PULL, MuscleGroup.BICEPS)
+        ) + (1..8).map {
+            exercise("curl-$it", MovementPattern.BICEPS_ISOLATION, MuscleGroup.BICEPS)
+        }
+        fun firstDay(isDeload: Boolean) = engine.plan(
+            request(
+                daysPerWeek = 2,
+                split = SplitType.FULL_BODY,
+                isDeload = isDeload
+            ),
+            catalog
+        ).days.first().exercises
 
-        val normalSets = normal.days.sumOf { day -> day.exercises.sumOf { it.sets } }
-        val deloadSets = deload.days.sumOf { day -> day.exercises.sumOf { it.sets } }
-        assertTrue(
-            deload.days.sumOf { it.exercises.size } <= normal.days.sumOf { it.exercises.size }
-        )
-        assertTrue(deloadSets < normalSets)
+        val normal = firstDay(isDeload = false)
+        val deload = firstDay(isDeload = true)
+
+        assertTrue(normal.size < PlannerExerciseCounts.TARGET_MAX_PER_DAY, "normal ${normal.size}")
+        assertTrue(deload.size <= normal.size, "deload ${deload.size} vs normal ${normal.size}")
+        assertTrue(deload.sumOf { it.sets } < normal.sumOf { it.sets })
     }
 
     @Test

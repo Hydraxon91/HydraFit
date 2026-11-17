@@ -55,9 +55,11 @@ class SplitResolverTest {
             ),
             week
         )
-        // Each lower-body session counts once; push and pull get one dedicated day plus an upper day.
+        // Every region is trained twice: the upper body through Upper plus Push or Pull, the legs
+        // through Lower plus Legs. Legs are no longer trained once while push and pull get two.
         assertEquals(2, week.count { it == SplitFocus.LOWER || it == SplitFocus.LEGS })
         assertEquals(2, week.count { it == SplitFocus.UPPER || it == SplitFocus.PUSH })
+        assertEquals(2, week.count { it == SplitFocus.UPPER || it == SplitFocus.PULL })
     }
 
     @Test
