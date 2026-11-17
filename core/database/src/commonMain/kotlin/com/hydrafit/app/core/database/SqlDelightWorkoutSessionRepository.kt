@@ -40,6 +40,11 @@ class SqlDelightWorkoutSessionRepository(private val database: HydraFitDatabase)
     override suspend fun all(): List<WorkoutSession> =
         sessionQueries.selectAllSessions().executeAsList().map { it.toDomain() }
 
+    override suspend fun sessionsFromLocalDay(localEpochDay: Long): List<WorkoutSession> =
+        sessionQueries.selectSessionsFromLocalDay(localEpochDay).executeAsList().map {
+            it.toDomain()
+        }
+
     override suspend fun byId(id: String): WorkoutSession? =
         sessionQueries.selectSessionById(id).executeAsOneOrNull()?.toDomain()
 }

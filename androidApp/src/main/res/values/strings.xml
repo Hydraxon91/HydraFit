@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">HydraFit</string>
+    <string name="shortcut_train_short">Train</string>
+    <string name="shortcut_train_long">Open Train</string>
 </resources>

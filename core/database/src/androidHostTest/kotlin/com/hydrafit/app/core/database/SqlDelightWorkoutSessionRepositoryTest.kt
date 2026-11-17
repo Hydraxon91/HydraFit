@@ -57,6 +57,33 @@ class SqlDelightWorkoutSessionRepositoryTest {
     }
 
     @Test
+    fun sessionsFromLocalDayMatchesFilteringEverySessionAndKeepsTheBoundaryDay() = runTest {
+        listOf(3L, 5L, 5L, 6L, 9L).forEachIndexed { index, day ->
+            repository.create(
+                WorkoutSession(
+                    id = "s$index",
+                    startedAtMillis = day * 1_000L + index,
+                    localEpochDay = day
+                )
+            )
+        }
+
+        listOf(0L, 5L, 6L, 9L, 10L).forEach { from ->
+            assertEquals(
+                repository.all().filter { it.localEpochDay >= from },
+                repository.sessionsFromLocalDay(from),
+                "from day $from"
+            )
+        }
+        assertEquals(
+            listOf("s1", "s2", "s3", "s4"),
+            repository.sessionsFromLocalDay(5L).map {
+                it.id
+            }
+        )
+    }
+
+    @Test
     fun byIdReturnsTheStoredSessionOrNullWhenItDoesNotExist() = runTest {
         repository.create(
             WorkoutSession(

@@ -1401,6 +1401,7 @@ fun WorkoutLoggerScreen(
                                 )
                             }
                         }
+                        item(key = "weekly_summary") { WeeklySummaryCard() }
                     }
                     if (presentation == LoggerPresentation.MANUAL) {
                         item(key = "manual_header") {

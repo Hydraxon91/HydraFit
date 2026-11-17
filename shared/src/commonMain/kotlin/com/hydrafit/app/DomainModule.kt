@@ -82,6 +82,7 @@ import com.hydrafit.app.core.domain.workout.GetWorkoutSummaryUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOccurrenceRecordsUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.ObserveWeeklyTrainingSummaryUseCase
 import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutLogMutations
@@ -134,6 +135,7 @@ val domainModule: Module = module {
     singleOf(::ApplySlotProgressionSuggestionUseCase)
     singleOf(::BuildPlannerLoadInputsUseCase)
     singleOf(::BuildBodyweightPullEvidenceUseCase)
+    singleOf(::ObserveWeeklyTrainingSummaryUseCase)
     singleOf(::ObserveWorkoutPlanInputsUseCase)
     singleOf(::AcceptWeeklyPlanUseCase)
     singleOf(::SubstituteExerciseUseCase)

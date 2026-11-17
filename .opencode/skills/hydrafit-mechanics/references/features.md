@@ -1343,3 +1343,14 @@ of an external exercise counts as external, and history is read in up to five 10
 Body weight screen renders `PullEvidenceSection`. It is information only: no planner input, stored
 row or backup field uses it.
 
+## Demo link, Train shortcut and weekly summary (0.15.0)
+
+`ExerciseInstructionDialog` (`core/exercisecontent`) shows **Watch a demo on YouTube**, which opens
+`ExerciseDemoLink.searchUrl(name)` through `LocalUriHandler` only on tap; it hosts and embeds no
+video. `androidApp/src/main/res/xml/shortcuts.xml` declares a static launcher shortcut that sends the
+existing `OPEN_TAB_EXTRA` request for `AppTab.LOG`, so it only opens the Train tab (`LauncherShortcutTest`
+ties the XML to the constants). `WeeklyTrainingCounts` buckets `WorkoutSession.localEpochDay` into
+Monday-to-Sunday weeks (epoch day 0 was a Thursday); `ObserveWeeklyTrainingSummaryUseCase` re-emits when
+the open session changes and reads the latest accepted plan for planned days and the deload week.
+`WeeklySummaryCard` renders it on the Train home. There is intentionally no streak or target.
+
