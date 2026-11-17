@@ -80,6 +80,8 @@
     <string name="bodyweight_goal_input_label">Goal weight (%1$s)</string>
     <string name="bodyweight_goal_save">Save goal</string>
     <string name="bodyweight_goal_clear">Clear goal</string>
+    <string name="bodyweight_goal_clear_title">Clear your goal?</string>
+    <string name="bodyweight_goal_clear_message">Your target weight is removed. Your logged weights are not changed.</string>
     <string name="bodyweight_goal_invalid">Enter a positive goal weight.</string>
     <string name="bodyweight_list_title">Recorded measurements</string>
     <string name="bodyweight_list_row">%1$s: %2$s</string>
