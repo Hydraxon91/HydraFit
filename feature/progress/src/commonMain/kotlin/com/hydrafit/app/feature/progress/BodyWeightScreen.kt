@@ -80,7 +80,6 @@ internal object BodyWeightTestTags {
     const val GOAL_INPUT = "bodyweight_goal_input"
     const val GOAL_SAVE = "bodyweight_goal_save"
     const val GOAL_CLEAR = "bodyweight_goal_clear"
-    const val GOAL_CLEAR_CONFIRM = "bodyweight_goal_clear_confirm"
     const val EDITOR_DATE = "bodyweight_editor_date"
     const val EDITOR_WEIGHT = "bodyweight_editor_weight"
     const val EDITOR_SAVE = "bodyweight_editor_save"
@@ -296,8 +295,7 @@ private fun GoalSection(
                     onClick = {
                         confirmClear = false
                         onClearGoal()
-                    },
-                    modifier = Modifier.testTag(BodyWeightTestTags.GOAL_CLEAR_CONFIRM)
+                    }
                 ) { Text(stringResource(Res.string.bodyweight_goal_clear)) }
             },
             dismissButton = {

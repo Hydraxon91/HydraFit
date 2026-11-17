@@ -56,7 +56,8 @@ selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
 
 -- The earliest and latest set of every session, without the excluded set: all a time correction
--- needs to find the nearest session and recompute the bounds, without reading every logged set.
+-- needs to find the nearest session and recompute the bounds. It still walks the session-assigned
+-- sets through an index, but loads only two rows per session instead of every logged set.
 selectSessionBoundarySetIds:
 SELECT s.id FROM workoutSet s
 WHERE s.id != :excluded AND s.sessionId IS NOT NULL AND (

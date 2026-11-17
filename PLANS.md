@@ -258,7 +258,7 @@ publication still requires explicit approval.
 
 Reviewer nits C1-05…C1-07 and related residue found while closing the release. None misstates shipped behavior, so they are deferred to the documentation audit that follows publication:
 
-- **C1-05** — dead planner-key build plumbing: `androidApp/build.gradle.kts` reads `GEMINI_API_KEY` into `BuildConfig`, `HydraFitApplication` forwards it to `initKoin`, and `androidDatabaseModule` discards it. Removing the field, parameter and template note is a four-file cleanup that needs its own approval.
+- **C1-05** — **FIXED in 0.14.0** (field, parameter and template note removed) — dead planner-key build plumbing: `androidApp/build.gradle.kts` reads `GEMINI_API_KEY` into `BuildConfig`, `HydraFitApplication` forwards it to `initKoin`, and `androidDatabaseModule` discards it. Removing the field, parameter and template note is a four-file cleanup that needs its own approval.
 - **C1-06** — `docs/agent-project-reference.md` still says "all three planning strategies implement". (Fixed 2026-10-30: the reference now names the two selectable engines.)
 - **C1-07** — `references/planning.md` has a line wrapped past the file's ~100-column style.
 - Further residue for the same sweep: Android startup now deletes the importer's exact `on_device_llm.litertlm.tmp` file (fixed 2026-10-30); the retired Gemini Keystore slot (`hydrafit_gemini_api_key`) remains on device, unread; `docs/roadmap.md` still phrases local-LLM retirement as planned (fixed 2026-10-30); the `.gitignore` `core/llm/src/androidMain/jniLibs/` rule was removed 2026-10-30.

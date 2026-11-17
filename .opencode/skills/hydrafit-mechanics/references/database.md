@@ -375,7 +375,7 @@ Migration `66.sqm` (schema 66→67) adds two `workoutSet` indexes, `workoutSet_p
 `workoutSet_occurrenceEntryId`, for the Logger's bounded reads (`selectLatestSessionIdExcluding`,
 `selectExerciseIdsBetween`, `selectSetsForOccurrenceOrEntries`). It changes no rows, so backup format
 and export are unchanged. `SqlDelightSessionResegmenter` now runs off the caller's dispatcher and
-reads only the corrected set plus each session's earliest and latest other set
+loads only the corrected set plus each session's earliest and latest other set (the query still walks the session-assigned sets through an index)
 (`selectSessionBoundarySetIds` then `selectSetsByIds`), which gives the same segmentation result as
 the old read of every set; sessions are still read in full.
 

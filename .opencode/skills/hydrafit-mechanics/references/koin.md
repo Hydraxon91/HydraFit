@@ -9,7 +9,7 @@ Composition files:
 | --- | --- |
 | Shell `DomainModule.kt` | `domainModule`: use cases (incl. `SubstituteExerciseUseCase` / `PlanBuilderActions`), configs, deterministic engine, provider |
 | Database `DatabaseModule.kt` | `databaseModule`: DB and repository implementations |
-| Network `NetworkModule.kt` | `networkModule`: HTTP client, Groq engine and legacy Gemini prompt builder |
+| Network `NetworkModule.kt` | `networkModule`: planner HTTP client, `PlannerPromptBuilder` and the Groq engine |
 | Feature `EquipmentFeatureModule.kt` | `equipmentModule` |
 | Feature `FatigueHeatmapModule.kt` | `fatigueHeatmapModule` |
 | Feature `SplitBuilderModule.kt` | `splitBuilderModule` |

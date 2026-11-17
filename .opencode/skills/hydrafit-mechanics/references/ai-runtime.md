@@ -39,8 +39,8 @@ choosing a catalog row the user did not get.
 validation floor. Read its values and comments before diagnosing count failures;
 do not assume the generation target and post-filter floor should be identical.
 
-- Active remote implementation: network `GroqWorkoutPlannerEngine.kt` uses the existing Gemini
-  prompt builder, converts its schema to strict Groq JSON, sends a user-owned Groq key and rejects
+- Active remote implementation: network `GroqWorkoutPlannerEngine.kt` uses the shared
+  `PlannerPromptBuilder`, converts its schema to strict Groq JSON, sends a user-owned Groq key and rejects
   malformed or sanitizer-rejected plans explicitly. Legacy Gemini identities remain in saved history.
   An over-budget `Retry-After` ends the request with the reason its HTTP status established, and a
   per-day quota is reported without retrying. A saved Groq selection with no key fails with
