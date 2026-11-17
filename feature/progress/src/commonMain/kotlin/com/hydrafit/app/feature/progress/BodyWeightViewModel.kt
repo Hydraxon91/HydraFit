@@ -78,6 +78,8 @@ class BodyWeightViewModel(
     /** Re-samples the local civil day, e.g. when the screen returns to the foreground. */
     fun onResume() {
         _state.update { it.copy(todayLocalEpochDay = today()) }
+        // A screen left open across midnight or new sets must not keep a stale comparison.
+        refreshPullEvidence(_state.value.measurements)
     }
 
     fun onRangeSelected(range: ProgressRange) {

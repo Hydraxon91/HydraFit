@@ -323,7 +323,7 @@ private fun PullEvidenceSection(
         Text(
             text = stringResource(
                 Res.string.bodyweight_pull_ratio_line,
-                (evidence.ratio * PERCENT).roundToInt()
+                "${(evidence.ratio * PERCENT).roundToInt()}%"
             ),
             style = MaterialTheme.typography.bodyMedium
         )

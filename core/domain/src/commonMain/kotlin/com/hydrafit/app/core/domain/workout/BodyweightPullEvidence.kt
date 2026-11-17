@@ -113,23 +113,55 @@ class BuildBodyweightPullEvidenceUseCase(
                 ExerciseLoadCapability.EXTERNAL -> external
                 else -> return@forEach
             }
-            progress.observeHistory(ExerciseHistoryRequest(exercise.id, pageSize = PAGE_SIZE))
-                .first()
-                .sets
-                .filter { set ->
-                    !set.isWarmup && set.performedAtMillis in cutoff..nowMillis
+            recentWorkingSets(exercise.id, cutoff, nowMillis).forEach { set ->
+                val reps = set.reps ?: return@forEach
+                // An exercise that is external today counts its pre-load-kind sets as external, the
+                // same rule the planner applies to its own load evidence.
+                val kind = if (
+                    set.loadKind == LoadKind.LEGACY_UNSPECIFIED &&
+                    exercise.loadCapability == ExerciseLoadCapability.EXTERNAL
+                ) {
+                    LoadKind.EXTERNAL
+                } else {
+                    set.loadKind
                 }
-                .forEach { set ->
-                    set.reps?.let { reps ->
-                        target += PullSetSample(exercise.id, reps, set.weightKg, set.loadKind)
-                    }
-                }
+                target += PullSetSample(exercise.id, reps, set.weightKg, kind)
+            }
         }
         return BodyweightPullComparison.compare(bodyWeightKg, bodyweight, external)
     }
 
+    /**
+     * Newest-first pages until one reaches back past [cutoff], the history ends or [MAX_PAGES] is
+     * hit. Warm-ups, cluster sets (their weight and reps are not one straight set) and sets outside
+     * the window are skipped.
+     */
+    private suspend fun recentWorkingSets(
+        exerciseId: String,
+        cutoff: Long,
+        nowMillis: Long
+    ): List<WorkoutHistorySet> {
+        val sets = mutableListOf<WorkoutHistorySet>()
+        var cursor: ExerciseHistoryCursor? = null
+        repeat(MAX_PAGES) {
+            val page = progress.observeHistory(
+                ExerciseHistoryRequest(exerciseId, pageSize = PAGE_SIZE, cursor = cursor)
+            ).first()
+            sets += page.sets.filter { set ->
+                !set.isWarmup &&
+                    set.cluster == null &&
+                    set.performedAtMillis in cutoff..nowMillis
+            }
+            val oldest = page.sets.lastOrNull()?.performedAtMillis
+            cursor = page.nextCursor
+            if (cursor == null || oldest == null || oldest < cutoff) return sets
+        }
+        return sets
+    }
+
     private companion object {
         const val PAGE_SIZE = 100
+        const val MAX_PAGES = 5
         const val MILLIS_PER_DAY = 86_400_000L
     }
 }

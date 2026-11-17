@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.domain.routine.ClusterKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -140,6 +141,70 @@ class BodyweightPullEvidenceTest {
         assertNull(useCase(bodyWeightKg = null, nowMillis = now))
     }
 
+    @Test
+    fun theUseCaseCountsLegacyExternalSetsSkipsClustersAndKeepsTheWindowEdges() = runTest {
+        val now = 100L * DAY
+        val cutoff = now - 42 * DAY
+        val cluster = WorkoutClusterSummary(ClusterKind.entries.first(), 3, 3)
+        val history = mapOf(
+            "chin-up" to listOf(
+                set(1, "chin-up", 8, null, LoadKind.BODYWEIGHT, now),
+                set(2, "chin-up", 6, 10.0, LoadKind.ADDED, cutoff)
+            ),
+            "lat-pulldown" to listOf(
+                set(3, "lat-pulldown", 8, 70.0, LoadKind.LEGACY_UNSPECIFIED, now - DAY),
+                set(4, "lat-pulldown", 8, 70.0, LoadKind.EXTERNAL, now - DAY, cluster = cluster),
+                set(5, "lat-pulldown", 8, 99.0, LoadKind.EXTERNAL, now + 1),
+                set(6, "lat-pulldown", 8, 99.0, LoadKind.EXTERNAL, cutoff - 1),
+                set(7, "lat-pulldown", 10, 60.0, LoadKind.EXTERNAL, cutoff + 1)
+            )
+        )
+
+        val evidence = assertNotNull(
+            BuildBodyweightPullEvidenceUseCase(catalog, FakeProgress(history))(90.0, now)
+        )
+
+        // Chin-ups at exactly now and exactly the cutoff both count; the 99 kg sets outside the
+        // window and the cluster set do not, so the best pulldown is the legacy 8 x 70 kg set.
+        assertEquals(2, evidence.bodyweightPullSetCount)
+        assertEquals(2, evidence.externalPullSetCount)
+        assertEquals(70.0 * (1.0 + 8 / 30.0), evidence.externalPullOneRepMaxKg, 1e-9)
+        // The added-load set at the cutoff (90 + 10 kg for 6 reps) beats the plain 8 reps.
+        assertEquals(100.0 * (1.0 + 6 / 30.0), evidence.bodyweightPullOneRepMaxKg, 1e-9)
+    }
+
+    @Test
+    fun theUseCaseReadsPastTheFirstPageOfAHeavyHistory() = runTest {
+        val now = 100L * DAY
+        // 120 recent pulldown sets, newest first: the best one is the oldest in-window set, which a
+        // single 100-set page would never reach.
+        val pulldowns = (1..120).map { index ->
+            val heavy = index == 120
+            set(
+                id = index.toLong(),
+                exerciseId = "lat-pulldown",
+                reps = 8,
+                weightKg = if (heavy) 100.0 else 50.0,
+                loadKind = LoadKind.EXTERNAL,
+                at = now - index * 1_000L
+            )
+        }
+        val history = mapOf(
+            "chin-up" to listOf(
+                set(500, "chin-up", 8, null, LoadKind.BODYWEIGHT, now - DAY),
+                set(501, "chin-up", 8, null, LoadKind.BODYWEIGHT, now - DAY)
+            ),
+            "lat-pulldown" to pulldowns
+        )
+
+        val evidence = assertNotNull(
+            BuildBodyweightPullEvidenceUseCase(catalog, FakeProgress(history))(90.0, now)
+        )
+
+        assertEquals(100.0 * (1.0 + 8 / 30.0), evidence.externalPullOneRepMaxKg, 1e-9)
+        assertEquals(120, evidence.externalPullSetCount)
+    }
+
     private fun set(
         id: Long,
         exerciseId: String,
@@ -147,7 +212,8 @@ class BodyweightPullEvidenceTest {
         weightKg: Double?,
         loadKind: LoadKind,
         at: Long,
-        warmup: Boolean = false
+        warmup: Boolean = false,
+        cluster: WorkoutClusterSummary? = null
     ) = WorkoutHistorySet(
         id = id,
         exerciseId = exerciseId,
@@ -158,7 +224,8 @@ class BodyweightPullEvidenceTest {
         isWarmup = warmup,
         rir = null,
         performedAtMillis = at,
-        timingProvenance = WorkoutTimingProvenance.UNKNOWN
+        timingProvenance = WorkoutTimingProvenance.UNKNOWN,
+        cluster = cluster
     )
 
     private val catalog = object : ExerciseCatalog {
@@ -193,8 +260,29 @@ class BodyweightPullEvidenceTest {
 
     private class FakeProgress(private val history: Map<String, List<WorkoutHistorySet>>) :
         ExerciseProgressRepository {
-        override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> =
-            flowOf(ExerciseHistoryPage(history[request.exerciseId].orEmpty(), hasMore = false))
+        override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> {
+            // Newest first with the real (performedAt, id) cursor, like the database implementation.
+            val ordered = history[request.exerciseId].orEmpty()
+                .sortedWith(
+                    compareByDescending<WorkoutHistorySet> {
+                        it.performedAtMillis
+                    }.thenByDescending { it.id }
+                )
+                .filter { set ->
+                    request.cursor == null ||
+                        set.performedAtMillis < request.cursor.performedAtMillis ||
+                        (
+                            set.performedAtMillis == request.cursor.performedAtMillis &&
+                                set.id < request.cursor.setId
+                            )
+                }
+            return flowOf(
+                ExerciseHistoryPage(
+                    ordered.take(request.pageSize),
+                    hasMore = ordered.size > request.pageSize
+                )
+            )
+        }
 
         override fun observeProgress(request: ExerciseProgressRequest) = error("unused")
 
