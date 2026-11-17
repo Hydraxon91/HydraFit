@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.BuildBodyweightPullEvidenceUseCase
 import com.hydrafit.app.core.userdata.measurements.BodyWeightException
 import com.hydrafit.app.core.userdata.measurements.BodyWeightFailureReason
 import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
@@ -36,6 +37,11 @@ class BodyWeightViewModel(
     weightUnitRepository: WeightUnitRepository,
     private val timeProvider: TimeProvider,
     /**
+     * Compares recent chin-up and pulldown levels for the information section. Null leaves the
+     * section hidden; it never influences a plan.
+     */
+    private val pullEvidence: BuildBodyweightPullEvidenceUseCase? = null,
+    /**
      * Supplies the number format for weights. Koin's explicit constructor call uses the default, so
      * no binding is added; tests pass a fixed format to exercise a comma locale.
      */
@@ -53,6 +59,8 @@ class BodyWeightViewModel(
     private var measurementsLoaded = false
     private var goalLoaded = false
     private var measurementsJob: Job? = null
+    private var pullEvidenceJob: Job? = null
+    private var pullEvidenceGeneration = 0L
     private var goalJob: Job? = null
 
     /** Invalidates in-flight write completions; a newer draft or a cancel bumps it. */
@@ -325,6 +333,34 @@ class BodyWeightViewModel(
                 loading = !(measurementsLoaded && goalLoaded) && !current.loadFailed
             )
         }
+        refreshPullEvidence(list)
+    }
+
+    /**
+     * Recomputes the read-only chin-up versus pulldown comparison from the latest weight recorded
+     * in the evidence window. A failed or superseded read leaves no comparison rather than a stale
+     * one, and the section simply stays hidden; nothing here writes or affects a plan.
+     */
+    private fun refreshPullEvidence(list: List<BodyWeightMeasurement>) {
+        val useCase = pullEvidence ?: return
+        val generation = ++pullEvidenceGeneration
+        val today = today()
+        val latest = list
+            .filter { it.localEpochDay in (today - EVIDENCE_WINDOW_DAYS)..today }
+            .maxByOrNull { it.localEpochDay }
+        pullEvidenceJob?.cancel()
+        pullEvidenceJob = viewModelScope.launch {
+            val evidence = try {
+                useCase(latest?.weightKg, timeProvider.nowMillis())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
+            if (generation == pullEvidenceGeneration) {
+                _state.update { it.copy(pullEvidence = evidence) }
+            }
+        }
     }
 
     private fun publishGoal(goal: Double?) {
@@ -399,6 +435,11 @@ class BodyWeightViewModel(
 
     private fun clearSubmitting() {
         _state.update { it.copy(submitting = false) }
+    }
+
+    private companion object {
+        /** The same recent window the planner uses for its load evidence. */
+        const val EVIDENCE_WINDOW_DAYS = 42L
     }
 }
 

@@ -1,6 +1,7 @@
 package com.hydrafit.app.feature.progress
 
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.BodyweightPullEvidence
 import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
@@ -70,6 +71,8 @@ data class BodyWeightUiState(
     val goalInput: String = "",
     val goalError: Boolean = false,
     val submitting: Boolean = false,
+    /** The chin-up versus pulldown comparison, or null when there is not enough recent evidence. */
+    val pullEvidence: BodyweightPullEvidence? = null,
     /** The number format used for every weight this state renders or parses. */
     val numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
 ) {

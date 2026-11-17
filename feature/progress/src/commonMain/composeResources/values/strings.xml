@@ -71,6 +71,11 @@
     <string name="bodyweight_empty">No body weight measurements yet. Add your first measurement to start the trend.</string>
     <string name="bodyweight_chart_caption">Each mark is one recorded measurement at its actual date; days with no measurement are left blank, never carried forward.</string>
     <string name="bodyweight_chart_legend">Body weight per measured day</string>
+    <string name="bodyweight_pull_title">Pull strength vs body weight</string>
+    <string name="bodyweight_pull_bodyweight_line">Chin-ups and pull-ups: about %1$s, counting your body weight</string>
+    <string name="bodyweight_pull_external_line">Pulldowns: about %1$s</string>
+    <string name="bodyweight_pull_ratio_line">Your pulldown level is %1$d%% of your chin-up level</string>
+    <string name="bodyweight_pull_note">Estimated one-rep levels from your sets in the last 6 weeks. For information only; it does not change your plans.</string>
     <string name="bodyweight_goal_title">Goal</string>
     <string name="bodyweight_goal_none">No goal set</string>
     <string name="bodyweight_goal_current">Current goal: %1$s</string>

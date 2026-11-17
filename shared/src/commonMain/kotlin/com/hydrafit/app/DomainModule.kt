@@ -72,6 +72,7 @@ import com.hydrafit.app.core.domain.storage.StorageUsageUseCase
 import com.hydrafit.app.core.domain.transfer.ExportPrescriptionPdfUseCase
 import com.hydrafit.app.core.domain.transfer.ExportPrescriptionsUseCase
 import com.hydrafit.app.core.domain.transfer.ExportWorkoutHistoryCsvUseCase
+import com.hydrafit.app.core.domain.workout.BuildBodyweightPullEvidenceUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
@@ -132,6 +133,7 @@ val domainModule: Module = module {
     singleOf(::SuggestSlotProgressionUseCase)
     singleOf(::ApplySlotProgressionSuggestionUseCase)
     singleOf(::BuildPlannerLoadInputsUseCase)
+    singleOf(::BuildBodyweightPullEvidenceUseCase)
     singleOf(::ObserveWorkoutPlanInputsUseCase)
     singleOf(::AcceptWeeklyPlanUseCase)
     singleOf(::SubstituteExerciseUseCase)
