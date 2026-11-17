@@ -11,11 +11,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import hydrafit.core.exercisecontent.generated.resources.Res
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_close
+import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_demo
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_execution
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_setup
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_technique_considerations
@@ -36,11 +38,30 @@ import org.jetbrains.compose.resources.stringResource
 fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismiss: () -> Unit) {
     val keys = ExerciseInstructionSource.keysFor(exerciseId)
     val caution = ExerciseCautionSource.cautionFor(exerciseId)
+    val uriHandler = LocalUriHandler.current
+    val demoUrl = ExerciseDemoLink.searchUrl(exerciseName)
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.exercise_instruction_close))
+            }
+        },
+        dismissButton = demoUrl?.let { url ->
+            {
+                TextButton(
+                    onClick = {
+                        // A device with no browser or YouTube app cannot open the link; the dialog
+                        // simply stays open instead of crashing.
+                        try {
+                            uriHandler.openUri(url)
+                        } catch (_: IllegalArgumentException) {
+                            // Nothing can handle the link.
+                        }
+                    }
+                ) {
+                    Text(stringResource(Res.string.exercise_instruction_demo))
+                }
             }
         },
         title = { Text(exerciseName) },
