@@ -126,6 +126,8 @@ import hydrafit.feature.equipment.generated.resources.equipment_remove
 import hydrafit.feature.equipment.generated.resources.equipment_remove_record_confirm
 import hydrafit.feature.equipment.generated.resources.equipment_remove_record_message
 import hydrafit.feature.equipment.generated.resources.equipment_remove_record_title
+import hydrafit.feature.equipment.generated.resources.equipment_reset_exercise_message
+import hydrafit.feature.equipment.generated.resources.equipment_reset_exercise_title
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
 import hydrafit.feature.equipment.generated.resources.equipment_station_add
@@ -1222,6 +1224,7 @@ private fun ExerciseEditorDialog(
     onDismiss: () -> Unit
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
     if (confirmDelete) {
         ConfirmRemovalDialog(
             title = stringResource(Res.string.equipment_delete_exercise_title),
@@ -1232,6 +1235,18 @@ private fun ExerciseEditorDialog(
                 onDelete()
             },
             onDismiss = { confirmDelete = false }
+        )
+    }
+    if (confirmReset) {
+        ConfirmRemovalDialog(
+            title = stringResource(Res.string.equipment_reset_exercise_title),
+            message = stringResource(Res.string.equipment_reset_exercise_message),
+            confirmLabel = stringResource(Res.string.equipment_edit_reset),
+            onConfirm = {
+                confirmReset = false
+                onReset()
+            },
+            onDismiss = { confirmReset = false }
         )
     }
     AlertDialog(
@@ -1253,7 +1268,7 @@ private fun ExerciseEditorDialog(
                         Text(stringResource(Res.string.equipment_delete))
                     }
                 } else if (!state.isCustom) {
-                    TextButton(onClick = onReset) {
+                    TextButton(onClick = { confirmReset = true }) {
                         Text(stringResource(Res.string.equipment_edit_reset))
                     }
                 }

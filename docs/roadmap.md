@@ -162,8 +162,9 @@ cycles, not engineering work. The lower count alone does not shorten the estimat
 | 0.11.x | Beyond Rep-Based Sets | OF-10C/D, timed/distance/force grip, advanced set semantics |
 | 0.12.x | Optional AI Reliability | remote provider research, applicable AI findings, local LLM retirement |
 | 0.13.x | Final UX & Design | QL-01 final pass, UX-01 adaptive tablet/foldable layouts, full-flow integration and remaining quality gates |
+| 0.14.0 | Post-audit health | Planner tuning, Gemini retirement, backup rules, bounded reads and confirmations (added 2026-11-17 after the post-0.13.4 audit) |
 | 1.0.0 | Verified Android-first completion | All pre-1.0 scopes delivered or explicitly dispositioned; stability gate |
-| Beyond 1.0 | Additional platforms | iOS shipping/Keychain-backed ApiKeyStore; desktop |
+| Beyond 1.0 | None planned | iOS shipping and a desktop target were cancelled 2026-11-17; HydraFit is a mobile (Android) app |
 
 ### 0.6.0 — Guided Training
 
@@ -682,5 +683,5 @@ retain their separate approval/Plan Mode requirements.
    required tests/lint/debug/iOS compilation and approved release checks pass.
 
 The existing iOS compile remains a regression guard for shared KMP code, not an
-iOS shipping commitment. **iOS release readiness and Keychain-backed ApiKeyStore,
-and desktop target work, are beyond 1.0.** No additional platforms are added here.
+iOS shipping commitment. **iOS shipping (including a Keychain-backed ApiKeyStore) and a
+desktop target were cancelled on 2026-11-17.** No additional platforms are planned.

@@ -33,6 +33,27 @@ class WeeklyVolumeTargetsTest {
     }
 
     @Test
+    fun aVolumeScaleShrinksTheWholeWindowAndRejectsOutOfRangeScales() {
+        val base = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
+        val scaled = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED, volumeScale = 0.7)
+
+        assertEquals(base.minSets * 0.7, scaled.minSets, absoluteTolerance = 1e-9)
+        assertEquals(base.targetSets * 0.7, scaled.targetSets, absoluteTolerance = 1e-9)
+        assertEquals(base.maxSets * 0.7, scaled.maxSets, absoluteTolerance = 1e-9)
+        assertEquals(base, WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED, volumeScale = 1.0))
+        assertTrue(
+            runCatching {
+                WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED, 0.0)
+            }.isFailure
+        )
+        assertTrue(
+            runCatching {
+                WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED, 1.5)
+            }.isFailure
+        )
+    }
+
+    @Test
     fun weightedSetsSumSetsTimesInvolvementAcrossDays() {
         val bench = exercise(
             "bench",

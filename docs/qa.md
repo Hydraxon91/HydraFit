@@ -5462,3 +5462,36 @@ four-tab/manual/Library/Equipment/branding/licensing additions.
   F01 runtime, F02 absent-root, F03 intermediate boundary, signed/iOS/native/pixel. The candidate is
   implemented/verified for recorded accepted journeys but not release-approved or published.
   TalkBack speech remains permanently retired.
+
+## Deterministic engine tuning — five-day split, high-rep loads, deload target (2026-11-17)
+
+Changes: a five-day Auto week is Upper, Lower, Push, Pull, Legs; the working-load buffer is 10% up to
+6 reps and tapers to 2% by 12 reps; a deload week scales the weekly volume window by the deload
+volume scale; the Groq prompt follows the focus schedule and calls the progressed values estimated
+one-rep maximums.
+
+Evidence: domain and network host tests, fresh run. The taper was fitted loosely to a read-only
+aggregate of one user's phone data (147 working sets with a planned load; 29 at 11+ reps, where
+logged load averaged 9% above plan), so it is a product default, not a validated prescription.
+Not checked: any on-device generation, the Groq cloud path against the live service, and plan
+quality with a full catalog. Plans already accepted keep their stored loads.
+
+## 0.14.0 — post-audit health (2026-11-17)
+
+Scope: Gemini retired (engine, HTTP transport, `GeminiConfig`, `ApiKeyProvider`, `GEMINI_API_KEY`
+BuildConfig field, Koin binding; `PlannerPromptBuilder` and `PlanSchema` keep the shared prompt);
+seven unused catalog entries removed (MockK, JUnit, kotlin-test-junit, core-ktx, test-ext,
+Espresso, AppCompat); backup/transfer exclusion of the three Keystore-wrapped preference files
+(`hydrafit_groq_secure`, `hydrafit_secure`, `hydrafit_backup_secure`) and the device-bound
+`hydrafit_automatic_backup` state; migration `66.sqm` (schema 67)
+adding `workoutSet_performedAt` and `workoutSet_occurrenceEntryId`; time correction off the caller
+dispatcher with a boundary-only read; confirmations for Clear API key, Reset exercise and Clear
+body-weight goal; debug version default `0.14.0-dev`.
+
+Automated: host tests per chunk and the full matrix; the boundary-only resegmentation is compared
+with the pure function on the complete history across seven moves; `BackupExclusionRulesTest` ties
+the XML to the preference names; `WorkoutSetIndexMigrationTest` covers upgrade and fresh creation.
+
+Not verified: the three new confirmation dialogs, the backup rules on a real backup/restore or
+device transfer, the five-day plan and new loads on a device, and the Groq cloud call. The
+`allowBackup` setting is unchanged, so everything except the three files is still backed up.

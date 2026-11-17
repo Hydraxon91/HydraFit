@@ -8,14 +8,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -24,6 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_api_key_clear
+import hydrafit.feature.settings.generated.resources.settings_api_key_clear_cancel
+import hydrafit.feature.settings.generated.resources.settings_api_key_clear_message
+import hydrafit.feature.settings.generated.resources.settings_api_key_clear_title
 import hydrafit.feature.settings.generated.resources.settings_api_key_configured
 import hydrafit.feature.settings.generated.resources.settings_api_key_label
 import hydrafit.feature.settings.generated.resources.settings_api_key_save
@@ -65,6 +73,27 @@ fun PlannerEngineScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var confirmClearKey by remember { mutableStateOf(false) }
+    if (confirmClearKey) {
+        AlertDialog(
+            onDismissRequest = { confirmClearKey = false },
+            title = { Text(stringResource(Res.string.settings_api_key_clear_title)) },
+            text = { Text(stringResource(Res.string.settings_api_key_clear_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClearKey = false
+                        onClearApiKey()
+                    }
+                ) { Text(stringResource(Res.string.settings_api_key_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearKey = false }) {
+                    Text(stringResource(Res.string.settings_api_key_clear_cancel))
+                }
+            }
+        )
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -110,7 +139,7 @@ fun PlannerEngineScreen(
                 Text(stringResource(Res.string.settings_api_key_save))
             }
             if (state.apiKeyConfigured) {
-                OutlinedButton(onClick = onClearApiKey) {
+                OutlinedButton(onClick = { confirmClearKey = true }) {
                     Text(stringResource(Res.string.settings_api_key_clear))
                 }
             }

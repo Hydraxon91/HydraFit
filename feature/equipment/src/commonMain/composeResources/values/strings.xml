@@ -38,6 +38,8 @@
     <string name="equipment_edit">Edit</string>
     <string name="equipment_edit_save">Save</string>
     <string name="equipment_edit_reset">Reset</string>
+    <string name="equipment_reset_exercise_title">Reset this exercise?</string>
+    <string name="equipment_reset_exercise_message">Your edits to this built-in exercise are discarded and its original details return. Logged sets are not changed.</string>
     <string name="equipment_save_error">Could not save. Try again.</string>
     <string name="equipment_bodyweight">Bodyweight only</string>
     <string name="equipment_muscles">Muscles</string>

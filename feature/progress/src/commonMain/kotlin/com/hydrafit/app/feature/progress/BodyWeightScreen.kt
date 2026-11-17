@@ -52,6 +52,8 @@ import hydrafit.feature.progress.generated.resources.bodyweight_error_invalid_da
 import hydrafit.feature.progress.generated.resources.bodyweight_error_invalid_weight
 import hydrafit.feature.progress.generated.resources.bodyweight_error_missing_measurement
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_clear
+import hydrafit.feature.progress.generated.resources.bodyweight_goal_clear_message
+import hydrafit.feature.progress.generated.resources.bodyweight_goal_clear_title
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_current
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_edit
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_hide
@@ -282,6 +284,27 @@ private fun GoalSection(
     onClearGoal: () -> Unit
 ) {
     var showGoalEditor by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(Res.string.bodyweight_goal_clear_title)) },
+            text = { Text(stringResource(Res.string.bodyweight_goal_clear_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClear = false
+                        onClearGoal()
+                    }
+                ) { Text(stringResource(Res.string.bodyweight_goal_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) {
+                    Text(stringResource(Res.string.bodyweight_cancel))
+                }
+            }
+        )
+    }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = stringResource(Res.string.bodyweight_goal_title),
@@ -344,7 +367,7 @@ private fun GoalSection(
                     Text(stringResource(Res.string.bodyweight_goal_save))
                 }
                 TextButton(
-                    onClick = onClearGoal,
+                    onClick = { confirmClear = true },
                     enabled = !state.submitting,
                     modifier = Modifier.testTag(BodyWeightTestTags.GOAL_CLEAR)
                 ) {

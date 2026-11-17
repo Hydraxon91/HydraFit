@@ -6,7 +6,7 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
-**Current schema version: 66** — schema v1 plus migrations `1.sqm` through `65.sqm`. Version
+**Current schema version: 67** — schema v1 plus migrations `1.sqm` through `66.sqm`. Version
 numbers named inside the migration narratives below describe the chain *at that point in its
 history*, not the current version; the current value is the one stated here.
 
@@ -370,6 +370,14 @@ than disguising an old fixture as the latest schema.
 
 `20.sqm` demonstrates a table rebuild for column removal: Android minSdk 24
 predates SQLite 3.35's `DROP COLUMN` support.
+
+Migration `66.sqm` (schema 66→67) adds two `workoutSet` indexes, `workoutSet_performedAt` and
+`workoutSet_occurrenceEntryId`, for the Logger's bounded reads (`selectLatestSessionIdExcluding`,
+`selectExerciseIdsBetween`, `selectSetsForOccurrenceOrEntries`). It changes no rows, so backup format
+and export are unchanged. `SqlDelightSessionResegmenter` now runs off the caller's dispatcher and
+loads only the corrected set plus each session's earliest and latest other set (the query still walks the session-assigned sets through an index)
+(`selectSessionBoundarySetIds` then `selectSetsByIds`), which gives the same segmentation result as
+the old read of every set; sessions are still read in full.
 
 Migration `65.sqm` adds nullable `occurrenceEntry.guidedTargets` (schema 65→66). It stores only
 strictly versioned per-set overrides for that occurrence; activation, routine and original occurrence

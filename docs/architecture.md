@@ -285,8 +285,9 @@ two selectable implementations resolved by `DefaultWorkoutPlannerEngineProvider`
 engine preference. `GroqWorkoutPlannerEngine` funnels output through the shared `WeeklyPlanSanitizer` +
 `PlanVarietyEnforcer`; the deterministic engine returns directly. Stored `GEMINI_API` and `LOCAL_LLM`
 identities remain readable for plan history, but both resolve to the deterministic engine. The
-on-device planner and its LiteRT-LM runtime were removed in 0.12.x; `GeminiWorkoutPlannerEngine`
-remains as the shared prompt and schema builder that Groq reuses and is not selectable. The
+on-device planner and its LiteRT-LM runtime were removed in 0.12.x; the Gemini
+engine, HTTP client and key plumbing were retired in 0.14.0; `PlannerPromptBuilder` is the shared
+prompt and schema builder Groq uses. The
 deterministic candidate ordering (`rankCandidates`/`pickFirstNonSore`) is reused by
 `SubstituteExerciseUseCase` to swap one slot of an accepted plan; when the replaced slot is
 qualifying direct arm work, coverage-preserving replacements are ranked first while other same-pattern
@@ -1723,7 +1724,7 @@ No rationale is invented; unrecorded items are listed as questions in §2.1.
 | D13 | Explicit session ids replace the 2h heuristic at runtime; heuristic survives as backfill only | `docs/plans-archive.md` "2b. Explicit Session Ids" | The 2h heuristic was the prior mechanism | Current |
 | D14 | Signed release on tags; `versionName` from tag, `versionCode` from run number | `docs/plans-archive.md` item 4; AGENTS.md release section | None recorded | Current |
 | D15 | Pinned dependency versions (SQLDelight 2.4.0, Koin 4.2.2, Ktor 3.6.0, serialization 1.11.0, coroutines 1.11.0, MockK 1.14.11, navigation-compose 2.9.2) | PLANS.md "Decisions Made" | None recorded | Current |
-| D16 | MockK is JVM-only; `commonTest` stays on `kotlin.test` with hand-written fakes | PLANS.md "Decisions Made" | None recorded | Current (and the source of the fake duplication, TS4-001) |
+| D16 | MockK is JVM-only; `commonTest` stays on `kotlin.test` with hand-written fakes | PLANS.md "Decisions Made" | None recorded | Current (and the source of the fake duplication, TS4-001) (0.14.0: MockK removed from the catalog; never used) |
 | D17 | Koin `4.2.2`: `Module.verify()` is JVM-only, `checkModules()` deprecated; verify in Android host tests | PLANS.md "Decisions Made" (line 288) | None recorded | Current; known unverified bindings recorded |
 | D18 | On-device model was imported in-app; no binary bundled; Android-only; NPU libs unbundled | PLANS.md lines 278-286, 293 | MediaPipe deprecated → migrated to LiteRT-LM | Superseded in 0.12.x: the on-device planner, model import and runtime were removed |
 | D19 | Gemini model `gemini-3.1-flash-lite`; sampling params omitted | PLANS.md line 282 | None recorded | Current |

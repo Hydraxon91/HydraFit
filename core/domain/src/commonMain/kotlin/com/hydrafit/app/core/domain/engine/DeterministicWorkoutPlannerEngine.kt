@@ -42,10 +42,7 @@ class DeterministicWorkoutPlannerEngine(
             "accessorySetsPerExercise must be between $MIN_SETS and $MAX_SETS"
         }
 
-        val focusCycle =
-            SplitResolver.focusCycle(
-                SplitResolver.resolveSplitType(request.splitPreference, request.daysPerWeek)
-            )
+        val focuses = SplitResolver.focusSequence(request.splitPreference, request.daysPerWeek)
         val availableExercises = PlannerCandidateEligibility.candidates(exercises, request)
         val isDeload = request.isDeload
         // Exercises already chosen earlier in the week; a fresh compound is preferred, but one may
@@ -56,10 +53,13 @@ class DeterministicWorkoutPlannerEngine(
         val weeklyVolume = MuscleGroup.entries.associateWith { 0.0 }.toMutableMap()
         val directArmSets = MuscleGroup.entries.associateWith { 0 }.toMutableMap()
         val skippedForSoreness = mutableSetOf<String>()
-        val target = WeeklyVolumeTargets.forGoal(request.goal)
+        val target = WeeklyVolumeTargets.forGoal(
+            request.goal,
+            if (isDeload) periodization.deloadVolumeScale else 1.0
+        )
 
         val days = List(request.daysPerWeek) { index ->
-            val focus = focusCycle[index % focusCycle.size]
+            val focus = focuses[index]
             WorkoutDay(
                 dayIndex = index,
                 focus = focus,
@@ -93,7 +93,7 @@ class DeterministicWorkoutPlannerEngine(
 
         val compatibleArmCandidates = DirectArmCoverage.compatibleCandidates(
             availableExercises,
-            List(request.daysPerWeek) { index -> focusCycle[index % focusCycle.size] }
+            focuses
         )
         return WeeklyPlan(
             engine = id,

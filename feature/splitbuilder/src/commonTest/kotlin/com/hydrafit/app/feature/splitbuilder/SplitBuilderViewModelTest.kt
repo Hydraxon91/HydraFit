@@ -352,9 +352,12 @@ class SplitBuilderViewModelTest {
 
         val focuses = viewModel.state.value.plan!!.days.map { it.focus }
         assertEquals(5, focuses.size)
-        assertEquals(SplitFocus.PUSH, focuses.first())
-        assertEquals(SplitFocus.PULL, focuses[1])
-        assertEquals(SplitFocus.LEGS, focuses[2])
+        // A five-day Auto week is Upper, Lower, Push, Pull, Legs.
+        assertEquals(SplitFocus.UPPER, focuses.first())
+        assertEquals(SplitFocus.LOWER, focuses[1])
+        assertEquals(SplitFocus.PUSH, focuses[2])
+        assertEquals(SplitFocus.PULL, focuses[3])
+        assertEquals(SplitFocus.LEGS, focuses[4])
     }
 
     @Test

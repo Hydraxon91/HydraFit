@@ -14,7 +14,6 @@ import com.hydrafit.app.core.domain.storage.StorageUsagePort
 import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
-import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.AndroidAutomaticBackupStateStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupCrypto
@@ -43,7 +42,7 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.onClose
 import org.koin.dsl.module
 
-fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = module {
+fun androidDatabaseModule(context: Context): Module = module {
     single<DatabaseDriverFactory> { AndroidDatabaseDriverFactory(context.applicationContext) }
     single<TimeProvider> {
         object : TimeProvider {
@@ -69,9 +68,6 @@ fun androidDatabaseModule(context: Context, geminiApiKey: String): Module = modu
     single { AndroidWorkoutReminderScheduler(context.applicationContext) }
     single<WorkoutReminderScheduler> { get<AndroidWorkoutReminderScheduler>() }
     single<ApiKeyStore> { AndroidGroqApiKeyStore(context.applicationContext) }
-    single<ApiKeyProvider> {
-        ApiKeyProvider { "" }
-    }
     single<GroqApiKeyProvider> {
         val store = get<ApiKeyStore>()
         GroqApiKeyProvider { store.load().orEmpty() }
@@ -112,6 +108,6 @@ fun appVersionModule(versionName: String): Module = module {
     single<AppVersionProvider> { AndroidAppVersionProvider(versionName) }
 }
 
-fun initKoin(context: Context, geminiApiKey: String, versionName: String) {
-    initKoin(androidDatabaseModule(context, geminiApiKey), listOf(appVersionModule(versionName)))
+fun initKoin(context: Context, versionName: String) {
+    initKoin(androidDatabaseModule(context), listOf(appVersionModule(versionName)))
 }

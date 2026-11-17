@@ -9,6 +9,14 @@ import com.hydrafit.app.core.domain.equipment.MovementPattern
  */
 object SplitResolver {
 
+    private val AUTO_FIVE_DAY = listOf(
+        SplitFocus.UPPER,
+        SplitFocus.LOWER,
+        SplitFocus.PUSH,
+        SplitFocus.PULL,
+        SplitFocus.LEGS
+    )
+
     /** The split a preference resolves to for a given training frequency. */
     fun resolveSplitType(preference: SplitType, daysPerWeek: Int): SplitType = when (preference) {
         SplitType.AUTO -> when (daysPerWeek) {
@@ -27,8 +35,14 @@ object SplitResolver {
         SplitType.AUTO -> listOf(SplitFocus.FULL_BODY)
     }
 
-    /** The focus for every day, cycling the split's foci up to [daysPerWeek]. */
+    /**
+     * The focus for every day, cycling the split's foci up to [daysPerWeek]. A five-day Auto week is
+     * the one exception to plain cycling: a Push/Pull/Legs cycle would train legs once and push and
+     * pull twice, so it uses [AUTO_FIVE_DAY], which trains the upper and lower body twice and
+     * keeps a dedicated push, pull and legs day. An explicitly chosen split is never rewritten.
+     */
     fun focusSequence(preference: SplitType, daysPerWeek: Int): List<SplitFocus> {
+        if (preference == SplitType.AUTO && daysPerWeek == AUTO_FIVE_DAY.size) return AUTO_FIVE_DAY
         val cycle = focusCycle(resolveSplitType(preference, daysPerWeek))
         return List(daysPerWeek) { index -> cycle[index % cycle.size] }
     }

@@ -159,7 +159,7 @@ class SchedulingUseCasesTest {
         val inputs = replacementInputs().copy(suggestedWeightsKg = mapOf("alternative" to 200.0))
         val choices = useCase.candidates(occurrence.id, occurrence.entries.single().id, inputs)
         val candidate = choices.alternatives.single()
-        assertEquals(145.0, candidate.weightKg)
+        assertEquals(147.5, candidate.weightKg)
         assertEquals(occurrence.entries.single().sets, candidate.sets)
         assertEquals(occurrence.entries.single().reps, candidate.reps)
         useCase(choices, "alternative", inputs)

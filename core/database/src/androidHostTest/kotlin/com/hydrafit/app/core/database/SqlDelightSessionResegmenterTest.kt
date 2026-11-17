@@ -12,6 +12,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshotJson
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.domain.workout.resegmentSessions
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -67,6 +68,65 @@ class SqlDelightSessionResegmenterTest {
         assertEquals(100, byId.getValue("s1").endedAtMillis)
         assertEquals(1000, byId.getValue("s2").startedAtMillis)
         assertEquals(1050, byId.getValue("s2").endedAtMillis)
+    }
+
+    @Test
+    fun theBoundedReadMatchesTheResultFromEverySetForManySessionsAndEveryMove() = runTest {
+        // Interior sets, ties and an open session make the boundary-only read worth proving against
+        // the pure function applied to the complete history.
+        insertSession("a", started = 100, ended = 400, day = 0)
+        insertSession("b", started = 1000, ended = 1900, day = 0)
+        insertSession("c", started = 5000, ended = null, day = 1)
+        var id = 1L
+        listOf(
+            "a" to listOf(100L, 150L, 150L, 300L, 400L),
+            "b" to listOf(1000L, 1200L, 1500L, 1500L, 1900L),
+            "c" to listOf(5000L, 5200L)
+        ).forEach { (session, times) -> times.forEach { insertSet(id++, session, it) } }
+        val moves = listOf(
+            2L to 1500L,
+            5L to 950L,
+            6L to 3000L,
+            9L to 120L,
+            10L to 6000L,
+            11L to 1L,
+            3L to 150L
+        )
+
+        moves.forEach { (setId, newTime) ->
+            val before = log.all()
+            val expected = resegmentSessions(
+                sets = before,
+                sessions = sessions.all(),
+                correctedSetId = setId,
+                performedAtMillis = newTime,
+                utcOffsetMillis = 0
+            )
+            val sessionsBefore = sessions.all().associateBy { it.id }
+
+            resegmenter.resegmentAfterTimeCorrection(setId, newTime, 0)
+
+            val after = log.all().associateBy { it.id }
+            before.forEach { set ->
+                val expectedSession = expected.assignments[set.id] ?: set.sessionId
+                assertEquals(expectedSession, after.getValue(set.id).sessionId, "set ${set.id}")
+            }
+            val sessionsAfter = sessions.all().associateBy { it.id }
+            sessionsAfter.forEach { (sessionId, session) ->
+                val bounds = expected.sessionBounds[sessionId]
+                val previous = sessionsBefore.getValue(sessionId)
+                assertEquals(
+                    bounds?.startedAtMillis ?: previous.startedAtMillis,
+                    session.startedAtMillis,
+                    "start of $sessionId after moving $setId"
+                )
+                assertEquals(
+                    if (bounds != null) bounds.endedAtMillis else previous.endedAtMillis,
+                    session.endedAtMillis,
+                    "end of $sessionId after moving $setId"
+                )
+            }
+        }
     }
 
     @Test

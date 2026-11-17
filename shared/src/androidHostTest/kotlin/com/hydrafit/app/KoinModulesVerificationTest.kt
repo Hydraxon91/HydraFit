@@ -167,9 +167,6 @@ import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSessionRepository
 import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
-import com.hydrafit.app.core.network.ApiKeyProvider
-import com.hydrafit.app.core.network.GeminiConfig
-import com.hydrafit.app.core.network.GeminiWorkoutPlannerEngine
 import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.network.networkModule
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
@@ -302,7 +299,6 @@ class KoinModulesVerificationTest {
         single<BootIdentityProvider> { BootIdentityProvider { null } }
         single<ApiKeyStore> { FakeApiKeyStore }
         single<AppVersionProvider> { FakeAppVersionProvider }
-        single<ApiKeyProvider> { ApiKeyProvider { "test-key" } }
         single<GroqApiKeyProvider> { GroqApiKeyProvider { "test-key" } }
         single<BackupFileStore> { UnsupportedBackupFileStore() }
         single<BackupFolderStore> { UnsupportedBackupFolderStore() }
@@ -350,9 +346,6 @@ class KoinModulesVerificationTest {
         allModules.verify(
             extraTypes = listOf(
                 DatabaseDriverFactory::class,
-                GeminiWorkoutPlannerEngine::class,
-                // networkModule's class definitions expose these as constructor fields.
-                GeminiConfig::class,
                 WorkoutPlannerEngine::class,
                 // networkModule's HttpClient factory reflects its Ktor engine dependency.
                 httpClientEngineType,

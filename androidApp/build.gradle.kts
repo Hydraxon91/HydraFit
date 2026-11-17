@@ -22,7 +22,7 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
-val defaultVersionName = "0.12.0-dev"
+val defaultVersionName = "0.14.0-dev"
 val defaultVersionCode = 1
 val releaseTagPattern = Regex("""^v\d+\.\d+\.\d+([-+].*)?$""")
 val stableReleaseTagPattern = Regex("""^v(\d+)\.(\d+)\.(\d+)$""")
@@ -99,11 +99,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = ciVersionCode
         versionName = ciVersionName
-        buildConfigField(
-            "String",
-            "GEMINI_API_KEY",
-            "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\""
-        )
         buildConfigField("String", "VERSION_NAME", "\"$ciVersionName\"")
     }
     packaging {

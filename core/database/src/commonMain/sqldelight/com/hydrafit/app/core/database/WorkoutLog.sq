@@ -55,6 +55,28 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 selectAllSets:
 SELECT * FROM workoutSet ORDER BY performedAt, id;
 
+-- The earliest and latest set of every session, without the excluded set: all a time correction
+-- needs to find the nearest session and recompute the bounds. It still walks the session-assigned
+-- sets through an index, but loads only two rows per session instead of every logged set.
+selectSessionBoundarySetIds:
+SELECT s.id FROM workoutSet s
+WHERE s.id != :excluded AND s.sessionId IS NOT NULL AND (
+    s.id = (
+        SELECT e.id FROM workoutSet e
+        WHERE e.sessionId = s.sessionId AND e.id != :excluded
+        ORDER BY e.performedAt ASC, e.id ASC LIMIT 1
+    )
+    OR s.id = (
+        SELECT l.id FROM workoutSet l
+        WHERE l.sessionId = s.sessionId AND l.id != :excluded
+        ORDER BY l.performedAt DESC, l.id DESC LIMIT 1
+    )
+)
+ORDER BY s.performedAt, s.id;
+
+selectSetsByIds:
+SELECT * FROM workoutSet WHERE id IN :ids ORDER BY performedAt, id;
+
 selectSetById:
 SELECT * FROM workoutSet WHERE id = ?;
 
@@ -171,3 +193,9 @@ CREATE INDEX workoutSet_exerciseId_performedAt_id ON workoutSet(exerciseId, perf
 -- One occurrence's recorded exercises are read live by the summary's record section; a composite
 -- occurrence/exercise index seeks that occurrence and satisfies DISTINCT/ORDER BY directly.
 CREATE INDEX workoutSet_occurrenceId_exerciseId ON workoutSet(occurrenceId, exerciseId);
+
+-- The Logger's bounded reads seek by recorded time (latest other session, exercises on a local day)
+-- and by the entries of one occurrence; without these they scan the whole set table.
+CREATE INDEX workoutSet_performedAt ON workoutSet(performedAt);
+
+CREATE INDEX workoutSet_occurrenceEntryId ON workoutSet(occurrenceEntryId);

@@ -512,7 +512,7 @@ class SubstituteExerciseUseCaseTest {
         val recalculated = requireNotNull(result?.setTargets)
         assertEquals(1, recalculated.targets.size)
         assertEquals(8, recalculated.targets.single().reps)
-        assertEquals(72.5, recalculated.targets.single().weightKg)
+        assertEquals(75.0, recalculated.targets.single().weightKg)
         assertNull(recalculated.recipe)
     }
 
@@ -567,8 +567,8 @@ class SubstituteExerciseUseCaseTest {
         )
 
         val targets = requireNotNull(result?.setTargets).targets
-        // Each set's load is the candidate's baseline at that set's own reps: 8 -> 72.5, 12 -> 62.5.
-        assertEquals(listOf(72.5, 62.5), targets.map { it.weightKg })
+        // Each set's load is the candidate's baseline at that set's own reps: 8 -> 75.0, 12 -> 67.5.
+        assertEquals(listOf(75.0, 67.5), targets.map { it.weightKg })
         assertEquals(listOf(8, 12), targets.map { it.reps })
         assertEquals(listOf(2, 1), targets.map { it.targetRir })
         assertNull(result?.setTargets?.recipe)
