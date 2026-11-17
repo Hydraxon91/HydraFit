@@ -38,6 +38,10 @@
     <string name="focus_lower">Lower</string>
     <string name="focus_full_body">Full body</string>
     <string name="logger_recent">Recent sets</string>
+    <string name="logger_recent_none_this_session">No sets recorded in this session yet.</string>
+    <string name="logger_recent_see_all">See all in workout history</string>
+    <string name="logger_last_session_show">Show last session (%1$s) · Sets: %2$d</string>
+    <string name="logger_last_session_hide">Hide last session (%1$s)</string>
     <string name="logger_planned_today">Planned today</string>
     <string name="logger_confirm">Confirm</string>
     <string name="logger_set_week_day">Week %1$d · Day %2$d</string>
@@ -51,7 +55,9 @@
     <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>
-    <string name="logger_edit_time">Edit time</string>
+    <string name="logger_delete_set_title">Delete this set?</string>
+    <string name="logger_delete_set_message">This %1$s set will be permanently removed from your history. This can’t be undone.</string>
+    <string name="logger_delete_set_confirm">Delete set</string>
     <string name="logger_edit_set">Edit set</string>
     <string name="logger_edit_set_title">Edit set: %1$s</string>
     <string name="logger_save_set">Save changes</string>
@@ -82,7 +88,6 @@
     <string name="logger_replace_target_timed">%1$s · %2$d sets × %3$d s · %4$s</string>
     <string name="logger_replace_target_distance">%1$s · %2$d sets × %3$s · %4$s</string>
     <string name="logger_replace_target_force">%1$s · %2$d sets × %3$s N</string>
-    <string name="logger_session_not_recorded">Session not recorded</string>
     <string name="logger_end_session">End session</string>
     <string name="logger_new_session">New session</string>
     <string name="logger_time_live">Logging now</string>
@@ -108,8 +113,6 @@
     <string name="logger_workout_overview_target_force">%1$d × %2$s</string>
     <string name="logger_workout_overview_target_sets">%1$d sets</string>
     <string name="logger_workout_actions">Workout actions</string>
-    <string name="logger_other_training_show">Other training</string>
-    <string name="logger_other_training_hide">Hide other training</string>
     <string name="logger_plan_open">Manage plan</string>
     <string name="logger_finish">Finish</string>
     <string name="logger_finish_partial">Finish partially</string>
@@ -129,6 +132,8 @@
     <string name="logger_draft_edit">Edit draft</string>
     <string name="logger_draft_edit_apply">Apply edit</string>
     <string name="logger_draft_edit_title">Edit %1$s</string>
+    <string name="logger_live_set_title">Log %1$s</string>
+    <string name="logger_live_set_note">Enter what you actually did in this set. Only this set is logged with these values; your remaining targets stay as they are.</string>
     <string name="logger_draft_cluster_segments_title">Cluster segments</string>
     <string name="logger_cluster_log_open">Log or resume cluster: %1$s</string>
     <string name="logger_cluster_log_position">Segment %1$d of %2$d · %3$d saved</string>
@@ -423,7 +428,6 @@
     <string name="logger_loading_calculator_missing_lower">This inventory has no reachable load below the target.</string>
     <string name="logger_loading_calculator_missing_upper">This inventory has no reachable load above the target.</string>
     <string name="logger_loading_calculator_read_only_note">This helper only calculates. It never changes your logged sets or the prescription.</string>
-    <string name="logger_station_label">Station</string>
     <string name="logger_station_none">No station</string>
     <string name="logger_station_choose">Choose station</string>
     <string name="logger_station_attributed">Station: %1$s</string>

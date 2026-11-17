@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,7 +67,13 @@ import hydrafit.feature.equipment.generated.resources.equipment_bodyweight
 import hydrafit.feature.equipment.generated.resources.equipment_cancel
 import hydrafit.feature.equipment.generated.resources.equipment_custom_section
 import hydrafit.feature.equipment.generated.resources.equipment_delete
+import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_message
+import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_title
 import hydrafit.feature.equipment.generated.resources.equipment_delete_personal_record_blocked
+import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_message
+import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_title
 import hydrafit.feature.equipment.generated.resources.equipment_edit
 import hydrafit.feature.equipment.generated.resources.equipment_edit_reset
 import hydrafit.feature.equipment.generated.resources.equipment_edit_save
@@ -76,6 +84,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_exclude_indefini
 import hydrafit.feature.equipment.generated.resources.equipment_exclude_until
 import hydrafit.feature.equipment.generated.resources.equipment_exclude_window
 import hydrafit.feature.equipment.generated.resources.equipment_exclusion_section
+import hydrafit.feature.equipment.generated.resources.equipment_exclusions_empty
 import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
@@ -89,6 +98,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_
 import hydrafit.feature.equipment.generated.resources.equipment_load_external
 import hydrafit.feature.equipment.generated.resources.equipment_load_section
 import hydrafit.feature.equipment.generated.resources.equipment_load_unspecified
+import hydrafit.feature.equipment.generated.resources.equipment_loading
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_note
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
@@ -113,6 +123,9 @@ import hydrafit.feature.equipment.generated.resources.equipment_profile_failed
 import hydrafit.feature.equipment.generated.resources.equipment_profile_finding
 import hydrafit.feature.equipment.generated.resources.equipment_profile_unknown
 import hydrafit.feature.equipment.generated.resources.equipment_remove
+import hydrafit.feature.equipment.generated.resources.equipment_remove_record_confirm
+import hydrafit.feature.equipment.generated.resources.equipment_remove_record_message
+import hydrafit.feature.equipment.generated.resources.equipment_remove_record_title
 import hydrafit.feature.equipment.generated.resources.equipment_save_error
 import hydrafit.feature.equipment.generated.resources.equipment_search_label
 import hydrafit.feature.equipment.generated.resources.equipment_station_add
@@ -406,6 +419,22 @@ fun EquipmentProfilerScreen(
                 Text(stringResource(Res.string.equipment_back))
             }
         }
+        // The profile arrives asynchronously; until it does, a section would read as having no
+        // equipment, exclusions or records.
+        if (state.isLoading) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text(
+                    text = stringResource(Res.string.equipment_loading),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            return@Column
+        }
         when (section) {
             EquipmentSection.PROFILE_LOADING -> {
                 EquipmentProfilesSection(
@@ -509,6 +538,11 @@ fun EquipmentProfilerScreen(
                                 }
                             }
                         }
+                } else {
+                    Text(
+                        text = stringResource(Res.string.equipment_exclusions_empty),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
 
@@ -530,6 +564,22 @@ fun EquipmentProfilerScreen(
                         Text(stringResource(Res.string.equipment_add_button))
                     }
                 }
+                var pendingClearRecord by remember { mutableStateOf<PersonalRecordRow?>(null) }
+                pendingClearRecord?.let { record ->
+                    ConfirmRemovalDialog(
+                        title = stringResource(Res.string.equipment_remove_record_title),
+                        message = stringResource(
+                            Res.string.equipment_remove_record_message,
+                            record.exerciseName
+                        ),
+                        confirmLabel = stringResource(Res.string.equipment_remove_record_confirm),
+                        onConfirm = {
+                            pendingClearRecord = null
+                            onClearPersonalRecord(record.exerciseId)
+                        },
+                        onDismiss = { pendingClearRecord = null }
+                    )
+                }
                 state.personalRecords.forEach { record ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -548,7 +598,7 @@ fun EquipmentProfilerScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        TextButton(onClick = { onClearPersonalRecord(record.exerciseId) }) {
+                        TextButton(onClick = { pendingClearRecord = record }) {
                             Text(stringResource(Res.string.equipment_remove))
                         }
                     }
@@ -1052,7 +1102,9 @@ private fun ExerciseSummaryRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = exercise.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = equipmentSummary(exercise) + " · " + muscleNames(exercise.primaryMuscles),
+                text = listOf(equipmentSummary(exercise), muscleNames(exercise.primaryMuscles))
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -1082,6 +1134,19 @@ private fun EquipmentEditorDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        ConfirmRemovalDialog(
+            title = stringResource(Res.string.equipment_delete_tag_title),
+            message = stringResource(Res.string.equipment_delete_tag_message),
+            confirmLabel = stringResource(Res.string.equipment_delete_tag_confirm),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1094,7 +1159,7 @@ private fun EquipmentEditorDialog(
         },
         dismissButton = {
             if (!state.isBuiltIn) {
-                TextButton(onClick = onDelete) {
+                TextButton(onClick = { confirmDelete = true }) {
                     Text(stringResource(Res.string.equipment_delete))
                 }
             }
@@ -1156,6 +1221,19 @@ private fun ExerciseEditorDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        ConfirmRemovalDialog(
+            title = stringResource(Res.string.equipment_delete_exercise_title),
+            message = stringResource(Res.string.equipment_delete_exercise_message),
+            confirmLabel = stringResource(Res.string.equipment_delete_exercise_confirm),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1171,7 +1249,7 @@ private fun ExerciseEditorDialog(
                     }
                 }
                 if (state.isCustom && !state.isNew) {
-                    TextButton(onClick = onDelete) {
+                    TextButton(onClick = { confirmDelete = true }) {
                         Text(stringResource(Res.string.equipment_delete))
                     }
                 } else if (!state.isCustom) {
@@ -1518,6 +1596,30 @@ private fun exclusionSummary(
             isoLocalDateTime(expiresAt, utcOffsetMillis).substringBefore(' ')
         )
     }
+}
+
+/** Asks before an action that permanently removes data; only [confirmLabel] runs [onConfirm]. */
+@Composable
+private fun ConfirmRemovalDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(confirmLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.equipment_cancel))
+            }
+        }
+    )
 }
 
 @Composable

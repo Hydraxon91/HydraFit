@@ -612,6 +612,32 @@ the UI shows "Recorded session" at each boundary, including a returning identity
 Each null-session row instead has its own "Session not recorded" subtitle. No date/gap inference,
 ordinal identity or duration is introduced. Boundaries are derived anew after correction/deletion.
 
+Train's **Recent sets** are no longer the whole log: `groupRecentSets` (UiState file) splits the published
+`recentSets` into the open session's rows and the single most recent other session, shown as a folded
+**Show last session (date) · Sets: N** row (`lastSessionExpanded`, `rememberSaveable`), plus **See all in
+workout history**. Sets without a recorded session belong to neither group and appear only in Workout
+history. `recentSets` is itself bounded: `refreshRecentSets` reads the open session
+(`logMutations.observeOpenSession()`, not possibly stale state) and `GetWorkoutLogUseCase.recentSessions`
+loads that session plus the latest other one, never the whole log. The Logger's other former full-log reads
+use the same use case: `lastWorkingSet` (quick-fill), `lastExternalLoadSet` (missing-load prompt),
+`exerciseIdsLoggedOn` (drafts already done today; the window is `[day*86_400_000 - offset, +86_400_000)`)
+and `setsForOccurrenceOrEntries` (an entry-linked set belongs to its slot even when its occurrence id is
+missing or disagrees, so the read takes the occurrence's sets plus sets naming its entry ids).
+
+**Delete** on a recent set only opens a confirmation (`pendingDeleteSetId`, a `rememberSaveable` row id in
+`WorkoutLoggerScreen`); the dialog names the exercise, states the removal is permanent, and only
+**Delete set** calls `deleteSet`. Cancel/dismiss writes nothing, and a stale id shows no dialog. There is
+no undo: restoring a row would have to rebuild its session, occurrence-entry, cluster and snapshot links.
+
+Guided **Set completed now** no longer writes the draft's values at once: the screen calls
+`beginGuidedSetCompletion`, which freezes the completion moment (`liveSetCompletedAt*`) and opens the
+draft editor as a completion sheet (`DraftEdit.logsLiveSet`). **Log set** (`confirmDraftEdit` →
+`logLiveSetFromEdit`) writes the entered reps/weight/RIR (or the draft's seconds/distance/force) for that one
+set through `launchGuidedWrite(liveCompletion = true)` and never stages remaining-set targets; Cancel keeps
+the set started and drops the frozen moment so the next completion takes a fresh time. The sheet has no
+Reset or time controls, a failed write keeps its entries for retry, and a cluster or legacy-load draft keeps
+the direct `confirmGuidedSetNow` path. The ordinary **Log** button and the timed-set dialog are unchanged.
+
 Recent sets use a separate `LoggedSetEdit` / `LoggedSetEditDialog`, reached by **Edit set** rather
 than the former time-only button. `CorrectWorkoutSetUseCase` is forwarded by `WorkoutLogMutations`;
 the Logger retains six constructor dependencies. Corrections update time/reps/weight/optional RIR

@@ -168,7 +168,8 @@ private fun ChosenTimeRow(
 ) {
     var picking by remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier.fillMaxWidth().testTag(testTag).clickable { picking = true },
+        modifier = Modifier.fillMaxWidth().testTag(testTag)
+            .clickable(role = Role.Button) { picking = true },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {

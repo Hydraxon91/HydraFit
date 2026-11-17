@@ -1,6 +1,6 @@
 ---
-name: HydraFit writing quality
-description: Keep HydraFit UI copy, documentation and code comments specific, accurate and useful.
+name: hydrafit-writing
+description: Use when writing or revising HydraFit user-facing text (UI strings), living documentation, release notes or code comments. Keeps them specific, accurate and useful.
 ---
 
 # HydraFit writing quality

@@ -1103,6 +1103,11 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Fresh install → empty states are coherent (no plan, no logs, no records).
 
 ## 1. Equipment
+- Library → Equipment → Exclusions with nothing excluded shows an explanation, not a blank page; the
+  Exercise catalog row of an exercise without muscles shows no trailing separator; the loading editor states
+  that new plans and the calculator use the saved gear while existing workouts keep their numbers (checked on
+  `emulator-5554` 2026-11-17 for the first two; the brief profile-loading spinner and the editor note were not
+  captured on a device).
 - Add custom equipment, rename it, set a max weight, delete it → selection updates; survives relaunch.
 - Search filters the exercise list; built-in tags present.
 - **Equipment profiles (0.9.0):** create an empty profile and a copy of the active one, rename the active
@@ -1200,6 +1205,31 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   No fixture writes or Delete taps. Null-label visuals, quick-fill/edit/delete interactions,
   font/theme/locale variants and TalkBack traversal remain unverified; host regressions cover
   boundary/null/order/refresh logic and existing action/load/RIR behavior. B6 limits remain unchanged.
+- The Logger no longer loads the whole workout log for Train, quick-fill, the missing-load prompt, the
+  "already logged today" filter or workout progress; each uses a bounded query that the database tests prove
+  equal to the in-memory rule. Re-checked on `emulator-5554` 2026-11-17 (view only, 31 sets before and after).
+  Not timed: no benchmark was run, so the gain is structural, not measured.
+- **Known limit (accepted):** a set with no recorded session (very old or restored data) is not listed on
+  Train, so it can be edited from Workout history but not deleted anywhere. Normal logging always records a
+  session; a 2026-11-17 copy of the author's phone database held none.
+- Train → Recent sets shows the open session's sets (or "No sets recorded in this session yet."), a folded
+  **Show last session (date) · Sets: N** row that expands to that session's rows with Edit/Delete, and **See all
+  in workout history**; older and unrecorded-session sets are in Workout history only. Checked on
+  `emulator-5554` 2026-11-17 with no open session (collapse/expand, no writes, 31 sets before and after); the
+  open-session group is covered by the grouping tests, not seen on a device.
+- Guided **Start set** → **Set completed now** opens a "Log <exercise>" sheet prefilled with the target; **Log set**
+  records the entered values for that set only and leaves remaining targets unchanged, **Cancel** keeps the
+  set started. Covered by three Logger ViewModel tests (values and frozen completion time, cancel, failed
+  write plus repeat tap). **Not checked on a device:** the emulator's guided mode is off and starting a workout
+  writes a session, so the sheet's layout and the confirm path were not run.
+- Other permanent removals now ask first: accepted plan **Delete** (Manage plan → Plan history), **Cancel block**
+  (Library → Routines), custom exercise **Delete**, custom equipment **Delete** and baseline record **Remove**
+  (Library → Equipment). Cancel-path flows for the first three were run on `emulator-5554` 2026-11-17 with the
+  plan, exercise and set counts unchanged; the equipment-tag and baseline-record dialogs share one helper and
+  were not run on a device. Finish block was left as is because it only succeeds once every workout is resolved.
+- Recent sets → **Delete** asks "Delete this set?" naming the exercise, with **Cancel** and **Delete set**;
+  Cancel/outside tap leaves the set count unchanged (checked on `emulator-5554` 2026-11-17, 31 sets before and
+  after, cancel path only; the confirm path is host-tested through `deleteSet` and not run on a device).
 - Recent sets → **Edit set** prefills time, reps, weight and optional RIR. Cancel writes nothing;
   Save changes updates the same row, and reopening shows the correction without another logged set.
   Verify past-time correction, future rejection, positive reps, finite non-negative load, blank vs

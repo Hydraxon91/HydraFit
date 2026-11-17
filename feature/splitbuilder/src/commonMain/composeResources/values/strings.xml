@@ -74,6 +74,9 @@
     <string name="split_history">Plan history</string>
     <string name="split_history_entry">%1$s · %2$s · %3$d days · Week %4$d</string>
     <string name="split_delete_plan">Delete</string>
+    <string name="split_delete_plan_title">Delete this plan?</string>
+    <string name="split_delete_plan_message">The plan is removed from your plan history and can’t be restored. Logged workouts and saved routines are not affected. If it is your latest plan, that week is planned again.</string>
+    <string name="split_delete_plan_confirm">Delete plan</string>
     <string name="split_error">Couldn’t build the plan. Check your connection or API key and try again.</string>
     <string name="split_error_transient">The AI service is temporarily unavailable. Please try again in a moment.</string>
     <string name="split_error_rate_limited">Groq is rate-limiting requests right now. Wait a moment and try again, or switch to the built-in planner in Settings.</string>

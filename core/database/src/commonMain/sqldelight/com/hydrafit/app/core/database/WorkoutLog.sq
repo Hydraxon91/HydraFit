@@ -93,6 +93,42 @@ UPDATE workoutSet SET deviceName = ?, deviceRatingKg = ? WHERE id = ?;
 selectLastSetBySession:
 SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC LIMIT 1;
 
+-- Bounded reads for the Logger. Each mirrors the in-memory rule of the repository's default method
+-- (same filter, same tie-break), so an indexed read and a full read return identical rows.
+selectSetsBySessionNewestFirst:
+SELECT * FROM workoutSet WHERE sessionId = ? ORDER BY performedAt DESC, id DESC;
+
+-- A NULL exclusion keeps every recorded session; sets without a session never qualify.
+selectLatestSessionIdExcluding:
+SELECT sessionId FROM workoutSet
+WHERE sessionId IS NOT NULL AND (:excluded IS NULL OR sessionId != :excluded)
+ORDER BY performedAt DESC, id DESC
+LIMIT 1;
+
+-- IS makes a NULL station match only sets logged without one. Equal times keep the earliest inserted set.
+selectLastWorkingSetForExercise:
+SELECT * FROM workoutSet
+WHERE exerciseId = ? AND isWarmup = 0 AND stationId IS ?
+ORDER BY performedAt DESC, id ASC
+LIMIT 1;
+
+-- Returns only the id: selecting the row here would narrow weightKg to non-null and generate a
+-- one-off row type, so the repository loads the set through selectSetById.
+selectLastExternalLoadSetId:
+SELECT id FROM workoutSet
+WHERE exerciseId = ? AND isWarmup = 0 AND loadKind = 'EXTERNAL' AND weightKg IS NOT NULL
+ORDER BY performedAt DESC, id DESC
+LIMIT 1;
+
+selectExerciseIdsBetween:
+SELECT DISTINCT exerciseId FROM workoutSet
+WHERE isWarmup = 0 AND performedAt >= ? AND performedAt < ?;
+
+selectSetsForOccurrenceOrEntries:
+SELECT * FROM workoutSet
+WHERE occurrenceId = :occurrenceId OR occurrenceEntryId IN :entryIds
+ORDER BY performedAt, id;
+
 assignSession:
 UPDATE workoutSet SET sessionId = ? WHERE id = ?;
 

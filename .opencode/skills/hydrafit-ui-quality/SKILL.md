@@ -1,6 +1,6 @@
 ---
-name: HydraFit UI quality
-description: Apply HydraFit-specific visual, accessibility, layout and UI-state guidance when designing or changing Compose UI.
+name: hydrafit-ui-quality
+description: Use when designing or changing HydraFit Compose UI (screens, theme, layout, charts, dialogs, UI states). Applies the Quiet Strength design system plus accessibility, layout and UI-state guidance.
 ---
 
 # HydraFit UI quality
@@ -14,8 +14,22 @@ additional features, broad audits, or changes outside the approved slice.
 
 - Build hierarchy around the user's task and the decision or action the screen supports.
 - Follow existing HydraFit visual language and Compose/Material conventions. Do not
-  add decoration, gradients, charts, cards, animation, or a theme toggle without a
-  product purpose and approved scope.
+  add decoration, gradients, cards, animation, or a theme toggle without a product
+  purpose and approved scope. Charts are allowed only where an approved feature needs
+  one (for example Progress), built from the design system below.
+
+## Design system (Quiet Strength, 0.13.4)
+
+- The approved colour roles, typography, spacing, shape, component hierarchy and
+  reference boards are described in `docs/design-0.13.4.md` (the board image files it names are not
+  stored in this repository, so rely on the written tokens and rules).
+  PLANS.md holds the full 0.13.4 contract. Read the sections for the screen you touch.
+- Take colour, type and spacing from the existing theme and tokens
+  (`shared/src/commonMain/kotlin/com/hydrafit/app/AppTheme.kt`), never ad-hoc values.
+- Layout adapts to window size through `shared/src/commonMain/kotlin/com/hydrafit/app/AdaptiveLayout.kt`;
+  check phone, tablet and foldable behavior for any new screen structure.
+- The design document records what was approved at 0.13.4; where it and the current
+  source differ, source wins and the difference is a finding, not a reason to redesign.
 - Preserve consistency where it helps users scan repeated data. Workout rows and
   controls do not need artificial variation to appear original.
 - Use real product behavior and data. Do not invent metrics, testimonials, exercise

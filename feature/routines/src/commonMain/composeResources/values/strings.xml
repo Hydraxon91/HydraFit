@@ -45,7 +45,6 @@
     <string name="routines_force_unit">N</string>
     <string name="routines_weight_label">Weight (%1$s)</string>
     <string name="routines_weight_optional">Optional</string>
-    <string name="routines_workout_number">Workout %1$d</string>
     <string name="routines_focus_label">Focus</string>
 
     <string name="routines_progression_action">Progression</string>
@@ -148,7 +147,6 @@
     <string name="routines_activation_start_today">Start today</string>
     <string name="routines_activation_choose_date">Choose start date</string>
     <string name="routines_activation_preview">First dates</string>
-    <string name="routines_activation_save_later">Save for later</string>
     <string name="routines_activation_replace">Cancel the current block and start this one</string>
     <string name="routines_activation_no_weekday">Pick at least one training day</string>
 
@@ -165,6 +163,9 @@
     <string name="routines_occurrence_not_before">Not before %1$s</string>
     <string name="routines_finish_block">Finish block</string>
     <string name="routines_cancel_block">Cancel block</string>
+    <string name="routines_cancel_block_title">Cancel this training block?</string>
+    <string name="routines_cancel_block_message">The block ends now and its pending workouts are no longer scheduled. Everything you already logged is kept.</string>
+    <string name="routines_cancel_block_confirm">Cancel block</string>
     <string name="routines_repeat_block">Repeat block</string>
     <string name="routines_postpone">Postpone</string>
     <string name="routines_postpone_title">Move workout to</string>

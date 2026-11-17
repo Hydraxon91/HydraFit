@@ -1410,7 +1410,8 @@ class KoinModulesVerificationTest {
 
         override suspend fun open(): WorkoutSession? = null
 
-        override fun openFlow(): Flow<WorkoutSession?> = emptyFlow()
+        // The open-session flow always emits the current value, null when none is open.
+        override fun openFlow(): Flow<WorkoutSession?> = flowOf(null)
 
         override suspend fun all(): List<WorkoutSession> = emptyList()
     }

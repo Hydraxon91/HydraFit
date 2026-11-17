@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -84,6 +83,7 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.routine.ClusterKind
+import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
@@ -127,6 +127,9 @@ import hydrafit.feature.logger.generated.resources.logger_cluster_segment_count
 import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
+import hydrafit.feature.logger.generated.resources.logger_delete_set_confirm
+import hydrafit.feature.logger.generated.resources.logger_delete_set_message
+import hydrafit.feature.logger.generated.resources.logger_delete_set_title
 import hydrafit.feature.logger.generated.resources.logger_device_attributed
 import hydrafit.feature.logger.generated.resources.logger_device_attributed_rated
 import hydrafit.feature.logger.generated.resources.logger_device_name_label
@@ -231,6 +234,10 @@ import hydrafit.feature.logger.generated.resources.logger_history_set_duration_l
 import hydrafit.feature.logger.generated.resources.logger_history_set_force_line
 import hydrafit.feature.logger.generated.resources.logger_history_set_line
 import hydrafit.feature.logger.generated.resources.logger_instructions
+import hydrafit.feature.logger.generated.resources.logger_last_session_hide
+import hydrafit.feature.logger.generated.resources.logger_last_session_show
+import hydrafit.feature.logger.generated.resources.logger_live_set_note
+import hydrafit.feature.logger.generated.resources.logger_live_set_title
 import hydrafit.feature.logger.generated.resources.logger_load_added
 import hydrafit.feature.logger.generated.resources.logger_load_added_none
 import hydrafit.feature.logger.generated.resources.logger_load_basis
@@ -274,6 +281,8 @@ import hydrafit.feature.logger.generated.resources.logger_progression_suggested
 import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered
 import hydrafit.feature.logger.generated.resources.logger_progression_suggested_ordered_load
 import hydrafit.feature.logger.generated.resources.logger_recent
+import hydrafit.feature.logger.generated.resources.logger_recent_none_this_session
+import hydrafit.feature.logger.generated.resources.logger_recent_see_all
 import hydrafit.feature.logger.generated.resources.logger_replace
 import hydrafit.feature.logger.generated.resources.logger_reps_label
 import hydrafit.feature.logger.generated.resources.logger_rest_timer_cancel
@@ -289,7 +298,6 @@ import hydrafit.feature.logger.generated.resources.logger_rest_timer_use_default
 import hydrafit.feature.logger.generated.resources.logger_seconds_label
 import hydrafit.feature.logger.generated.resources.logger_session_active
 import hydrafit.feature.logger.generated.resources.logger_session_none
-import hydrafit.feature.logger.generated.resources.logger_session_not_recorded
 import hydrafit.feature.logger.generated.resources.logger_session_note_failed
 import hydrafit.feature.logger.generated.resources.logger_session_note_label
 import hydrafit.feature.logger.generated.resources.logger_session_note_load_failed
@@ -297,7 +305,6 @@ import hydrafit.feature.logger.generated.resources.logger_session_note_loading
 import hydrafit.feature.logger.generated.resources.logger_session_note_none
 import hydrafit.feature.logger.generated.resources.logger_session_note_open
 import hydrafit.feature.logger.generated.resources.logger_session_note_saved
-import hydrafit.feature.logger.generated.resources.logger_session_recorded
 import hydrafit.feature.logger.generated.resources.logger_set_time
 import hydrafit.feature.logger.generated.resources.logger_set_timer_cancel
 import hydrafit.feature.logger.generated.resources.logger_set_timer_confirm_measured
@@ -722,7 +729,8 @@ fun WorkoutLoggerRoute(
         onSkipWorkout = viewModel::skipWorkout,
         onOccurrenceMessageShown = viewModel::onOccurrenceMessageShown,
         onConfirmGuidedSet = viewModel::confirmGuidedSet,
-        onConfirmGuidedSetNow = viewModel::confirmGuidedSetNow,
+        // "Set completed now" asks for the performed values before anything is written.
+        onConfirmGuidedSetNow = viewModel::beginGuidedSetCompletion,
         onStartGuidedSet = viewModel::startGuidedSet,
         onEditGuidedSet = viewModel::editGuidedSet,
         onSkipSupersetTurn = viewModel::skipSupersetTurn,
@@ -999,6 +1007,11 @@ fun WorkoutLoggerScreen(
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
     var pendingDateUtcMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var futureTimeError by rememberSaveable { mutableStateOf(false) }
+    // Deleting recorded work is permanent, so a tap only asks; the row is looked up again when the
+    // dialog shows, which closes it if the set is already gone (for example after a recreation).
+    var pendingDeleteSetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // The previous session's sets stay folded until asked for, so Train stays short.
+    var lastSessionExpanded by rememberSaveable { mutableStateOf(false) }
     val trainingScrollState = rememberLazyListState()
     val overviewScrollState = rememberLazyListState()
     val measureChangeLabel = stringResource(Res.string.logger_measure_change_action)
@@ -1053,6 +1066,32 @@ fun WorkoutLoggerScreen(
                     enabled = !timer.logInProgress
                 ) {
                     Text(stringResource(Res.string.logger_set_timer_discard))
+                }
+            }
+        )
+    }
+
+    // Row ids are never reused, so a stale id simply shows no dialog.
+    pendingDeleteSetId?.let { id -> state.recentSets.firstOrNull { it.id == id } }?.let { row ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteSetId = null },
+            title = { Text(stringResource(Res.string.logger_delete_set_title)) },
+            text = {
+                Text(stringResource(Res.string.logger_delete_set_message, row.exerciseName))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDeleteSetId = null
+                        onDeleteSet(row.id)
+                    }
+                ) {
+                    Text(stringResource(Res.string.logger_delete_set_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteSetId = null }) {
+                    Text(stringResource(Res.string.logger_cancel))
                 }
             }
         )
@@ -2314,19 +2353,9 @@ fun WorkoutLoggerScreen(
                         }
                     }
                     if (presentation == LoggerPresentation.HOME) {
-                        itemsIndexed(
-                            state.recentSets
-                        ) { index, row ->
+                        val groups = groupRecentSets(state.recentSets, state.activeSession?.id)
+                        val recentRow: @Composable (LoggedSetRow) -> Unit = { row ->
                             Column {
-                                if (row.startsSessionAfter(state.recentSets.getOrNull(index - 1))) {
-                                    Text(
-                                        text = stringResource(Res.string.logger_session_recorded),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.padding(bottom = 8.dp).semantics {
-                                            heading()
-                                        }
-                                    )
-                                }
                                 val unit = state.weightUnit
                                 val weight = loadWeightText(row.loadKind, row.weightKg, unit)
                                 val warmupSuffix = if (row.isWarmup) {
@@ -2384,7 +2413,9 @@ fun WorkoutLoggerScreen(
                                     "$measurement$warmupSuffix$weekDay$clusterSuffix"
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { onRecentSetSelected(row) }
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        onRecentSetSelected(row)
+                                    }
                                 ) {
                                     Text(
                                         text = line,
@@ -2395,7 +2426,7 @@ fun WorkoutLoggerScreen(
                                     ) {
                                         Text(stringResource(Res.string.logger_edit_set))
                                     }
-                                    TextButton(onClick = { onDeleteSet(row.id) }) {
+                                    TextButton(onClick = { pendingDeleteSetId = row.id }) {
                                         Text(stringResource(Res.string.logger_delete_set))
                                     }
                                 }
@@ -2405,14 +2436,48 @@ fun WorkoutLoggerScreen(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                if (row.sessionId == null) {
+                            }
+                        }
+                        if (groups.current.isEmpty()) {
+                            item {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.logger_recent_none_this_session
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                        items(groups.current, key = { it.id }) { row -> recentRow(row) }
+                        if (groups.last.isNotEmpty()) {
+                            item {
+                                TextButton(
+                                    onClick = { lastSessionExpanded = !lastSessionExpanded },
+                                    modifier = Modifier.semantics { heading() }
+                                ) {
                                     Text(
-                                        text = stringResource(
-                                            Res.string.logger_session_not_recorded
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall
+                                        stringResource(
+                                            if (lastSessionExpanded) {
+                                                Res.string.logger_last_session_hide
+                                            } else {
+                                                Res.string.logger_last_session_show
+                                            },
+                                            isoLocalDateTime(
+                                                groups.last.first().performedAtMillis,
+                                                state.utcOffsetMillis
+                                            ).substringBefore(' '),
+                                            groups.last.size
+                                        )
                                     )
                                 }
+                            }
+                            if (lastSessionExpanded) {
+                                items(groups.last, key = { it.id }) { row -> recentRow(row) }
+                            }
+                        }
+                        item {
+                            TextButton(onClick = onOpenHistory) {
+                                Text(stringResource(Res.string.logger_recent_see_all))
                             }
                         }
                     }
@@ -2678,9 +2743,17 @@ fun WorkoutLoggerScreen(
                         else -> true
                     },
                 // A guided draft's editor only applies values to the pending set; logging is separate.
-                appliesOnly = state.isGuidedActive && edit.draft.occurrenceEntryId != null,
-                saving = state.guidedTargetsSaving,
-                failed = state.guidedTargetsFailed,
+                // The completion sheet is the exception: it logs the started set with these values.
+                appliesOnly = state.isGuidedActive &&
+                    edit.draft.occurrenceEntryId != null &&
+                    !edit.logsLiveSet,
+                saving = if (edit.logsLiveSet) {
+                    state.draftWriteInProgress
+                } else {
+                    state.guidedTargetsSaving
+                },
+                failed = state.guidedTargetsFailed && !edit.logsLiveSet,
+                liveSetFailed = state.guidedSetWriteFailed && edit.logsLiveSet,
                 clusterDraftError = state.clusterDraftError,
                 onRepsChanged = onDraftRepsChanged,
                 onDurationSecondsChanged = onDraftDurationSecondsChanged,
@@ -2780,6 +2853,7 @@ private fun DraftEditDialog(
     appliesOnly: Boolean,
     saving: Boolean,
     failed: Boolean,
+    liveSetFailed: Boolean,
     clusterDraftError: ClusterDraftError?,
     onRepsChanged: (String) -> Unit,
     onDurationSecondsChanged: (String) -> Unit,
@@ -2804,7 +2878,18 @@ private fun DraftEditDialog(
     val anchor = edit.performedAtMillis ?: nowMillis
     AlertDialog(
         onDismissRequest = { if (!saving) onCancel() },
-        title = { Text(stringResource(Res.string.logger_draft_edit_title, edit.draft.name)) },
+        title = {
+            Text(
+                stringResource(
+                    if (edit.logsLiveSet) {
+                        Res.string.logger_live_set_title
+                    } else {
+                        Res.string.logger_draft_edit_title
+                    },
+                    edit.draft.name
+                )
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -2813,9 +2898,18 @@ private fun DraftEditDialog(
                 if (appliesOnly) {
                     Text(stringResource(Res.string.logger_guided_edit_remaining_note))
                 }
+                if (edit.logsLiveSet) {
+                    Text(stringResource(Res.string.logger_live_set_note))
+                }
                 if (failed) {
                     Text(
                         stringResource(Res.string.logger_guided_edit_failed),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (liveSetFailed) {
+                    Text(
+                        stringResource(Res.string.logger_guided_set_failed),
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -2954,19 +3048,22 @@ private fun DraftEditDialog(
                         )
                     }
                 }
-                TextButton(onClick = {
-                    showDate = true
-                    timeError = false
-                }) {
-                    Text(stringResource(Res.string.logger_set_time))
+                // The completion sheet logs at the moment the set was marked complete.
+                if (!edit.logsLiveSet) {
+                    TextButton(onClick = {
+                        showDate = true
+                        timeError = false
+                    }) {
+                        Text(stringResource(Res.string.logger_set_time))
+                    }
+                    TextButton(onClick = {
+                        timeError = false
+                        onTimeChanged(null)
+                    }) {
+                        Text(stringResource(Res.string.logger_use_now))
+                    }
+                    if (timeError) Text(stringResource(Res.string.logger_future_time_error))
                 }
-                TextButton(onClick = {
-                    timeError = false
-                    onTimeChanged(null)
-                }) {
-                    Text(stringResource(Res.string.logger_use_now))
-                }
-                if (timeError) Text(stringResource(Res.string.logger_future_time_error))
             }
         },
         confirmButton = {
@@ -2976,10 +3073,10 @@ private fun DraftEditDialog(
             ) {
                 Text(
                     stringResource(
-                        if (appliesOnly) {
-                            Res.string.logger_draft_edit_apply
-                        } else {
-                            Res.string.logger_confirm
+                        when {
+                            edit.logsLiveSet -> Res.string.logger_set_timer_log_set
+                            appliesOnly -> Res.string.logger_draft_edit_apply
+                            else -> Res.string.logger_confirm
                         }
                     )
                 )
@@ -2987,8 +3084,10 @@ private fun DraftEditDialog(
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onReset, enabled = !saving) {
-                    Text(stringResource(Res.string.logger_draft_reset))
+                if (!edit.logsLiveSet) {
+                    TextButton(onClick = onReset, enabled = !saving) {
+                        Text(stringResource(Res.string.logger_draft_reset))
+                    }
                 }
                 TextButton(onClick = onCancel, enabled = !saving) {
                     Text(stringResource(Res.string.logger_cancel))

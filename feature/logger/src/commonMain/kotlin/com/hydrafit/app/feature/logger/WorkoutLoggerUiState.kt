@@ -92,6 +92,32 @@ data class LoggedSetRow(
     val cluster: WorkoutClusterSummary? = null
 )
 
+/**
+ * What Train's recent sets show: the open session's sets, and apart from them the single most
+ * recent other session. Everything older lives in Workout history. Sets without a recorded session
+ * belong to no group, so they appear only there.
+ */
+internal data class RecentSetGroups(val current: List<LoggedSetRow>, val last: List<LoggedSetRow>)
+
+/** [rows] must already be newest first, as the Logger publishes them. */
+internal fun groupRecentSets(rows: List<LoggedSetRow>, activeSessionId: String?): RecentSetGroups {
+    val current = if (activeSessionId == null) {
+        emptyList()
+    } else {
+        rows.filter { it.sessionId == activeSessionId }
+    }
+    val lastSessionId = rows.firstOrNull { it.sessionId != null && it.sessionId != activeSessionId }
+        ?.sessionId
+    val last = if (lastSessionId ==
+        null
+    ) {
+        emptyList()
+    } else {
+        rows.filter { it.sessionId == lastSessionId }
+    }
+    return RecentSetGroups(current = current, last = last)
+}
+
 /** Null identity is unrecorded, never a shared session boundary. */
 internal fun LoggedSetRow.startsSessionAfter(previous: LoggedSetRow?): Boolean =
     sessionId != null && (previous == null || sessionId != previous.sessionId)
@@ -431,6 +457,12 @@ data class DraftEdit(
     val laterSegments: List<ClusterSegmentInput> = emptyList(),
     /** True when Reset staged original guided prescription values for the next Apply. */
     val resetGuidedTargets: Boolean = false,
+    /**
+     * True when the editor confirms the actual values of a started guided set that was just marked
+     * complete. Its values are written for that one set only and never applied to remaining targets;
+     * the performed time is the frozen completion moment, so the time controls are not offered.
+     */
+    val logsLiveSet: Boolean = false,
     /**
      * The number format frozen when the editor opened, so a locale change mid-edit cannot reinterpret
      * text the user already typed.

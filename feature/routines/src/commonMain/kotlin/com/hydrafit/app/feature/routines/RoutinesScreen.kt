@@ -105,6 +105,9 @@ import hydrafit.feature.routines.generated.resources.routines_archived_filter
 import hydrafit.feature.routines.generated.resources.routines_back
 import hydrafit.feature.routines.generated.resources.routines_cancel
 import hydrafit.feature.routines.generated.resources.routines_cancel_block
+import hydrafit.feature.routines.generated.resources.routines_cancel_block_confirm
+import hydrafit.feature.routines.generated.resources.routines_cancel_block_message
+import hydrafit.feature.routines.generated.resources.routines_cancel_block_title
 import hydrafit.feature.routines.generated.resources.routines_cluster_action
 import hydrafit.feature.routines.generated.resources.routines_cluster_summary
 import hydrafit.feature.routines.generated.resources.routines_cluster_summary_kg
@@ -616,6 +619,29 @@ private fun MessageBanner(message: String, onDismiss: () -> Unit) {
 @Composable
 private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewModel) {
     var showSchedule by rememberSaveable { mutableStateOf(false) }
+    var confirmCancelBlock by rememberSaveable { mutableStateOf(false) }
+    if (confirmCancelBlock) {
+        AlertDialog(
+            onDismissRequest = { confirmCancelBlock = false },
+            title = { Text(stringResource(Res.string.routines_cancel_block_title)) },
+            text = { Text(stringResource(Res.string.routines_cancel_block_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmCancelBlock = false
+                        viewModel.onCancelBlock()
+                    }
+                ) {
+                    Text(stringResource(Res.string.routines_cancel_block_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCancelBlock = false }) {
+                    Text(stringResource(Res.string.routines_cancel))
+                }
+            }
+        )
+    }
     Card(
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -706,7 +732,7 @@ private fun ActiveBlockSection(state: RoutinesUiState, viewModel: RoutinesViewMo
                 TextButton(onClick = viewModel::onFinishBlock) {
                     Text(stringResource(Res.string.routines_finish_block))
                 }
-                TextButton(onClick = viewModel::onCancelBlock) {
+                TextButton(onClick = { confirmCancelBlock = true }) {
                     Text(stringResource(Res.string.routines_cancel_block))
                 }
             }
