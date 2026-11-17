@@ -108,6 +108,16 @@ No table/column change or migration is involved; catalog/backup references own t
 routine template upserts kept workouts/slots by id and deletes the removed ones,
 so reordering preserves identity.
 
+`WorkoutLog.sq` carries bounded Logger reads (queries only, no schema change):
+`selectSetsBySessionNewestFirst`, `selectLatestSessionIdExcluding`, `selectLastWorkingSetForExercise`
+(`stationId IS ?`, so a null station matches only unstationed sets; equal times keep the earliest
+insertion), `selectLastExternalLoadSetId` (id only, then `selectSetById`, because selecting the row would
+narrow `weightKg` and generate a one-off row type; equal times keep the latest insertion),
+`selectExerciseIdsBetween` (half-open window, warm-ups excluded) and `selectSetsForOccurrenceOrEntries`.
+`WorkoutLogRepository` declares each with a default that filters `all()`, which defines the rule;
+`SqlDelightWorkoutLogRepositoryTest` proves the SQL and the defaults agree row for row, so a new fake needs
+no override.
+
 `WorkoutLog.sq`'s `selectSetById` and `updateSetValues` support in-place recent-set correction.
 `SqlDelightSessionResegmenter.resegmentAfterSetCorrection` validates the stored load shape and
 updates reps/weight/RIR in the same transaction as time/session corrections. A changed performed

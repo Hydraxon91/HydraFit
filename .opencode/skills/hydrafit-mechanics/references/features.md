@@ -616,8 +616,13 @@ Train's **Recent sets** are no longer the whole log: `groupRecentSets` (UiState 
 `recentSets` into the open session's rows and the single most recent other session, shown as a folded
 **Show last session (date) · Sets: N** row (`lastSessionExpanded`, `rememberSaveable`), plus **See all in
 workout history**. Sets without a recorded session belong to neither group and appear only in Workout
-history. `recentSets` itself is unchanged and still comes from a full-log read in `refreshRecentSets`, which
-remains an unbounded read to fix separately (it needs a bounded repository query and its test fakes).
+history. `recentSets` is itself bounded: `refreshRecentSets` reads the open session
+(`logMutations.observeOpenSession()`, not possibly stale state) and `GetWorkoutLogUseCase.recentSessions`
+loads that session plus the latest other one, never the whole log. The Logger's other former full-log reads
+use the same use case: `lastWorkingSet` (quick-fill), `lastExternalLoadSet` (missing-load prompt),
+`exerciseIdsLoggedOn` (drafts already done today; the window is `[day*86_400_000 - offset, +86_400_000)`)
+and `setsForOccurrenceOrEntries` (an entry-linked set belongs to its slot even when its occurrence id is
+missing or disagrees, so the read takes the occurrence's sets plus sets naming its entry ids).
 
 **Delete** on a recent set only opens a confirmation (`pendingDeleteSetId`, a `rememberSaveable` row id in
 `WorkoutLoggerScreen`); the dialog names the exercise, states the removal is permanent, and only

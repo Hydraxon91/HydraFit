@@ -642,14 +642,7 @@ class WorkoutLoggerViewModel(
     /** Fills reps and weight from the most recent non-warmup set logged for this exercise. */
     private suspend fun prefillFromLastSet(exerciseId: String) {
         val stationId = _state.value.selectedStationId
-        val last = getWorkoutLog()
-            .filter {
-                it.exerciseId == exerciseId &&
-                    !it.isWarmup &&
-                    if (stationId == null) it.station == null else it.station?.id == stationId
-            }
-            .maxByOrNull { it.performedAtMillis }
-            ?: return
+        val last = getWorkoutLog.lastWorkingSet(exerciseId, stationId) ?: return
         if (_state.value.selectedExerciseId != exerciseId) return
         // This read can suspend, so the prefill may land after a manual submission was started. It is
         // then a newer input that replaces the form the user had: invalidate the older submission's
@@ -1674,12 +1667,7 @@ class WorkoutLoggerViewModel(
     ): List<DraftSet> {
         if (drafts.isEmpty()) return drafts
         val today = localEpochDay(nowMillis, utcOffsetMillis)
-        val loggedToday = getWorkoutLog()
-            .filter { set ->
-                !set.isWarmup &&
-                    localEpochDay(set.performedAtMillis, utcOffsetMillis) == today
-            }
-            .mapTo(mutableSetOf()) { it.exerciseId }
+        val loggedToday = getWorkoutLog.exerciseIdsLoggedOn(today, utcOffsetMillis)
         return drafts.filterNot { it.exerciseId in loggedToday }
     }
 
@@ -2197,14 +2185,7 @@ class WorkoutLoggerViewModel(
         viewModelScope.launch {
             var shouldContinue = false
             try {
-                val last = getWorkoutLog()
-                    .filter {
-                        it.exerciseId == draft.exerciseId &&
-                            !it.isWarmup &&
-                            it.loadKind == LoadKind.EXTERNAL &&
-                            it.weightKg != null
-                    }
-                    .maxWithOrNull(compareBy<WorkoutSet> { it.performedAtMillis }.thenBy { it.id })
+                val last = getWorkoutLog.lastExternalLoadSet(draft.exerciseId)
                 if (missingLoadPromptRevision != promptRevision ||
                     draftContextRevision != contextRevision ||
                     _state.value.missingLoadPrompt != draft
@@ -3813,7 +3794,12 @@ class WorkoutLoggerViewModel(
     private suspend fun occurrenceRecordedSets(
         occurrence: WorkoutOccurrence
     ): OccurrenceRecordedSets {
-        val sets = getWorkoutLog()
+        // The occurrence's own sets plus any set that names one of its entries: an entry-linked set
+        // belongs to its slot even when its derived occurrence id is missing or disagrees.
+        val sets = getWorkoutLog.setsForOccurrenceOrEntries(
+            occurrence.id,
+            occurrence.entries.map { it.id }
+        )
         val occurrenceSets = sets.filter { it.occurrenceId == occurrence.id }
         val performed = occurrenceSets
             .filter { set ->
@@ -5118,12 +5104,15 @@ class WorkoutLoggerViewModel(
         return EquipmentWeightLimit.ceilingFor(entry.requiredEquipment, equipment.maxWeights)
     }
 
+    /**
+     * Publishes the sets Train shows: the open session's and the latest other session's, each newest
+     * first. Everything older is read by Workout history, so this never loads the whole log. The open
+     * session is read here rather than taken from state, which may not have caught up yet.
+     */
     private suspend fun refreshRecentSets() {
-        val rows = getWorkoutLog()
-            .sortedWith(
-                compareByDescending<WorkoutSet> { it.performedAtMillis }
-                    .thenByDescending { it.id }
-            )
+        val activeSessionId = logMutations.observeOpenSession().first()?.id
+        val recent = getWorkoutLog.recentSessions(activeSessionId)
+        val rows = (recent.current + recent.last)
             .map { set ->
                 LoggedSetRow(
                     id = set.id,

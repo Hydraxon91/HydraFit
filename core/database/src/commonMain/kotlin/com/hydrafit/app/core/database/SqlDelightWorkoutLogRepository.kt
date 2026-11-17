@@ -224,6 +224,36 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
     override suspend fun lastSetBySession(sessionId: String): DomainWorkoutSet? =
         setQueries.selectLastSetBySession(sessionId).executeAsOneOrNull()?.toDomain()
 
+    override suspend fun setsBySessionNewestFirst(sessionId: String): List<DomainWorkoutSet> =
+        setQueries.selectSetsBySessionNewestFirst(sessionId).executeAsList().map { it.toDomain() }
+
+    override suspend fun latestSessionIdExcluding(excludedSessionId: String?): String? =
+        setQueries.selectLatestSessionIdExcluding(excludedSessionId).executeAsOneOrNull()
+
+    override suspend fun lastWorkingSetForExercise(
+        exerciseId: String,
+        stationId: Long?
+    ): DomainWorkoutSet? =
+        setQueries.selectLastWorkingSetForExercise(exerciseId, stationId).executeAsOneOrNull()
+            ?.toDomain()
+
+    override suspend fun lastExternalLoadSet(exerciseId: String): DomainWorkoutSet? =
+        setQueries.selectLastExternalLoadSetId(exerciseId).executeAsOneOrNull()
+            ?.let { id -> setQueries.selectSetById(id).executeAsOneOrNull()?.toDomain() }
+
+    override suspend fun exerciseIdsLoggedBetween(
+        fromMillis: Long,
+        toMillisExclusive: Long
+    ): Set<String> =
+        setQueries.selectExerciseIdsBetween(fromMillis, toMillisExclusive).executeAsList().toSet()
+
+    override suspend fun setsForOccurrenceOrEntries(
+        occurrenceId: Long,
+        entryIds: Collection<Long>
+    ): List<DomainWorkoutSet> =
+        setQueries.selectSetsForOccurrenceOrEntries(occurrenceId, entryIds).executeAsList()
+            .map { it.toDomain() }
+
     override suspend fun setsForOccurrence(occurrenceId: Long): List<DomainWorkoutSet> =
         setQueries.selectSetsForOccurrence(occurrenceId).executeAsList().map { it.toDomain() }
 

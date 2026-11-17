@@ -621,6 +621,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = 4,
                     weightKg = 70.0,
@@ -650,6 +651,7 @@ class WorkoutLoggerViewModelTest {
                 initial = listOf(
                     WorkoutSet(
                         id = 1L,
+                        sessionId = "recent-fixture",
                         exerciseId = "back-squat",
                         reps = 4,
                         weightKg = 60.123,
@@ -685,6 +687,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = null,
                     weightKg = null,
@@ -731,6 +734,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = null,
                     weightKg = null,
@@ -760,6 +764,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
@@ -784,6 +789,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "plank",
                     reps = 20,
                     weightKg = null,
@@ -806,6 +812,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = 4,
                     weightKg = 80.0,
@@ -3834,6 +3841,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 62.5,
@@ -4612,12 +4620,8 @@ class WorkoutLoggerViewModelTest {
 
             // The recent-sets read succeeds, and the occurrence read that follows it fails.
             advanceUntilIdle()
-            val recentSetsRead = CompletableDeferred<Unit>()
-            repository.allGate = recentSetsRead
+            repository.failOccurrenceRead = true
             viewModel.log()
-            runCurrent()
-            repository.failAll = true
-            recentSetsRead.complete(Unit)
             advanceUntilIdle()
 
             val state = viewModel.state.value
@@ -4627,7 +4631,7 @@ class WorkoutLoggerViewModelTest {
             assertTrue(state.manualLogRefreshFailed)
             assertFalse(state.manualLogFailed)
             assertFalse(state.manualLogInProgress)
-            repository.failAll = false
+            repository.failOccurrenceRead = false
             assertEquals(1, repository.all().size)
 
             // The released guard accepts a fresh submission.
@@ -5162,14 +5166,16 @@ class WorkoutLoggerViewModelTest {
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
-                    performedAtMillis = 1L
+                    performedAtMillis = 1L,
+                    sessionId = "recent-fixture"
                 ),
                 WorkoutSet(
                     id = 2L,
                     exerciseId = "bench-press",
                     reps = 8,
                     weightKg = 60.0,
-                    performedAtMillis = 2L
+                    performedAtMillis = 2L,
+                    sessionId = "recent-fixture"
                 )
             )
         )
@@ -5217,14 +5223,16 @@ class WorkoutLoggerViewModelTest {
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
-                    performedAtMillis = 2_000L
+                    performedAtMillis = 2_000L,
+                    sessionId = "recent-fixture"
                 ),
                 WorkoutSet(
                     id = 2L,
                     exerciseId = "bench-press",
                     reps = 8,
                     weightKg = 60.0,
-                    performedAtMillis = 1_000L
+                    performedAtMillis = 1_000L,
+                    sessionId = "recent-fixture"
                 )
             )
         )
@@ -5829,21 +5837,24 @@ class WorkoutLoggerViewModelTest {
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
-                    performedAtMillis = 200L
+                    performedAtMillis = 200L,
+                    sessionId = "recent-fixture"
                 ),
                 WorkoutSet(
                     id = 2L,
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
-                    performedAtMillis = 200L
+                    performedAtMillis = 200L,
+                    sessionId = "recent-fixture"
                 ),
                 WorkoutSet(
                     id = 3L,
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
-                    performedAtMillis = 100L
+                    performedAtMillis = 100L,
+                    sessionId = "recent-fixture"
                 )
             )
         )
@@ -5862,20 +5873,11 @@ class WorkoutLoggerViewModelTest {
                 listOf(false, true, false, false, true, false)
         )
         for ((identities, expected) in cases) {
-            val sets = identities.mapIndexed { index, sessionId ->
-                WorkoutSet(
-                    id = (identities.size - index).toLong(),
-                    exerciseId = "back-squat",
-                    reps = 5,
-                    weightKg = 100.0,
-                    performedAtMillis = 200L,
-                    sessionId = sessionId
-                )
+            // The boundary rule is a pure function of adjacent rows; Train no longer loads rows
+            // that mix more than two sessions, so it is checked on the rows directly.
+            val rows = identities.mapIndexed { index, sessionId ->
+                recentRow(identities.size - index.toLong(), sessionId)
             }
-            val viewModel = viewModel(repository = FakeWorkoutLogRepository(sets.reversed()))
-            advanceUntilIdle()
-            val rows = viewModel.state.value.recentSets
-            assertEquals(sets.map { it.id }, rows.map { it.id })
             assertEquals(identities, rows.map { it.sessionId })
             assertEquals(
                 expected,
@@ -5887,41 +5889,37 @@ class WorkoutLoggerViewModelTest {
     }
 
     @Test
-    fun correctionAndDeletionRefreshAdjacentSessionBoundaries() = runTest(dispatcher) {
+    fun correctionAndDeletionRefreshWhichSessionTrainShows() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
-            listOf("a", "b", "a").mapIndexed { index, sessionId ->
+            listOf("a", "a", "b", "c").mapIndexed { index, sessionId ->
                 WorkoutSet(
                     id = index + 1L,
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 100.0,
-                    performedAtMillis = 3_000L - index * 1_000L,
+                    performedAtMillis = 4_000L - index * 1_000L,
                     sessionId = sessionId
                 )
             }
         )
         val viewModel = viewModel(repository = repository)
         advanceUntilIdle()
-        fun boundaries(): List<Boolean> {
-            val rows = viewModel.state.value.recentSets
-            return rows.mapIndexed { index, row ->
-                row.startsSessionAfter(rows.getOrNull(index - 1))
-            }
-        }
-        assertEquals(listOf(true, true, true), boundaries())
+        // With no open session Train holds only the latest session; "b" and "c" stay in history.
+        assertEquals(listOf(1L, 2L), viewModel.state.value.recentSets.map { it.id })
 
-        assertTrue(viewModel.correctSetTime(2L, 0L, 0, 0))
+        // Moving a set of "a" to the past reorders the rows without changing the session.
+        assertTrue(viewModel.correctSetTime(1L, 0L, 0, 0))
         advanceUntilIdle()
-        assertEquals(listOf(1L, 3L, 2L), viewModel.state.value.recentSets.map { it.id })
-        assertEquals(listOf(true, false, true), boundaries())
+        assertEquals(listOf(2L, 1L), viewModel.state.value.recentSets.map { it.id })
 
+        // Deleting every set of "a" promotes the next session, and deleting that one the one after.
         viewModel.deleteSet(1L)
-        advanceUntilIdle()
-        assertEquals(listOf(3L, 2L), viewModel.state.value.recentSets.map { it.id })
-        assertEquals(listOf(true, true), boundaries())
         viewModel.deleteSet(2L)
         advanceUntilIdle()
-        assertEquals(listOf(true), boundaries())
+        assertEquals(listOf(3L), viewModel.state.value.recentSets.map { it.id })
+        viewModel.deleteSet(3L)
+        advanceUntilIdle()
+        assertEquals(listOf(4L), viewModel.state.value.recentSets.map { it.id })
     }
 
     @Test
@@ -6607,6 +6605,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     reps = 5,
                     weightKg = 60.0,
@@ -6642,6 +6641,7 @@ class WorkoutLoggerViewModelTest {
             initial = listOf(
                 WorkoutSet(
                     id = 1L,
+                    sessionId = "recent-fixture",
                     exerciseId = "back-squat",
                     forceNewtons = 320.0,
                     device = device,
@@ -7697,7 +7697,16 @@ class WorkoutLoggerViewModelTest {
     @Test
     fun recentSetEditCancelAndInvalidValuesDoNotWrite() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
-            listOf(WorkoutSet(1L, "back-squat", 8, 100.0, performedAtMillis = MONDAY))
+            listOf(
+                WorkoutSet(
+                    1L,
+                    "back-squat",
+                    8,
+                    100.0,
+                    performedAtMillis = MONDAY,
+                    sessionId = "recent-fixture"
+                )
+            )
         )
         val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
         advanceUntilIdle()
@@ -7720,7 +7729,14 @@ class WorkoutLoggerViewModelTest {
 
     @Test
     fun unchangedWeightKeepsPrecisionAndChangedPoundsConvertToKg() = runTest(dispatcher) {
-        val original = WorkoutSet(1L, "back-squat", 8, 12.345678, performedAtMillis = MONDAY)
+        val original = WorkoutSet(
+            1L,
+            "back-squat",
+            8,
+            12.345678,
+            performedAtMillis = MONDAY,
+            sessionId = "recent-fixture"
+        )
         val repository = FakeWorkoutLogRepository(listOf(original))
         val viewModel = viewModel(
             repository = repository,
@@ -7743,7 +7759,16 @@ class WorkoutLoggerViewModelTest {
     @Test
     fun repeatedSavesAreGuardedAndFailureKeepsEditsForRetry() = runTest(dispatcher) {
         val repository = FakeWorkoutLogRepository(
-            listOf(WorkoutSet(1L, "back-squat", 8, 100.0, performedAtMillis = MONDAY))
+            listOf(
+                WorkoutSet(
+                    1L,
+                    "back-squat",
+                    8,
+                    100.0,
+                    performedAtMillis = MONDAY,
+                    sessionId = "recent-fixture"
+                )
+            )
         )
         val viewModel = viewModel(repository = repository, timeMillis = MONDAY)
         advanceUntilIdle()
@@ -12665,6 +12690,17 @@ class WorkoutLoggerViewModelTest {
 
         override suspend fun setsForOccurrence(occurrenceId: Long): List<WorkoutSet> =
             sets.filter { it.occurrenceId == occurrenceId }
+
+        /** When true, only the occurrence read throws, so the recent-sets read still succeeds. */
+        var failOccurrenceRead: Boolean = false
+
+        override suspend fun setsForOccurrenceOrEntries(
+            occurrenceId: Long,
+            entryIds: Collection<Long>
+        ): List<WorkoutSet> {
+            if (failOccurrenceRead) error("Injected occurrence read failure")
+            return super.setsForOccurrenceOrEntries(occurrenceId, entryIds)
+        }
 
         override fun setsFlow(): Flow<List<WorkoutSet>> = flowOf(sets.toList())
 

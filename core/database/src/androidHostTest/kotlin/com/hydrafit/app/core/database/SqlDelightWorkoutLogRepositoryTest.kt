@@ -19,6 +19,7 @@ import com.hydrafit.app.core.domain.workout.SessionConfig
 import com.hydrafit.app.core.domain.workout.StartWorkoutSessionUseCase
 import com.hydrafit.app.core.domain.workout.WorkoutCluster
 import com.hydrafit.app.core.domain.workout.WorkoutClusterSummary
+import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 import com.hydrafit.app.core.domain.workout.WorkoutPrescriptionSnapshot
 import com.hydrafit.app.core.domain.workout.WorkoutSet as DomainWorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
@@ -892,6 +893,185 @@ class SqlDelightWorkoutLogRepositoryTest {
         repository.add(set(exerciseId = "back-squat", performedAt = 100))
 
         assertNull(repository.lastSetBySession("session-empty"))
+    }
+
+    /**
+     * The interface defaults over the same rows: they define the rule the bounded SQL reads must
+     * reproduce, so a repository without these queries and one with them answer identically.
+     */
+    private class DefaultsOnly(private val inner: WorkoutLogRepository) :
+        WorkoutLogRepository by inner {
+        override suspend fun setsBySessionNewestFirst(sessionId: String) =
+            super<WorkoutLogRepository>.setsBySessionNewestFirst(sessionId)
+
+        override suspend fun latestSessionIdExcluding(excludedSessionId: String?) =
+            super<WorkoutLogRepository>.latestSessionIdExcluding(excludedSessionId)
+
+        override suspend fun lastWorkingSetForExercise(exerciseId: String, stationId: Long?) =
+            super<WorkoutLogRepository>.lastWorkingSetForExercise(exerciseId, stationId)
+
+        override suspend fun lastExternalLoadSet(exerciseId: String) =
+            super<WorkoutLogRepository>.lastExternalLoadSet(exerciseId)
+
+        override suspend fun exerciseIdsLoggedBetween(fromMillis: Long, toMillisExclusive: Long) =
+            super<WorkoutLogRepository>.exerciseIdsLoggedBetween(fromMillis, toMillisExclusive)
+
+        override suspend fun setsForOccurrenceOrEntries(
+            occurrenceId: Long,
+            entryIds: Collection<Long>
+        ) = super<WorkoutLogRepository>.setsForOccurrenceOrEntries(occurrenceId, entryIds)
+    }
+
+    private suspend fun seedBoundedReadRows() {
+        val rack = StationAttribution(1L, "Rack A", StationLoadBasis.TOTAL)
+        val rows = listOf(
+            // Two sessions with a tie, a warm-up, an unrecorded session and a stationed set.
+            set("back-squat", 100L).copy(sessionId = "s1", loadKind = LoadKind.EXTERNAL),
+            set("back-squat", 200L).copy(
+                sessionId = "s1",
+                isWarmup = true,
+                loadKind = LoadKind.EXTERNAL
+            ),
+            set("back-squat", 300L).copy(sessionId = "s2", loadKind = LoadKind.EXTERNAL),
+            set("back-squat", 300L).copy(sessionId = "s2", loadKind = LoadKind.EXTERNAL),
+            set("barbell-bench-press", 400L, rack).copy(
+                sessionId = "s2",
+                loadKind = LoadKind.EXTERNAL
+            ),
+            set("barbell-bench-press", 500L).copy(sessionId = null),
+            set("barbell-bench-press", 600L).copy(
+                sessionId = "s3",
+                weightKg = null,
+                loadKind = LoadKind.BODYWEIGHT
+            ),
+            // Occurrence attribution: by occurrence, by entry with a disagreeing occurrence, and by neither.
+            set("back-squat", 700L).copy(sessionId = "s3", occurrenceId = 7L),
+            set(
+                "back-squat",
+                800L
+            ).copy(sessionId = "s3", occurrenceId = 8L, occurrenceEntryId = 70L),
+            set("back-squat", 900L).copy(sessionId = "s3", occurrenceId = 9L)
+        )
+        rows.forEach { repository.add(it) }
+    }
+
+    @Test
+    fun boundedReadsMatchTheDefaultRulesOverTheSameRows() = runTest {
+        seedBoundedReadRows()
+        val defaults = DefaultsOnly(repository)
+
+        for (session in listOf("s1", "s2", "s3", "missing")) {
+            assertEquals(
+                defaults.setsBySessionNewestFirst(session),
+                repository.setsBySessionNewestFirst(session)
+            )
+        }
+        for (excluded in listOf(null, "s1", "s2", "s3", "missing")) {
+            assertEquals(
+                defaults.latestSessionIdExcluding(excluded),
+                repository.latestSessionIdExcluding(excluded)
+            )
+        }
+        for (exercise in listOf("back-squat", "barbell-bench-press", "plank")) {
+            for (station in listOf<Long?>(null, 1L, 2L)) {
+                assertEquals(
+                    defaults.lastWorkingSetForExercise(exercise, station),
+                    repository.lastWorkingSetForExercise(exercise, station)
+                )
+            }
+            assertEquals(
+                defaults.lastExternalLoadSet(exercise),
+                repository.lastExternalLoadSet(exercise)
+            )
+        }
+        for ((from, to) in listOf(0L to 1_000L, 100L to 300L, 300L to 301L, 450L to 600L)) {
+            assertEquals(
+                defaults.exerciseIdsLoggedBetween(from, to),
+                repository.exerciseIdsLoggedBetween(from, to)
+            )
+        }
+        for (occurrence in listOf(7L, 8L, 9L, 10L)) {
+            for (entries in listOf(emptyList(), listOf(70L), listOf(70L, 71L))) {
+                assertEquals(
+                    defaults.setsForOccurrenceOrEntries(occurrence, entries),
+                    repository.setsForOccurrenceOrEntries(occurrence, entries)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun boundedReadsAnswerTheSpecificRules() = runTest {
+        seedBoundedReadRows()
+
+        // Newest first; the tie at 300 resolves to the most recently inserted row.
+        val s2 = repository.setsBySessionNewestFirst("s2")
+        assertEquals(listOf(400L, 300L, 300L), s2.map { it.performedAtMillis })
+        assertTrue(s2[1].id > s2[2].id)
+
+        // The latest other session ignores sets with no recorded session.
+        assertEquals("s3", repository.latestSessionIdExcluding(null))
+        assertEquals("s2", repository.latestSessionIdExcluding("s3"))
+        assertEquals("s3", repository.latestSessionIdExcluding("nobody-else"))
+
+        // The stationed bench set is found only for its own station, and a null station matches
+        // only sets logged without one.
+        val bench = "barbell-bench-press"
+        assertEquals(400L, repository.lastWorkingSetForExercise(bench, 1L)?.performedAtMillis)
+        assertEquals(600L, repository.lastWorkingSetForExercise(bench, null)?.performedAtMillis)
+        assertNull(repository.lastWorkingSetForExercise(bench, 2L))
+
+        // A warm-up never counts: the squat's latest working set is the last one logged.
+        assertEquals(
+            900L,
+            repository.lastWorkingSetForExercise("back-squat", null)?.performedAtMillis
+        )
+
+        // The external-load read needs an external weight, so the bodyweight bench set at 600 is
+        // skipped, and a set without a recorded session still counts.
+        assertEquals(900L, repository.lastExternalLoadSet("back-squat")?.performedAtMillis)
+        assertEquals(500L, repository.lastExternalLoadSet(bench)?.performedAtMillis)
+
+        // The day window is half open and ignores warm-ups.
+        assertEquals(setOf("back-squat"), repository.exerciseIdsLoggedBetween(100L, 300L))
+        assertEquals(setOf("back-squat"), repository.exerciseIdsLoggedBetween(300L, 301L))
+        assertEquals(emptySet(), repository.exerciseIdsLoggedBetween(200L, 201L))
+
+        // An entry-linked set belongs to its slot even when its occurrence id disagrees.
+        val byEntry = repository.setsForOccurrenceOrEntries(7L, listOf(70L))
+        assertEquals(listOf(700L, 800L), byEntry.map { it.performedAtMillis })
+        assertEquals(
+            listOf(700L),
+            repository.setsForOccurrenceOrEntries(7L, emptyList()).map { it.performedAtMillis }
+        )
+    }
+
+    @Test
+    fun theLastExternalLoadKeepsTheMostRecentlyInsertedOnAnEqualTime() = runTest {
+        repository.add(set("back-squat", 300L).copy(weightKg = 60.0, loadKind = LoadKind.EXTERNAL))
+        repository.add(set("back-squat", 300L).copy(weightKg = 70.0, loadKind = LoadKind.EXTERNAL))
+
+        val latest = repository.all().maxOf { it.id }
+
+        assertEquals(latest, repository.lastExternalLoadSet("back-squat")?.id)
+        assertEquals(
+            repository.lastExternalLoadSet("back-squat"),
+            DefaultsOnly(repository).lastExternalLoadSet("back-squat")
+        )
+    }
+
+    @Test
+    fun theLastWorkingSetKeepsTheEarliestInsertedOnAnEqualTime() = runTest {
+        repository.add(set("back-squat", 300L).copy(reps = 5))
+        repository.add(set("back-squat", 300L).copy(reps = 6))
+
+        val earliest = repository.all().minOf { it.id }
+
+        assertEquals(earliest, repository.lastWorkingSetForExercise("back-squat", null)?.id)
+        assertEquals(
+            repository.lastWorkingSetForExercise("back-squat", null),
+            DefaultsOnly(repository).lastWorkingSetForExercise("back-squat", null)
+        )
     }
 
     private fun set(exerciseId: String, performedAt: Long, station: StationAttribution? = null) =
