@@ -24,4 +24,9 @@ tags:
       containsChild:
         text: '^Device: Grip meter \(60\.2 kg\)$'
     retryTapIfNoChange: false
+# Delete now asks first (a735fcac); only the confirm button removes the set.
+- assertVisible: '^Delete this set\?$'
+- tapOn:
+    text: '^Delete set$'
+    retryTapIfNoChange: false
 - assertNotVisible: '^Device: Grip meter \(60\.2 kg\)$'
