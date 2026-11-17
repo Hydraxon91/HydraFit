@@ -5495,3 +5495,19 @@ the XML to the preference names; `WorkoutSetIndexMigrationTest` covers upgrade a
 Not verified: the three new confirmation dialogs, the backup rules on a real backup/restore or
 device transfer, the five-day plan and new loads on a device, and the Groq cloud call. The
 `allowBackup` setting is unchanged, so everything except the three files is still backed up.
+
+## 0.14.1 — body-weight pull evidence (2026-11-17)
+
+Scope: `BuildBodyweightPullEvidenceUseCase` and `BodyweightPullComparison` (domain) read the last 42
+days of working sets for every vertical-pull exercise and compare the best Epley estimate of the
+bodyweight ones (load = body weight, plus added kilograms) with the externally loaded ones. The Body
+weight screen shows the section only when both sides have at least two usable sets (reps 1..15) and a
+body weight is logged in the same window. Nothing is stored, no plan input changes, no migration.
+
+Automated: pure-comparison and use-case tests (mixed load kinds, window, warm-ups, other patterns,
+a very strong lifter), ViewModel tests (appears, hidden for a stale body weight, refreshes, failure
+leaves none) and the progress module verification.
+
+Not verified: the rendered section on a device. A read-only aggregate of the phone database copy
+found no recent chin-up or pull-up sets and no logged body weight, so there was no real pair to
+compare.
