@@ -58,6 +58,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_edit_save
 import hydrafit.feature.equipment.generated.resources.equipment_loading_add_bar
 import hydrafit.feature.equipment.generated.resources.equipment_loading_add_dumbbell
 import hydrafit.feature.equipment.generated.resources.equipment_loading_add_plate
+import hydrafit.feature.equipment.generated.resources.equipment_loading_applies_note
 import hydrafit.feature.equipment.generated.resources.equipment_loading_bar_collar
 import hydrafit.feature.equipment.generated.resources.equipment_loading_bar_name
 import hydrafit.feature.equipment.generated.resources.equipment_loading_bar_weight
@@ -442,6 +443,10 @@ internal fun LoadingInventoryDialog(
                         Res.string.equipment_loading_native_note,
                         state.unit.storageId
                     ),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = stringResource(Res.string.equipment_loading_applies_note),
                     style = MaterialTheme.typography.bodySmall
                 )
                 PlateDrafts(state, actions)

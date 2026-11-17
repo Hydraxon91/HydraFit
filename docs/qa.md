@@ -1103,6 +1103,11 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
 - Fresh install → empty states are coherent (no plan, no logs, no records).
 
 ## 1. Equipment
+- Library → Equipment → Exclusions with nothing excluded shows an explanation, not a blank page; the
+  Exercise catalog row of an exercise without muscles shows no trailing separator; the loading editor states
+  that new plans and the calculator use the saved gear while existing workouts keep their numbers (checked on
+  `emulator-5554` 2026-11-17 for the first two; the brief profile-loading spinner and the editor note were not
+  captured on a device).
 - Add custom equipment, rename it, set a max weight, delete it → selection updates; survives relaunch.
 - Search filters the exercise list; built-in tags present.
 - **Equipment profiles (0.9.0):** create an empty profile and a copy of the active one, rename the active

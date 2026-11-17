@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,6 +78,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_exclude_indefini
 import hydrafit.feature.equipment.generated.resources.equipment_exclude_until
 import hydrafit.feature.equipment.generated.resources.equipment_exclude_window
 import hydrafit.feature.equipment.generated.resources.equipment_exclusion_section
+import hydrafit.feature.equipment.generated.resources.equipment_exclusions_empty
 import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
@@ -89,6 +92,7 @@ import hydrafit.feature.equipment.generated.resources.equipment_load_bodyweight_
 import hydrafit.feature.equipment.generated.resources.equipment_load_external
 import hydrafit.feature.equipment.generated.resources.equipment_load_section
 import hydrafit.feature.equipment.generated.resources.equipment_load_unspecified
+import hydrafit.feature.equipment.generated.resources.equipment_loading
 import hydrafit.feature.equipment.generated.resources.equipment_manage
 import hydrafit.feature.equipment.generated.resources.equipment_manage_baselines_note
 import hydrafit.feature.equipment.generated.resources.equipment_max_weight
@@ -406,6 +410,22 @@ fun EquipmentProfilerScreen(
                 Text(stringResource(Res.string.equipment_back))
             }
         }
+        // The profile arrives asynchronously; until it does, a section would read as having no
+        // equipment, exclusions or records.
+        if (state.isLoading) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text(
+                    text = stringResource(Res.string.equipment_loading),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            return@Column
+        }
         when (section) {
             EquipmentSection.PROFILE_LOADING -> {
                 EquipmentProfilesSection(
@@ -509,6 +529,11 @@ fun EquipmentProfilerScreen(
                                 }
                             }
                         }
+                } else {
+                    Text(
+                        text = stringResource(Res.string.equipment_exclusions_empty),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
 
@@ -1052,7 +1077,9 @@ private fun ExerciseSummaryRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = exercise.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = equipmentSummary(exercise) + " · " + muscleNames(exercise.primaryMuscles),
+                text = listOf(equipmentSummary(exercise), muscleNames(exercise.primaryMuscles))
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall
             )
         }
