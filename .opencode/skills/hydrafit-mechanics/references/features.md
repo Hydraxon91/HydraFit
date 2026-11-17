@@ -612,6 +612,11 @@ the UI shows "Recorded session" at each boundary, including a returning identity
 Each null-session row instead has its own "Session not recorded" subtitle. No date/gap inference,
 ordinal identity or duration is introduced. Boundaries are derived anew after correction/deletion.
 
+**Delete** on a recent set only opens a confirmation (`pendingDeleteSetId`, a `rememberSaveable` row id in
+`WorkoutLoggerScreen`); the dialog names the exercise, states the removal is permanent, and only
+**Delete set** calls `deleteSet`. Cancel/dismiss writes nothing, and a stale id shows no dialog. There is
+no undo: restoring a row would have to rebuild its session, occurrence-entry, cluster and snapshot links.
+
 Recent sets use a separate `LoggedSetEdit` / `LoggedSetEditDialog`, reached by **Edit set** rather
 than the former time-only button. `CorrectWorkoutSetUseCase` is forwarded by `WorkoutLogMutations`;
 the Logger retains six constructor dependencies. Corrections update time/reps/weight/optional RIR

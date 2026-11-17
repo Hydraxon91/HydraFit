@@ -127,6 +127,9 @@ import hydrafit.feature.logger.generated.resources.logger_cluster_segment_count
 import hydrafit.feature.logger.generated.resources.logger_confirm
 import hydrafit.feature.logger.generated.resources.logger_confirm_all
 import hydrafit.feature.logger.generated.resources.logger_delete_set
+import hydrafit.feature.logger.generated.resources.logger_delete_set_confirm
+import hydrafit.feature.logger.generated.resources.logger_delete_set_message
+import hydrafit.feature.logger.generated.resources.logger_delete_set_title
 import hydrafit.feature.logger.generated.resources.logger_device_attributed
 import hydrafit.feature.logger.generated.resources.logger_device_attributed_rated
 import hydrafit.feature.logger.generated.resources.logger_device_name_label
@@ -999,6 +1002,9 @@ fun WorkoutLoggerScreen(
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
     var pendingDateUtcMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var futureTimeError by rememberSaveable { mutableStateOf(false) }
+    // Deleting recorded work is permanent, so a tap only asks; the row is looked up again when the
+    // dialog shows, which closes it if the set is already gone (for example after a recreation).
+    var pendingDeleteSetId by rememberSaveable { mutableStateOf<Long?>(null) }
     val trainingScrollState = rememberLazyListState()
     val overviewScrollState = rememberLazyListState()
     val measureChangeLabel = stringResource(Res.string.logger_measure_change_action)
@@ -1053,6 +1059,32 @@ fun WorkoutLoggerScreen(
                     enabled = !timer.logInProgress
                 ) {
                     Text(stringResource(Res.string.logger_set_timer_discard))
+                }
+            }
+        )
+    }
+
+    // Row ids are never reused, so a stale id simply shows no dialog.
+    pendingDeleteSetId?.let { id -> state.recentSets.firstOrNull { it.id == id } }?.let { row ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteSetId = null },
+            title = { Text(stringResource(Res.string.logger_delete_set_title)) },
+            text = {
+                Text(stringResource(Res.string.logger_delete_set_message, row.exerciseName))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDeleteSetId = null
+                        onDeleteSet(row.id)
+                    }
+                ) {
+                    Text(stringResource(Res.string.logger_delete_set_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteSetId = null }) {
+                    Text(stringResource(Res.string.logger_cancel))
                 }
             }
         )
@@ -2395,7 +2427,7 @@ fun WorkoutLoggerScreen(
                                     ) {
                                         Text(stringResource(Res.string.logger_edit_set))
                                     }
-                                    TextButton(onClick = { onDeleteSet(row.id) }) {
+                                    TextButton(onClick = { pendingDeleteSetId = row.id }) {
                                         Text(stringResource(Res.string.logger_delete_set))
                                     }
                                 }

@@ -51,6 +51,9 @@
     <string name="logger_dismiss">Dismiss</string>
     <string name="logger_warmup_suffix">(warm-up)</string>
     <string name="logger_delete_set">Delete</string>
+    <string name="logger_delete_set_title">Delete this set?</string>
+    <string name="logger_delete_set_message">This %1$s set will be permanently removed from your history. This can’t be undone.</string>
+    <string name="logger_delete_set_confirm">Delete set</string>
     <string name="logger_edit_time">Edit time</string>
     <string name="logger_edit_set">Edit set</string>
     <string name="logger_edit_set_title">Edit set: %1$s</string>

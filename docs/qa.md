@@ -1200,6 +1200,9 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   No fixture writes or Delete taps. Null-label visuals, quick-fill/edit/delete interactions,
   font/theme/locale variants and TalkBack traversal remain unverified; host regressions cover
   boundary/null/order/refresh logic and existing action/load/RIR behavior. B6 limits remain unchanged.
+- Recent sets → **Delete** asks "Delete this set?" naming the exercise, with **Cancel** and **Delete set**;
+  Cancel/outside tap leaves the set count unchanged (checked on `emulator-5554` 2026-11-17, 31 sets before and
+  after, cancel path only; the confirm path is host-tested through `deleteSet` and not run on a device).
 - Recent sets → **Edit set** prefills time, reps, weight and optional RIR. Cancel writes nothing;
   Save changes updates the same row, and reopening shows the correction without another logged set.
   Verify past-time correction, future rejection, positive reps, finite non-negative load, blank vs
