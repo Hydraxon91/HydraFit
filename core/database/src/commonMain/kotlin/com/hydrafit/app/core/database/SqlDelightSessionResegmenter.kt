@@ -4,6 +4,8 @@ import com.hydrafit.app.core.domain.workout.SessionResegmenter
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.resegmentSessions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : SessionResegmenter {
     private val setQueries = database.workoutLogQueries
@@ -13,7 +15,7 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
         setId: Long,
         correction: WorkoutSetCorrection,
         utcOffsetMillis: Long
-    ) {
+    ): Unit = withContext(Dispatchers.Default) {
         database.transaction {
             val set = requireNotNull(setQueries.selectSetById(setId).executeAsOneOrNull()) {
                 "That set no longer exists"
@@ -103,7 +105,7 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
         setId: Long,
         performedAtMillis: Long,
         utcOffsetMillis: Long
-    ) {
+    ): Unit = withContext(Dispatchers.Default) {
         // Read, recompute, and write inside one transaction so the stored sessions can never be
         // observed interleaved or inconsistent with their sets.
         database.transaction {
@@ -112,7 +114,15 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
     }
 
     private fun resegmentTime(setId: Long, performedAtMillis: Long, utcOffsetMillis: Long) {
-        val sets = setQueries.selectAllSets().executeAsList().map { it.toDomain() }
+        // Only the corrected set and each session's earliest and latest other set matter: the nearest
+        // session is chosen by those ranges and the bounds are their minimum and maximum, so the
+        // result equals the one computed from every set without hydrating them all.
+        val corrected = setQueries.selectSetById(setId).executeAsOneOrNull()?.toDomain()
+        val boundaryIds = setQueries.selectSessionBoundarySetIds(setId).executeAsList()
+        val sets =
+            listOfNotNull(corrected) + boundaryIds.chunked(BOUNDARY_ID_CHUNK).flatMap { ids ->
+                setQueries.selectSetsByIds(ids).executeAsList().map { it.toDomain() }
+            }
         val sessions = sessionQueries.selectAllSessions().executeAsList().map { it.toDomain() }
         val resegmentation = resegmentSessions(
             sets = sets,
@@ -133,5 +143,10 @@ class SqlDelightSessionResegmenter(private val database: HydraFitDatabase) : Ses
                 id = sessionId
             )
         }
+    }
+
+    private companion object {
+        // Stays under SQLite's bound-parameter limit on any supported Android version.
+        const val BOUNDARY_ID_CHUNK = 500
     }
 }

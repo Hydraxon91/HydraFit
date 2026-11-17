@@ -1,0 +1,3 @@
+-- Indexes for the Logger's bounded reads (recorded-time lookups and one occurrence's entries).
+CREATE INDEX workoutSet_performedAt ON workoutSet(performedAt);
+CREATE INDEX workoutSet_occurrenceEntryId ON workoutSet(occurrenceEntryId);
