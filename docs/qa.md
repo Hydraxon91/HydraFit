@@ -5504,8 +5504,13 @@ bodyweight ones (load = body weight, plus added kilograms) with the externally l
 weight screen shows the section only when both sides have at least two usable sets (reps 1..15) and a
 body weight is logged in the same window. Nothing is stored, no plan input changes, no migration.
 
-Automated: pure-comparison and use-case tests (mixed load kinds, window, warm-ups, other patterns,
-a very strong lifter), ViewModel tests (appears, hidden for a stale body weight, refreshes, failure
+Review fixes: the percentage line is pre-formatted in Kotlin (Compose resources do not treat `%%` as
+an escape, as in R073-08); cluster sets are skipped; legacy-unspecified sets of an external
+exercise count as external like the planner; history is read in up to five 100-set pages; the
+comparison also refreshes on resume. Station-attributed sets are still included.
+
+Automated: pure-comparison and use-case tests (mixed load kinds, window edges, warm-ups, clusters,
+legacy loads, paging past 100 sets, other patterns, a very strong lifter), ViewModel tests (appears, hidden for a stale body weight, refreshes, failure
 leaves none) and the progress module verification.
 
 Not verified: the rendered section on a device. A read-only aggregate of the phone database copy

@@ -1338,7 +1338,8 @@ vertical-pull exercise's recent history through `ExerciseProgressRepository` and
 `BodyweightPullComparison.compare` pairs the best Epley estimate of bodyweight sets (body weight plus
 any added load) with the best of externally loaded sets. It needs the 42-day planner window, at least
 `BuildPlannerLoadInputsUseCase.MIN_RECENT_SETS` usable sets per side and a body weight logged in that
-window; otherwise it returns null. `BodyWeightViewModel` supplies the latest in-window weight and the
+window; otherwise it returns null. Warm-ups and cluster sets are skipped, a legacy-unspecified set
+of an external exercise counts as external, and history is read in up to five 100-set pages. `BodyWeightViewModel` supplies the latest in-window weight and the
 Body weight screen renders `PullEvidenceSection`. It is information only: no planner input, stored
 row or backup field uses it.
 
