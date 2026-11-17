@@ -31,6 +31,12 @@
     <string name="logger_warmup">Warm-up set</string>
     <string name="logger_log_button">Log set</string>
     <string name="logger_today">Today: %1$s</string>
+    <string name="weekly_summary_title">This week</string>
+    <string name="weekly_summary_sessions">Sessions: %1$d</string>
+    <string name="weekly_summary_plan">Your plan: %1$d per week</string>
+    <string name="weekly_summary_deload">Deload week: lighter sessions are part of the plan.</string>
+    <string name="weekly_summary_bars_label">Sessions per week, last 4 weeks (this week on the right)</string>
+    <string name="weekly_summary_bars_description">Sessions per week over the last four weeks, oldest first: %1$s</string>
     <string name="focus_push">Push</string>
     <string name="focus_pull">Pull</string>
     <string name="focus_legs">Legs</string>

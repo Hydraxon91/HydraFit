@@ -20,4 +20,12 @@ interface WorkoutSessionRepository {
      * by primary key. The default filters [all] so simple and test implementations stay small.
      */
     suspend fun byId(id: String): WorkoutSession? = all().firstOrNull { it.id == id }
+
+    /**
+     * The sessions that started on or after [localEpochDay], oldest first, for recent-activity
+     * summaries. The database-backed implementation reads only those rows; the default filters [all]
+     * so simple and test implementations stay small.
+     */
+    suspend fun sessionsFromLocalDay(localEpochDay: Long): List<WorkoutSession> =
+        all().filter { it.localEpochDay >= localEpochDay }
 }
