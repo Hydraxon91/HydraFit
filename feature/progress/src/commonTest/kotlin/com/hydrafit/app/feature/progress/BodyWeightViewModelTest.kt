@@ -1,8 +1,21 @@
 package com.hydrafit.app.feature.progress
 
+import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.BuildBodyweightPullEvidenceUseCase
+import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
+import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
+import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
+import com.hydrafit.app.core.domain.workout.ExerciseProgressRequest
+import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
+import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.userdata.measurements.BodyWeightException
 import com.hydrafit.app.core.userdata.measurements.BodyWeightFailureReason
 import com.hydrafit.app.core.userdata.measurements.BodyWeightMeasurement
@@ -538,17 +551,138 @@ class BodyWeightViewModelTest {
         assertTrue(repository.addCalls.isEmpty())
     }
 
+    // ── Pull strength comparison ──────────────────────────────────────────
+
+    @Test
+    fun theComparisonAppearsFromRecentBodyWeightAndPullSets() = runTest(dispatcher) {
+        val repository = FakeBodyWeightRepository(
+            listOf(BodyWeightMeasurement(today - 3, 90.0))
+        )
+        val viewModel = viewModel(repository = repository, pullEvidence = pullEvidenceUseCase())
+        advanceUntilIdle()
+
+        val evidence = assertNotNull(viewModel.state.value.pullEvidence)
+        assertEquals(114.0, evidence.bodyweightPullOneRepMaxKg, 1e-9)
+        assertEquals("lat-pulldown", evidence.externalPullExerciseId)
+    }
+
+    @Test
+    fun noComparisonWhenTheLatestBodyWeightIsOlderThanTheEvidenceWindow() = runTest(dispatcher) {
+        val repository = FakeBodyWeightRepository(
+            listOf(BodyWeightMeasurement(today - 60, 90.0))
+        )
+        val viewModel = viewModel(repository = repository, pullEvidence = pullEvidenceUseCase())
+        advanceUntilIdle()
+
+        assertNull(viewModel.state.value.pullEvidence)
+    }
+
+    @Test
+    fun aNewBodyWeightRefreshesTheComparisonAndAFailureLeavesNone() = runTest(dispatcher) {
+        val repository = FakeBodyWeightRepository(
+            listOf(BodyWeightMeasurement(today - 3, 90.0))
+        )
+        val viewModel = viewModel(repository = repository, pullEvidence = pullEvidenceUseCase())
+        advanceUntilIdle()
+        assertEquals(
+            114.0,
+            assertNotNull(viewModel.state.value.pullEvidence).bodyweightPullOneRepMaxKg,
+            1e-9
+        )
+
+        repository.measurementsFlow.value = listOf(
+            BodyWeightMeasurement(today - 3, 90.0),
+            BodyWeightMeasurement(today - 1, 100.0)
+        )
+        advanceUntilIdle()
+        assertEquals(
+            100.0 * (1.0 + 8 / 30.0),
+            assertNotNull(viewModel.state.value.pullEvidence).bodyweightPullOneRepMaxKg,
+            1e-9
+        )
+
+        val failing = viewModel(
+            repository = FakeBodyWeightRepository(listOf(BodyWeightMeasurement(today - 3, 90.0))),
+            pullEvidence = pullEvidenceUseCase(failing = true)
+        )
+        advanceUntilIdle()
+        assertNull(failing.state.value.pullEvidence)
+        assertFalse(failing.state.value.loadFailed)
+    }
+
+    private fun pullEvidenceUseCase(failing: Boolean = false): BuildBodyweightPullEvidenceUseCase {
+        val recent = nowMillis - 2 * 86_400_000L
+        fun set(id: Long, exerciseId: String, weightKg: Double?, kind: LoadKind) =
+            WorkoutHistorySet(
+                id = id,
+                exerciseId = exerciseId,
+                exerciseName = null,
+                reps = 8,
+                weightKg = weightKg,
+                loadKind = kind,
+                isWarmup = false,
+                rir = null,
+                performedAtMillis = recent,
+                timingProvenance = WorkoutTimingProvenance.UNKNOWN
+            )
+        val history = mapOf(
+            "chin-up" to listOf(
+                set(1, "chin-up", null, LoadKind.BODYWEIGHT),
+                set(2, "chin-up", null, LoadKind.BODYWEIGHT)
+            ),
+            "lat-pulldown" to listOf(
+                set(3, "lat-pulldown", 70.0, LoadKind.EXTERNAL),
+                set(4, "lat-pulldown", 70.0, LoadKind.EXTERNAL)
+            )
+        )
+        fun pull(id: String, capability: ExerciseLoadCapability) = Exercise(
+            id = id,
+            name = id,
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.LATS),
+            movementPattern = MovementPattern.VERTICAL_PULL,
+            loadCapability = capability
+        )
+        val catalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(
+                pull("chin-up", ExerciseLoadCapability.BODYWEIGHT_ADDABLE),
+                pull("lat-pulldown", ExerciseLoadCapability.EXTERNAL)
+            )
+        }
+        val progress = object : ExerciseProgressRepository {
+            override fun observeHistory(
+                request: ExerciseHistoryRequest
+            ): Flow<ExerciseHistoryPage> = flow {
+                check(!failing) { "history unavailable" }
+                emit(
+                    ExerciseHistoryPage(history[request.exerciseId].orEmpty(), hasMore = false)
+                )
+            }
+
+            override fun observeProgress(request: ExerciseProgressRequest) = error("unused")
+
+            override fun observeStationOptions(exerciseId: String) = error("unused")
+
+            override fun observeOccurrenceExerciseIds(occurrenceId: Long) = error("unused")
+
+            override fun observeSet(exerciseId: String, setId: Long) = error("unused")
+        }
+        return BuildBodyweightPullEvidenceUseCase(catalog, progress)
+    }
+
     // ── Builders and fakes ────────────────────────────────────────────────
 
     private fun viewModel(
         repository: FakeBodyWeightRepository = FakeBodyWeightRepository(),
         unitRepository: FakeWeightUnitRepository = FakeWeightUnitRepository(),
         clock: TimeProvider = FakeTimeProvider(nowMillis, offsetMillis),
-        numberFormat: PresentationNumberFormat = PresentationNumberFormat('.')
+        numberFormat: PresentationNumberFormat = PresentationNumberFormat('.'),
+        pullEvidence: BuildBodyweightPullEvidenceUseCase? = null
     ) = BodyWeightViewModel(
         bodyWeightRepository = repository,
         weightUnitRepository = unitRepository,
         timeProvider = clock,
+        pullEvidence = pullEvidence,
         numberFormatProvider = { numberFormat }
     )
 }

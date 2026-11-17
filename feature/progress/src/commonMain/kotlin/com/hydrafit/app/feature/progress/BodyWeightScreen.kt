@@ -33,6 +33,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.BodyweightPullEvidence
+import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.bodyweight_add
 import hydrafit.feature.progress.generated.resources.bodyweight_cancel
@@ -64,11 +66,17 @@ import hydrafit.feature.progress.generated.resources.bodyweight_goal_save
 import hydrafit.feature.progress.generated.resources.bodyweight_goal_title
 import hydrafit.feature.progress.generated.resources.bodyweight_load_failed
 import hydrafit.feature.progress.generated.resources.bodyweight_loading
+import hydrafit.feature.progress.generated.resources.bodyweight_pull_bodyweight_line
+import hydrafit.feature.progress.generated.resources.bodyweight_pull_external_line
+import hydrafit.feature.progress.generated.resources.bodyweight_pull_note
+import hydrafit.feature.progress.generated.resources.bodyweight_pull_ratio_line
+import hydrafit.feature.progress.generated.resources.bodyweight_pull_title
 import hydrafit.feature.progress.generated.resources.bodyweight_save
 import hydrafit.feature.progress.generated.resources.bodyweight_weight_label
 import hydrafit.feature.progress.generated.resources.progress_back
 import hydrafit.feature.progress.generated.resources.progress_body_weight
 import hydrafit.feature.progress.generated.resources.progress_charts_retry
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -202,6 +210,13 @@ fun BodyWeightScreen(
             onSaveGoal = onSaveGoal,
             onClearGoal = onClearGoal
         )
+        state.pullEvidence?.let { evidence ->
+            PullEvidenceSection(
+                evidence = evidence,
+                weightUnit = state.weightUnit,
+                numberFormat = state.numberFormat
+            )
+        }
     }
 
     state.editor?.let { editor ->
@@ -275,6 +290,51 @@ fun BodyWeightScreen(
         )
     }
 }
+
+/**
+ * Information only: how recent chin-up and pull-up sets compare with pulldown sets. Both figures
+ * are estimated one-rep maxima from the person's own sets, and nothing here changes a plan.
+ */
+@Composable
+private fun PullEvidenceSection(
+    evidence: BodyweightPullEvidence,
+    weightUnit: WeightUnit,
+    numberFormat: PresentationNumberFormat
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(Res.string.bodyweight_pull_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(
+                Res.string.bodyweight_pull_bodyweight_line,
+                displayWeight(evidence.bodyweightPullOneRepMaxKg, weightUnit, numberFormat)
+            ),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = stringResource(
+                Res.string.bodyweight_pull_external_line,
+                displayWeight(evidence.externalPullOneRepMaxKg, weightUnit, numberFormat)
+            ),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = stringResource(
+                Res.string.bodyweight_pull_ratio_line,
+                "${(evidence.ratio * PERCENT).roundToInt()}%"
+            ),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = stringResource(Res.string.bodyweight_pull_note),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+private const val PERCENT = 100
 
 @Composable
 private fun GoalSection(

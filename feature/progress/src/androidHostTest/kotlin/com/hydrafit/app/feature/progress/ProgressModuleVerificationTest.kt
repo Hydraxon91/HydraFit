@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.BuildBodyweightPullEvidenceUseCase
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -48,7 +49,8 @@ class ProgressModuleVerificationTest {
                 WeightUnitRepository::class,
                 DistanceUnitRepository::class,
                 TimeProvider::class,
-                BodyWeightRepository::class
+                BodyWeightRepository::class,
+                BuildBodyweightPullEvidenceUseCase::class
             )
         )
 
@@ -63,6 +65,7 @@ class ProgressModuleVerificationTest {
                     single<DistanceUnitRepository> { FakeDistanceUnitRepository }
                     single<TimeProvider> { TimeProvider { 0L } }
                     single<BodyWeightRepository> { FakeBodyWeightRepository }
+                    single { BuildBodyweightPullEvidenceUseCase(get(), get()) }
                 },
                 progressModule
             )
