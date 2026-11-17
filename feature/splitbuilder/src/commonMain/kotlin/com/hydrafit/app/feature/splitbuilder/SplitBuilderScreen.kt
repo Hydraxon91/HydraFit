@@ -124,6 +124,9 @@ import hydrafit.feature.splitbuilder.generated.resources.split_confirm
 import hydrafit.feature.splitbuilder.generated.resources.split_day
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
 import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan
+import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan_confirm
+import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan_message
+import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan_title
 import hydrafit.feature.splitbuilder.generated.resources.split_deload_week
 import hydrafit.feature.splitbuilder.generated.resources.split_error
 import hydrafit.feature.splitbuilder.generated.resources.split_error_api_key
@@ -872,6 +875,30 @@ fun SplitBuilderScreen(
                 text = stringResource(Res.string.split_history),
                 style = MaterialTheme.typography.titleMedium
             )
+            // Deleting a plan from history is permanent, so the button only asks first.
+            var pendingDeletePlan by remember { mutableStateOf<AcceptedPlan?>(null) }
+            pendingDeletePlan?.let { accepted ->
+                AlertDialog(
+                    onDismissRequest = { pendingDeletePlan = null },
+                    title = { Text(stringResource(Res.string.split_delete_plan_title)) },
+                    text = { Text(stringResource(Res.string.split_delete_plan_message)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                pendingDeletePlan = null
+                                onDeletePlan(accepted)
+                            }
+                        ) {
+                            Text(stringResource(Res.string.split_delete_plan_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { pendingDeletePlan = null }) {
+                            Text(stringResource(Res.string.split_cancel))
+                        }
+                    }
+                )
+            }
             state.history.forEach { accepted ->
                 val summary = stringResource(
                     Res.string.split_history_entry,
@@ -888,7 +915,7 @@ fun SplitBuilderScreen(
                             .clickable(role = Role.Button) { onViewAcceptedPlan(accepted) },
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    TextButton(onClick = { onDeletePlan(accepted) }) {
+                    TextButton(onClick = { pendingDeletePlan = accepted }) {
                         Text(stringResource(Res.string.split_delete_plan))
                     }
                 }
