@@ -735,7 +735,7 @@ Some models occasionally emit a tool call as plain text instead of a real tool c
   atomic cleanup, deduplication/conflict handling, and export/restore validation together with other
   dependent records. Do not silently purge existing orphaned data without an approved repair policy.
 
-- **Unit tests are mandatory for all `:core:domain` logic**, not optional: every use case, the fatigue algorithm, and each `WorkoutPlannerEngine` implementation must ship with tests using `kotlin.test` (common) and MockK (JVM-side mocking of dependencies like repositories or the Ktor client).
+- **Unit tests are mandatory for all `:core:domain` logic**, not optional: every use case, the fatigue algorithm, and each `WorkoutPlannerEngine` implementation must ship with tests using `kotlin.test` (common), with hand-written fakes for repositories and Ktor `MockEngine` for the HTTP client; no mocking library is in the catalog.
 - **New code without a corresponding test is incomplete work.** Write the corresponding tests in the same approved work scope as a new use case or engine implementation, unless explicitly told to defer them. Run the required tests before reporting that work complete or committing it.
 - **Domain logic must be testable without an emulator.** If you find yourself needing Android context or an emulator to test something in `:core:domain`, that's a sign the abstraction is wrong — flag it rather than working around it.
 - **Test the fallback and failure paths, not just the happy path.** Every engine fallback or substitution path needs an explicit test, not just manual verification — for example a missing cloud key failing before any request is sent, or a sanitizer-rejected model plan surfacing its typed failure.
