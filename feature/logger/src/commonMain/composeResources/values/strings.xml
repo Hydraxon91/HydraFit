@@ -34,8 +34,8 @@
     <string name="weekly_summary_title">This week</string>
     <string name="weekly_summary_sessions">Sessions: %1$d</string>
     <string name="weekly_summary_plan">Your plan: %1$d per week</string>
-    <string name="weekly_summary_deload">Deload week: lighter sessions are part of the plan.</string>
-    <string name="weekly_summary_bars_label">Sessions per week, last 4 weeks (this week on the right)</string>
+    <string name="weekly_summary_deload">Your current plan is a deload week: lighter sessions are part of the plan.</string>
+    <string name="weekly_summary_bars_label">Sessions per week for the last 4 weeks, oldest first</string>
     <string name="weekly_summary_bars_description">Sessions per week over the last four weeks, oldest first: %1$s</string>
     <string name="focus_push">Push</string>
     <string name="focus_pull">Pull</string>

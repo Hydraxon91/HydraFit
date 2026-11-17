@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    The launcher shortcut only opens the Train tab, using the same tab request a notification tap
-    sends. It never starts a session or writes anything.
+    The launcher shortcut only opens the Train tab, using the same tab extra a notification tap
+    sets. It never starts a session or writes anything.
 -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut

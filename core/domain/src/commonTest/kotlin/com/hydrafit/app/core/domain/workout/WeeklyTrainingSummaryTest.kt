@@ -14,8 +14,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 
 class WeeklyTrainingSummaryTest {
@@ -123,7 +126,7 @@ class ObserveWeeklyTrainingSummaryUseCaseTest {
         val summary = useCase(
             listOf(session("a", monday - 7), session("b", monday), session("c", monday + 1)),
             latest = plan(weekNumber = 2, days = 4)
-        )().first()
+        )().first().let(::requireNotNull)
 
         assertEquals(listOf(0, 0, 1, 2), summary.sessionsPerWeek)
         assertEquals(2, summary.sessionsThisWeek)
@@ -136,14 +139,72 @@ class ObserveWeeklyTrainingSummaryUseCaseTest {
         val deload = useCase(
             emptyList(),
             plan(weekNumber = PeriodizationConfig().deloadWeek, days = 3)
-        )()
-            .first()
-        val noPlan = useCase(emptyList(), latest = null)().first()
+        )().first().let(::requireNotNull)
+        val noPlan = useCase(emptyList(), latest = null)().first().let(::requireNotNull)
 
         assertTrue(deload.isDeloadWeek)
         assertEquals(listOf(0, 0, 0, 0), deload.sessionsPerWeek)
         assertNull(noPlan.plannedDaysPerWeek)
         assertFalse(noPlan.isDeloadWeek)
+    }
+
+    @Test
+    fun aNegativeOffsetPutsTheTodayCutoffOnThePreviousLocalDay() = runTest {
+        // 03:00 UTC on Monday is still Sunday evening at UTC-5, so this week is the previous one.
+        val mondayEarly = monday * 86_400_000L + 3 * 3_600_000L
+        val summary = ObserveWeeklyTrainingSummaryUseCase(
+            sessions = FakeSessions(listOf(session("sun", monday - 1), session("mon", monday))),
+            planHistory = FakePlanHistory(null),
+            timeProvider = object : TimeProvider {
+                override fun nowMillis() = mondayEarly
+                override fun utcOffsetMillis() = -5 * 3_600_000L
+            },
+            periodization = PeriodizationConfig()
+        )().first()
+
+        // Local today is Sunday (monday - 1): the Sunday session counts and Monday is the future.
+        assertEquals(listOf(0, 0, 0, 1), summary?.sessionsPerWeek)
+    }
+
+    @Test
+    fun aFailedReadEmitsNullOnceAndTheNextChangeRecovers() = runTest {
+        val flaky = FlakySessions(listOf(session("a", monday)))
+        val emissions = ObserveWeeklyTrainingSummaryUseCase(
+            sessions = flaky,
+            planHistory = FakePlanHistory(null),
+            timeProvider = object : TimeProvider {
+                override fun nowMillis() = nowMillis
+                override fun utcOffsetMillis() = 0L
+            },
+            periodization = PeriodizationConfig()
+        )().take(2).toList()
+
+        assertNull(emissions[0])
+        assertEquals(listOf(0, 0, 0, 1), emissions[1]?.sessionsPerWeek)
+    }
+
+    private class FlakySessions(private val sessions: List<WorkoutSession>) :
+        WorkoutSessionRepository {
+        private var reads = 0
+        private val changes = MutableSharedFlow<WorkoutSession?>(replay = 2)
+
+        init {
+            changes.tryEmit(null)
+            changes.tryEmit(null)
+        }
+
+        override suspend fun all(): List<WorkoutSession> {
+            check(reads++ > 0) { "first read fails" }
+            return sessions
+        }
+
+        override suspend fun create(session: WorkoutSession) = error("unused")
+
+        override suspend fun end(id: String, endedAtMillis: Long) = error("unused")
+
+        override suspend fun open(): WorkoutSession? = null
+
+        override fun openFlow(): Flow<WorkoutSession?> = changes
     }
 
     private class FakeSessions(private val sessions: List<WorkoutSession>) :

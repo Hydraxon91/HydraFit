@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -56,7 +57,7 @@ class WeeklySummaryViewModelTest {
             override fun openFlow(): Flow<WorkoutSession?> = open
         },
         planHistory = object : PlanHistoryRepository {
-            override fun observeLatest() = error("unused")
+            override fun observeLatest(): Flow<AcceptedPlan?> = flowOf(null)
 
             override fun observeHistory() = error("unused")
 

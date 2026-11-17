@@ -7,7 +7,6 @@ import com.hydrafit.app.core.domain.workout.WeeklyTrainingSummary
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -16,7 +15,6 @@ import kotlinx.coroutines.flow.stateIn
  */
 class WeeklySummaryViewModel(observeSummary: ObserveWeeklyTrainingSummaryUseCase) : ViewModel() {
     val summary: StateFlow<WeeklyTrainingSummary?> = observeSummary()
-        .map<WeeklyTrainingSummary, WeeklyTrainingSummary?> { it }
         .catch { emit(null) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), null)
 

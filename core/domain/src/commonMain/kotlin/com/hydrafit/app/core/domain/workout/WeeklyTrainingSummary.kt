@@ -4,8 +4,9 @@ import com.hydrafit.app.core.domain.engine.PeriodizationConfig
 import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 
 /**
  * Sessions per Monday-to-Sunday week for the last [WeeklyTrainingCounts.WEEKS] weeks, oldest first,
@@ -59,14 +60,27 @@ object WeeklyTrainingCounts {
     }
 }
 
-/** Emits a fresh summary whenever a session opens or closes, and once on collection. */
+/**
+ * Emits a fresh summary on collection and whenever a session is written or the latest accepted plan
+ * changes. A summary that cannot be read is emitted as null for that one change, so a transient read
+ * failure never ends the stream and the next change recovers.
+ */
 class ObserveWeeklyTrainingSummaryUseCase(
     private val sessions: WorkoutSessionRepository,
     private val planHistory: PlanHistoryRepository,
     private val timeProvider: TimeProvider,
     private val periodization: PeriodizationConfig
 ) {
-    operator fun invoke(): Flow<WeeklyTrainingSummary> = sessions.openFlow().map { build() }
+    operator fun invoke(): Flow<WeeklyTrainingSummary?> =
+        combine(sessions.openFlow(), planHistory.observeLatest()) { _, _ -> buildOrNull() }
+
+    private suspend fun buildOrNull(): WeeklyTrainingSummary? = try {
+        build()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
+    }
 
     private suspend fun build(): WeeklyTrainingSummary {
         val today = localEpochDay(timeProvider.nowMillis(), timeProvider.utcOffsetMillis())

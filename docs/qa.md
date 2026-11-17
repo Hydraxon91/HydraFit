@@ -5522,10 +5522,12 @@ compare.
 Scope: `ExerciseDemoLink.searchUrl` (UTF-8 percent-encoded YouTube search for the name plus "proper
 form") and a **Watch a demo on YouTube** button in the shared `ExerciseInstructionDialog`, opened with
 the platform URI handler only on tap; `res/xml/shortcuts.xml` declares a static **Train** launcher
-shortcut that sends the notification tab request for `AppTab.LOG` and never starts a session;
+shortcut that sends the same tab extra a notification tap uses for `AppTab.LOG` (static shortcuts cannot declare
+intent flags, so how a running task is reused is unverified) and never starts a session;
 `ObserveWeeklyTrainingSummaryUseCase` counts sessions per Monday-to-Sunday week for four weeks
 (`sessionsFromLocalDay`, queries only, no migration) and the Train home shows a `WeeklySummaryCard`
-with sessions this week, the latest plan's days per week, a deload label and four quiet bars. There is
+with sessions this week, the latest plan's days per week, a deload label (it follows the latest
+accepted plan, not the calendar) and four quiet bars with their counts. There is
 no streak, target or warning state by design.
 
 Automated: link encoding tests (spaces, reserved characters, UTF-8, unreserved characters, blank

@@ -142,6 +142,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOccurrenceRecordsUseCase
 import com.hydrafit.app.core.domain.workout.ObserveOpenWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.ObserveWeeklyTrainingSummaryUseCase
 import com.hydrafit.app.core.domain.workout.PerformedClusterSegment
 import com.hydrafit.app.core.domain.workout.PersistedRestCountdown
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
@@ -202,6 +203,7 @@ import com.hydrafit.app.feature.equipment.equipmentModule
 import com.hydrafit.app.feature.fatigueheatmap.fatigueHeatmapModule
 import com.hydrafit.app.feature.logger.LoggerLoadingCalculatorViewModel
 import com.hydrafit.app.feature.logger.OccurrenceReplacementViewModel
+import com.hydrafit.app.feature.logger.WeeklySummaryViewModel
 import com.hydrafit.app.feature.logger.WorkoutHistoryViewModel
 import com.hydrafit.app.feature.logger.WorkoutLoggerViewModel
 import com.hydrafit.app.feature.logger.WorkoutSummaryRecordsViewModel
@@ -413,6 +415,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<RecoverAutomaticBackupEncryptionUseCase>())
             assertNotNull(koin.get<WeeklyPlanSanitizer>())
             assertNotNull(koin.get<ObserveWorkoutPlanInputsUseCase>())
+            assertNotNull(koin.get<ObserveWeeklyTrainingSummaryUseCase>())
             assertNotNull(koin.get<AcceptWeeklyPlanUseCase>())
             assertNotNull(koin.get<SubstituteExerciseUseCase>())
             assertNotNull(koin.get<SetAcceptedExerciseMeasureUseCase>())
@@ -1140,6 +1143,7 @@ class KoinModulesVerificationTest {
 
         try {
             assertNotNull(koin.get<WorkoutLoggerViewModel>())
+            assertNotNull(koin.get<WeeklySummaryViewModel>())
             // The loading helper resolves over loggerModule with the shared profile fake.
             assertNotNull(koin.get<LoggerLoadingCalculatorViewModel>())
             assertNotNull(koin.get<ObserveOccurrenceRecordsUseCase>())

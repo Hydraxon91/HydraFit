@@ -93,19 +93,26 @@ private fun WeeklyBars(counts: List<Int>) {
         counts.forEach { count ->
             // An empty week keeps a thin baseline so the row always reads as four weeks.
             val barHeight = if (count == 0) BASELINE_HEIGHT else BAR_MAX_HEIGHT * count / peak
-            Box(
-                modifier = Modifier
-                    .width(20.dp)
-                    .height(barHeight)
-                    .background(
-                        color = if (count == 0) {
-                            MaterialTheme.colorScheme.outlineVariant
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        shape = RoundedCornerShape(3.dp)
-                    )
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Box(
+                    modifier = Modifier
+                        .width(20.dp)
+                        .height(barHeight)
+                        .background(
+                            color = if (count == 0) {
+                                MaterialTheme.colorScheme.outlineVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            shape = RoundedCornerShape(3.dp)
+                        )
+                )
+            }
         }
     }
 }
