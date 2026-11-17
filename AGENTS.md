@@ -308,6 +308,22 @@ other gates remain in force, including harness restrictions.
   docs/session-handoff.md and its self-review; starters must not instruct the next
   session to generate another handoff or starter automatically.
 
+## Using this guide from Claude Code
+
+This guide and the files under `.opencode/` are written for OpenCode. In Claude Code:
+
+- Skills under `.opencode/skills/` are not discovered automatically. When a task matches one
+  (`hydrafit-mechanics`, `hydrafit-ui-quality`, `hydrafit-ui-testing`, `hydrafit-writing`,
+  `prune-tests`), read its `SKILL.md` as a file before starting, as the Required task references
+  below already say.
+- The OpenCode agents (`coder`, `git-ops`, `ui-runner`, `reviewer`), the Maestro MCP and the todo
+  tool do not exist there. The main agent does the same work directly, or hands bounded read-only
+  work (for example an independent review) to ordinary subagents with a structured brief. Every gate
+  in this guide still applies unchanged: plan and approval before changes, scoped formatting, a fresh
+  full verification before reporting a check as passed, and explicit approval for pushes, merges,
+  tags and deletions.
+- Never add Claude or co-author attribution to commits, PR descriptions or files in this repository.
+
 ## Important Rule for AI Agents
 
 **Before performing any destructive actions** (like file deletions, large refactors, module restructuring, or package/dependency downgrades), **committing**, **or pushing to remote**, you **must**:
