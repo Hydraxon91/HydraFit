@@ -226,8 +226,8 @@ class GeminiWorkoutPlannerEngine(
                     "${PlannerExerciseCounts.TARGET_MAX_PER_DAY} exercises."
             )
             appendLine(
-                "Give each day a different focus from the schedule above, and do not reuse a " +
-                    "compound lift across days; isolation exercises may repeat."
+                "Follow the focus schedule above exactly; a focus may appear on more than one " +
+                    "day. Do not reuse a compound lift across days; isolation exercises may repeat."
             )
             appendLine(
                 "Use ${request.setsPerExercise} sets for compound lifts and " +
@@ -261,7 +261,7 @@ class GeminiWorkoutPlannerEngine(
             }
             PlannerPromptFragments.progressedWeightsList(request)?.let { progressed ->
                 appendLine(
-                    "Progressed starting weights (already adjusted for progressive overload): " +
+                    "Estimated one-rep maximums (already adjusted for progressive overload): " +
                         progressed
                 )
                 appendLine(PlannerPromptFragments.PROGRESSED_WEIGHTS_NOTE)

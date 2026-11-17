@@ -605,7 +605,7 @@ class GeminiWorkoutPlannerEngineTest {
             request(suggestedWeightsKg = mapOf("bench-press" to 90.0))
         )
         val off = (requireNotNull(captured).body as TextContent).text
-        assertFalse(off.contains("Progressed starting weights"), off)
+        assertFalse(off.contains("Estimated one-rep maximums"), off)
 
         engine(mockEngine).generatePlan(
             request(
@@ -614,7 +614,7 @@ class GeminiWorkoutPlannerEngineTest {
             )
         )
         val on = (requireNotNull(captured).body as TextContent).text
-        assertTrue(on.contains("Progressed starting weights"), on)
+        assertTrue(on.contains("Estimated one-rep maximums"), on)
         assertTrue(on.contains("bench-press: 90.0kg"), on)
     }
 

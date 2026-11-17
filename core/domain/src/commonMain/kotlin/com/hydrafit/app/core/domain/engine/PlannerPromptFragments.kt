@@ -11,7 +11,8 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 object PlannerPromptFragments {
 
     const val PROGRESSED_WEIGHTS_NOTE =
-        "Use these as \"suggestedWeightKg\" unless the history clearly disagrees."
+        "These are maximums, not working weights: the app converts them to a working weight for " +
+            "the planned reps, so do not copy them into \"suggestedWeightKg\"."
 
     /** "Available equipment: <display names>" — identical in both model prompts. */
     fun equipmentLine(request: PlanRequest): String =
