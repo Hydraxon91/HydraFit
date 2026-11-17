@@ -5462,3 +5462,16 @@ four-tab/manual/Library/Equipment/branding/licensing additions.
   F01 runtime, F02 absent-root, F03 intermediate boundary, signed/iOS/native/pixel. The candidate is
   implemented/verified for recorded accepted journeys but not release-approved or published.
   TalkBack speech remains permanently retired.
+
+## Deterministic engine tuning — five-day split, high-rep loads, deload target (2026-11-17)
+
+Changes: a five-day Auto week is Upper, Lower, Push, Pull, Legs; the working-load buffer is 10% up to
+6 reps and tapers to 2% by 12 reps; a deload week scales the weekly volume window by the deload
+volume scale; the Groq prompt follows the focus schedule and calls the progressed values estimated
+one-rep maximums.
+
+Evidence: domain and network host tests, fresh run. The taper was fitted loosely to a read-only
+aggregate of one user's phone data (147 working sets with a planned load; 29 at 11+ reps, where
+logged load averaged 9% above plan), so it is a product default, not a validated prescription.
+Not checked: any on-device generation, the Groq cloud path against the live service, and plan
+quality with a full catalog. Plans already accepted keep their stored loads.

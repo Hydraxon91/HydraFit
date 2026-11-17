@@ -14,10 +14,14 @@ data class SuggestedWeightConfig(
     val nscaCurve: Map<Int, Double> = DEFAULT_NSCA_CURVE,
     val rirBuffer: Double = DEFAULT_RIR_BUFFER,
     val roundToKg: Double = DEFAULT_ROUND_TO_KG,
-    val maxRepsForEstimate: Int = DEFAULT_MAX_REPS
+    val maxRepsForEstimate: Int = DEFAULT_MAX_REPS,
+    val highRepRirBuffer: Double = rirBuffer * HIGH_REP_BUFFER_FRACTION
 ) {
     init {
         require(rirBuffer in 0.0..<1.0) { "rirBuffer must be in [0.0, 1.0)" }
+        require(highRepRirBuffer in 0.0..rirBuffer) {
+            "highRepRirBuffer must be between 0.0 and rirBuffer"
+        }
         require(roundToKg > 0.0) { "roundToKg must be positive" }
         require(maxRepsForEstimate >= 1) { "maxRepsForEstimate must be at least 1" }
         require(nscaCurve.isNotEmpty()) { "nscaCurve must not be empty" }
@@ -27,7 +31,23 @@ data class SuggestedWeightConfig(
     }
 
     /** The %1RM to train at for the planned rep count: the NSCA curve discounted by the RIR buffer. */
-    fun intensityForReps(reps: Int): Double = curveFor(reps) * (1.0 - rirBuffer)
+    fun intensityForReps(reps: Int): Double = curveFor(reps) * (1.0 - bufferForReps(reps))
+
+    /**
+     * A flat percentage cut leaves far more reps in reserve at high reps than at low reps, so the
+     * cut is [rirBuffer] up to [TAPER_START_REPS] and eases linearly to [highRepRirBuffer] by
+     * [TAPER_END_REPS]. Product default fitted loosely to recorded plan-versus-logged loads; it is
+     * not a validated prescription.
+     */
+    fun bufferForReps(reps: Int): Double = when {
+        reps <= TAPER_START_REPS -> rirBuffer
+        reps >= TAPER_END_REPS -> highRepRirBuffer
+        else -> {
+            val progress =
+                (reps - TAPER_START_REPS).toDouble() / (TAPER_END_REPS - TAPER_START_REPS)
+            rirBuffer + (highRepRirBuffer - rirBuffer) * progress
+        }
+    }
 
     fun roundToIncrement(weightKg: Double): Double = round(weightKg / roundToKg) * roundToKg
 
@@ -51,6 +71,11 @@ data class SuggestedWeightConfig(
         const val DEFAULT_MAX_REPS: Int = 15
         const val DEFAULT_INTENSITY: Double = 0.7
         const val DEFAULT_RIR_BUFFER: Double = 0.10
+
+        /** The high-rep buffer is this share of the low-rep buffer (0.02 of the default 0.10). */
+        const val HIGH_REP_BUFFER_FRACTION: Double = 0.2
+        const val TAPER_START_REPS: Int = 6
+        const val TAPER_END_REPS: Int = 12
 
         /** NSCA training-load chart: reps taken to failure, expressed as a fraction of 1RM. */
         val DEFAULT_NSCA_CURVE: Map<Int, Double> = mapOf(

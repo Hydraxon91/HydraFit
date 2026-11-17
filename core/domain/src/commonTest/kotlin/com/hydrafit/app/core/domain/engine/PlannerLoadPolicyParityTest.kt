@@ -161,8 +161,8 @@ class PlannerLoadPolicyParityTest {
                 weights = SuggestedWeightConfig()
             )
 
-            // 130 x 0.72 (8 reps) = 93.6 -> 92.5 kg; a deload week scales it to 75 kg for both paths.
-            val expected = if (deload) 75.0 else 92.5
+            // 130 x 0.7413 (8 reps) = 96.4 -> 97.5 kg; a deload week scales it to 77.5 kg.
+            val expected = if (deload) 77.5 else 97.5
             assertEquals(expected, previewed.suggestedWeightKg)
             assertEquals(expected, replaced.weightKg)
             assertEquals(previewed.loadKind, replaced.loadKind)

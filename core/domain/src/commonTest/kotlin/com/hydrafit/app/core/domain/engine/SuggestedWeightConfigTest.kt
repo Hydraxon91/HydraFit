@@ -15,8 +15,32 @@ class SuggestedWeightConfigTest {
         assertEquals(0.765, config.intensityForReps(6), absoluteTolerance = 1e-9)
         // 3 reps -> NSCA 93% -> x 0.9 = 83.7%
         assertEquals(0.837, config.intensityForReps(3), absoluteTolerance = 1e-9)
-        // 12 reps -> NSCA 70% -> x 0.9 = 63%
-        assertEquals(0.63, config.intensityForReps(12), absoluteTolerance = 1e-9)
+        // 12 reps -> NSCA 70% -> x 0.98 (buffer has eased to 2%) = 68.6%
+        assertEquals(0.686, config.intensityForReps(12), absoluteTolerance = 1e-9)
+    }
+
+    @Test
+    fun theBufferEasesLinearlyBetweenSixAndTwelveReps() {
+        assertEquals(0.10, config.bufferForReps(1), absoluteTolerance = 1e-9)
+        assertEquals(0.10, config.bufferForReps(6), absoluteTolerance = 1e-9)
+        // Halfway through the taper at 9 reps: midway between 0.10 and 0.02.
+        assertEquals(0.06, config.bufferForReps(9), absoluteTolerance = 1e-9)
+        assertEquals(0.02, config.bufferForReps(12), absoluteTolerance = 1e-9)
+        assertEquals(0.02, config.bufferForReps(20), absoluteTolerance = 1e-9)
+        // 9 reps -> NSCA 77% x 0.94
+        assertEquals(0.7238, config.intensityForReps(9), absoluteTolerance = 1e-9)
+    }
+
+    @Test
+    fun theHighRepBufferCanNotExceedTheLowRepBuffer() {
+        assertTrue(
+            runCatching {
+                SuggestedWeightConfig(rirBuffer = 0.05, highRepRirBuffer = 0.08)
+            }.isFailure
+        )
+        // A custom flat buffer stays flat.
+        val flat = SuggestedWeightConfig(rirBuffer = 0.10, highRepRirBuffer = 0.10)
+        assertEquals(0.63, flat.intensityForReps(12), absoluteTolerance = 1e-9)
     }
 
     @Test

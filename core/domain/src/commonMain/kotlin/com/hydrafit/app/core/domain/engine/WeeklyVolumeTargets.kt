@@ -30,11 +30,29 @@ data class VolumeTarget(val minSets: Double, val targetSets: Double, val maxSets
  */
 object WeeklyVolumeTargets {
 
-    fun forGoal(goal: TrainingGoal): VolumeTarget = when (goal) {
-        TrainingGoal.BALANCED -> VolumeTarget(minSets = 8.0, targetSets = 11.0, maxSets = 18.0)
-        TrainingGoal.STRENGTH -> VolumeTarget(minSets = 6.0, targetSets = 9.0, maxSets = 15.0)
-        TrainingGoal.HYPERTROPHY -> VolumeTarget(minSets = 8.0, targetSets = 13.0, maxSets = 20.0)
-        TrainingGoal.ENDURANCE -> VolumeTarget(minSets = 6.0, targetSets = 9.0, maxSets = 16.0)
+    /**
+     * The window for [goal]. A deload scales it by [volumeScale] (the deload set-count scale) so the
+     * week-long ledger, which counts the already reduced sets, is measured against a matching
+     * target; otherwise a deload would chase the full deficit and pad every day with extra exercises.
+     */
+    fun forGoal(goal: TrainingGoal, volumeScale: Double = 1.0): VolumeTarget {
+        require(volumeScale > 0.0 && volumeScale <= 1.0) { "volumeScale must be in (0.0, 1.0]" }
+        val base = when (goal) {
+            TrainingGoal.BALANCED -> VolumeTarget(minSets = 8.0, targetSets = 11.0, maxSets = 18.0)
+            TrainingGoal.STRENGTH -> VolumeTarget(minSets = 6.0, targetSets = 9.0, maxSets = 15.0)
+            TrainingGoal.HYPERTROPHY ->
+                VolumeTarget(minSets = 8.0, targetSets = 13.0, maxSets = 20.0)
+            TrainingGoal.ENDURANCE -> VolumeTarget(minSets = 6.0, targetSets = 9.0, maxSets = 16.0)
+        }
+        return if (volumeScale == 1.0) {
+            base
+        } else {
+            VolumeTarget(
+                minSets = base.minSets * volumeScale,
+                targetSets = base.targetSets * volumeScale,
+                maxSets = base.maxSets * volumeScale
+            )
+        }
     }
 
     /**

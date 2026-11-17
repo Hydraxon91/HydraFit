@@ -219,9 +219,11 @@ Sources: domain `engine/OneRepMax.kt`, `SuggestedWeightConfig.kt`,
 ```text
 Epley estimated 1RM = weightKg * (1 + reps / 30.0)
 maxRepsForEstimate = 15
-rirBuffer = 0.10
+rirBuffer = 0.10                      (applies up to 6 reps)
+highRepRirBuffer = 0.02               (applies from 12 reps; linear taper between 6 and 12)
 roundToKg = 2.5
-intensityForReps(reps) = curveFor(reps) * (1 - rirBuffer)
+bufferForReps(reps) = rirBuffer up to 6 reps, highRepRirBuffer from 12, linear in between
+intensityForReps(reps) = curveFor(reps) * (1 - bufferForReps(reps))
 roundToIncrement(weightKg) = round(weightKg / roundToKg) * roundToKg
 ```
 
@@ -553,7 +555,17 @@ volume or a validated direct/indirect hypertrophy conversion. Accessories fill
 toward four exercises/day, then chase deficits up to six. Unfilled weighted
 targets remain possible. The weekly `minSets`/`targetSets`/`maxSets` window is a
 soft heuristic: the selector chases `targetSets`, treats `maxSets` as a pre-pick
-gate with possible whole-slot overshoot, and ignores `minSets` (report-only).
+gate with possible whole-slot overshoot, and ignores `minSets` (report-only). In a deload week
+`WeeklyVolumeTargets.forGoal` scales the whole window by `PeriodizationConfig.deloadVolumeScale`
+(0.7), because the ledger counts the already reduced sets; without it a deload would chase the full
+deficit and pad each day with extra exercises. `SubstituteExerciseUseCase` still ranks against the
+unscaled window.
+
+A five-day Auto week is `UPPER, LOWER, PUSH, PULL, LEGS` (`SplitResolver.focusSequence`) so legs are
+trained as often as push and pull; an explicitly chosen split is never rewritten, and every other
+Auto frequency still cycles its resolved split. The Groq prompt uses the same sequence. The
+taper's 2% high-rep buffer is a product default fitted loosely to one user's recorded plan versus
+logged loads (small sample: 29 sets at 11+ reps), not a validated prescription.
 
 The isolation pool is focus-scoped and determines reachability (a catalog
 exercise whose pattern is in no pool is never auto-selected): push adds

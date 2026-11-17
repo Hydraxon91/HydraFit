@@ -94,16 +94,16 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun autoSelectsPushPullLegsForFiveDays() {
+    fun autoSelectsUpperLowerThenPushPullLegsForFiveDays() {
         val focuses = engine.plan(request(daysPerWeek = 5), catalog()).days.map { it.focus }
 
         assertEquals(
             listOf(
+                SplitFocus.UPPER,
+                SplitFocus.LOWER,
                 SplitFocus.PUSH,
                 SplitFocus.PULL,
-                SplitFocus.LEGS,
-                SplitFocus.PUSH,
-                SplitFocus.PULL
+                SplitFocus.LEGS
             ),
             focuses
         )
@@ -1018,6 +1018,25 @@ class DeterministicWorkoutPlannerEngineTest {
         assertEquals(3, benchPress.sets)
         // 100 x intensity(6 reps) x 0.8 = 100 x 0.765 x 0.8 = 61.2 -> nearest 2.5 = 60.0
         assertEquals(60.0, benchPress.suggestedWeightKg)
+    }
+
+    @Test
+    fun aDeloadWeekDoesNotAddExercisesToChaseTheFullVolumeTarget() {
+        val normal = engine.plan(
+            request(daysPerWeek = 4, equipment = everything),
+            catalog()
+        )
+        val deload = engine.plan(
+            request(daysPerWeek = 4, equipment = everything, isDeload = true),
+            catalog()
+        )
+
+        val normalSets = normal.days.sumOf { day -> day.exercises.sumOf { it.sets } }
+        val deloadSets = deload.days.sumOf { day -> day.exercises.sumOf { it.sets } }
+        assertTrue(
+            deload.days.sumOf { it.exercises.size } <= normal.days.sumOf { it.exercises.size }
+        )
+        assertTrue(deloadSets < normalSets)
     }
 
     @Test
