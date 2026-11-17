@@ -2,17 +2,22 @@
 <!--
     Android 12+ cloud backup and device transfer. The preference files below hold values wrapped by
     a hardware Android Keystore key, which does not move to another device, so a restored copy could
-    never be decrypted. Everything else keeps the default behavior.
+    never be decrypted. hydrafit_automatic_backup holds a folder permission that is also tied to
+    this device. Everything else keeps the default behavior.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="hydrafit_groq_secure.xml" />
         <exclude domain="sharedpref" path="hydrafit_secure.xml" />
         <exclude domain="sharedpref" path="hydrafit_backup_secure.xml" />
+    <exclude domain="sharedpref" path="hydrafit_automatic_backup.xml" />
+        <exclude domain="sharedpref" path="hydrafit_automatic_backup.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="hydrafit_groq_secure.xml" />
         <exclude domain="sharedpref" path="hydrafit_secure.xml" />
         <exclude domain="sharedpref" path="hydrafit_backup_secure.xml" />
+    <exclude domain="sharedpref" path="hydrafit_automatic_backup.xml" />
+        <exclude domain="sharedpref" path="hydrafit_automatic_backup.xml" />
     </device-transfer>
 </data-extraction-rules>

@@ -5,8 +5,9 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * The Keystore-wrapped preference files must stay out of Android Auto Backup and device transfer:
- * their values are encrypted with a key that does not move to another device. This ties the two
+ * The device-bound preference files must stay out of Android Auto Backup and device transfer: three
+ * hold values encrypted with a key that does not move to another device, and the automatic-backup
+ * state names a folder permission that does not move either. This ties the two
  * exclusion XML files to the preference names the stores actually use, so a rename cannot silently
  * put a secret back into a backup.
  */
@@ -24,7 +25,11 @@ class BackupExclusionRulesTest {
             "AndroidKeystoreApiKeyStore.kt",
         "hydrafit_backup_secure" to
             "core/userdata/src/androidMain/kotlin/com/hydrafit/app/core/userdata/backup/" +
-            "AndroidBackupEncryptionKeyStore.kt"
+            "AndroidBackupEncryptionKeyStore.kt",
+        // Device-bound, not Keystore-wrapped: it keeps a folder permission that does not move.
+        "hydrafit_automatic_backup" to
+            "core/userdata/src/androidMain/kotlin/com/hydrafit/app/core/userdata/backup/" +
+            "AndroidAutomaticBackupStateStore.kt"
     )
 
     @Test

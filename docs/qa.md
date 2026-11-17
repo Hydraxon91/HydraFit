@@ -5482,7 +5482,8 @@ Scope: Gemini retired (engine, HTTP transport, `GeminiConfig`, `ApiKeyProvider`,
 BuildConfig field, Koin binding; `PlannerPromptBuilder` and `PlanSchema` keep the shared prompt);
 seven unused catalog entries removed (MockK, JUnit, kotlin-test-junit, core-ktx, test-ext,
 Espresso, AppCompat); backup/transfer exclusion of the three Keystore-wrapped preference files
-(`hydrafit_groq_secure`, `hydrafit_secure`, `hydrafit_backup_secure`); migration `66.sqm` (schema 67)
+(`hydrafit_groq_secure`, `hydrafit_secure`, `hydrafit_backup_secure`) and the device-bound
+`hydrafit_automatic_backup` state; migration `66.sqm` (schema 67)
 adding `workoutSet_performedAt` and `workoutSet_occurrenceEntryId`; time correction off the caller
 dispatcher with a boundary-only read; confirmations for Clear API key, Reset exercise and Clear
 body-weight goal; debug version default `0.14.0-dev`.
