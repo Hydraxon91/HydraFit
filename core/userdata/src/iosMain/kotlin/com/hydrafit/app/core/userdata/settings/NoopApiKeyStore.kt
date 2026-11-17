@@ -1,8 +1,7 @@
 package com.hydrafit.app.core.userdata.settings
 
-// iOS in-app key entry is deferred until the iOS app is wired up; the build-time
-// environment key is still used via ApiKeyProvider. Replace with a Keychain-backed
-// implementation when the iOS target ships.
+// The iOS target is not planned to ship, so no Keychain-backed store exists. Replace this with one
+// only if iOS is revived.
 class NoopApiKeyStore : ApiKeyStore {
     override fun load(): String? = null
 

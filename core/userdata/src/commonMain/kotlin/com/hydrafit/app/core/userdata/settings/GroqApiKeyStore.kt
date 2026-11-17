@@ -1,4 +1,4 @@
 package com.hydrafit.app.core.userdata.settings
 
-/** A distinct key slot: Gemini credentials must never be sent to Groq. */
+/** The Groq key slot; a key stored by the retired Gemini engine is never read as a Groq key. */
 interface GroqApiKeyStore : ApiKeyStore

@@ -41,7 +41,7 @@ class GroqWorkoutPlannerEngine(
     private val catalog: ExerciseCatalog,
     private val apiKeyProvider: GroqApiKeyProvider,
     private val sanitizer: WeeklyPlanSanitizer,
-    private val promptBuilder: GeminiWorkoutPlannerEngine
+    private val promptBuilder: PlannerPromptBuilder
 ) : WorkoutPlannerEngine {
     override val id = PlannerEngineId.GROQ_API
 
@@ -53,14 +53,13 @@ class GroqWorkoutPlannerEngine(
         val exercises = catalog.all()
         PlannerCandidateEligibility.requireWorkouts(exercises, request)
         val candidates = PlannerCandidateEligibility.candidates(exercises, request)
-        val source = promptBuilder.buildRequest(request, candidates.map { it.id })
-        val sourceSchema = requireNotNull(source.generationConfig?.responseSchema)
+        val prompt = promptBuilder.build(request, candidates.map { it.id })
         val schema = convertSchema(
-            geminiJson.parseToJsonElement(geminiJson.encodeToString(sourceSchema))
+            plannerJson.parseToJsonElement(plannerJson.encodeToString(prompt.schema))
         ).jsonObject
         val payload = GroqRequest(
             model = MODEL,
-            messages = listOf(GroqMessage("user", source.contents.single().parts.single().text)),
+            messages = listOf(GroqMessage("user", prompt.text)),
             responseFormat = GroqResponseFormat(
                 "json_schema",
                 GroqJsonSchema("weekly_plan", true, schema)
@@ -141,7 +140,7 @@ class GroqWorkoutPlannerEngine(
     }
 
     private fun isJsonValidationFailure(body: String): Boolean = runCatching {
-        geminiJson.parseToJsonElement(body).jsonObject["error"]?.jsonObject
+        plannerJson.parseToJsonElement(body).jsonObject["error"]?.jsonObject
             ?.get("code")?.jsonPrimitive?.content == "json_validate_failed"
     }.getOrDefault(false)
 
@@ -175,7 +174,7 @@ class GroqWorkoutPlannerEngine(
     private fun failure(reason: PlanFailureReason, message: String, transient: Boolean = false) =
         PlanGenerationException(transient, reason, message)
 
-    /** Converts the Gemini-shaped schema into the strict JSON Schema Groq requires. */
+    /** Converts the plan schema (upper-case type names) into the strict JSON Schema Groq requires. */
     private fun convertSchema(element: JsonElement): JsonElement = when (element) {
         is JsonArray -> JsonArray(element.map(::convertSchema))
         is JsonObject -> JsonObject(

@@ -17,7 +17,6 @@ import com.hydrafit.app.core.domain.time.BootIdentityProvider
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.RestAlertScheduler
 import com.hydrafit.app.core.domain.workout.UnsupportedRestAlertScheduler
-import com.hydrafit.app.core.network.ApiKeyProvider
 import com.hydrafit.app.core.network.GroqApiKeyProvider
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStore
@@ -38,7 +37,6 @@ import org.koin.core.module.dsl.onClose
 import org.koin.dsl.module
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
-import platform.Foundation.NSProcessInfo
 import platform.Foundation.timeIntervalSince1970
 
 fun iosDatabaseModule(): Module = module {
@@ -56,12 +54,6 @@ fun iosDatabaseModule(): Module = module {
     single<ApiKeyStore> { NoopApiKeyStore() }
     single<GroqApiKeyProvider> { GroqApiKeyProvider { "" } }
     single<AppVersionProvider> { IosAppVersionProvider() }
-    single<ApiKeyProvider> {
-        val store = get<ApiKeyStore>()
-        val environmentKey =
-            NSProcessInfo.processInfo.environment["GEMINI_API_KEY"] as? String ?: ""
-        ApiKeyProvider { store.load()?.takeIf { it.isNotBlank() } ?: environmentKey }
-    }
     single<BackupFileStore> { UnsupportedBackupFileStore() }
     single<BackupFolderStore> { UnsupportedBackupFolderStore() }
     single<StorageUsagePort> { UnsupportedStorageUsagePort() }

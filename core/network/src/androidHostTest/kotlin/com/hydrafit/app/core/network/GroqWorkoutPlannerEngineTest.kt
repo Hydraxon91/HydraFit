@@ -8,7 +8,6 @@ import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlanSanitizer
-import com.hydrafit.app.core.domain.engine.WorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.parseWeeklyPlan
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
@@ -37,10 +36,6 @@ class GroqWorkoutPlannerEngineTest {
             exercise("curl", MovementPattern.BICEPS_ISOLATION)
         )
     }
-    private val fallback = object : WorkoutPlannerEngine {
-        override val id = PlannerEngineId.DETERMINISTIC
-        override suspend fun generatePlan(request: PlanRequest) = WeeklyPlan(id, emptyList())
-    }
     private val request = PlanRequest(3, setOf(EquipmentTag.BARBELL), emptyMap(), nowMillis = 0L)
 
     @Test
@@ -56,16 +51,9 @@ class GroqWorkoutPlannerEngineTest {
                 headersOf(HttpHeaders.ContentType, "application/json")
             )
         }
-        val client = createGeminiHttpClient(mock)
+        val client = createPlannerHttpClient(mock)
         val sanitizer = WeeklyPlanSanitizer(catalog)
-        val builder = GeminiWorkoutPlannerEngine(
-            client,
-            GeminiConfig(),
-            catalog,
-            ApiKeyProvider { "unused" },
-            sanitizer,
-            fallback
-        )
+        val builder = PlannerPromptBuilder()
         val engine =
             GroqWorkoutPlannerEngine(
                 client,
@@ -89,7 +77,7 @@ class GroqWorkoutPlannerEngineTest {
             """{"focus":"FULL_BODY","exercises":[{"exerciseId":"$it","sets":3,"reps":8},""" +
                 """{"exerciseId":"curl","sets":2,"reps":10}]}"""
         } + "]}"
-        val response = geminiJson.encodeToString(
+        val response = plannerJson.encodeToString(
             GroqResponse(listOf(GroqChoice(GroqMessage("assistant", content))))
         )
         val mock = MockEngine {
@@ -99,16 +87,9 @@ class GroqWorkoutPlannerEngineTest {
                 headersOf(HttpHeaders.ContentType, "application/json")
             )
         }
-        val client = createGeminiHttpClient(mock)
+        val client = createPlannerHttpClient(mock)
         val sanitizer = WeeklyPlanSanitizer(catalog)
-        val builder = GeminiWorkoutPlannerEngine(
-            client,
-            GeminiConfig(),
-            catalog,
-            ApiKeyProvider { "unused" },
-            sanitizer,
-            fallback
-        )
+        val builder = PlannerPromptBuilder()
         val engine = GroqWorkoutPlannerEngine(
             client,
             catalog,
@@ -274,7 +255,7 @@ class GroqWorkoutPlannerEngineTest {
             """{"exerciseId":"Bench Press","sets":3,"reps":8},""" +
             """{"exerciseId":"row","sets":3,"reps":8},""" +
             """{"exerciseId":"squat","sets":3,"reps":8}]}]}"""
-        val response = geminiJson.encodeToString(
+        val response = plannerJson.encodeToString(
             GroqResponse(listOf(GroqChoice(GroqMessage("assistant", content))))
         )
         val mock = MockEngine {
@@ -378,16 +359,9 @@ class GroqWorkoutPlannerEngineTest {
         mock: MockEngine,
         catalogOverride: ExerciseCatalog = catalog
     ): GroqWorkoutPlannerEngine {
-        val client = createGeminiHttpClient(mock)
+        val client = createPlannerHttpClient(mock)
         val sanitizer = WeeklyPlanSanitizer(catalogOverride)
-        val builder = GeminiWorkoutPlannerEngine(
-            client,
-            GeminiConfig(),
-            catalogOverride,
-            ApiKeyProvider { "unused" },
-            sanitizer,
-            fallback
-        )
+        val builder = PlannerPromptBuilder()
         return GroqWorkoutPlannerEngine(
             client,
             catalogOverride,
@@ -398,7 +372,7 @@ class GroqWorkoutPlannerEngineTest {
     }
 
     private suspend fun generateWithSingleReply(content: String): WeeklyPlan {
-        val response = geminiJson.encodeToString(
+        val response = plannerJson.encodeToString(
             GroqResponse(listOf(GroqChoice(GroqMessage("assistant", content))))
         )
         val mock = MockEngine {
@@ -420,16 +394,9 @@ class GroqWorkoutPlannerEngineTest {
                 headersOf(HttpHeaders.ContentType, "application/json")
             )
         }
-        val client = createGeminiHttpClient(mock)
+        val client = createPlannerHttpClient(mock)
         val sanitizer = WeeklyPlanSanitizer(catalog)
-        val builder = GeminiWorkoutPlannerEngine(
-            client,
-            GeminiConfig(),
-            catalog,
-            ApiKeyProvider { "unused" },
-            sanitizer,
-            fallback
-        )
+        val builder = PlannerPromptBuilder()
         val engine = GroqWorkoutPlannerEngine(
             client,
             catalog,

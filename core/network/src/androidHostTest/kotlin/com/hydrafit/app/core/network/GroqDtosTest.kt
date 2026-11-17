@@ -25,7 +25,7 @@ class GroqDtosTest {
             ),
             maxCompletionTokens = 100
         )
-        val json = geminiJson.parseToJsonElement(geminiJson.encodeToString(request)).jsonObject
+        val json = plannerJson.parseToJsonElement(plannerJson.encodeToString(request)).jsonObject
         val format = json.getValue("response_format").jsonObject
         assertEquals("json_schema", format.getValue("type").jsonPrimitive.content)
         assertEquals(
@@ -37,7 +37,7 @@ class GroqDtosTest {
 
     @Test
     fun responseIgnoresProviderMetadata() {
-        val response = geminiJson.decodeFromString<GroqResponse>(
+        val response = plannerJson.decodeFromString<GroqResponse>(
             """{"choices":[{"message":{"role":"assistant","content":"{}"}}],"usage":{}}"""
         )
         assertEquals("{}", response.choices.single().message.content)

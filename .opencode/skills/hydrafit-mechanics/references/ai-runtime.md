@@ -50,10 +50,10 @@ do not assume the generation target and post-filter floor should be identical.
   resolves to the deterministic engine, and Android startup deletes the retired
   `on_device_llm.litertlm`/`.target` files off the main thread. Do not reintroduce a local runtime
   without a new approved decision.
-- Legacy Gemini implementation: network `GeminiWorkoutPlannerEngine.kt` and
-  `GeminiDtos.kt`. It is no longer selectable and exists as the shared prompt/schema builder Groq
-  reuses. HTTP transient retries: `MAX_RETRIES = 2`, base delay `1_000` ms, maximum delay
-  `8_000` ms. HTTP failures surface as `PlanGenerationException`; its
-  sanitizer-rejection branch still calls its deterministic fallback. This describes existing
-  source, not a pattern to copy: follow AGENTS.md's explicit engine-substitution rule for
-  new/changed rejection paths.
+- Gemini was retired in 0.14.0: the engine, HTTP transport, `GeminiConfig`, `ApiKeyProvider`, the
+  `GEMINI_API_KEY` BuildConfig field and the Koin binding are gone. `PlannerEngineId.GEMINI_API` and
+  `LOCAL_LLM` stay as readable legacy identities for stored plans and resolve to the deterministic
+  engine. The shared prompt and response schema live in network `PlannerPromptBuilder.kt` and
+  `PlanSchema.kt`; the shared JSON and HTTP client factory is `PlannerHttpClient.kt`. Groq owns its
+  transport, retries (`MAX_RETRIES = 2`, base delay `1_000` ms, maximum `8_000` ms) and failure
+  mapping.

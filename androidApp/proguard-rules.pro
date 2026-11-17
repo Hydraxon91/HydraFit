@@ -28,7 +28,7 @@
 # resolve at compile time (reified `singleOf`/`get`), so no broad `-keep class org.koin.**` is needed.
 
 # Ktor discovers its engine through META-INF/services when HttpClient() has no explicit engine
-# (see createGeminiHttpClient). Keep the OkHttp container/engine so discovery still resolves.
+# (see createPlannerHttpClient). Keep the OkHttp container/engine so discovery still resolves.
 -keep class io.ktor.client.engine.okhttp.OkHttpEngineContainer { *; }
 -keep class io.ktor.client.engine.okhttp.OkHttpEngine { *; }
 
