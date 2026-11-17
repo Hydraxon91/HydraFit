@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -65,7 +66,7 @@ internal fun ExercisePickerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(LoggerTestTags.exercise(exercise.id))
-                    .clickable { onExerciseSelected(exercise.id) },
+                    .clickable(role = Role.RadioButton) { onExerciseSelected(exercise.id) },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(

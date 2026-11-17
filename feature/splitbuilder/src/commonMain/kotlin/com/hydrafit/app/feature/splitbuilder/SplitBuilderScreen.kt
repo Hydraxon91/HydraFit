@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -884,7 +885,7 @@ fun SplitBuilderScreen(
                         text = summary,
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { onViewAcceptedPlan(accepted) },
+                            .clickable(role = Role.Button) { onViewAcceptedPlan(accepted) },
                         style = MaterialTheme.typography.bodyMedium
                     )
                     TextButton(onClick = { onDeletePlan(accepted) }) {

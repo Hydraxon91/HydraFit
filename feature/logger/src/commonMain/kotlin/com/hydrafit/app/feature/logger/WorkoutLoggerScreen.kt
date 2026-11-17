@@ -2416,7 +2416,9 @@ fun WorkoutLoggerScreen(
                                     "$measurement$warmupSuffix$weekDay$clusterSuffix"
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { onRecentSetSelected(row) }
+                                    modifier = Modifier.clickable(role = Role.Button) {
+                                        onRecentSetSelected(row)
+                                    }
                                 ) {
                                     Text(
                                         text = line,
