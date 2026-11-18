@@ -5550,3 +5550,20 @@ own test, was removed.
 
 Automated: day-heading grouping tests (newest first, local offset, paging, empty). Not verified: the
 rendered headings and the dialog dismissal behavior on a device.
+
+## Curated demo videos (unreleased, 2026-11-18)
+
+`ExerciseDemoVideos` maps 45 seeded exercise IDs to hand-picked YouTube video IDs (mostly Andrew Kwong,
+DeltaBolic; the author chose each one, and a few gaps were filled by search results the author has not
+individually watched). `ExerciseDemoLink.urlFor(exerciseId, name)` opens that video when the ID has one
+and falls back to the YouTube search otherwise, so custom exercises and unmapped seeds are unchanged.
+The shared instruction dialog is the only caller.
+
+Automated: link tests for the curated, fallback, null-ID and blank-name cases, a check that every video
+ID is 11 URL-safe characters, and `ExerciseDemoVideoSeedCoverageTest` (database module, reads the map
+source) proving every key is a real seed ID with no duplicates.
+
+Not verified: any video actually playing, that each video shows the exercise it is mapped to, or that
+links stay alive. Known doubts: `hip-thrust` and `barbell-hip-thrust` share one video, both calf-raise
+IDs named "Dumbbell Calf Raise" share one, and the `hanging-leg-raise` link is titled "Leg Raises"
+(it may show a lying variant).

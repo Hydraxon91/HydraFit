@@ -9,6 +9,17 @@ object ExerciseDemoLink {
     private const val SEARCH_URL = "https://www.youtube.com/results?search_query="
     private const val SEARCH_SUFFIX = " proper form"
 
+    private const val WATCH_URL = "https://www.youtube.com/watch?v="
+
+    /**
+     * The hand-picked video for [exerciseId] when one exists, otherwise the search for
+     * [exerciseName]. Null only when there is no curated video and the name is blank.
+     */
+    fun urlFor(exerciseId: String?, exerciseName: String): String? {
+        val videoId = exerciseId?.let { ExerciseDemoVideos.videoIdByExerciseId[it] }
+        return if (videoId != null) WATCH_URL + videoId else searchUrl(exerciseName)
+    }
+
     /** Null for a blank name, which has nothing meaningful to search for. */
     fun searchUrl(exerciseName: String): String? {
         val name = exerciseName.trim()

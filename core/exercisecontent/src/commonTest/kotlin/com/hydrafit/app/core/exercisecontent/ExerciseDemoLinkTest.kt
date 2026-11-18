@@ -10,6 +10,31 @@ class ExerciseDemoLinkTest {
     private val base = "https://www.youtube.com/results?search_query="
 
     @Test
+    fun aCuratedExerciseOpensItsVideoAndEverythingElseFallsBackToSearch() {
+        assertEquals(
+            "https://www.youtube.com/watch?v=Ni0aTWvWxCs",
+            ExerciseDemoLink.urlFor("barbell-bench-press", "Barbell Bench Press")
+        )
+        assertEquals(
+            base + "Zercher%20Squat%20proper%20form",
+            ExerciseDemoLink.urlFor("zercher-squat", "Zercher Squat")
+        )
+        assertEquals(
+            base + "My%20Lift%20proper%20form",
+            ExerciseDemoLink.urlFor(null, "My Lift")
+        )
+        assertNull(ExerciseDemoLink.urlFor("zercher-squat", "  "))
+    }
+
+    @Test
+    fun everyCuratedEntryIsAnElevenCharacterVideoId() {
+        val videoId = Regex("[A-Za-z0-9_-]{11}")
+        ExerciseDemoVideos.videoIdByExerciseId.forEach { (exercise, id) ->
+            assertTrue(videoId.matches(id), "$exercise has a malformed video ID: $id")
+        }
+    }
+
+    @Test
     fun searchesForTheNameWithProperFormAndEncodesSpaces() {
         assertEquals(
             base + "Lat%20Pulldown%20proper%20form",
