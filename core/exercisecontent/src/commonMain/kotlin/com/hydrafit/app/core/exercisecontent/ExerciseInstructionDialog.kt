@@ -39,7 +39,7 @@ fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismi
     val keys = ExerciseInstructionSource.keysFor(exerciseId)
     val caution = ExerciseCautionSource.cautionFor(exerciseId)
     val uriHandler = LocalUriHandler.current
-    val demoUrl = ExerciseDemoLink.searchUrl(exerciseName)
+    val demoUrl = ExerciseDemoLink.urlFor(exerciseId, exerciseName)
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

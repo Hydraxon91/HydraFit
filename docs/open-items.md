@@ -21,7 +21,7 @@ None of the following has been seen on a phone or emulator. The automated checks
 
 ## 2. Features not built
 
-- **Hand-picked exercise videos.** The demo button searches YouTube for the exercise name. Choosing a specific video per exercise was not done: search results give titles and links but not who made a video, and nobody can verify quality or that the link stays alive. If wanted, start with the 30 to 50 most common lifts, keep the search as the fallback, and have a person approve each link before it ships.
+- **Hand-picked exercise videos.** Done for 45 seeded exercises (see `docs/qa.md`, "Curated demo videos"); the rest use the YouTube search. Still to do: watch each video and swap any that do not match its exercise, and add videos for lifts that have none (for example Band Chest Press, wide-grip seated row, Hip Thrust variants).
 - **Body-weight-aware planned weights.** The pull-strength section is information only. Letting body weight change planned pulldown or row weights needs a conversion rule fitted to real chin-up and pulldown pairs, and the maintainer's data has none yet. Revisit once the section has shown real numbers.
 - **Midnight rollover and plan changes on the weekly card.** The card refreshes on a session or plan change, not at midnight while it stays on screen.
 
