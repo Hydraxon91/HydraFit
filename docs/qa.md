@@ -5539,7 +5539,7 @@ ViewModel tests for refresh on session change and a failed read.
 Not verified: the demo button opening YouTube, the launcher shortcut on a device, and the rendered
 weekly card. A started session with no logged sets still counts as a session.
 
-## Post-0.15.0 cleanup (unreleased, 2026-11-17)
+## Post-0.15.0 cleanup (0.15.1, 2026-11-17)
 
 Workout history now shows one date heading above each local day's entries (`historyDayStartKeys`; a
 later page that continues a day does not repeat its heading). The logger's set-timer confirmation can
@@ -5551,7 +5551,7 @@ own test, was removed.
 Automated: day-heading grouping tests (newest first, local offset, paging, empty). Not verified: the
 rendered headings and the dialog dismissal behavior on a device.
 
-## Curated demo videos (unreleased, 2026-11-18)
+## Curated demo videos (0.15.1, 2026-11-18)
 
 `ExerciseDemoVideos` maps 45 seeded exercise IDs to hand-picked YouTube video IDs (mostly Andrew Kwong,
 DeltaBolic; the author chose each one, and a few gaps were filled by search results the author has not
