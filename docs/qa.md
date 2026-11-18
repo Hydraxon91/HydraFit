@@ -5539,7 +5539,7 @@ ViewModel tests for refresh on session change and a failed read.
 Not verified: the demo button opening YouTube, the launcher shortcut on a device, and the rendered
 weekly card. A started session with no logged sets still counts as a session.
 
-## Post-0.15.0 cleanup (unreleased, 2026-11-17)
+## Post-0.15.0 cleanup (0.15.1, 2026-11-17)
 
 Workout history now shows one date heading above each local day's entries (`historyDayStartKeys`; a
 later page that continues a day does not repeat its heading). The logger's set-timer confirmation can
@@ -5551,19 +5551,25 @@ own test, was removed.
 Automated: day-heading grouping tests (newest first, local offset, paging, empty). Not verified: the
 rendered headings and the dialog dismissal behavior on a device.
 
-## Curated demo videos (unreleased, 2026-11-18)
+## Curated demo videos (0.15.1, 2026-11-18)
 
 `ExerciseDemoVideos` maps 45 seeded exercise IDs to hand-picked YouTube video IDs (mostly Andrew Kwong,
 DeltaBolic; the author chose each one, and a few gaps were filled by search results the author has not
 individually watched). `ExerciseDemoLink.urlFor(exerciseId, name)` opens that video when the ID has one
 and falls back to the YouTube search otherwise, so custom exercises and unmapped seeds are unchanged.
-The shared instruction dialog is the only caller.
+The shared instruction dialog calls it, and `ExerciseDemoButton` (`curatedUrl`, so it shows only for an
+exercise with a hand-picked video) adds a one-tap **Watch demo** button beside **Instructions** at the
+three logger sites (manual logging, draft sets, guided exercise cards). The dialog shows the curated
+case as a filled-tonal button and the search fallback as the plain text button. The Library exercise
+list was not given a button.
 
 Automated: link tests for the curated, fallback, null-ID and blank-name cases, a check that every video
 ID is 11 URL-safe characters, and `ExerciseDemoVideoSeedCoverageTest` (database module, reads the map
 source) proving every key is a real seed ID with no duplicates.
 
-Not verified: any video actually playing, that each video shows the exercise it is mapped to, or that
+Seen on the emulator (debug build): the Back Squat manual-logging screen shows **Instructions** and
+**Watch demo** side by side, and its Instructions dialog shows the filled demo button. Not verified:
+the guided-card and draft-set placements, an exercise without a video, any video actually playing, that each video shows the exercise it is mapped to, or that
 links stay alive. Known doubts: `hip-thrust` and `barbell-hip-thrust` share one video, both calf-raise
 IDs named "Dumbbell Calf Raise" share one, and the `hanging-leg-raise` link is titled "Leg Raises"
 (it may show a lying variant).

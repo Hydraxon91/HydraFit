@@ -94,6 +94,7 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.exercisecontent.ExerciseDemoButton
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
@@ -1543,13 +1544,16 @@ fun WorkoutLoggerScreen(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                TextButton(
-                                    onClick = onManualInstructions,
-                                    modifier = Modifier.testTag(
-                                        LoggerTestTags.MANUAL_INSTRUCTIONS
-                                    )
-                                ) {
-                                    Text(stringResource(Res.string.logger_instructions))
+                                Row {
+                                    TextButton(
+                                        onClick = onManualInstructions,
+                                        modifier = Modifier.testTag(
+                                            LoggerTestTags.MANUAL_INSTRUCTIONS
+                                        )
+                                    ) {
+                                        Text(stringResource(Res.string.logger_instructions))
+                                    }
+                                    ExerciseDemoButton(exerciseId = state.selectedExerciseId)
                                 }
                             }
                         }
@@ -2226,6 +2230,7 @@ fun WorkoutLoggerScreen(
                                         ) {
                                             Text(stringResource(Res.string.logger_instructions))
                                         }
+                                        ExerciseDemoButton(exerciseId = draft.exerciseId)
                                         if (loggerLoadingTargetEligible(
                                                 draft.loadKind,
                                                 draft.weightKg
@@ -4328,13 +4333,16 @@ private fun GuidedWorkoutSection(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        TextButton(
-                            onClick = { onInstructions(exercise.occurrenceEntryId) },
-                            modifier = Modifier.testTag(
-                                LoggerTestTags.guidedInstructions(exercise.occurrenceEntryId)
-                            )
-                        ) {
-                            Text(stringResource(Res.string.logger_instructions))
+                        Row {
+                            TextButton(
+                                onClick = { onInstructions(exercise.occurrenceEntryId) },
+                                modifier = Modifier.testTag(
+                                    LoggerTestTags.guidedInstructions(exercise.occurrenceEntryId)
+                                )
+                            ) {
+                                Text(stringResource(Res.string.logger_instructions))
+                            }
+                            ExerciseDemoButton(exerciseId = exercise.exerciseId)
                         }
                         Text(
                             text = stringResource(

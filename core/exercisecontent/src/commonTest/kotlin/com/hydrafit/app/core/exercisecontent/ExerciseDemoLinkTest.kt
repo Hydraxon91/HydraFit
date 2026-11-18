@@ -27,6 +27,16 @@ class ExerciseDemoLinkTest {
     }
 
     @Test
+    fun curatedUrlIsNullWithoutAHandPickedVideo() {
+        assertEquals(
+            "https://www.youtube.com/watch?v=dW3zj79xfrc",
+            ExerciseDemoLink.curatedUrl("back-squat")
+        )
+        assertNull(ExerciseDemoLink.curatedUrl("zercher-squat"))
+        assertNull(ExerciseDemoLink.curatedUrl(null))
+    }
+
+    @Test
     fun everyCuratedEntryIsAnElevenCharacterVideoId() {
         val videoId = Regex("[A-Za-z0-9_-]{11}")
         ExerciseDemoVideos.videoIdByExerciseId.forEach { (exercise, id) ->
