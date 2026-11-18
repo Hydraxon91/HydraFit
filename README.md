@@ -1,47 +1,76 @@
-# HydraFit
+<p align="center">
+  <img src="docs/design/HydraFit-02B-Logo.svg" alt="HydraFit logo" width="96" height="96">
+</p>
 
-[![Latest release](https://img.shields.io/github/v/release/Hydraxon91/HydraFit?sort=semver&color=blue)](https://github.com/Hydraxon91/HydraFit/releases)
+<h1 align="center">HydraFit</h1>
 
-HydraFit is an open-source Android app for planning and logging strength workouts. Build your own routines or generate a weekly plan based on your equipment, then track your training offline. The built-in planner needs no account, subscription or internet connection.
+<p align="center">
+  A free, open-source strength training app for Android that works fully offline.
+</p>
 
-It's a solo project in active development. You can [download the latest signed Android APK](https://github.com/Hydraxon91/HydraFit/releases/latest), but it isn't on an app store yet.
+<p align="center">
+  <a href="https://github.com/Hydraxon91/HydraFit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Hydraxon91/HydraFit?sort=semver&color=blue"></a>
+</p>
 
-The app uses a Quiet Strength Material 3 identity with bundled Inter typography and calm
-graphite/teal surfaces in light and dark themes. Screenshots and a fuller design pass are
-still to come.
+<p align="center">
+  <img src="docs/screenshots/train.png" alt="The Train screen with today's workout and a quiet weekly summary" width="230">
+  &nbsp;
+  <img src="docs/screenshots/exercise-details.png" alt="An exercise's details: muscles worked, last time, instructions and a demo video" width="230">
+  &nbsp;
+  <img src="docs/screenshots/exercise-progress.png" alt="Exercise progress with a trend chart and every recorded day" width="230">
+</p>
 
-## What it does
+HydraFit plans your training week, helps you log sets without fuss, and shows how things are going. It never asks for an account, a subscription or an internet connection.
+
+It's a solo project that I use myself, so it grows around real training. You can [download the latest signed APK](https://github.com/Hydraxon91/HydraFit/releases/latest). It isn't on an app store yet, and it needs Android 7.0 or newer.
+
+## What it's like to use
+
+**Train.** Open the app and you land on today's workout. Tap an exercise's name to see what it works, what you did last time and your heaviest recent set, how to set up and perform it, and a hand-picked demo video when there is one. Log sets in a few taps, with rest prompts and warm-up ramps if you want them. A small weekly summary shows how many sessions you've done. It has no streaks, no targets and no guilt: a quiet week is just an empty bar.
+
+**Plan.** Answer a few questions about your equipment, your goal and the days you train, and HydraFit builds a weekly plan on your device. Prefer to run your own routines? Build them yourself, schedule them on chosen weekdays or just work through them in order. Suggested weights come from your own history and your own records, with progression and a deload week built in.
+
+**Progress.** See each exercise's trend over 28, 84 or 365 days, your records, your body weight over time, and a body map of which muscles you have been working. Where the app is estimating something, such as fatigue, it says so plainly.
+
+**Your data stays yours.** Everything lives on your phone. Back it up and restore it locally. Edit any built-in exercise or add your own. There is no tracking.
+
+## The details
 
 ### Plan your training
 
 - Set up on first launch, or any time from Settings: pick your unit, equipment and training goal, choose your usual training days, and optionally record best sets you already know. Every step is optional and can be skipped or revisited, and setup never writes workout history.
-- Generate a plan for 2–6 days a week using Full Body, Upper-Lower or Push-Pull-Legs splits. Set your equipment and weight limits, choose exercise preferences, or exclude exercises you don't want to use.
-- Keep more than one equipment profile — for example home and the gym — each with its own equipment, weight limits and loading setup (plates you own, bars with their collar weight, and fixed or adjustable dumbbells). Work out which plates to load for a target weight, or the nearest weight you can actually reach, from Equipment or while logging. The calculator only calculates: it never changes what you log or your plan.
-- Build, reorder, duplicate and archive your own routines. An unsaved routine draft survives reselecting the Library tab, and reselecting Progress from Body weight or Fatigue returns to Exercise progress. Schedule a routine or generated plan on chosen weekdays, or work through it as a next-workout sequence. Missed workouts stay pending until you finish or skip them.
+- Generate a plan for 2–6 days a week using Full Body, Upper-Lower or Push-Pull-Legs splits. A five-day week trains upper, lower, push, pull and legs, and a four-day week alternates upper and lower. Set your equipment and weight limits, choose exercise preferences, or exclude exercises you don't want to use.
+- Keep more than one equipment profile, for example home and the gym, each with its own equipment, weight limits and loading setup (plates you own, bars with their collar weight, and fixed or adjustable dumbbells). Work out which plates to load for a target weight, or the nearest weight you can actually reach. The calculator only calculates: it never changes what you log or your plan.
+- Build, reorder, duplicate and archive your own routines. Schedule a routine or generated plan on chosen weekdays, or work through it as a next-workout sequence. Missed workouts stay pending until you finish or skip them.
 - Get suggested working weights from your logged history or manual personal records, with automatic progression and a deload week in each four-week cycle.
 
 ### Log your workouts
 
 - Record reps, weight in kg or lb, optional reps in reserve (RIR), warm-ups and bodyweight sets. Quick-fill from recent sets, backdate a workout, or correct a saved set's time, reps, weight and RIR.
 - Turn on guided logging and editable rest prompts if you want them. Background alerts and short-rest coaching are separate, off-by-default options; Android power management can delay alerts.
-- In guided workouts, use optional preparation checklists and editable ramp-set suggestions based on your planned loads and equipment limits. Recorded ramps stay warm-ups: they do not count toward working-set progress or start a rest timer.
-- Read short offline setup and execution guidance for every seeded exercise (195 at this release), from the Equipment catalog or the Logger. The text is bundled with the app, needs no network, and an exercise without authored guidance shows an explicit unavailable state instead of generic advice.
-- Read optional technique considerations for Conventional Deadlift, Romanian Deadlift and Dumbbell Romanian Deadlift in the same viewer. These offline reminders require no acknowledgment and are not an injury-risk rating or medical advice; other exercises do not inherit them by name.
+- In guided workouts, use optional preparation checklists and editable ramp-set suggestions based on your planned loads and equipment limits. Recorded ramps stay warm-ups: they don't count toward working-set progress or start a rest timer.
+- Read short offline setup and execution guidance for every seeded exercise (195 at this release). The text is bundled with the app and needs no network. An exercise without authored guidance shows an explicit unavailable state instead of generic advice.
+- Watch a demo. For 45 common exercises the demo button opens a hand-picked YouTube video; for the rest it opens a YouTube search. Nothing is requested until you tap, and the app hosts no video itself.
+- Read optional technique considerations for Conventional Deadlift, Romanian Deadlift and Dumbbell Romanian Deadlift in the same viewer. These are reminders, not an injury-risk rating or medical advice.
 - Replace an untouched scheduled exercise for today's workout without changing your routine or future workouts. Start or end sessions explicitly when you need to.
-- Open a read-only Exercise Progress view from the Logger to see per-exercise trend charts for 28, 84 or 365 days, all-time records with the contributing recorded sets, and the full recorded history. It only reads: no draft, session or log data is written.
-- Open Body weight from Progress to record one measurement per day in kg or lb, replace a day's entry when you re-log it, set or clear an optional current goal, and see raw 4-, 12- or 52-week charts. Measurements are included in local backups and never change planning, loads or fatigue.
+- Long-press the app icon and choose **Train** to jump straight to the Train tab. It only opens the tab and never starts a workout.
+
+### See your progress
+
+- Open Exercise Progress to see per-exercise trend charts for 28, 84 or 365 days, all-time records with the sets that produced them, and the full recorded history. It only reads: nothing is written.
+- Open Body weight from Progress to record one measurement per day, set an optional goal, and see 4-, 12- or 52-week charts. If you log chin-ups or pull-ups and pulldowns, it also shows how your pulldown level compares with your chin-up level. That is for information only and never changes your plan.
+- View a per-muscle fatigue heatmap and an offline anatomical body map with Male/Female and Front/Back views, plus performed coverage (seven-day working-set counts, estimated involvement credits and last-trained dates). The fatigue index is a planning estimate, not a measurement of recovery or readiness.
 
 ### Keep your data yours
 
-- Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement (tier shortcuts or an exact 0–1 value).
-- Back up and restore your data locally. Core planning and logging work offline; AI options are not required.
-- Read the complete bundled third-party notices offline from Settings → About → Open-source licenses, including licence texts, provenance, the exact Public Suffix List source and HydraFit's own MIT text. HydraFit-authored source is MIT; libraries, fonts, data and artwork keep their own terms.
-- Open a dedicated manual form from Train's Training tools, with its own searchable exercise picker. The form, picker and Logger share one workout state, so drafts and entered Logger values survive internal Logger navigation; timer behavior follows the existing pause/background policy. The form stays available after a successful log for repeated sets. Session controls and the session note stay on Train.
-- View a per-muscle fatigue heatmap and an offline anatomical Body map with Male/Female and Front/Back choices. See performed coverage alongside it (seven-day working-set counts, estimated involvement credits and last-trained dates), and explanations of planned direct and estimated indirect arm work. Body regions and softened colour boundaries are schematic; the fatigue index is a planning estimate, not a measurement of recovery or readiness.
+- Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement.
+- Back up and restore your data locally. Core planning and logging work offline; AI options are never required.
+- Android backup leaves out your Groq key and your automatic-backup folder setting, since neither can work on another device.
+- Read the complete bundled third-party notices offline from Settings → About → Open-source licenses. HydraFit's own source is MIT; libraries, fonts, data and artwork keep their own terms.
 
 ## Download and build
 
-Signed Android APKs are available on the [releases page](https://github.com/Hydraxon91/HydraFit/releases). For a local debug build, you need JDK 17+ and the Android SDK:
+Signed Android APKs are on the [releases page](https://github.com/Hydraxon91/HydraFit/releases). For a local debug build, you need JDK 17+ and the Android SDK:
 
 ```bash
 git clone https://github.com/Hydraxon91/HydraFit.git
@@ -49,43 +78,17 @@ cd HydraFit
 ./gradlew :androidApp:assembleDebug
 ```
 
-Android Studio can help set up the SDK. See the [project reference](docs/agent-project-reference.md) for configuration and test commands. Cloud planning is optional: obtain your own Groq API key and enter it in Settings on Android. Usage is subject to your Groq account's limits and charges.
+Android Studio can help set up the SDK. See the [project reference](docs/agent-project-reference.md) for configuration and test commands. Cloud planning is optional: get your own Groq API key and enter it in Settings. Usage is subject to your Groq account's limits and charges.
 
-Use debug builds on the development emulator, not signed or minified release APKs. Publishing and signing instructions live in the [release guide](docs/agent-ci-release.md).
+Use debug builds on a development emulator, not signed or minified release APKs. Publishing and signing instructions live in the [release guide](docs/agent-ci-release.md).
 
-## Roadmap
+## Where it's heading
 
-The next versions are deliberately smaller: each gets a focused scope and its own code review before publication. During pre-1.0 development, versions such as 0.7.1 can add features, not just fix bugs. Corrective releases take the next available number, so the targets below may shift. There are no release dates yet.
+HydraFit is a pre-1.0 project. The series through 0.15 has shipped: workout context, progress and recovery, equipment and data, progression, other training metrics, optional AI and a visual polish pass. What is left before 1.0 is mostly checking things on real phones, smaller improvements, and a verified release.
 
-### Workout context (0.7.x)
+iOS and desktop versions are not planned. HydraFit is a mobile app for Android; the iOS build target only stays to keep shared code honest.
 
-0.7.0–0.7.7 are published.
-
-| Target | Focus |
-| --- | --- |
-| 0.7.0 ✅ | Explain suggested loads, progression, fatigue choices and deloads |
-| 0.7.1 ✅ | Notes and searchable session history |
-| 0.7.2 ✅ | Finish-workout summaries |
-| 0.7.3 ✅ | Warm-up and ramp-set guidance |
-| 0.7.4 ✅ | First batch of offline exercise instructions |
-| 0.7.5 ✅ | Sourced, informational exercise cautions |
-| 0.7.6 ✅ | Setup and first-workout guidance |
-| 0.7.7 ✅ | Opt-in workout reminders |
-
-### After that
-
-| Series | Smaller releases, in order |
-| --- | --- |
-| 0.8.x — Progress & recovery | Published 2026-10-15: charts and records; catalog corrections; the body map and coverage views; body-weight tracking |
-| 0.9.x — Equipment & data | 0.9.0 published 2026-10-15: equipment profiles, per-profile loading setup and plate/dumbbell calculators. Then individual importers, sharing and backup improvements |
-| 0.10.x — Progression & prescriptions | History integrity before new progression policies; per-set targets, pyramids and supersets in separate releases |
-| 0.11.x — Other training metrics | Duration, distance and force metrics delivered separately; drop sets, rest-pause and cardio need research first |
-| 0.12.x — Optional AI | Identity and validation fixes, cloud provider replacement and on-device planner retirement |
-| 0.13.x — Design & polish | Screen-by-screen polish, tablet and foldable layouts, then final accessibility, localization and integration checks |
-| 1.0 | Verified Android release, after all pre-1.0 work is delivered or explicitly resolved |
-| Beyond 1.0 | iOS shipping and desktop support |
-
-Research may conclude that a feature isn't supported; reserving a version doesn't promise a positive result. Accessibility and basic usability are part of every release, not something saved for the final design pass. See the [detailed roadmap](docs/roadmap.md) for individual version targets, dependencies and completion gates, and [PLANS.md](PLANS.md) for execution status.
+See the [open items](docs/open-items.md) for what's still on the list, the [roadmap](docs/roadmap.md) for how releases are grouped, and [PLANS.md](PLANS.md) for execution status.
 
 ## Planner options and current limitations
 
@@ -95,15 +98,15 @@ One optional AI engine uses the same planning interface:
 
 - **Groq API:** needs your own API key and a network connection. It sends equipment, fatigue and goals to Groq; sharing logged workout history requires a separate consent toggle, off by default. Groq's rate limits, charges and data policies apply. Generated plans are validated but may still need your review.
 
-Some older plans also contain loads whose meaning was never established. The Logger labels these as “recorded, unconfirmed” rather than rewriting them. Generated bodyweight prescriptions do not suggest external loads; added kilograms are treated as added load, not total resistance. Recorded added load continues by the same success/miss rule as other baseline loads, but added-load e1RM and assisted or negative-load support remain outside the current contract.
+Some older plans also contain loads whose meaning was never established. The Logger labels these as "recorded, unconfirmed" rather than rewriting them. Generated bodyweight prescriptions do not suggest external loads; added kilograms are treated as added load, not total resistance.
 
 ## Development
 
-HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection and Ktor for the optional Groq planner. Android is the shipping platform; iOS remains a compile target for local release checks, but an iOS app isn't shipped yet.
+HydraFit uses Kotlin Multiplatform and Compose Multiplatform, with SQLDelight for local storage, Koin for dependency injection and Ktor for the optional Groq planner. Android is the only shipping platform; an iOS compile target is kept locally to catch shared-code mistakes, and there is no iOS or desktop app.
 
 Domain logic lives in `core/domain`, storage and engine integrations have their own core modules, and each feature owns its UI and navigation. `shared` connects them; `androidApp` is the Android entry point. See the [architecture guide](docs/architecture.md) for the boundaries.
 
-I develop this project with substantial help from an AI coding agent, [OpenCode](https://opencode.ai). The project rules in [AGENTS.md](AGENTS.md) cover scope, testing, approvals and code review. CI checks lint, host tests, migrations and Android builds; iOS compilation runs locally at the release integration gate. Release tags produce signed APKs.
+I develop this project with substantial help from AI coding agents, including [OpenCode](https://opencode.ai). The project rules in [AGENTS.md](AGENTS.md) cover scope, testing, approvals and code review. CI checks lint, host tests, migrations and Android builds; iOS compilation runs locally at the release integration gate. Release tags produce signed APKs.
 
 ## Credits
 
