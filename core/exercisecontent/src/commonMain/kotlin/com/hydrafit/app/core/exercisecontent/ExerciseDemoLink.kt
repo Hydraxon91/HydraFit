@@ -15,10 +15,12 @@ object ExerciseDemoLink {
      * The hand-picked video for [exerciseId] when one exists, otherwise the search for
      * [exerciseName]. Null only when there is no curated video and the name is blank.
      */
-    fun urlFor(exerciseId: String?, exerciseName: String): String? {
-        val videoId = exerciseId?.let { ExerciseDemoVideos.videoIdByExerciseId[it] }
-        return if (videoId != null) WATCH_URL + videoId else searchUrl(exerciseName)
-    }
+    fun urlFor(exerciseId: String?, exerciseName: String): String? =
+        curatedUrl(exerciseId) ?: searchUrl(exerciseName)
+
+    /** The hand-picked video for [exerciseId], or null when it has none (including every custom exercise). */
+    fun curatedUrl(exerciseId: String?): String? =
+        exerciseId?.let { ExerciseDemoVideos.videoIdByExerciseId[it] }?.let { WATCH_URL + it }
 
     /** Null for a blank name, which has nothing meaningful to search for. */
     fun searchUrl(exerciseName: String): String? {

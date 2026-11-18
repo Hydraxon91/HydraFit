@@ -5557,13 +5557,19 @@ rendered headings and the dialog dismissal behavior on a device.
 DeltaBolic; the author chose each one, and a few gaps were filled by search results the author has not
 individually watched). `ExerciseDemoLink.urlFor(exerciseId, name)` opens that video when the ID has one
 and falls back to the YouTube search otherwise, so custom exercises and unmapped seeds are unchanged.
-The shared instruction dialog is the only caller.
+The shared instruction dialog calls it, and `ExerciseDemoButton` (`curatedUrl`, so it shows only for an
+exercise with a hand-picked video) adds a one-tap **Watch demo** button beside **Instructions** at the
+three logger sites (manual logging, draft sets, guided exercise cards). The dialog shows the curated
+case as a filled-tonal button and the search fallback as the plain text button. The Library exercise
+list was not given a button.
 
 Automated: link tests for the curated, fallback, null-ID and blank-name cases, a check that every video
 ID is 11 URL-safe characters, and `ExerciseDemoVideoSeedCoverageTest` (database module, reads the map
 source) proving every key is a real seed ID with no duplicates.
 
-Not verified: any video actually playing, that each video shows the exercise it is mapped to, or that
+Seen on the emulator (debug build): the Back Squat manual-logging screen shows **Instructions** and
+**Watch demo** side by side, and its Instructions dialog shows the filled demo button. Not verified:
+the guided-card and draft-set placements, an exercise without a video, any video actually playing, that each video shows the exercise it is mapped to, or that
 links stay alive. Known doubts: `hip-thrust` and `barbell-hip-thrust` share one video, both calf-raise
 IDs named "Dumbbell Calf Raise" share one, and the `hanging-leg-raise` link is titled "Leg Raises"
 (it may show a lying variant).

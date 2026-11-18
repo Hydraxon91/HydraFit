@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +41,7 @@ fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismi
     val caution = ExerciseCautionSource.cautionFor(exerciseId)
     val uriHandler = LocalUriHandler.current
     val demoUrl = ExerciseDemoLink.urlFor(exerciseId, exerciseName)
+    val curated = ExerciseDemoLink.curatedUrl(exerciseId) != null
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -49,18 +51,13 @@ fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismi
         },
         dismissButton = demoUrl?.let { url ->
             {
-                TextButton(
-                    onClick = {
-                        // A device with no browser or YouTube app cannot open the link; the dialog
-                        // simply stays open instead of crashing.
-                        try {
-                            uriHandler.openUri(url)
-                        } catch (_: IllegalArgumentException) {
-                            // Nothing can handle the link.
-                        }
-                    }
-                ) {
-                    Text(stringResource(Res.string.exercise_instruction_demo))
+                val label = stringResource(Res.string.exercise_instruction_demo)
+                if (curated) {
+                    // A hand-picked video is the point of the dialog for this exercise, so it is
+                    // the prominent action; a plain search stays a quiet text button.
+                    FilledTonalButton(onClick = { uriHandler.openDemo(url) }) { Text(label) }
+                } else {
+                    TextButton(onClick = { uriHandler.openDemo(url) }) { Text(label) }
                 }
             }
         },
