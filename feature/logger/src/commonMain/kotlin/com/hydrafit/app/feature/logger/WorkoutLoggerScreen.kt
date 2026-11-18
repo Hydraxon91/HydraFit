@@ -95,7 +95,6 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.exercisecontent.ExerciseDemoButton
-import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
@@ -1019,9 +1018,10 @@ fun WorkoutLoggerScreen(
     val measureChangeLabel = stringResource(Res.string.logger_measure_change_action)
 
     state.exerciseInstructions?.let { instructions ->
-        ExerciseInstructionDialog(
-            exerciseName = instructions.exerciseName,
-            exerciseId = instructions.exerciseId,
+        LoggerExerciseDetailsDialog(
+            instructions = instructions,
+            weightUnit = state.weightUnit,
+            utcOffsetMillis = state.utcOffsetMillis,
             onDismiss = onDismissInstructions
         )
     }

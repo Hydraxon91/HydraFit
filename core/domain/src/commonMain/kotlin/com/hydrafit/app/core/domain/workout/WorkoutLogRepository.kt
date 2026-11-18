@@ -92,6 +92,18 @@ interface WorkoutLogRepository {
         }
         .maxWithOrNull(compareBy<WorkoutSet> { it.performedAtMillis }.thenBy { it.id })
 
+    /**
+     * Up to [limit] of the newest working (non-warm-up) sets of [exerciseId] across every session and
+     * station, newest first; equal times resolve to the most recently inserted set.
+     */
+    suspend fun recentWorkingSetsForExercise(exerciseId: String, limit: Int): List<WorkoutSet> =
+        all()
+            .filter { it.exerciseId == exerciseId && !it.isWarmup }
+            .sortedWith(
+                compareByDescending<WorkoutSet> { it.performedAtMillis }.thenByDescending { it.id }
+            )
+            .take(limit)
+
     /** Exercises with a working set performed in `[fromMillis, toMillisExclusive)`. */
     suspend fun exerciseIdsLoggedBetween(fromMillis: Long, toMillisExclusive: Long): Set<String> =
         all()

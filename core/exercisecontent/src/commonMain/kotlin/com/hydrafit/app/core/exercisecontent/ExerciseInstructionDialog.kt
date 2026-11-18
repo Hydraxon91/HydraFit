@@ -16,7 +16,13 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import hydrafit.core.exercisecontent.generated.resources.Res
+import hydrafit.core.exercisecontent.generated.resources.exercise_details_heaviest
+import hydrafit.core.exercisecontent.generated.resources.exercise_details_last_time
+import hydrafit.core.exercisecontent.generated.resources.exercise_details_no_history
+import hydrafit.core.exercisecontent.generated.resources.exercise_details_primary_muscles
+import hydrafit.core.exercisecontent.generated.resources.exercise_details_secondary_muscles
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_close
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_demo
 import hydrafit.core.exercisecontent.generated.resources.exercise_instruction_execution
@@ -36,7 +42,12 @@ import org.jetbrains.compose.resources.stringResource
  * and writes nothing, so an owning feature's unsaved draft is unaffected by opening or dismissing it.
  */
 @Composable
-fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismiss: () -> Unit) {
+fun ExerciseInstructionDialog(
+    exerciseName: String,
+    exerciseId: String?,
+    onDismiss: () -> Unit,
+    details: ExerciseDetailsContent? = null
+) {
     val keys = ExerciseInstructionSource.keysFor(exerciseId)
     val caution = ExerciseCautionSource.cautionFor(exerciseId)
     val uriHandler = LocalUriHandler.current
@@ -63,13 +74,14 @@ fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismi
         },
         title = { Text(exerciseName) },
         text = {
-            if (keys == null && caution == null) {
-                Text(stringResource(Res.string.exercise_instruction_unavailable))
-            } else {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (details != null) ExerciseDetailsSection(details)
+                if (keys == null && caution == null) {
+                    Text(stringResource(Res.string.exercise_instruction_unavailable))
+                } else {
                     if (keys == null) {
                         Text(stringResource(Res.string.exercise_instruction_unavailable))
                     } else {
@@ -94,6 +106,60 @@ fun ExerciseInstructionDialog(exerciseName: String, exerciseId: String?, onDismi
             }
         }
     )
+}
+
+@Composable
+private fun muscleNames(muscles: List<MuscleGroup>): String {
+    val labels = mutableListOf<String>()
+    muscles.forEach { labels += stringResource(it.labelResource()) }
+    return labels.joinToString(", ")
+}
+
+@Composable
+private fun ExerciseDetailsSection(details: ExerciseDetailsContent) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (details.primaryMuscles.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    Res.string.exercise_details_primary_muscles,
+                    muscleNames(details.primaryMuscles)
+                ),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        if (details.secondaryMuscles.isNotEmpty()) {
+            Text(
+                text = stringResource(
+                    Res.string.exercise_details_secondary_muscles,
+                    muscleNames(details.secondaryMuscles)
+                ),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        when (val history = details.history) {
+            ExerciseDetailsHistory.Hidden -> Unit
+            ExerciseDetailsHistory.None -> Text(
+                text = stringResource(Res.string.exercise_details_no_history),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            is ExerciseDetailsHistory.Logged -> {
+                Text(
+                    text = stringResource(Res.string.exercise_details_last_time, history.dateLabel),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = history.setLines.joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                history.heaviestLine?.let { line ->
+                    Text(
+                        text = stringResource(Res.string.exercise_details_heaviest, line),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

@@ -1354,3 +1354,17 @@ Monday-to-Sunday weeks (epoch day 0 was a Thursday); `ObserveWeeklyTrainingSumma
 the open session changes and reads the latest accepted plan for planned days and the deload week.
 `WeeklySummaryCard` renders it on the Train home. There is intentionally no streak or target.
 
+### Curated demos and the exercise details card (0.15.1+)
+
+`ExerciseDemoVideos` maps seeded exercise IDs to YouTube video IDs; `ExerciseDemoLink.urlFor(id, name)`
+opens the curated video and otherwise falls back to the search, and `curatedUrl` is null for custom and
+unmapped exercises. `ExerciseDemoButton` is a one-tap shortcut at the three Train sites and renders only
+for a curated exercise. On Train the Instructions action opens `LoggerExerciseDetailsDialog`, which loads
+`ExerciseDetailsViewModel` (read-only: catalog muscles plus `GetExercisePerformanceUseCase`) and passes
+`ExerciseDetailsContent` to `ExerciseInstructionDialog`: primary and secondary muscles, the last session's
+working sets and the heaviest recent set. The read is `WorkoutLogRepository.recentWorkingSetsForExercise`
+(limit 60, indexed, no migration); sets with no session are never merged. The Library still opens the
+dialog without details. Muscle labels live in `core/exercisecontent` (`MuscleGroup.labelResource`);
+Equipment and the heatmap keep their own copies for now. `:core:exercisecontent` now depends on
+`:core:domain` for `MuscleGroup`.
+

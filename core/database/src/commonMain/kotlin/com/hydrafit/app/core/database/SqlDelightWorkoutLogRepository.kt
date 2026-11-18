@@ -241,6 +241,13 @@ class SqlDelightWorkoutLogRepository(private val database: HydraFitDatabase) :
         setQueries.selectLastExternalLoadSetId(exerciseId).executeAsOneOrNull()
             ?.let { id -> setQueries.selectSetById(id).executeAsOneOrNull()?.toDomain() }
 
+    override suspend fun recentWorkingSetsForExercise(
+        exerciseId: String,
+        limit: Int
+    ): List<DomainWorkoutSet> =
+        setQueries.selectRecentWorkingSetsForExercise(exerciseId, limit.toLong())
+            .executeAsList().map { it.toDomain() }
+
     override suspend fun exerciseIdsLoggedBetween(
         fromMillis: Long,
         toMillisExclusive: Long

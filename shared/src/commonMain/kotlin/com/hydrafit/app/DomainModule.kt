@@ -77,6 +77,7 @@ import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetTimeUseCase
 import com.hydrafit.app.core.domain.workout.CorrectWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.DeleteWorkoutSetUseCase
 import com.hydrafit.app.core.domain.workout.EndWorkoutSessionUseCase
+import com.hydrafit.app.core.domain.workout.GetExercisePerformanceUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutLogUseCase
 import com.hydrafit.app.core.domain.workout.GetWorkoutSummaryUseCase
 import com.hydrafit.app.core.domain.workout.LogWorkoutSetUseCase
@@ -145,6 +146,7 @@ val domainModule: Module = module {
     singleOf(::LogWorkoutSetUseCase)
     single { SessionConfig() }
     singleOf(::GetWorkoutLogUseCase)
+    singleOf(::GetExercisePerformanceUseCase)
     singleOf(::GetWorkoutSummaryUseCase)
     singleOf(::DeleteWorkoutSetUseCase)
     singleOf(::CorrectWorkoutSetTimeUseCase)
