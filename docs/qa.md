@@ -5576,7 +5576,7 @@ IDs named "Dumbbell Calf Raise" share one, and the `hanging-leg-raise` link is t
 
 ## Exercise details card on Train (post-0.15.1, 2026-11-18)
 
-On Train the **Instructions** action now opens a details card: primary and "also works" muscles, the
+On Train, tapping an exercise's name (the workout overview, a guided exercise card or the draft line) or its **Instructions** action opens a details card: primary and "also works" muscles, the
 last session's working sets and heaviest recent set for the exercise, then the instructions and the
 demo action. `GetExercisePerformanceUseCase` reads `recentWorkingSetsForExercise` (60 newest working
 sets, the exerciseId/performedAt index, queries only), groups the newest set's session, and never merges
@@ -5589,5 +5589,5 @@ shared bounded-read fixtures, and ViewModel tests (muscles and last session, unk
 switching exercises). Seen on the emulator (debug build): Back Squat shows muscles, last time, the heaviest
 set and the filled demo button; Band Row shows muscles, "Not logged yet" and the plain search button.
 
-Not verified: the guided-card and draft-set entry points, a timed or bodyweight exercise's lines, pound
+Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
 units, and a device. The Library list does not show the card.

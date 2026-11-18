@@ -1136,7 +1136,8 @@ fun WorkoutLoggerScreen(
                                 frozenEntryIds = state.frozenEntryIds,
                                 weightUnit = state.weightUnit,
                                 distanceUnit = state.distanceUnit,
-                                onReplace = onReplaceOccurrenceEntry
+                                onReplace = onReplaceOccurrenceEntry,
+                                onInstructions = onDraftInstructions
                             )
                         }
                     }
@@ -1196,7 +1197,8 @@ fun WorkoutLoggerScreen(
                                             frozenEntryIds = state.frozenEntryIds,
                                             weightUnit = state.weightUnit,
                                             distanceUnit = state.distanceUnit,
-                                            onReplace = onReplaceOccurrenceEntry
+                                            onReplace = onReplaceOccurrenceEntry,
+                                            onInstructions = onDraftInstructions
                                         )
                                     }
                                 }
@@ -2039,7 +2041,14 @@ fun WorkoutLoggerScreen(
                                                 }
                                             },
                                             style = MaterialTheme.typography.titleSmall,
-                                            modifier = Modifier.padding(bottom = 2.dp)
+                                            modifier = Modifier
+                                                .clickable(
+                                                    onClickLabel = stringResource(
+                                                        Res.string.logger_instructions
+                                                    ),
+                                                    role = Role.Button
+                                                ) { onDraftInstructions(draft) }
+                                                .padding(bottom = 2.dp)
                                         )
                                         draft.device?.takeIf {
                                             draft.forceNewtons != null
@@ -3689,8 +3698,10 @@ private fun WorkoutOverviewSection(
     frozenEntryIds: Set<Long>,
     weightUnit: WeightUnit,
     distanceUnit: DistanceUnit,
-    onReplace: (Long) -> Unit
+    onReplace: (Long) -> Unit,
+    onInstructions: (DraftSet) -> Unit
 ) {
+    val instructionsLabel = stringResource(Res.string.logger_instructions)
     Card(
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -3729,7 +3740,11 @@ private fun WorkoutOverviewSection(
                     ) {
                         Text(
                             text = draft.name,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.clickable(
+                                onClickLabel = instructionsLabel,
+                                role = Role.Button
+                            ) { onInstructions(draft) }
                         )
                         Text(
                             text = workoutOverviewTarget(draft, weightUnit, distanceUnit),
@@ -4325,7 +4340,11 @@ private fun GuidedWorkoutSection(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = exercise.exerciseName,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.clickable(
+                                onClickLabel = stringResource(Res.string.logger_instructions),
+                                role = Role.Button
+                            ) { onInstructions(exercise.occurrenceEntryId) }
                         )
                         if (showsTechniqueConsiderations(exercise.exerciseId)) {
                             Text(
