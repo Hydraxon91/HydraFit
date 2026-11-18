@@ -913,6 +913,9 @@ class SqlDelightWorkoutLogRepositoryTest {
         override suspend fun lastExternalLoadSet(exerciseId: String) =
             super<WorkoutLogRepository>.lastExternalLoadSet(exerciseId)
 
+        override suspend fun recentWorkingSetsForExercise(exerciseId: String, limit: Int) =
+            super<WorkoutLogRepository>.recentWorkingSetsForExercise(exerciseId, limit)
+
         override suspend fun exerciseIdsLoggedBetween(fromMillis: Long, toMillisExclusive: Long) =
             super<WorkoutLogRepository>.exerciseIdsLoggedBetween(fromMillis, toMillisExclusive)
 
@@ -983,6 +986,12 @@ class SqlDelightWorkoutLogRepositoryTest {
                 defaults.lastExternalLoadSet(exercise),
                 repository.lastExternalLoadSet(exercise)
             )
+            for (limit in listOf(1, 2, 3, 50)) {
+                assertEquals(
+                    defaults.recentWorkingSetsForExercise(exercise, limit),
+                    repository.recentWorkingSetsForExercise(exercise, limit)
+                )
+            }
         }
         for ((from, to) in listOf(0L to 1_000L, 100L to 300L, 300L to 301L, 450L to 600L)) {
             assertEquals(

@@ -142,6 +142,13 @@ WHERE exerciseId = ? AND isWarmup = 0 AND loadKind = 'EXTERNAL' AND weightKg IS 
 ORDER BY performedAt DESC, id DESC
 LIMIT 1;
 
+-- Uses workoutSet_exerciseId_performedAt_id; ties keep the most recently inserted set first.
+selectRecentWorkingSetsForExercise:
+SELECT * FROM workoutSet
+WHERE exerciseId = ? AND isWarmup = 0
+ORDER BY performedAt DESC, id DESC
+LIMIT ?;
+
 selectExerciseIdsBetween:
 SELECT DISTINCT exerciseId FROM workoutSet
 WHERE isWarmup = 0 AND performedAt >= ? AND performedAt < ?;

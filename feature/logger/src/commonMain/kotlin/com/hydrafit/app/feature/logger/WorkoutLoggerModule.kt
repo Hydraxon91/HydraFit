@@ -42,6 +42,7 @@ val loggerModule: Module = module {
     }
     factory { WorkoutLoggerEquipment(get()) }
     viewModel { WeeklySummaryViewModel(observeSummary = get()) }
+    viewModel { ExerciseDetailsViewModel(getPerformance = get(), exerciseCatalog = get()) }
     single { ChangeOccurrenceEntryMeasureUseCase(get(), get(), get()) }
     viewModel {
         WorkoutLoggerViewModel(

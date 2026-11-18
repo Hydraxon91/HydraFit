@@ -5573,3 +5573,21 @@ the guided-card and draft-set placements, an exercise without a video, any video
 links stay alive. Known doubts: `hip-thrust` and `barbell-hip-thrust` share one video, both calf-raise
 IDs named "Dumbbell Calf Raise" share one, and the `hanging-leg-raise` link is titled "Leg Raises"
 (it may show a lying variant).
+
+## Exercise details card on Train (post-0.15.1, 2026-11-18)
+
+On Train, tapping an exercise's name (the workout overview, a guided exercise card or the draft line) or its **Instructions** action opens a details card: primary and "also works" muscles, the
+last session's working sets and heaviest recent set for the exercise, then the instructions and the
+demo action. `GetExercisePerformanceUseCase` reads `recentWorkingSetsForExercise` (60 newest working
+sets, the exerciseId/performedAt index, queries only), groups the newest set's session, and never merges
+sets with no session. `ExerciseDetailsViewModel` is read-only, so opening or dismissing the card changes no
+draft, timer or form. Muscle labels moved to `core/exercisecontent`, which now depends on `core/domain`.
+
+Automated: use-case tests (never logged, last session oldest first, heaviest across the window, bodyweight
+and timed exercises, null-session sets, the read limit), the SQL read against the default rule on the
+shared bounded-read fixtures, and ViewModel tests (muscles and last session, unknown exercise, failed read,
+switching exercises). Seen on the emulator (debug build): Back Squat shows muscles, last time, the heaviest
+set and the filled demo button; Band Row shows muscles, "Not logged yet" and the plain search button.
+
+Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
+units, and a device. The Library list does not show the card.
