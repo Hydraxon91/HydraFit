@@ -275,7 +275,7 @@ order and cursor/filter agreement in `:core:domain`. The projections are a schem
 (`42.sqm`).
 
 `restPreference` stores the global default under `GLOBAL` and exercise overrides under
-`EXERCISE:<exerciseId>`; an absent global row resolves to 120 seconds. Rest countdown
+`EXERCISE:<exerciseId>`; an absent global row resolves to the selected goal's default (`defaultRestSecondsFor`: Strength 180, Balanced and Hypertrophy 120, Endurance 60 seconds; a saved value always wins). Rest countdown
 state is separate, transient user data: it stores a monotonic deadline, duration, boot
 identity, open session, occurrence and exercise, and is not exported. Backup restore
 clears it because restored workout context is not a continuation of the prior process. A successful

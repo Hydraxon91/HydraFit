@@ -5641,3 +5641,79 @@ default's original values, distinct themes, both variants), `AppearanceSettingsV
 check with the store bound. Seen on the emulator (debug): the Appearance page in light and dark, live re-theming,
 and the choice surviving an app restart. Not verified: screens other than Settings in every theme (chart colours,
 the fatigue map and the workout card in all nine), a large font, a tablet width, and TalkBack on the picker.
+
+## Planner: arm volume, variety and chest ranking (post-0.15.1, 2026-11-19)
+
+From the maintainer's phone test: a four-day plan gave two arm exercises of two sets for each arm, and an EZ-bar
+skullcrusher recurred on two days. Measured against the full seeded catalog (hypertrophy, no history), the old
+planner gave every arm four direct sets at any frequency (triceps stayed at four on five and six days while
+biceps rose to six and eight), left upper chest at 1.5 weighted sets on a four-day week, and repeated isolation
+exercises such as cable hip adduction across days. `DirectArmCoverage.targetSetsPerMuscle` now scales the
+direct-arm target with frequency (4, 6, 6, 8, 8 for two to six days; Endurance 4), a direct arm exercise
+gets at least three sets outside Endurance, isolation picks are fresh-first, arm overflow past the target is
+a last resort, a compound slot ranks by its own pattern's muscles, and a pull day's pool includes shoulder
+isolation. Four- to six-day plans now give equal arm sets (6/6, 9/8, 9/8), no repeated exercise with all
+equipment, bench press as the first chest press, and upper and lower chest at about 5 weighted sets on
+four days.
+
+Automated: the domain suite (1,306 tests, with the arm, frequency, repeat, ranking and rear-delt tests added and
+the policy-dependent tests updated) and `SeededPlannerQualityTest`, which plans two to six days from the real
+catalog and checks arm targets, arm balance, no repeats, chest volume and squat plus hinge on a two-day week.
+Fresh-first was shown necessary by disabling it: with it off, the real catalog repeats cable hip adduction on
+four to six days. Not verified: a plan on the phone with the maintainer's equipment, the Groq planner's
+treatment of the new target, accepted plans (never rewritten), and the 4-day chest total, which is still near six
+direct sets because an upper day has only four compound slots and two arm slots.
+
+Known limits: Endurance at its default one accessory set cannot reach four direct sets per arm on a two-day
+week; custom exercises that list a single muscle score lower than seeded lifts that list several; and the final
+id tie-break is still alphabetical for exact ties.
+
+## Goal presets: Endurance accessory sets and goal-based rest (post-0.15.1, 2026-11-19)
+
+Checked against the ACSM 2026 resistance-training overview (press summary), Schoenfeld et al. 2021 (repetition
+continuum), the 2016 long-versus-short rest trial and Pelland's volume meta-regression. Balanced, Strength
+and Hypertrophy sets, reps and weekly targets were left as they are. Endurance accessories go from one set to
+two (the minimum was one), and the global rest default now follows the goal until the user saves one: Strength
+180 s, Balanced and Hypertrophy 120 s, Endurance 60 s (`defaultRestSecondsFor`, read by
+`SqlDelightRestPreferenceRepository` from the stored goal; a saved value always wins, and a backup taken with
+nothing saved exports the goal's default). The Settings text names the three values. Existing accounts who
+never saved a rest default will see their value change when their goal is not Balanced or Hypertrophy;
+anyone who saved one keeps it.
+
+Automated: `TrainingGoal` and rest-default tests in the domain and database suites (goal change, saved value
+winning, the flow re-emitting), and the seeded planner test now covers every goal including Endurance.
+Not verified: the Settings screen and a rest timer on a device, and a backup taken before and after the change.
+
+## Guided card buttons and demo shortcut (post-0.15.1, 2026-11-19)
+
+From the maintainer's phone test of 0.15.1: **Watch demo** in the guided card was squeezed to one letter
+per line beside **Instructions**, **Set completed now** sat disabled and wrapped across three lines, and
+exercises without a hand-picked video had no demo shortcut. Instructions and **Watch demo** now sit in a
+`FlowRow` (side by side when there is room, stacked when not) in the manual and guided sites; the guided
+card shows one primary set action that is **Start set** until the slot's set is started and then **Set
+completed now**, beside **Log set**; and `ExerciseDemoButton` uses `ExerciseDemoLink.urlFor`, so every
+exercise with a name gets the curated video or the YouTube search.
+
+Automated: the existing link tests (`urlFor` curated, fallback, null id and blank name) and a fresh logger
+and exercisecontent host-test, ktlint and debug-build run. Seen on the emulator (debug, guided workouts
+turned on for the check and off again): Instructions with **Watch demo** stacked beneath it for Incline
+Push-up (a search link, since it has no hand-picked video), **Start set** with **Log set** beside it, and
+after tapping Start set one teal **Set completed now** (two lines) with **Log set** greyed and no disabled
+filled button. Not verified: a narrow screen with a large font, the draft-line and manual placements, and
+completing a set from the new button.
+
+## Guided card redesign (post-0.15.1, 2026-11-19)
+
+From the same phone test: each guided exercise carried about nine text actions and its buttons floated in a
+vertically centred column. The exercise is now one column: name with its progress on one line, the target
+line (larger), a quiet reason or summary line, then a row with one primary action (**Start set**, then
+**Set completed** once that slot's set is started), **Log set** (shown only while no set is started) and a
+**More** menu (Instructions, Watch demo, Replace for this workout, Calculate loading, Edit draft, Change
+measurement, Details; actions that do not apply are left out, not disabled). Exercises are separated by a
+divider. The set-completion label is now "Set completed" and the menu button "More" (string keys unchanged).
+
+Automated: the exercisecontent and logger host tests, ktlint and the debug build re-ran and passed. Seen on
+the emulator (debug, guided workouts turned on for the check and off again): the new layout for Incline
+Push-up and Dips, the More menu, and the Start set to Set completed swap with Log set hidden. Not verified:
+a load-tracked exercise (Calculate loading and Details with lines), a superset pair, a timed exercise's
+timer controls, a completed (collapsed) exercise, a large font or tablet width, and TalkBack.

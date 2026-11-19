@@ -54,7 +54,9 @@ object PlannerPromptFragments {
         "This is a deload: do not add work to meet the normal-week direct arm coverage objective."
     } else {
         "Where compatible exercises and session capacity allow, include dedicated biceps and " +
-            "triceps isolation work for about ${DirectArmCoverage.TARGET_SETS_PER_MUSCLE} sets " +
+            "triceps isolation work for about ${
+                DirectArmCoverage.targetSetsPerMuscle(request.daysPerWeek, request.goal)
+            } sets " +
             "per muscle across the week. Compound involvement is a separate estimate and does " +
             "not replace this direct-work objective. This is a planning preference, not a " +
             "guarantee of physiological adequacy."

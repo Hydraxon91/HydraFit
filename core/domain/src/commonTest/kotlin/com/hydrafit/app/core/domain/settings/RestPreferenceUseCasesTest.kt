@@ -1,8 +1,10 @@
 package com.hydrafit.app.core.domain.settings
 
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -27,6 +29,17 @@ class RestPreferenceUseCasesTest {
         }
         assertFailsWith<IllegalArgumentException> {
             ClearExerciseRestDurationUseCase(repository)("")
+        }
+    }
+
+    @Test
+    fun eachGoalStartsFromItsOwnRestDefaultWithinTheCountdownRange() {
+        assertEquals(180L, defaultRestSecondsFor(TrainingGoal.STRENGTH))
+        assertEquals(120L, defaultRestSecondsFor(TrainingGoal.BALANCED))
+        assertEquals(120L, defaultRestSecondsFor(TrainingGoal.HYPERTROPHY))
+        assertEquals(60L, defaultRestSecondsFor(TrainingGoal.ENDURANCE))
+        TrainingGoal.entries.forEach {
+            assertTrue(defaultRestSecondsFor(it) in MIN_REST_SECONDS..MAX_REST_SECONDS)
         }
     }
 

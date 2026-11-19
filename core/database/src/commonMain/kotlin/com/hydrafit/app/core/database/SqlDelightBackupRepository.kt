@@ -55,7 +55,6 @@ import com.hydrafit.app.core.domain.equipment.LoadingInventoryJson
 import com.hydrafit.app.core.domain.schedule.WorkoutReminderDeliveryGate
 import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_END_MINUTE_OF_DAY
 import com.hydrafit.app.core.domain.settings.DEFAULT_QUIET_START_MINUTE_OF_DAY
-import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 import com.hydrafit.app.core.domain.workout.unicodeCaseFold
 
 /**
@@ -533,7 +532,8 @@ class SqlDelightBackupRepository(
                     BackupRestPreferenceRecord(
                         exerciseId = null,
                         durationSeconds = database.restPreferenceQueries.selectGlobalDefault()
-                            .executeAsOneOrNull() ?: DEFAULT_REST_SECONDS
+                            .executeAsOneOrNull()
+                            ?: goalRestDefaultSeconds(database.plannerEngineQueries)
                     )
                 ) + database.restPreferenceQueries.selectAllExerciseOverrides()
                     .executeAsList()

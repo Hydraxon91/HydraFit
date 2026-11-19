@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.settings
 
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import kotlinx.coroutines.flow.Flow
 
 class ObserveGlobalRestDurationUseCase(private val repository: RestPreferenceRepository) {
@@ -34,5 +35,16 @@ class ClearExerciseRestDurationUseCase(private val repository: RestPreferenceRep
 }
 
 const val DEFAULT_REST_SECONDS = 120L
+
+/**
+ * The global rest a training goal starts with until the user saves their own. These are guidance, not
+ * a prescription: heavy low-rep compounds are best supported with longer rests (about three minutes),
+ * moderate loads with about two, and light high-rep work can recover in about a minute.
+ */
+fun defaultRestSecondsFor(goal: TrainingGoal): Long = when (goal) {
+    TrainingGoal.STRENGTH -> 180L
+    TrainingGoal.BALANCED, TrainingGoal.HYPERTROPHY -> DEFAULT_REST_SECONDS
+    TrainingGoal.ENDURANCE -> 60L
+}
 const val MIN_REST_SECONDS = 1L
 const val MAX_REST_SECONDS = 86_400L

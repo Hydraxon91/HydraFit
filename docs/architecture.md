@@ -1026,7 +1026,7 @@ interval.
 
 ### 1.16 Rest preferences and countdown restoration
 
-The `RestPreferenceRepository` stores one global default (120 seconds when no row exists) and
+The `RestPreferenceRepository` stores one global default (the selected goal's default when no row exists: 180, 120 or 60 seconds) and
 optional exercise-specific overrides. The override wins; resetting it returns to the global value.
 `CustomExerciseDedupe` reassigns a merged custom exercise's override onto the seeded id, with the
 canonical override winning when both exist.

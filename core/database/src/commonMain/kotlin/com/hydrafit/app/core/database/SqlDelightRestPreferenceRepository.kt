@@ -2,22 +2,25 @@ package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOneOrNull
-import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.settings.RestPreferenceRepository
+import com.hydrafit.app.core.domain.settings.defaultRestSecondsFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 
 class SqlDelightRestPreferenceRepository(database: HydraFitDatabase) : RestPreferenceRepository {
     private val queries = database.restPreferenceQueries
+    private val goalQueries = database.plannerEngineQueries
 
-    override fun globalDefaultSecondsFlow(): Flow<Long> = queries.selectGlobalDefault()
-        .asFlow()
-        .mapToOneOrNull(Dispatchers.Default)
-        .map { it ?: DEFAULT_REST_SECONDS }
+    /** A saved default wins; until one is saved the default follows the selected training goal. */
+    override fun globalDefaultSecondsFlow(): Flow<Long> = combine(
+        queries.selectGlobalDefault().asFlow().mapToOneOrNull(Dispatchers.Default),
+        goalQueries.selectTrainingGoal().asFlow().mapToOneOrNull(Dispatchers.Default)
+    ) { saved, goalName -> saved ?: defaultRestSecondsFor(goalName.toTrainingGoal()) }
 
     override suspend fun globalDefaultSeconds(): Long =
-        queries.selectGlobalDefault().executeAsOneOrNull() ?: DEFAULT_REST_SECONDS
+        queries.selectGlobalDefault().executeAsOneOrNull() ?: goalRestDefaultSeconds(goalQueries)
 
     override suspend fun setGlobalDefaultSeconds(seconds: Long) {
         queries.upsertGlobalDefault(seconds)
@@ -34,3 +37,10 @@ class SqlDelightRestPreferenceRepository(database: HydraFitDatabase) : RestPrefe
         queries.deleteExerciseOverride(exerciseId)
     }
 }
+
+private fun String?.toTrainingGoal(): TrainingGoal =
+    TrainingGoal.entries.firstOrNull { it.name == this } ?: TrainingGoal.BALANCED
+
+/** The rest default for the selected training goal, used while no global default is saved. */
+internal fun goalRestDefaultSeconds(goalQueries: PlannerEngineQueries): Long =
+    defaultRestSecondsFor(goalQueries.selectTrainingGoal().executeAsOneOrNull().toTrainingGoal())

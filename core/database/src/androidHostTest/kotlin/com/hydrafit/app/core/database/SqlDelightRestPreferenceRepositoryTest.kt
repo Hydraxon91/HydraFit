@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.database
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -40,5 +41,22 @@ class SqlDelightRestPreferenceRepositoryTest {
         repository.clearExerciseOverride("back-squat")
         assertNull(repository.exerciseOverrideSeconds("back-squat"))
         assertEquals(150L, repository.exerciseOverrideSeconds("bench-press"))
+    }
+
+    @Test
+    fun theUnsavedDefaultFollowsTheTrainingGoalAndASavedOneWins() = runTest {
+        val goals = SqlDelightTrainingGoalRepository(database)
+
+        goals.setGoal(TrainingGoal.STRENGTH)
+        assertEquals(180L, repository.globalDefaultSeconds())
+        goals.setGoal(TrainingGoal.ENDURANCE)
+        assertEquals(60L, repository.globalDefaultSecondsFlow().first())
+        goals.setGoal(TrainingGoal.HYPERTROPHY)
+        assertEquals(120L, repository.globalDefaultSeconds())
+
+        repository.setGlobalDefaultSeconds(90L)
+        goals.setGoal(TrainingGoal.STRENGTH)
+        assertEquals(90L, repository.globalDefaultSeconds())
+        assertEquals(90L, repository.globalDefaultSecondsFlow().first())
     }
 }

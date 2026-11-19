@@ -268,6 +268,10 @@ class WeeklyPlanSanitizer(
                 ),
                 fatigue = request.muscleFatigue,
                 isDeload = isDeload,
+                targetSets = DirectArmCoverage.targetSetsPerMuscle(
+                    request.daysPerWeek,
+                    request.goal
+                ),
                 attribution = PlanAttribution.AI_GENERATED
             ),
             explanation = PlanExplanation(
