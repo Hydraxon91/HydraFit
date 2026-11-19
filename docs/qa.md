@@ -5591,3 +5591,23 @@ set and the filled demo button; Band Row shows muscles, "Not logged yet" and the
 
 Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
 units, and a device. The Library list does not show the card.
+
+## Progress redesign and back arrows (post-0.15.1, 2026-11-19)
+
+From the maintainer's review: the Exercise progress list was A to Z across the whole catalog, its chart read as bare
+gridlines and a dot above a wall of records, and every drill-down screen put Back at the top right (the Progress
+root as well, though the bottom bar already leaves it). The list is now ordered by recent sessions, then recency,
+then name (a grouped `workoutSet` query, no migration), with sections and a collapsed not-logged-yet group; the
+chart gets a larger latest point with a halo and its value and a lighter grid; the detail leads with best
+estimated 1RM and heaviest load cards and folds the record list and the per-day table behind toggles (the
+table stays the accessible numeric equivalent, one tap away); and `:core:ui` `ScreenHeader` gives Body weight,
+Cardio, Equipment, Routines, Settings pages and the Logger's child pages a left back arrow. The Progress root has
+no back action. The routine card reads "Workouts: 1" instead of "1 workouts".
+
+Automated: `exercisesAreOrderedByRecentSessionsThenRecencyThenName`, the plain-A-to-Z fallback with a failing read,
+the on-resume reorder, and `exerciseActivityCountsDistinctRecentSessionsAndReportsTheNewestWorkingSet` (session
+grouping, a session-less set counting once, the cutoff, warm-ups excluded). Seen on the emulator (debug): the new list and
+its sections, the Back Squat detail with the halo and value, the summary cards and All records, the arrow on
+Routines and Workout preferences, and no Back on the Progress root. Not verified: Body weight, Cardio, Equipment
+sections and the Logger child pages after the change, a large font, the two-pane tablet layout, TalkBack on
+the collapsed table, and a long exercise name beside the arrow.

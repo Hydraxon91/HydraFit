@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.workout.ExerciseActivity
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -35,6 +36,15 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
 
     /** Serializes replays; see the class note. Held for the whole replay, including its rollback. */
     private val replayTransaction = Mutex()
+
+    override suspend fun exerciseActivity(sinceMillis: Long): List<ExerciseActivity> =
+        queries.selectExerciseActivity(sinceMillis).executeAsList().map { row ->
+            ExerciseActivity(
+                exerciseId = row.exerciseId,
+                lastPerformedAtMillis = row.lastPerformedAt,
+                recentSessions = row.recentSessions.toInt()
+            )
+        }
 
     override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> {
         val limit = request.pageSize.toLong() + 1L

@@ -64,6 +64,39 @@ class SqlDelightExerciseProgressRepositoryTest {
     fun tearDown() = driver.close()
 
     @Test
+    fun exerciseActivityCountsDistinctRecentSessionsAndReportsTheNewestWorkingSet() = runBlocking {
+        database.exerciseQueries.insertCustom(
+            "curl",
+            "Curl",
+            "DUMBBELL",
+            "BICEPS_ISOLATION",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        val since = 1_000L
+        // Three squat sets in one recent session count once; another recent session counts once more.
+        writer.add(set(time = 2_000, weight = 100.0).copy(sessionId = "recent-a"))
+        writer.add(set(time = 2_100, weight = 100.0).copy(sessionId = "recent-a"))
+        writer.add(set(time = 2_200, weight = 100.0).copy(sessionId = "recent-a"))
+        writer.add(set(time = 3_000, weight = 100.0).copy(sessionId = "recent-b"))
+        // A set with no session counts once on its own; one before the cutoff adds none.
+        writer.add(set(time = 4_000, weight = 100.0).copy(sessionId = null))
+        writer.add(set(time = 500, weight = 100.0).copy(sessionId = "old"))
+        // A warm-up never counts, and an exercise with only old work still has a last-logged time.
+        writer.add(set(time = 9_000, weight = 40.0).copy(sessionId = "recent-c", isWarmup = true))
+        writer.add(set(time = 600, weight = 20.0).copy(exerciseId = "curl", sessionId = "old"))
+
+        val activity = repository.exerciseActivity(since).associateBy { it.exerciseId }
+
+        assertEquals(3, activity.getValue("squat").recentSessions)
+        assertEquals(4_000L, activity.getValue("squat").lastPerformedAtMillis)
+        assertEquals(0, activity.getValue("curl").recentSessions)
+        assertEquals(600L, activity.getValue("curl").lastPerformedAtMillis)
+        assertEquals(setOf("squat", "curl"), activity.keys)
+    }
+
+    @Test
     fun tiedTimestampPagesNeverDuplicateOrOmitAndDoNotTruncateProgress() = runBlocking {
         repeat(600) { writer.add(set(time = 1, weight = 10.0 + it % 10)) }
         val ids = mutableListOf<Long>()

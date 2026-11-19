@@ -96,22 +96,28 @@ internal fun ProgressMetricChart(
     val format = currentPresentationNumberFormat()
     val decimals = progressAxisLabelDecimals(axis)
     val markColor = MaterialTheme.colorScheme.primary
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val baselineColor = MaterialTheme.colorScheme.outline
     val labelStyle = MaterialTheme.typography.labelSmall.copy(
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     val textMeasurer = rememberTextMeasurer()
+    val latestLabel: (Double) -> String = { value ->
+        when (metric) {
+            ProgressMetric.ESTIMATED_ONE_REP_MAX -> displayWeight(value, weightUnit, format)
+            ProgressMetric.EXTERNAL_VOLUME -> displayVolume(value, weightUnit, format)
+        }
+    }
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp)
             .clearAndSetSemantics {}
     ) {
-        val markRadius = 3.dp.toPx()
+        val markRadius = 4.dp.toPx()
         val gap = 6.dp.toPx()
         val strokeWidth = 1.dp.toPx()
-        val lineWidth = 2.dp.toPx()
+        val lineWidth = 2.5.dp.toPx()
         val yLabels = axis.ticks.mapIndexed { index, tick ->
             val layout = textMeasurer.measure(
                 text = progressAxisTickLabel(tick, weightUnit, format, decimals),
@@ -194,6 +200,26 @@ internal fun ProgressMetricChart(
                 radius = markRadius,
                 center = Offset(xForPoint(point), yForPoint(point))
             )
+        }
+        // The newest recorded value is named on the chart, with a soft halo, so the number the eye
+        // goes to is on the plot and not only in the table below.
+        points.maxByOrNull { it.localEpochDay }?.let { latest ->
+            val center = Offset(xForPoint(latest), yForPoint(latest))
+            drawCircle(
+                color = markColor.copy(alpha = 0.18f),
+                radius = markRadius * 2.2f,
+                center = center
+            )
+            val label = textMeasurer.measure(
+                text = latestLabel(latest.value),
+                style = labelStyle.copy(color = markColor),
+                softWrap = false
+            )
+            val left = (center.x - label.size.width / 2f)
+                .coerceIn(plotLeft, (size.width - label.size.width).coerceAtLeast(plotLeft))
+            val top = (center.y - markRadius * 2.2f - label.size.height - 2.dp.toPx())
+                .coerceAtLeast(0f)
+            drawText(textLayoutResult = label, topLeft = Offset(left, top))
         }
 
         datePlacements.forEach { placement ->

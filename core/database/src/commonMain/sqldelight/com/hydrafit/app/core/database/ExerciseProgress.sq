@@ -118,3 +118,15 @@ LIMIT :pageLimit;
 -- emits on every workoutSet write.
 observeOccurrenceExerciseIds:
 SELECT DISTINCT exerciseId FROM workoutSet WHERE occurrenceId = :occurrenceId ORDER BY exerciseId;
+
+-- One row per exercise with a working set: its newest set, and the distinct sessions since the cutoff.
+-- A set without a session counts once by its own id, and nothing before the cutoff adds a session.
+selectExerciseActivity:
+SELECT
+    exerciseId,
+    MAX(performedAt) AS lastPerformedAt,
+    COUNT(DISTINCT CASE WHEN performedAt >= :sinceMillis THEN COALESCE(sessionId, 'set:' || id) END)
+        AS recentSessions
+FROM workoutSet
+WHERE isWarmup = 0
+GROUP BY exerciseId;

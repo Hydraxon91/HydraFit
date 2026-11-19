@@ -16,7 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +33,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.BodyweightPullEvidence
+import com.hydrafit.app.core.ui.ScreenHeader
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.bodyweight_add
@@ -157,13 +157,11 @@ fun BodyWeightScreen(
             .testTag(BodyWeightTestTags.ROOT),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = stringResource(Res.string.progress_body_weight),
-            style = MaterialTheme.typography.headlineSmall
+        ScreenHeader(
+            title = stringResource(Res.string.progress_body_weight),
+            onBack = onBack,
+            backLabel = stringResource(Res.string.progress_back)
         )
-        OutlinedButton(onClick = onBack) {
-            Text(stringResource(Res.string.progress_back))
-        }
         Button(
             onClick = onAddMeasurement,
             modifier = Modifier.testTag(BodyWeightTestTags.ADD)

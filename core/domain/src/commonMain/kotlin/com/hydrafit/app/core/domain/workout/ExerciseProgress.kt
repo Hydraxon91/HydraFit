@@ -111,7 +111,24 @@ data class ExerciseProgress(
     val occurrenceEvents: List<ProgressRecordEvent>
 )
 
+/**
+ * How much an exercise has been trained: when its newest working set was logged, and in how many
+ * distinct sessions it appeared since a cutoff. A set with no recorded session counts once on its own.
+ */
+data class ExerciseActivity(
+    val exerciseId: String,
+    val lastPerformedAtMillis: Long,
+    val recentSessions: Int
+)
+
 interface ExerciseProgressRepository {
+    /**
+     * One [ExerciseActivity] per exercise that has a working set, with sessions counted from
+     * [sinceMillis]. Read-only and grouped in the database, never a scan of the log into memory. An
+     * implementation without the read returns none, which leaves the list unordered by activity.
+     */
+    suspend fun exerciseActivity(sinceMillis: Long): List<ExerciseActivity> = emptyList()
+
     fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage>
 
     /** Complete chart range and all-time records through [ExerciseProgressRequest.nowMillis]. */

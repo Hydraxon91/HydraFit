@@ -16,13 +16,12 @@ val progressRoute: String = "progress"
 /** The pushed Body weight destination, nested under Exercise Progress rather than a new tab. */
 val bodyWeightRoute: String = "progress/bodyweight"
 
-fun NavGraphBuilder.progressGraph(navController: NavController, onClose: () -> Unit) {
+fun NavGraphBuilder.progressGraph(navController: NavController) {
     composable(progressRoute) {
         // Fatigue is its own feature with its own route; the shell's tab navigator opens it without
         // this feature depending on it.
         val openTab = LocalAppTabNavigator.current
         ProgressRoute(
-            onBack = onClose,
             onOpenBodyWeight = { navController.navigate(bodyWeightRoute) },
             onOpenFatigue = { openTab(AppTab.FATIGUE) }
         )

@@ -112,4 +112,21 @@
     <string name="progress_station_label">Station</string>
     <string name="progress_station_unattributed">No station</string>
     <string name="progress_station_station">Station: %1$s</string>
+    <string name="progress_exercises_most_trained">Most trained, last 90 days</string>
+    <string name="progress_exercises_logged_earlier">Logged earlier</string>
+    <string name="progress_exercises_show_untouched">Show exercises not logged yet (%1$d)</string>
+    <string name="progress_exercises_hide_untouched">Hide exercises not logged yet (%1$d)</string>
+    <string name="progress_exercise_row_sessions">Sessions: %1$d · %2$s</string>
+    <string name="progress_last_today">Today</string>
+    <string name="progress_last_yesterday">Yesterday</string>
+    <string name="progress_last_days_ago">%1$d days ago</string>
+    <string name="progress_last_weeks_ago">%1$d weeks ago</string>
+    <string name="progress_last_months_ago">%1$d months ago</string>
+    <string name="progress_summary_best_estimate">Best estimated 1RM</string>
+    <string name="progress_summary_heaviest">Heaviest load</string>
+    <string name="progress_summary_heaviest_value">%1$s × %2$d</string>
+    <string name="progress_records_show_all">All records (%1$d)</string>
+    <string name="progress_records_hide_all">Hide records</string>
+    <string name="progress_days_show">Show values for each day</string>
+    <string name="progress_days_hide">Hide values for each day</string>
 </resources>

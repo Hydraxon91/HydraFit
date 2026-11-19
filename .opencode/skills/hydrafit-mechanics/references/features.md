@@ -1368,3 +1368,15 @@ dialog without details. Muscle labels live in `core/exercisecontent` (`MuscleGro
 Equipment and the heatmap keep their own copies for now. `:core:exercisecontent` now depends on
 `:core:domain` for `MuscleGroup`.
 
+
+## Progress list, chart and screen headers (post-0.15.1)
+
+Exercise progress orders its list by activity, not A to Z: `ExerciseProgressRepository.exerciseActivity(since)`
+(one grouped SQL read, `selectExerciseActivity`, no migration) returns each exercise's newest working set and its
+distinct sessions in the last 90 days; `ProgressViewModel` sorts by recent sessions, then recency, then name and
+reloads on resume. The screen shows "Most trained, last 90 days", "Logged earlier", and a collapsed "not logged yet"
+group, or one flat ordered list while a search is active. The detail keeps the chart's no-interpolation rules but
+draws a larger, halo-marked latest point with its value, leads the records with a best-estimated-1RM and
+heaviest-load card, and folds the full record list and the per-day table behind toggles. Drill-down screens use
+`ScreenHeader` (`:core:ui`): a left back arrow, no arrow on a bottom-bar destination such as the Progress root.
+Workout history, its detail and Acknowledgments still end with a Back button at the bottom.

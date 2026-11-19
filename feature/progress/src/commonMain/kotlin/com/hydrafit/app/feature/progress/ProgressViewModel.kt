@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
+import com.hydrafit.app.core.domain.workout.ExerciseActivity
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryCursor
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgressRepository
@@ -81,22 +82,9 @@ class ProgressViewModel(
     init {
         viewModelScope.launch {
             exerciseCatalog.observeAll().collect { exercises ->
-                val options = exercises
-                    .map { ProgressExerciseOption(it.id, it.name) }
-                    .sortedBy { it.name.lowercase() }
-                _state.update { current ->
-                    val id = current.selectedExerciseId
-                    current.copy(
-                        exercises = options,
-                        // A selected id that disappears from the catalog keeps its identity and shows
-                        // the localized missing-name state rather than being silently cleared.
-                        selectedExerciseName = if (id == null) {
-                            null
-                        } else {
-                            options.firstOrNull { it.id == id }?.name
-                        }
-                    )
-                }
+                catalogNames = exercises.associate { it.id to it.name }
+                loadActivity()
+                publishExerciseOptions()
             }
         }
         viewModelScope.launch {
@@ -111,6 +99,64 @@ class ProgressViewModel(
         }
         viewModelScope.launch {
             chartQuery.collectLatest { query -> if (query != null) observeCharts(query) }
+        }
+    }
+
+    private var catalogNames: Map<String, String> = emptyMap()
+    private var activityByExercise: Map<String, ExerciseActivity> = emptyMap()
+
+    /** Reads how much each exercise was trained. A failed read keeps the last answer, or none. */
+    private suspend fun loadActivity() {
+        val since = timeProvider.nowMillis() - ACTIVITY_WINDOW_MILLIS
+        activityByExercise = try {
+            progressRepository.exerciseActivity(since).associateBy { it.exerciseId }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            activityByExercise
+        }
+    }
+
+    /**
+     * Most trained first: recent sessions, then the newest log, then the name. An exercise never
+     * logged has neither, so with no activity at all the list is plain A to Z.
+     */
+    private fun publishExerciseOptions() {
+        val now = timeProvider.nowMillis()
+        val offset = timeProvider.utcOffsetMillis()
+        val today = localEpochDay(now, offset)
+        val options = catalogNames.map { (id, name) ->
+            val activity = activityByExercise[id]
+            ProgressExerciseOption(
+                id = id,
+                name = name,
+                recentSessions = activity?.recentSessions ?: 0,
+                daysSinceLast = activity?.let {
+                    (
+                        today - localEpochDay(
+                            it.lastPerformedAtMillis,
+                            offset
+                        )
+                        ).toInt().coerceAtLeast(0)
+                }
+            )
+        }.sortedWith(
+            compareByDescending<ProgressExerciseOption> { it.recentSessions }
+                .thenBy { it.daysSinceLast ?: Int.MAX_VALUE }
+                .thenBy { it.name.lowercase() }
+        )
+        _state.update { current ->
+            val id = current.selectedExerciseId
+            current.copy(
+                exercises = options,
+                // A selected id that disappears from the catalog keeps its identity and shows
+                // the localized missing-name state rather than being silently cleared.
+                selectedExerciseName = if (id == null) {
+                    null
+                } else {
+                    options.firstOrNull { it.id == id }?.name
+                }
+            )
         }
     }
 
@@ -182,6 +228,11 @@ class ProgressViewModel(
 
     /** Re-samples the current time and offset, e.g. when the screen returns to the foreground. */
     fun onResume() {
+        // Training since the screen was last shown reorders the list.
+        viewModelScope.launch {
+            loadActivity()
+            publishExerciseOptions()
+        }
         if (!_state.value.hasSelectedExercise) return
         startCharts()
     }
@@ -454,5 +505,10 @@ class ProgressViewModel(
         supportingJob?.cancel()
         supportingJob = null
         supportingGeneration++
+    }
+
+    private companion object {
+        /** The window over which sessions count toward "most trained". */
+        const val ACTIVITY_WINDOW_MILLIS = 90L * 86_400_000L
     }
 }

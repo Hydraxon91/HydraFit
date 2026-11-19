@@ -1,5 +1,7 @@
 package com.hydrafit.app.feature.progress
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -9,14 +11,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -44,11 +50,11 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
+import com.hydrafit.app.core.ui.ScreenHeader
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.bodyweight_cancel
-import hydrafit.feature.progress.generated.resources.progress_back
 import hydrafit.feature.progress.generated.resources.progress_body_weight
 import hydrafit.feature.progress.generated.resources.progress_chart_estimate_legend
 import hydrafit.feature.progress.generated.resources.progress_chart_metric_empty_estimate
@@ -58,13 +64,20 @@ import hydrafit.feature.progress.generated.resources.progress_charts_failed
 import hydrafit.feature.progress.generated.resources.progress_charts_no_eligible
 import hydrafit.feature.progress.generated.resources.progress_charts_retry
 import hydrafit.feature.progress.generated.resources.progress_charts_title
+import hydrafit.feature.progress.generated.resources.progress_days_hide
+import hydrafit.feature.progress.generated.resources.progress_days_show
 import hydrafit.feature.progress.generated.resources.progress_device_attributed
 import hydrafit.feature.progress.generated.resources.progress_device_attributed_rated
 import hydrafit.feature.progress.generated.resources.progress_exercise_change
 import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
 import hydrafit.feature.progress.generated.resources.progress_exercise_none_selected
+import hydrafit.feature.progress.generated.resources.progress_exercise_row_sessions
 import hydrafit.feature.progress.generated.resources.progress_exercise_search_label
+import hydrafit.feature.progress.generated.resources.progress_exercises_hide_untouched
+import hydrafit.feature.progress.generated.resources.progress_exercises_logged_earlier
+import hydrafit.feature.progress.generated.resources.progress_exercises_most_trained
+import hydrafit.feature.progress.generated.resources.progress_exercises_show_untouched
 import hydrafit.feature.progress.generated.resources.progress_fatigue
 import hydrafit.feature.progress.generated.resources.progress_history_distance_line
 import hydrafit.feature.progress.generated.resources.progress_history_duration_line
@@ -79,6 +92,11 @@ import hydrafit.feature.progress.generated.resources.progress_history_note
 import hydrafit.feature.progress.generated.resources.progress_history_title
 import hydrafit.feature.progress.generated.resources.progress_history_warmup
 import hydrafit.feature.progress.generated.resources.progress_history_working
+import hydrafit.feature.progress.generated.resources.progress_last_days_ago
+import hydrafit.feature.progress.generated.resources.progress_last_months_ago
+import hydrafit.feature.progress.generated.resources.progress_last_today
+import hydrafit.feature.progress.generated.resources.progress_last_weeks_ago
+import hydrafit.feature.progress.generated.resources.progress_last_yesterday
 import hydrafit.feature.progress.generated.resources.progress_metric_estimate
 import hydrafit.feature.progress.generated.resources.progress_metric_label
 import hydrafit.feature.progress.generated.resources.progress_metric_volume
@@ -101,12 +119,17 @@ import hydrafit.feature.progress.generated.resources.progress_record_supporting_
 import hydrafit.feature.progress.generated.resources.progress_record_supporting_note
 import hydrafit.feature.progress.generated.resources.progress_record_supporting_previous
 import hydrafit.feature.progress.generated.resources.progress_records_all_time_note
+import hydrafit.feature.progress.generated.resources.progress_records_hide_all
 import hydrafit.feature.progress.generated.resources.progress_records_none
+import hydrafit.feature.progress.generated.resources.progress_records_show_all
 import hydrafit.feature.progress.generated.resources.progress_records_title
 import hydrafit.feature.progress.generated.resources.progress_station_all
 import hydrafit.feature.progress.generated.resources.progress_station_label
 import hydrafit.feature.progress.generated.resources.progress_station_station
 import hydrafit.feature.progress.generated.resources.progress_station_unattributed
+import hydrafit.feature.progress.generated.resources.progress_summary_best_estimate
+import hydrafit.feature.progress.generated.resources.progress_summary_heaviest
+import hydrafit.feature.progress.generated.resources.progress_summary_heaviest_value
 import hydrafit.feature.progress.generated.resources.progress_title
 import hydrafit.feature.progress.generated.resources.progress_weight_none
 import org.jetbrains.compose.resources.StringResource
@@ -130,7 +153,6 @@ internal object ProgressTestTags {
 @Composable
 fun ProgressRoute(
     viewModel: ProgressViewModel = koinViewModel(),
-    onBack: () -> Unit,
     onOpenBodyWeight: () -> Unit,
     onOpenFatigue: () -> Unit
 ) {
@@ -150,7 +172,6 @@ fun ProgressRoute(
         onLoadMoreHistory = viewModel::onLoadMoreHistory,
         onShowSupportingSet = viewModel::onShowSupportingSet,
         onCloseSupportingSet = viewModel::onSupportingSetClosed,
-        onBack = onBack,
         onOpenBodyWeight = onOpenBodyWeight,
         onOpenFatigue = onOpenFatigue
     )
@@ -169,7 +190,6 @@ fun ProgressScreen(
     onLoadMoreHistory: () -> Unit,
     onShowSupportingSet: (ProgressRecordKey, Long) -> Unit,
     onCloseSupportingSet: () -> Unit,
-    onBack: () -> Unit,
     onOpenBodyWeight: () -> Unit,
     onOpenFatigue: () -> Unit,
     modifier: Modifier = Modifier
@@ -198,7 +218,7 @@ fun ProgressScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    ProgressHeader(onBack, onOpenBodyWeight, onOpenFatigue)
+                    ProgressHeader(onOpenBodyWeight, onOpenFatigue)
                     ExerciseSearch(state, onExerciseQueryChanged, onExerciseSelected)
                 }
                 Column(
@@ -235,7 +255,7 @@ fun ProgressScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ProgressHeader(onBack, onOpenBodyWeight, onOpenFatigue)
+                ProgressHeader(onOpenBodyWeight, onOpenFatigue)
                 if (state.hasSelectedExercise) {
                     ProgressDetail(
                         state = state,
@@ -284,24 +304,9 @@ fun ProgressScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProgressHeader(
-    onBack: () -> Unit,
-    onOpenBodyWeight: () -> Unit,
-    onOpenFatigue: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(Res.string.progress_title),
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f)
-        )
-        OutlinedButton(onClick = onBack) {
-            Text(stringResource(Res.string.progress_back))
-        }
-    }
+private fun ProgressHeader(onOpenBodyWeight: () -> Unit, onOpenFatigue: () -> Unit) {
+    // A bottom-bar destination: the bar is its way out, so the title carries no back action.
+    ScreenHeader(title = stringResource(Res.string.progress_title))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -387,17 +392,97 @@ private fun ExerciseSearch(
         )
         if (state.exercises.isEmpty()) {
             Text(stringResource(Res.string.progress_exercise_empty))
+        } else if (state.exerciseQuery.isNotBlank()) {
+            // A search is a flat list across everything, ordered the same way.
+            state.matchingExercises.forEach { option -> ExerciseRow(option, onSelected) }
         } else {
-            state.matchingExercises.forEach { option ->
-                TextButton(
-                    onClick = { onSelected(option.id) },
-                    modifier = Modifier.testTag(ProgressTestTags.exercise(option.id))
-                ) {
-                    Text(option.name)
+            val trained = state.exercises.filter { it.recentSessions > 0 }
+            val earlier = state.exercises.filter {
+                it.recentSessions == 0 &&
+                    it.daysSinceLast != null
+            }
+            val untouched = state.exercises.filter { it.daysSinceLast == null }
+            var showUntouched by rememberSaveable { mutableStateOf(false) }
+            if (trained.isNotEmpty()) {
+                SectionLabel(stringResource(Res.string.progress_exercises_most_trained))
+                trained.forEach { option -> ExerciseRow(option, onSelected) }
+            }
+            if (earlier.isNotEmpty()) {
+                SectionLabel(stringResource(Res.string.progress_exercises_logged_earlier))
+                earlier.forEach { option -> ExerciseRow(option, onSelected) }
+            }
+            if (untouched.isNotEmpty()) {
+                TextButton(onClick = { showUntouched = !showUntouched }) {
+                    Text(
+                        stringResource(
+                            if (showUntouched) {
+                                Res.string.progress_exercises_hide_untouched
+                            } else {
+                                Res.string.progress_exercises_show_untouched
+                            },
+                            untouched.size
+                        )
+                    )
+                }
+                if (showUntouched) {
+                    untouched.forEach { option -> ExerciseRow(option, onSelected) }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 12.dp).semantics { heading() }
+    )
+}
+
+/** One exercise: its name, then how often and how recently it was trained when it has been. */
+@Composable
+private fun ExerciseRow(option: ProgressExerciseOption, onSelected: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Button) { onSelected(option.id) }
+            .testTag(ProgressTestTags.exercise(option.id))
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(option.name, style = MaterialTheme.typography.bodyLarge)
+        val daysAgo = option.daysSinceLast
+        if (daysAgo != null) {
+            val lastLogged = lastLoggedText(daysAgo)
+            Text(
+                text = if (option.recentSessions > 0) {
+                    stringResource(
+                        Res.string.progress_exercise_row_sessions,
+                        option.recentSessions,
+                        lastLogged
+                    )
+                } else {
+                    lastLogged
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+private fun lastLoggedText(daysAgo: Int): String = when {
+    daysAgo == 0 -> stringResource(Res.string.progress_last_today)
+    daysAgo == 1 -> stringResource(Res.string.progress_last_yesterday)
+    daysAgo < 14 -> stringResource(Res.string.progress_last_days_ago, daysAgo)
+    daysAgo < 63 -> stringResource(Res.string.progress_last_weeks_ago, daysAgo / 7)
+    else -> stringResource(Res.string.progress_last_months_ago, daysAgo / 30)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -526,7 +611,21 @@ private fun ChartsSection(
                         dayTo = dayTo
                     )
                 }
-                ProgressDayTable(state.days, state.weightUnit, state.distanceUnit)
+                var showDays by rememberSaveable { mutableStateOf(false) }
+                TextButton(onClick = { showDays = !showDays }) {
+                    Text(
+                        stringResource(
+                            if (showDays) {
+                                Res.string.progress_days_hide
+                            } else {
+                                Res.string.progress_days_show
+                            }
+                        )
+                    )
+                }
+                if (showDays) {
+                    ProgressDayTable(state.days, state.weightUnit, state.distanceUnit)
+                }
             }
         }
         RecordsSection(state, onShowSupportingSet, onCloseSupportingSet)
@@ -552,6 +651,18 @@ private fun RecordsSection(
             Text(stringResource(Res.string.progress_records_none))
             return
         }
+        RecordSummary(state)
+        var showAll by rememberSaveable { mutableStateOf(false) }
+        TextButton(onClick = { showAll = !showAll }) {
+            Text(
+                if (showAll) {
+                    stringResource(Res.string.progress_records_hide_all)
+                } else {
+                    stringResource(Res.string.progress_records_show_all, state.records.size)
+                }
+            )
+        }
+        if (!showAll) return
         state.records.forEachIndexed { index, record ->
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
@@ -569,6 +680,58 @@ private fun RecordsSection(
                 }
             }
         }
+    }
+}
+
+/** The two records worth reading at a glance: the best estimated one-rep max and the heaviest load. */
+@Composable
+private fun RecordSummary(state: ProgressUiState) {
+    val estimate = state.records
+        .filter { it.key.type == ProgressRecordType.ESTIMATED_ONE_REP_MAX }
+        .maxByOrNull { it.value }
+    val heaviest = state.records
+        .filter { it.key.type == ProgressRecordType.LOAD_AT_REPS }
+        .maxByOrNull { it.value }
+    if (estimate == null && heaviest == null) return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        estimate?.let {
+            SummaryCard(
+                label = stringResource(Res.string.progress_summary_best_estimate),
+                value = displayWeight(it.value, state.weightUnit),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        heaviest?.let {
+            SummaryCard(
+                label = stringResource(Res.string.progress_summary_heaviest),
+                value = stringResource(
+                    Res.string.progress_summary_heaviest_value,
+                    displayWeight(it.value, state.weightUnit),
+                    it.key.reps ?: 0
+                ),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.medium)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(text = value, style = MaterialTheme.typography.titleMedium)
     }
 }
 
