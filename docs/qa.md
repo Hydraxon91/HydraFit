@@ -5591,3 +5591,29 @@ set and the filled demo button; Band Row shows muscles, "Not logged yet" and the
 
 Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
 units, and a device. The Library list does not show the card.
+
+## Planner: arm volume, variety and chest ranking (post-0.15.1, 2026-11-19)
+
+From the maintainer's phone test: a four-day plan gave two arm exercises of two sets for each arm, and an EZ-bar
+skullcrusher recurred on two days. Measured against the full seeded catalog (hypertrophy, no history), the old
+planner gave every arm four direct sets at any frequency (triceps stayed at four on five and six days while
+biceps rose to six and eight), left upper chest at 1.5 weighted sets on a four-day week, and repeated isolation
+exercises such as cable hip adduction across days. `DirectArmCoverage.targetSetsPerMuscle` now scales the
+direct-arm target with frequency (4, 6, 6, 8, 8 for two to six days; Endurance 4), a direct arm exercise
+gets at least three sets outside Endurance, isolation picks are fresh-first, arm overflow past the target is
+a last resort, a compound slot ranks by its own pattern's muscles, and a pull day's pool includes shoulder
+isolation. Four- to six-day plans now give equal arm sets (6/6, 9/8, 9/8), no repeated exercise with all
+equipment, bench press as the first chest press, and upper and lower chest at about 5 weighted sets on
+four days.
+
+Automated: the domain suite (1,306 tests, with the arm, frequency, repeat, ranking and rear-delt tests added and
+the policy-dependent tests updated) and `SeededPlannerQualityTest`, which plans two to six days from the real
+catalog and checks arm targets, arm balance, no repeats, chest volume and squat plus hinge on a two-day week.
+Fresh-first was shown necessary by disabling it: with it off, the real catalog repeats cable hip adduction on
+four to six days. Not verified: a plan on the phone with the maintainer's equipment, the Groq planner's
+treatment of the new target, accepted plans (never rewritten), and the 4-day chest total, which is still near six
+direct sets because an upper day has only four compound slots and two arm slots.
+
+Known limits: Endurance at its default one accessory set cannot reach four direct sets per arm on a two-day
+week; custom exercises that list a single muscle score lower than seeded lifts that list several; and the final
+id tie-break is still alphabetical for exact ties.

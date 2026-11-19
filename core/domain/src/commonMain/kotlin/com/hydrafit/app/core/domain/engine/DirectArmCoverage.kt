@@ -23,7 +23,36 @@ data class ArmMuscleCoverage(
 
 /** Coverage accounting for dedicated arm work and separate estimated contributions from other work. */
 object DirectArmCoverage {
-    const val TARGET_SETS_PER_MUSCLE = 4
+    /** The lowest weekly direct-set target: a two-day week, and the Endurance goal at any frequency. */
+    const val BASE_TARGET_SETS_PER_MUSCLE = 4
+
+    /** An arm isolation exercise gets at least this many sets outside Endurance. */
+    const val MIN_ARM_EXERCISE_SETS = 3
+
+    /**
+     * The weekly direct isolation sets targeted for each of biceps and triceps. It grows with training
+     * frequency, since more days leave more accessory slots: [BASE_TARGET_SETS_PER_MUSCLE] for one or
+     * two days, 6 for three or four, and 8 for five or six. Endurance keeps the base target at any
+     * frequency because its volume is deliberately lighter. Both arms share one number so neither
+     * is favoured.
+     */
+    fun targetSetsPerMuscle(daysPerWeek: Int, goal: TrainingGoal): Int = when {
+        goal == TrainingGoal.ENDURANCE || daysPerWeek <= 2 -> BASE_TARGET_SETS_PER_MUSCLE
+        daysPerWeek <= 4 -> 6
+        else -> 8
+    }
+
+    /**
+     * Sets for one direct arm exercise: the selected accessory count, raised to
+     * [MIN_ARM_EXERCISE_SETS] so a few slots reach the weekly target. Endurance keeps the selected count.
+     */
+    fun setsPerArmExercise(goal: TrainingGoal, accessorySets: Int): Int = if (goal ==
+        TrainingGoal.ENDURANCE
+    ) {
+        accessorySets
+    } else {
+        maxOf(accessorySets, MIN_ARM_EXERCISE_SETS)
+    }
 
     private val armPatterns = mapOf(
         MuscleGroup.BICEPS to MovementPattern.BICEPS_ISOLATION,
@@ -37,10 +66,13 @@ object DirectArmCoverage {
     fun muscleFor(exercise: Exercise): MuscleGroup? = armPatterns.keys
         .firstOrNull { muscle -> qualifies(exercise, muscle) }
 
-    fun needsCoverage(exercise: Exercise, directSetsByMuscle: Map<MuscleGroup, Int>): Boolean =
-        muscleFor(exercise)?.let { muscle ->
-            (directSetsByMuscle[muscle] ?: 0) < TARGET_SETS_PER_MUSCLE
-        } == true
+    fun needsCoverage(
+        exercise: Exercise,
+        directSetsByMuscle: Map<MuscleGroup, Int>,
+        targetSets: Int
+    ): Boolean = muscleFor(exercise)?.let { muscle ->
+        (directSetsByMuscle[muscle] ?: 0) < targetSets
+    } == true
 
     fun compatibleCandidates(
         availableExercises: List<Exercise>,
@@ -60,7 +92,10 @@ object DirectArmCoverage {
         )
         SplitFocus.PULL -> listOf(
             MovementPattern.BICEPS_ISOLATION,
-            MovementPattern.FOREARM_ISOLATION
+            MovementPattern.FOREARM_ISOLATION,
+            // Rear-delt work belongs to a pull day, and without it a second pull day could only
+            // repeat arm and forearm exercises.
+            MovementPattern.SHOULDER_ISOLATION
         )
         SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
             MovementPattern.LEG_ISOLATION,
@@ -91,6 +126,7 @@ object DirectArmCoverage {
         compatibleCandidatesByMuscle: Map<MuscleGroup, List<Exercise>>,
         fatigue: Map<MuscleGroup, Double>,
         isDeload: Boolean,
+        targetSets: Int,
         attribution: PlanAttribution = PlanAttribution.DETERMINISTIC,
         skippedCandidateIds: Set<String> = emptySet()
     ): List<ArmMuscleCoverage> = armPatterns.map { (muscle, _) ->
@@ -110,7 +146,7 @@ object DirectArmCoverage {
         val targetEnforced = !isDeload
         val unmetReason = when {
             !targetEnforced -> null
-            directSets >= TARGET_SETS_PER_MUSCLE -> null
+            directSets >= targetSets -> null
             compatibleCandidatesByMuscle[muscle].orEmpty().isEmpty() ->
                 ArmCoverageUnmetReason.NO_COMPATIBLE_AVAILABLE_CANDIDATE
             compatibleCandidatesByMuscle.getValue(muscle).all {
@@ -130,7 +166,7 @@ object DirectArmCoverage {
         }
         ArmMuscleCoverage(
             muscle = muscle,
-            targetSets = TARGET_SETS_PER_MUSCLE,
+            targetSets = targetSets,
             isTargetEnforced = targetEnforced,
             directIsolationSets = directSets,
             estimatedOtherInvolvementCredits = otherCredits,

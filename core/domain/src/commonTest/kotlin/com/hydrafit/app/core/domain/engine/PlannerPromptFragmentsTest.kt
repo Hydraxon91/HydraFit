@@ -85,7 +85,10 @@ class PlannerPromptFragmentsTest {
 
     @Test
     fun givesAdvisoryDirectArmCoverageAndExemptsDeloads() {
-        assertTrue(PlannerPromptFragments.directArmCoverageGuidance(request()).contains("4 sets"))
+        val expected = DirectArmCoverage.targetSetsPerMuscle(request().daysPerWeek, request().goal)
+        assertTrue(
+            PlannerPromptFragments.directArmCoverageGuidance(request()).contains("$expected sets")
+        )
         assertTrue(
             PlannerPromptFragments.directArmCoverageGuidance(request(isDeload = true))
                 .contains("do not add work")
