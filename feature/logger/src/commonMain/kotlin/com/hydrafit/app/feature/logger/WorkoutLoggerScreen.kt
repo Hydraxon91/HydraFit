@@ -1546,7 +1546,7 @@ fun WorkoutLoggerScreen(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                Row {
+                                FlowRow {
                                     TextButton(
                                         onClick = onManualInstructions,
                                         modifier = Modifier.testTag(
@@ -1555,7 +1555,12 @@ fun WorkoutLoggerScreen(
                                     ) {
                                         Text(stringResource(Res.string.logger_instructions))
                                     }
-                                    ExerciseDemoButton(exerciseId = state.selectedExerciseId)
+                                    ExerciseDemoButton(
+                                        exerciseId = state.selectedExerciseId,
+                                        exerciseName = state.exercises
+                                            .firstOrNull { it.id == state.selectedExerciseId }
+                                            ?.name.orEmpty()
+                                    )
                                 }
                             }
                         }
@@ -2239,7 +2244,10 @@ fun WorkoutLoggerScreen(
                                         ) {
                                             Text(stringResource(Res.string.logger_instructions))
                                         }
-                                        ExerciseDemoButton(exerciseId = draft.exerciseId)
+                                        ExerciseDemoButton(
+                                            exerciseId = draft.exerciseId,
+                                            exerciseName = draft.name
+                                        )
                                         if (loggerLoadingTargetEligible(
                                                 draft.loadKind,
                                                 draft.weightKg
@@ -4352,7 +4360,7 @@ private fun GuidedWorkoutSection(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        Row {
+                        FlowRow {
                             TextButton(
                                 onClick = { onInstructions(exercise.occurrenceEntryId) },
                                 modifier = Modifier.testTag(
@@ -4361,7 +4369,10 @@ private fun GuidedWorkoutSection(
                             ) {
                                 Text(stringResource(Res.string.logger_instructions))
                             }
-                            ExerciseDemoButton(exerciseId = exercise.exerciseId)
+                            ExerciseDemoButton(
+                                exerciseId = exercise.exerciseId,
+                                exerciseName = exercise.exerciseName
+                            )
                         }
                         Text(
                             text = stringResource(
@@ -4565,12 +4576,25 @@ private fun GuidedWorkoutSection(
                                     Text(stringResource(Res.string.logger_set_timer_start))
                                 }
                             }
-                            Button(
-                                onClick = { onStartSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && !isStartedSlot,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(Res.string.logger_guided_start_set))
+                            // One primary action that follows the set: Start set, then Set completed
+                            // now once this slot's set is started, so a disabled button never sits
+                            // in the column.
+                            if (isStartedSlot) {
+                                Button(
+                                    onClick = { onLogSetNow(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress,
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_log_completed_now))
+                                }
+                            } else {
+                                Button(
+                                    onClick = { onStartSet(exercise.occurrenceEntryId) },
+                                    enabled = !writeInProgress,
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text(stringResource(Res.string.logger_guided_start_set))
+                                }
                             }
                             OutlinedButton(
                                 // A live start owns the completion: an ordinary log is only
@@ -4580,13 +4604,6 @@ private fun GuidedWorkoutSection(
                                 shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(stringResource(Res.string.logger_log_button))
-                            }
-                            Button(
-                                onClick = { onLogSetNow(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && isStartedSlot,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(Res.string.logger_guided_log_completed_now))
                             }
                             GuidedDraftActionsMenu(
                                 exerciseName = exercise.exerciseName,

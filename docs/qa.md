@@ -5591,3 +5591,18 @@ set and the filled demo button; Band Row shows muscles, "Not logged yet" and the
 
 Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
 units, and a device. The Library list does not show the card.
+
+## Guided card buttons and demo shortcut (post-0.15.1, 2026-11-19)
+
+From the maintainer's phone test of 0.15.1: **Watch demo** in the guided card was squeezed to one letter
+per line beside **Instructions**, **Set completed now** sat disabled and wrapped across three lines, and
+exercises without a hand-picked video had no demo shortcut. Instructions and **Watch demo** now sit in a
+`FlowRow` (side by side when there is room, stacked when not) in the manual and guided sites; the guided
+card shows one primary set action that is **Start set** until the slot's set is started and then **Set
+completed now**, beside **Log set**; and `ExerciseDemoButton` uses `ExerciseDemoLink.urlFor`, so every
+exercise with a name gets the curated video or the YouTube search.
+
+Automated: the existing link tests (`urlFor` curated, fallback, null id and blank name) and a fresh logger
+and exercisecontent host-test, ktlint and debug-build run. Not verified: the layout on a device or emulator
+(no emulator was running), a narrow screen with large font, and the Start set to Set completed now swap
+during a real guided set.

@@ -11,13 +11,13 @@ import hydrafit.core.exercisecontent.generated.resources.exercise_demo_button
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * A one-tap shortcut to the exercise's hand-picked demo video. It renders nothing for an exercise
- * without one (including every custom exercise), so it never offers a generic search that the
- * Instructions dialog already provides. Nothing is requested until it is tapped.
+ * A one-tap shortcut to the exercise's demo: its hand-picked video when it has one, otherwise a
+ * YouTube search for [exerciseName] (the same link the Instructions dialog falls back to). It
+ * renders nothing only for a blank name. Nothing is requested until it is tapped.
  */
 @Composable
-fun ExerciseDemoButton(exerciseId: String?, modifier: Modifier = Modifier) {
-    val url = ExerciseDemoLink.curatedUrl(exerciseId) ?: return
+fun ExerciseDemoButton(exerciseId: String?, exerciseName: String, modifier: Modifier = Modifier) {
+    val url = ExerciseDemoLink.urlFor(exerciseId, exerciseName) ?: return
     val uriHandler = LocalUriHandler.current
     TextButton(onClick = { uriHandler.openDemo(url) }, modifier = modifier) {
         Text(stringResource(Res.string.exercise_demo_button))
