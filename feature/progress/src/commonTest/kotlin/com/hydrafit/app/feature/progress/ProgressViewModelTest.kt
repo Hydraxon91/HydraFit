@@ -62,7 +62,11 @@ class ProgressViewModelTest {
         var stationOptionsFlow: (String) -> Flow<List<StationAttribution>> =
             { flowOf(emptyList()) }
 
-        override suspend fun exerciseActivity(sinceMillis: Long): List<ExerciseActivity> {
+        override suspend fun exerciseActivity(
+            sinceMillis: Long,
+            nowMillis: Long,
+            utcOffsetMillis: Long
+        ): List<ExerciseActivity> {
             activitySince = sinceMillis
             check(!activityFails) { "activity read failed" }
             return activity
@@ -177,6 +181,42 @@ class ProgressViewModelTest {
             assertEquals(40, options.first { it.id == "curl" }.daysSinceLast)
             assertNull(options.first { it.id == "plank" }.daysSinceLast)
             assertEquals(nowMillis - 90 * day, repository.activitySince)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun theLatestEstimateAndItsChangeReachTheListOptions() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository().apply {
+                activity = listOf(
+                    ExerciseActivity(
+                        "a",
+                        nowMillis,
+                        3,
+                        latestEstimatedOneRepMaxKg = 160.0,
+                        previousEstimatedOneRepMaxKg = 140.0
+                    ),
+                    ExerciseActivity("b", nowMillis, 1, latestEstimatedOneRepMaxKg = 90.0)
+                )
+            }
+            val viewModel = viewModel(
+                repository = repository,
+                catalog = FakeCatalog(
+                    listOf(exercise("a", "Squat"), exercise("b", "Bench"), exercise("c", "Curl"))
+                )
+            )
+            advanceUntilIdle()
+
+            val options = viewModel.state.value.exercises.associateBy { it.id }
+            assertEquals(160.0, options.getValue("a").latestEstimateKg)
+            assertEquals(20.0, options.getValue("a").estimateChangeKg)
+            assertEquals(90.0, options.getValue("b").latestEstimateKg)
+            assertNull(options.getValue("b").estimateChangeKg)
+            assertNull(options.getValue("c").latestEstimateKg)
         } finally {
             Dispatchers.resetMain()
         }

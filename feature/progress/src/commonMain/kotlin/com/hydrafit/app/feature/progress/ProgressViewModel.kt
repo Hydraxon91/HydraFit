@@ -109,7 +109,11 @@ class ProgressViewModel(
     private suspend fun loadActivity() {
         val since = timeProvider.nowMillis() - ACTIVITY_WINDOW_MILLIS
         activityByExercise = try {
-            progressRepository.exerciseActivity(since).associateBy { it.exerciseId }
+            progressRepository.exerciseActivity(
+                since,
+                timeProvider.nowMillis(),
+                timeProvider.utcOffsetMillis()
+            ).associateBy { it.exerciseId }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -138,6 +142,12 @@ class ProgressViewModel(
                             offset
                         )
                         ).toInt().coerceAtLeast(0)
+                },
+                latestEstimateKg = activity?.latestEstimatedOneRepMaxKg,
+                estimateChangeKg = activity?.let {
+                    val latest = it.latestEstimatedOneRepMaxKg
+                    val previous = it.previousEstimatedOneRepMaxKg
+                    if (latest != null && previous != null) latest - previous else null
                 }
             )
         }.sortedWith(

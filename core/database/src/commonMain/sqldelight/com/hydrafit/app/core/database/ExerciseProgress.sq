@@ -130,3 +130,13 @@ SELECT
 FROM workoutSet
 WHERE isWarmup = 0
 GROUP BY exerciseId;
+
+-- The same columns as the replay pages, bounded below by a cutoff: one exercise's recent sets, oldest
+-- first, so the list can read a latest and a previous estimate without replaying the whole history.
+selectExerciseReplaySince:
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds,
+        stationId, stationName, stationLoadBasis, distanceMeters, forceNewtons, deviceName, deviceRatingKg,
+        clusterKind, clusterPlannedSegments, clusterPerformedSegments
+FROM workoutSet
+WHERE exerciseId = :exerciseId AND performedAt >= :sinceMillis AND performedAt <= :nowMillis
+ORDER BY performedAt ASC, id ASC;

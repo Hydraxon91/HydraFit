@@ -34,7 +34,10 @@ data class ProgressExerciseOption(
     val id: String,
     val name: String,
     val recentSessions: Int = 0,
-    val daysSinceLast: Int? = null
+    val daysSinceLast: Int? = null,
+    /** The newest recorded estimated one-rep max in kilograms, and its change from the day before. */
+    val latestEstimateKg: Double? = null,
+    val estimateChangeKg: Double? = null
 )
 
 /**

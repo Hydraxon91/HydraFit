@@ -13,7 +13,7 @@
     <string name="progress_charts_failed">Could not load progress.</string>
     <string name="progress_charts_retry">Retry</string>
     <string name="progress_charts_no_eligible">No working sets were recorded in this range.</string>
-    <string name="progress_chart_caption">Each mark is one recorded day at its actual date; the line only joins recorded values across unlogged days. Nothing is interpolated or carried forward.</string>
+    <string name="progress_chart_caption">Each mark is one recorded day at its actual date, and the solid line joins recorded values across unlogged days. The dashed lead-in and the shading only extend the first value for reference; they are not measurements.</string>
     <string name="progress_chart_volume_legend">External load-volume per day (%1$s·reps)</string>
     <string name="progress_chart_estimate_legend">Estimated one-rep max per day (%1$s)</string>
     <string name="progress_metric_label">Metric</string>
@@ -129,4 +129,5 @@
     <string name="progress_records_hide_all">Hide records</string>
     <string name="progress_days_show">Show values for each day</string>
     <string name="progress_days_hide">Hide values for each day</string>
+    <string name="progress_estimate_unchanged">No change</string>
 </resources>

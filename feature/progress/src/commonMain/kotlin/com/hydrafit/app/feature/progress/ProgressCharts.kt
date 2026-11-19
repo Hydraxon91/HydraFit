@@ -10,6 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -184,6 +186,28 @@ internal fun ProgressMetricChart(
         fun yForPoint(point: ProgressChartPoint): Float =
             progressAxisY(point.value, axis, plotTop, plotBottom, markRadius)
 
+        val carryBack = progressCarryBackSegment(points, dayFrom)
+        val sorted = points.sortedBy { it.localEpochDay }
+        // A soft fill of the same colour under the line, including the dashed lead-in, gives the plot
+        // body without implying a value on any day: only the marks are measurements.
+        val fillStart = carryBack?.from ?: sorted.first()
+        val area = Path().apply {
+            moveTo(xForPoint(fillStart), plotBottom)
+            lineTo(xForPoint(fillStart), yForPoint(fillStart))
+            sorted.forEach { lineTo(xForPoint(it), yForPoint(it)) }
+            lineTo(xForPoint(sorted.last()), plotBottom)
+            close()
+        }
+        drawPath(path = area, color = markColor.copy(alpha = 0.12f))
+        carryBack?.let { segment ->
+            drawLine(
+                color = markColor.copy(alpha = 0.55f),
+                start = Offset(xForPoint(segment.from), yForPoint(segment.from)),
+                end = Offset(xForPoint(segment.to), yForPoint(segment.to)),
+                strokeWidth = lineWidth,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 8.dp.toPx()))
+            )
+        }
         // Straight segments join observed values across unlogged dates; dots still mark the only
         // measured values, so the line is a visual connection rather than inferred daily data.
         progressChartSegments(points).forEach { segment ->

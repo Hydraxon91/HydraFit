@@ -1375,8 +1375,14 @@ Exercise progress orders its list by activity, not A to Z: `ExerciseProgressRepo
 (one grouped SQL read, `selectExerciseActivity`, no migration) returns each exercise's newest working set and its
 distinct sessions in the last 90 days; `ProgressViewModel` sorts by recent sessions, then recency, then name and
 reloads on resume. The screen shows "Most trained, last 90 days", "Logged earlier", and a collapsed "not logged yet"
-group, or one flat ordered list while a search is active. The detail keeps the chart's no-interpolation rules but
-draws a larger, halo-marked latest point with its value, leads the records with a best-estimated-1RM and
+group, or one flat ordered list while a search is active. Each listed exercise trained in the window also shows its latest estimated 1RM and the change from the day before
+(`ExerciseProgressCalculator` over `selectExerciseReplaySince`, the chart's own per-day derivation, bounded to the
+90 days). The detail keeps the chart's measured marks and solid segments but adds a dashed carry-back of the first
+value to the start of the window with a lighter same-colour shading under the line (`progressCarryBackSegment`;
+reference only, never in the table), and draws a larger, halo-marked latest point with its value, leads the records with a best-estimated-1RM and
 heaviest-load card, and folds the full record list and the per-day table behind toggles. Drill-down screens use
 `ScreenHeader` (`:core:ui`): a left back arrow, no arrow on a bottom-bar destination such as the Progress root.
 Workout history, its detail and Acknowledgments still end with a Back button at the bottom.
+
+`:core:ui` also holds `HubCard` (a bordered title, line and chevron card with an optional leading glyph); the Settings
+home uses it with one small geometric glyph per category, as the Equipment hub does.

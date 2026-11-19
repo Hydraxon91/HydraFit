@@ -5611,3 +5611,21 @@ its sections, the Back Squat detail with the halo and value, the summary cards a
 Routines and Workout preferences, and no Back on the Progress root. Not verified: Body weight, Cardio, Equipment
 sections and the Logger child pages after the change, a large font, the two-pane tablet layout, TalkBack on
 the collapsed table, and a long exercise name beside the arrow.
+
+## Progress list estimates, a fuller chart and the Settings hub (post-0.15.1, 2026-11-19)
+
+Follow-ups from the maintainer's review of the previous change. Each Exercise progress row now shows the exercise's
+latest estimated one-rep max and its signed change from the previous recorded day ("+5 kg", an explicit minus sign,
+or "No change"), computed from the last 90 days with the chart's own per-day derivation. The chart no longer
+leaves its left side empty: a dashed, lighter extension carries the first recorded value back to the start of the
+window and a soft shading of the line colour fills beneath the line, with the caption saying plainly that the dashed
+lead-in and the shading are for reference and not measurements. This deliberately relaxes the 0.13.4 rule that
+nothing is carried or filled: the marks, the solid segments and the per-day table still hold only recorded values.
+The Settings home uses a shared `HubCard` with a glyph per category, like the Equipment hub.
+
+Automated: `exerciseActivityReportsTheLatestAndPreviousEstimatedOneRepMax` (window-bounded, an old heavier set
+ignored, an exercise trained only earlier has none), the ViewModel mapping of latest and change to the options, and
+`progressCarryBackSegment` tests (extension to the window start, none when the first mark starts the window or
+there are none). Seen on the emulator (debug): the Settings cards, the list with an estimate and a signed change,
+and the dashed lead-in with shading on Back Squat. Not verified: a chart with several marks and the shading's
+slope, the Estimated 1RM metric with the lead-in, dark theme, a large font, and a tablet width.

@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.hydrafit.app.core.domain.equipment.StationAttribution
+import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.workout.ExerciseActivity
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
@@ -37,14 +38,48 @@ class SqlDelightExerciseProgressRepository(private val database: HydraFitDatabas
     /** Serializes replays; see the class note. Held for the whole replay, including its rollback. */
     private val replayTransaction = Mutex()
 
-    override suspend fun exerciseActivity(sinceMillis: Long): List<ExerciseActivity> =
+    override suspend fun exerciseActivity(
+        sinceMillis: Long,
+        nowMillis: Long,
+        utcOffsetMillis: Long
+    ): List<ExerciseActivity> =
         queries.selectExerciseActivity(sinceMillis).executeAsList().map { row ->
+            val recentSessions = row.recentSessions.toInt()
+            val estimates = if (recentSessions > 0) {
+                recentEstimates(row.exerciseId, sinceMillis, nowMillis, utcOffsetMillis)
+            } else {
+                emptyList()
+            }
             ExerciseActivity(
                 exerciseId = row.exerciseId,
                 lastPerformedAtMillis = row.lastPerformedAt,
-                recentSessions = row.recentSessions.toInt()
+                recentSessions = recentSessions,
+                latestEstimatedOneRepMaxKg = estimates.lastOrNull(),
+                previousEstimatedOneRepMaxKg = estimates.dropLast(1).lastOrNull()
             )
         }
+
+    /** Each recorded day's estimated one-rep max in the window, oldest first, as the chart derives it. */
+    private fun recentEstimates(
+        exerciseId: String,
+        sinceMillis: Long,
+        nowMillis: Long,
+        utcOffsetMillis: Long
+    ): List<Double> {
+        val calculator = ExerciseProgressCalculator(
+            ExerciseProgressRequest(
+                exerciseId = exerciseId,
+                dayFrom = localEpochDay(sinceMillis, utcOffsetMillis),
+                dayTo = localEpochDay(nowMillis, utcOffsetMillis),
+                nowMillis = nowMillis,
+                utcOffsetMillis = utcOffsetMillis
+            )
+        )
+        queries.selectExerciseReplaySince(exerciseId, sinceMillis, nowMillis, ::replaySet)
+            .executeAsList()
+            .forEach(calculator::accept)
+        return calculator.result().days.mapNotNull { it.estimatedOneRepMax?.value }
+    }
 
     override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> {
         val limit = request.pageSize.toLong() + 1L

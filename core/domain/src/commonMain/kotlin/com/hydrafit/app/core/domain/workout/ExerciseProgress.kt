@@ -118,16 +118,26 @@ data class ExerciseProgress(
 data class ExerciseActivity(
     val exerciseId: String,
     val lastPerformedAtMillis: Long,
-    val recentSessions: Int
+    val recentSessions: Int,
+    /** The newest recorded day's estimated one-rep max in the recent window, when it has one. */
+    val latestEstimatedOneRepMaxKg: Double? = null,
+    /** The recorded day before that one, so the list can show the change; null when there is none. */
+    val previousEstimatedOneRepMaxKg: Double? = null
 )
 
 interface ExerciseProgressRepository {
     /**
      * One [ExerciseActivity] per exercise that has a working set, with sessions counted from
-     * [sinceMillis]. Read-only and grouped in the database, never a scan of the log into memory. An
+     * [sinceMillis]; an exercise trained in that window also carries its latest estimated one-rep max
+     * from the same days the progress chart uses, read from that window only. Read-only and bounded by
+     * the window, never a scan of the whole log into memory. An
      * implementation without the read returns none, which leaves the list unordered by activity.
      */
-    suspend fun exerciseActivity(sinceMillis: Long): List<ExerciseActivity> = emptyList()
+    suspend fun exerciseActivity(
+        sinceMillis: Long,
+        nowMillis: Long,
+        utcOffsetMillis: Long
+    ): List<ExerciseActivity> = emptyList()
 
     fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage>
 

@@ -68,6 +68,7 @@ import hydrafit.feature.progress.generated.resources.progress_days_hide
 import hydrafit.feature.progress.generated.resources.progress_days_show
 import hydrafit.feature.progress.generated.resources.progress_device_attributed
 import hydrafit.feature.progress.generated.resources.progress_device_attributed_rated
+import hydrafit.feature.progress.generated.resources.progress_estimate_unchanged
 import hydrafit.feature.progress.generated.resources.progress_exercise_change
 import hydrafit.feature.progress.generated.resources.progress_exercise_empty
 import hydrafit.feature.progress.generated.resources.progress_exercise_missing_name
@@ -394,7 +395,9 @@ private fun ExerciseSearch(
             Text(stringResource(Res.string.progress_exercise_empty))
         } else if (state.exerciseQuery.isNotBlank()) {
             // A search is a flat list across everything, ordered the same way.
-            state.matchingExercises.forEach { option -> ExerciseRow(option, onSelected) }
+            state.matchingExercises.forEach { option ->
+                ExerciseRow(option, state.weightUnit, onSelected)
+            }
         } else {
             val trained = state.exercises.filter { it.recentSessions > 0 }
             val earlier = state.exercises.filter {
@@ -405,11 +408,11 @@ private fun ExerciseSearch(
             var showUntouched by rememberSaveable { mutableStateOf(false) }
             if (trained.isNotEmpty()) {
                 SectionLabel(stringResource(Res.string.progress_exercises_most_trained))
-                trained.forEach { option -> ExerciseRow(option, onSelected) }
+                trained.forEach { option -> ExerciseRow(option, state.weightUnit, onSelected) }
             }
             if (earlier.isNotEmpty()) {
                 SectionLabel(stringResource(Res.string.progress_exercises_logged_earlier))
-                earlier.forEach { option -> ExerciseRow(option, onSelected) }
+                earlier.forEach { option -> ExerciseRow(option, state.weightUnit, onSelected) }
             }
             if (untouched.isNotEmpty()) {
                 TextButton(onClick = { showUntouched = !showUntouched }) {
@@ -425,7 +428,9 @@ private fun ExerciseSearch(
                     )
                 }
                 if (showUntouched) {
-                    untouched.forEach { option -> ExerciseRow(option, onSelected) }
+                    untouched.forEach { option ->
+                        ExerciseRow(option, state.weightUnit, onSelected)
+                    }
                 }
             }
         }
@@ -442,38 +447,72 @@ private fun SectionLabel(text: String) {
     )
 }
 
-/** One exercise: its name, then how often and how recently it was trained when it has been. */
+/**
+ * One exercise: its name, then how often and how recently it was trained when it has been, with its
+ * latest estimated one-rep max and the change from the day before on the right when it has one.
+ */
 @Composable
-private fun ExerciseRow(option: ProgressExerciseOption, onSelected: (String) -> Unit) {
-    Column(
+private fun ExerciseRow(
+    option: ProgressExerciseOption,
+    weightUnit: WeightUnit,
+    onSelected: (String) -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .clickable(role = Role.Button) { onSelected(option.id) }
             .testTag(ProgressTestTags.exercise(option.id))
             .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.Center
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(option.name, style = MaterialTheme.typography.bodyLarge)
-        val daysAgo = option.daysSinceLast
-        if (daysAgo != null) {
-            val lastLogged = lastLoggedText(daysAgo)
-            Text(
-                text = if (option.recentSessions > 0) {
-                    stringResource(
-                        Res.string.progress_exercise_row_sessions,
-                        option.recentSessions,
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            Text(option.name, style = MaterialTheme.typography.bodyLarge)
+            val daysAgo = option.daysSinceLast
+            if (daysAgo != null) {
+                val lastLogged = lastLoggedText(daysAgo)
+                Text(
+                    text = if (option.recentSessions > 0) {
+                        stringResource(
+                            Res.string.progress_exercise_row_sessions,
+                            option.recentSessions,
+                            lastLogged
+                        )
+                    } else {
                         lastLogged
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        option.latestEstimateKg?.let { latest ->
+            Column(horizontalAlignment = Alignment.End) {
+                Text(displayWeight(latest, weightUnit), style = MaterialTheme.typography.titleSmall)
+                option.estimateChangeKg?.let { change ->
+                    Text(
+                        text = estimateChangeText(change, weightUnit),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (change > 0.0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
-                } else {
-                    lastLogged
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                }
+            }
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** The change as a signed amount, so direction never rests on colour; a flat day says so. */
+@Composable
+private fun estimateChangeText(change: Double, weightUnit: WeightUnit): String = when {
+    change > 0.0 -> "+" + displayWeight(change, weightUnit)
+    change < 0.0 -> "\u2212" + displayWeight(-change, weightUnit)
+    else -> stringResource(Res.string.progress_estimate_unchanged)
 }
 
 @Composable
