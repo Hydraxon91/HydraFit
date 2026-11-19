@@ -344,7 +344,7 @@ DEFAULT_SETS_PER_EXERCISE = 3  // declared in PlanRequest.kt
 | BALANCED | 3 | 2 | 6 | 12 |
 | STRENGTH | 4 | 3 | 5 | 8 |
 | HYPERTROPHY | 3 | 2 | 8 | 12 |
-| ENDURANCE | 2 | 1 | 15 | 15 |
+| ENDURANCE | 2 | 2 | 15 | 15 |
 
 Progression defaults: `successStreak = 3`, `failureStreak = 3`,
 `roundToKg = 2.5`, `maxIncrements = 5`. Completion is judged against each set's own
@@ -579,12 +579,24 @@ FOREARM_ISOLATION (0.8.1) uses ordinary accessory set counts and weighted defici
 never the dedicated direct-arm priority/target. Existing exclusions, soreness and
 daily caps still apply; no TRAPS policy or fatigue constants change.
 
-Compounds are chosen one per focus group by largest deficit; a compound not yet
-used this week is preferred, but one repeats when no alternative exists so a later
-day is not left incomplete.
+Compounds are chosen one per focus group; a compound not yet used this week is preferred,
+but one repeats when no alternative exists so a later day is not left incomplete. A compound
+slot ranks its candidates by the mean deficit of the muscles its own pattern exists to train
+(`PATTERN_PRIMARY_MUSCLES`: chest for horizontal push, delts for vertical push, and so on) that the
+exercise actually works, with a weight at or above the 0.7 targeted-involvement cutoff counting in
+full; equal scores are separated by how many of those muscles the lift reaches, then by the existing
+fatigue, freshness, equipment and id keys. This replaced a single-muscle maximum that let a close-grip
+press (triceps 1.0) outrank a bench press (chest 0.7) and left chest at one or two weighted sets.
+Isolation work is also fresh-first: an isolation exercise not yet used this week is tried before a
+repeat (`pickFreshFirst`), and one the user marked Prefer is never treated as stale. Direct arm work
+beyond the weekly target is a last resort once other isolation candidates remain. A pull day's
+isolation pool includes shoulder isolation, so rear-delt work can fill it.
 
-The deterministic planner also targets four direct isolation sets each for
-BICEPS and TRICEPS per normal generated week, across all goals. A set qualifies
+The deterministic planner also targets direct isolation sets for BICEPS and TRICEPS per normal
+generated week, the same number for both arms: `DirectArmCoverage.targetSetsPerMuscle(days, goal)` is 4
+for a two-day week, 6 for three or four days and 8 for five or six; Endurance keeps 4 at any frequency.
+Outside Endurance a direct arm exercise gets at least 3 sets (`setsPerArmExercise`; Endurance keeps the
+selected accessory count), so a few accessory slots reach the target. A set qualifies
 only when the exercise uses the matching `BICEPS_ISOLATION` or
 `TRICEPS_ISOLATION` pattern and has positive effective involvement for that
 muscle; the involvement-weight tier is not a biological cutoff. While an arm

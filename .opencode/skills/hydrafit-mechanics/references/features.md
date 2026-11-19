@@ -737,7 +737,7 @@ changes during the reads prevent the old completion from reviving a prompt or co
 The deadline and context are
 persisted for process-death restoration; restore requires matching boot, open-session
 and occurrence identity and silently clears expired or mismatched state. Global rest
-duration defaults to 120 seconds and is editable in Settings; a Logger timer edit saves
+duration follows the training goal until the user saves one (Strength 180 s, Balanced and Hypertrophy 120 s, Endurance 60 s) and is editable in Settings; a Logger timer edit saves
 an exercise override with a reset-to-default action. Durations are limited to 1 second–
 24 hours. These prompts are not rest measurements. Separate default-off Settings opt-ins control
 Android background alerts (explicit permission request, inexact local alarm) and short-rest coaching.
