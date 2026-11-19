@@ -75,6 +75,9 @@ import com.hydrafit.app.core.navigation.appTabForRequest
 import com.hydrafit.app.core.navigation.externalRequestNeedsTabChange
 import com.hydrafit.app.core.navigation.routeBelongsToGroup
 import com.hydrafit.app.core.navigation.selectedNavTab
+import com.hydrafit.app.core.ui.appColorScheme
+import com.hydrafit.app.core.userdata.settings.AppColorMode
+import com.hydrafit.app.core.userdata.settings.AppThemePreferenceStore
 import com.hydrafit.app.feature.cardio.cardioGraph
 import com.hydrafit.app.feature.cardio.cardioRoute
 import com.hydrafit.app.feature.equipment.equipmentDestination
@@ -115,8 +118,15 @@ private const val STARTUP_INDICATOR_DELAY_MILLIS = 150L
 @Composable
 @Preview
 fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {}) {
+    val themeStore: AppThemePreferenceStore = koinInject()
+    val themePreference by themeStore.preference.collectAsState()
+    val darkTheme = when (themePreference.colorMode) {
+        AppColorMode.SYSTEM -> isSystemInDarkTheme()
+        AppColorMode.LIGHT -> false
+        AppColorMode.DARK -> true
+    }
     MaterialTheme(
-        colorScheme = appColorScheme(isSystemInDarkTheme()),
+        colorScheme = appColorScheme(themePreference.theme, darkTheme),
         typography = withFontFamily(appTypography, appFontFamily()),
         shapes = appShapes
     ) {
@@ -280,9 +290,6 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
             restoreState = false
         }
     }
-    val closeProgress: () -> Unit = {
-        if (!navController.popBackStack()) openTab(AppTab.LOG)
-    }
     // Cardio is the same shape: a shell-owned pushed destination so the Logger offers the entry
     // without importing the feature. The graph pops its own back stack entry.
     val openCardio: () -> Unit = {
@@ -431,7 +438,7 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
                             // Setup registers its own routes; it is not a seventh tab entry.
                             onboardingGraph(navController = navController, onClose = closeSetup)
                             // Progress owns its pushed destinations outside the shell tabs.
-                            progressGraph(navController = navController, onClose = closeProgress)
+                            progressGraph(navController = navController)
                             // Cardio is the same standalone pushed destination.
                             cardioGraph(navController = navController)
                         }

@@ -13,7 +13,7 @@
     <string name="progress_charts_failed">Could not load progress.</string>
     <string name="progress_charts_retry">Retry</string>
     <string name="progress_charts_no_eligible">No working sets were recorded in this range.</string>
-    <string name="progress_chart_caption">Each mark is one recorded day at its actual date; the line only joins recorded values across unlogged days. Nothing is interpolated or carried forward.</string>
+    <string name="progress_chart_caption">Each mark is one recorded day at its actual date, and the solid line joins recorded values across unlogged days. The dashed lead-in and the shading only extend the first value for reference; they are not measurements.</string>
     <string name="progress_chart_volume_legend">External load-volume per day (%1$s·reps)</string>
     <string name="progress_chart_estimate_legend">Estimated one-rep max per day (%1$s)</string>
     <string name="progress_metric_label">Metric</string>
@@ -112,4 +112,22 @@
     <string name="progress_station_label">Station</string>
     <string name="progress_station_unattributed">No station</string>
     <string name="progress_station_station">Station: %1$s</string>
+    <string name="progress_exercises_most_trained">Most trained, last 90 days</string>
+    <string name="progress_exercises_logged_earlier">Logged earlier</string>
+    <string name="progress_exercises_show_untouched">Show exercises not logged yet (%1$d)</string>
+    <string name="progress_exercises_hide_untouched">Hide exercises not logged yet (%1$d)</string>
+    <string name="progress_exercise_row_sessions">Sessions: %1$d · %2$s</string>
+    <string name="progress_last_today">Today</string>
+    <string name="progress_last_yesterday">Yesterday</string>
+    <string name="progress_last_days_ago">%1$d days ago</string>
+    <string name="progress_last_weeks_ago">%1$d weeks ago</string>
+    <string name="progress_last_months_ago">%1$d months ago</string>
+    <string name="progress_summary_best_estimate">Best estimated 1RM</string>
+    <string name="progress_summary_heaviest">Heaviest load</string>
+    <string name="progress_summary_heaviest_value">%1$s × %2$d</string>
+    <string name="progress_records_show_all">All records (%1$d)</string>
+    <string name="progress_records_hide_all">Hide records</string>
+    <string name="progress_days_show">Show values for each day</string>
+    <string name="progress_days_hide">Hide values for each day</string>
+    <string name="progress_estimate_unchanged">No change</string>
 </resources>

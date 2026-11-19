@@ -15,6 +15,7 @@ import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ProgressChartModelTest {
@@ -403,6 +404,28 @@ class ProgressChartModelTest {
 
         val volumes = progressChartPoints(progress.days, ProgressMetric.EXTERNAL_VOLUME)
         assertEquals(listOf(500.0, 1600.0, 500.0), volumes.map { it.value })
+    }
+
+    @Test
+    fun theCarryBackExtendsTheFirstValueToTheStartOfTheWindow() {
+        val points = listOf(
+            ProgressChartPoint(localEpochDay = 120, value = 480.0),
+            ProgressChartPoint(localEpochDay = 100, value = 300.0)
+        )
+
+        val segment = requireNotNull(progressCarryBackSegment(points, dayFrom = 70))
+
+        assertEquals(ProgressChartPoint(70, 300.0), segment.from)
+        assertEquals(ProgressChartPoint(100, 300.0), segment.to)
+    }
+
+    @Test
+    fun noCarryBackWhenTheFirstMarkStartsTheWindowOrThereAreNoMarks() {
+        val atStart = listOf(ProgressChartPoint(70, 300.0), ProgressChartPoint(90, 350.0))
+
+        assertNull(progressCarryBackSegment(atStart, dayFrom = 70))
+        assertNull(progressCarryBackSegment(atStart, dayFrom = 80))
+        assertNull(progressCarryBackSegment(emptyList(), dayFrom = 70))
     }
 }
 

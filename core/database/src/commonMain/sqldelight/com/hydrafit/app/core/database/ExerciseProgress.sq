@@ -118,3 +118,25 @@ LIMIT :pageLimit;
 -- emits on every workoutSet write.
 observeOccurrenceExerciseIds:
 SELECT DISTINCT exerciseId FROM workoutSet WHERE occurrenceId = :occurrenceId ORDER BY exerciseId;
+
+-- One row per exercise with a working set: its newest set, and the distinct sessions since the cutoff.
+-- A set without a session counts once by its own id, and nothing before the cutoff adds a session.
+selectExerciseActivity:
+SELECT
+    exerciseId,
+    MAX(performedAt) AS lastPerformedAt,
+    COUNT(DISTINCT CASE WHEN performedAt >= :sinceMillis THEN COALESCE(sessionId, 'set:' || id) END)
+        AS recentSessions
+FROM workoutSet
+WHERE isWarmup = 0
+GROUP BY exerciseId;
+
+-- The same columns as the replay pages, bounded below by a cutoff: one exercise's recent sets, oldest
+-- first, so the list can read a latest and a previous estimate without replaying the whole history.
+selectExerciseReplaySince:
+SELECT id, exerciseId, reps, weightKg, loadKind, performedAt, isWarmup, occurrenceId, durationSeconds,
+        stationId, stationName, stationLoadBasis, distanceMeters, forceNewtons, deviceName, deviceRatingKg,
+        clusterKind, clusterPlannedSegments, clusterPerformedSegments
+FROM workoutSet
+WHERE exerciseId = :exerciseId AND performedAt >= :sinceMillis AND performedAt <= :nowMillis
+ORDER BY performedAt ASC, id ASC;

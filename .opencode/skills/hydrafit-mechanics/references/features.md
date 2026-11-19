@@ -1358,8 +1358,12 @@ the open session changes and reads the latest accepted plan for planned days and
 
 `ExerciseDemoVideos` maps seeded exercise IDs to YouTube video IDs; `ExerciseDemoLink.urlFor(id, name)`
 opens the curated video and otherwise falls back to the search, and `curatedUrl` is null for custom and
-unmapped exercises. `ExerciseDemoButton` is a one-tap shortcut at the three Train sites and renders only
-for a curated exercise. On Train the exercise name (overview, guided card, draft line) and the Instructions action open `LoggerExerciseDetailsDialog`, which loads
+unmapped exercises. `ExerciseDemoButton` is a one-tap shortcut at the three Train sites (`urlFor`: the curated
+video, else the YouTube search; it hides only for a blank name). The guided card shows, per exercise: the name (tap for the details card) with its progress, the target
+line, a quiet reason line, then one primary set action that follows the set (Start set, then Set completed
+once started) beside Log set (hidden while any set is started) and a **More** menu (`GuidedMoreMenu`:
+Instructions, Watch demo, Replace for this workout, Calculate loading, Edit draft, Change measurement,
+Details). Timer controls and the superset turn controls stay inline. On Train the exercise name (overview, guided card, draft line) and the Instructions action open `LoggerExerciseDetailsDialog`, which loads
 `ExerciseDetailsViewModel` (read-only: catalog muscles plus `GetExercisePerformanceUseCase`) and passes
 `ExerciseDetailsContent` to `ExerciseInstructionDialog`: primary and secondary muscles, the last session's
 working sets and the heaviest recent set. The read is `WorkoutLogRepository.recentWorkingSetsForExercise`
@@ -1368,3 +1372,36 @@ dialog without details. Muscle labels live in `core/exercisecontent` (`MuscleGro
 Equipment and the heatmap keep their own copies for now. `:core:exercisecontent` now depends on
 `:core:domain` for `MuscleGroup`.
 
+
+## Progress list, chart and screen headers (post-0.15.1)
+
+Exercise progress orders its list by activity, not A to Z: `ExerciseProgressRepository.exerciseActivity(since)`
+(one grouped SQL read, `selectExerciseActivity`, no migration) returns each exercise's newest working set and its
+distinct sessions in the last 90 days; `ProgressViewModel` sorts by recent sessions, then recency, then name and
+reloads on resume. The screen shows "Most trained, last 90 days", "Logged earlier", and a collapsed "not logged yet"
+group, or one flat ordered list while a search is active. Each listed exercise trained in the window also shows its latest estimated 1RM and the change from the day before
+(`ExerciseProgressCalculator` over `selectExerciseReplaySince`, the chart's own per-day derivation, bounded to the
+90 days). The detail keeps the chart's measured marks and solid segments but adds a dashed carry-back of the first
+value to the start of the window with a lighter same-colour shading under the line (`progressCarryBackSegment`;
+reference only, never in the table), and draws a larger, halo-marked latest point with its value, leads the records with a best-estimated-1RM and
+heaviest-load card, and folds the full record list and the per-day table behind toggles. Drill-down screens use
+`ScreenHeader` (`:core:ui`): a left back arrow, no arrow on a bottom-bar destination such as the Progress root.
+Workout history, its detail and Acknowledgments still end with a Back button at the bottom.
+
+`:core:ui` also holds `HubCard` (a bordered title, line and chevron card with an optional leading glyph); the Settings
+home uses it with one small geometric glyph per category, as the Equipment hub does.
+
+## Appearance themes (post-0.15.1)
+
+Settings home has an **Appearance** page (`settings/appearance`, `AppearanceSettingsScreen`): a light, dark or
+follow-the-device choice and nine colour themes drawn in their own colours: the default **Quiet Strength**, then
+**Mata Fire / Water / Air / Earth / Stone / Ice**, **Makuta** and **Gold Nuva**. Themes change colours only.
+`AppThemeId` and `AppColorMode` (`:core:userdata`, `settings/AppThemePreferenceStore.kt`) are persisted by name, so
+entries are only ever added. The choice is device-local, in a small Android preferences file
+(`AndroidAppThemePreferenceStore`, read once at construction so the first frame is already themed), deliberately
+not in the database or the backup payload (no schema change; a restored backup starts on the default look). iOS
+and tests use `InMemoryAppThemePreferenceStore`. `appColorScheme(theme, dark)` in `:core:ui` `AppPalettes.kt` holds
+Quiet Strength value for value and derives the others from three accent hues and one neutral tint by fixed lightness
+steps; `AppPalettesTest` holds text contrast (4.5) for every content role and outline/primary visibility (3.0) for
+every theme in both variants. `App.kt` reads the store flow, so a pick re-themes the app at once. The theme names
+use no logos or artwork.

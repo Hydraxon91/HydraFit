@@ -23,7 +23,9 @@ import com.hydrafit.app.core.userdata.backup.UnsupportedAutomaticBackupStateStor
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFileStore
 import com.hydrafit.app.core.userdata.backup.UnsupportedBackupFolderStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AppThemePreferenceStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
+import com.hydrafit.app.core.userdata.settings.InMemoryAppThemePreferenceStore
 import com.hydrafit.app.core.userdata.settings.IosAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.NoopApiKeyStore
 import com.hydrafit.app.core.userdata.storage.UnsupportedStorageUsagePort
@@ -52,6 +54,7 @@ fun iosDatabaseModule(): Module = module {
     single<RestAlertScheduler> { UnsupportedRestAlertScheduler() }
     single<WorkoutReminderScheduler> { UnsupportedWorkoutReminderScheduler() }
     single<ApiKeyStore> { NoopApiKeyStore() }
+    single<AppThemePreferenceStore> { InMemoryAppThemePreferenceStore() }
     single<GroqApiKeyProvider> { GroqApiKeyProvider { "" } }
     single<AppVersionProvider> { IosAppVersionProvider() }
     single<BackupFileStore> { UnsupportedBackupFileStore() }

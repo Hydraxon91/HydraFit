@@ -5592,6 +5592,56 @@ set and the filled demo button; Band Row shows muscles, "Not logged yet" and the
 Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
 units, and a device. The Library list does not show the card.
 
+## Progress redesign and back arrows (post-0.15.1, 2026-11-19)
+
+From the maintainer's review: the Exercise progress list was A to Z across the whole catalog, its chart read as bare
+gridlines and a dot above a wall of records, and every drill-down screen put Back at the top right (the Progress
+root as well, though the bottom bar already leaves it). The list is now ordered by recent sessions, then recency,
+then name (a grouped `workoutSet` query, no migration), with sections and a collapsed not-logged-yet group; the
+chart gets a larger latest point with a halo and its value and a lighter grid; the detail leads with best
+estimated 1RM and heaviest load cards and folds the record list and the per-day table behind toggles (the
+table stays the accessible numeric equivalent, one tap away); and `:core:ui` `ScreenHeader` gives Body weight,
+Cardio, Equipment, Routines, Settings pages and the Logger's child pages a left back arrow. The Progress root has
+no back action. The routine card reads "Workouts: 1" instead of "1 workouts".
+
+Automated: `exercisesAreOrderedByRecentSessionsThenRecencyThenName`, the plain-A-to-Z fallback with a failing read,
+the on-resume reorder, and `exerciseActivityCountsDistinctRecentSessionsAndReportsTheNewestWorkingSet` (session
+grouping, a session-less set counting once, the cutoff, warm-ups excluded). Seen on the emulator (debug): the new list and
+its sections, the Back Squat detail with the halo and value, the summary cards and All records, the arrow on
+Routines and Workout preferences, and no Back on the Progress root. Not verified: Body weight, Cardio, Equipment
+sections and the Logger child pages after the change, a large font, the two-pane tablet layout, TalkBack on
+the collapsed table, and a long exercise name beside the arrow.
+
+## Progress list estimates, a fuller chart and the Settings hub (post-0.15.1, 2026-11-19)
+
+Follow-ups from the maintainer's review of the previous change. Each Exercise progress row now shows the exercise's
+latest estimated one-rep max and its signed change from the previous recorded day ("+5 kg", an explicit minus sign,
+or "No change"), computed from the last 90 days with the chart's own per-day derivation. The chart no longer
+leaves its left side empty: a dashed, lighter extension carries the first recorded value back to the start of the
+window and a soft shading of the line colour fills beneath the line, with the caption saying plainly that the dashed
+lead-in and the shading are for reference and not measurements. This deliberately relaxes the 0.13.4 rule that
+nothing is carried or filled: the marks, the solid segments and the per-day table still hold only recorded values.
+The Settings home uses a shared `HubCard` with a glyph per category, like the Equipment hub.
+
+Automated: `exerciseActivityReportsTheLatestAndPreviousEstimatedOneRepMax` (window-bounded, an old heavier set
+ignored, an exercise trained only earlier has none), the ViewModel mapping of latest and change to the options, and
+`progressCarryBackSegment` tests (extension to the window start, none when the first mark starts the window or
+there are none). Seen on the emulator (debug): the Settings cards, the list with an estimate and a signed change,
+and the dashed lead-in with shading on Back Squat. Not verified: a chart with several marks and the shading's
+slope, the Estimated 1RM metric with the lead-in, dark theme, a large font, and a tablet width.
+
+## Appearance themes (post-0.15.1, 2026-11-19)
+
+Settings → Appearance offers light, dark or follow-the-device and nine themes (Quiet Strength default, Mata Fire,
+Water, Air, Earth, Stone, Ice, Makuta, Gold Nuva). The choice is device-local and not part of backups, so a
+restored backup starts on Quiet Strength.
+
+Automated: `AppPalettesTest` (4.5 text contrast on every content role, 3.0 outline and primary visibility, the
+default's original values, distinct themes, both variants), `AppearanceSettingsViewModelTest`, and the Koin graph
+check with the store bound. Seen on the emulator (debug): the Appearance page in light and dark, live re-theming,
+and the choice surviving an app restart. Not verified: screens other than Settings in every theme (chart colours,
+the fatigue map and the workout card in all nine), a large font, a tablet width, and TalkBack on the picker.
+
 ## Planner: arm volume, variety and chest ranking (post-0.15.1, 2026-11-19)
 
 From the maintainer's phone test: a four-day plan gave two arm exercises of two sets for each arm, and an EZ-bar
@@ -5633,3 +5683,37 @@ anyone who saved one keeps it.
 Automated: `TrainingGoal` and rest-default tests in the domain and database suites (goal change, saved value
 winning, the flow re-emitting), and the seeded planner test now covers every goal including Endurance.
 Not verified: the Settings screen and a rest timer on a device, and a backup taken before and after the change.
+
+## Guided card buttons and demo shortcut (post-0.15.1, 2026-11-19)
+
+From the maintainer's phone test of 0.15.1: **Watch demo** in the guided card was squeezed to one letter
+per line beside **Instructions**, **Set completed now** sat disabled and wrapped across three lines, and
+exercises without a hand-picked video had no demo shortcut. Instructions and **Watch demo** now sit in a
+`FlowRow` (side by side when there is room, stacked when not) in the manual and guided sites; the guided
+card shows one primary set action that is **Start set** until the slot's set is started and then **Set
+completed now**, beside **Log set**; and `ExerciseDemoButton` uses `ExerciseDemoLink.urlFor`, so every
+exercise with a name gets the curated video or the YouTube search.
+
+Automated: the existing link tests (`urlFor` curated, fallback, null id and blank name) and a fresh logger
+and exercisecontent host-test, ktlint and debug-build run. Seen on the emulator (debug, guided workouts
+turned on for the check and off again): Instructions with **Watch demo** stacked beneath it for Incline
+Push-up (a search link, since it has no hand-picked video), **Start set** with **Log set** beside it, and
+after tapping Start set one teal **Set completed now** (two lines) with **Log set** greyed and no disabled
+filled button. Not verified: a narrow screen with a large font, the draft-line and manual placements, and
+completing a set from the new button.
+
+## Guided card redesign (post-0.15.1, 2026-11-19)
+
+From the same phone test: each guided exercise carried about nine text actions and its buttons floated in a
+vertically centred column. The exercise is now one column: name with its progress on one line, the target
+line (larger), a quiet reason or summary line, then a row with one primary action (**Start set**, then
+**Set completed** once that slot's set is started), **Log set** (shown only while no set is started) and a
+**More** menu (Instructions, Watch demo, Replace for this workout, Calculate loading, Edit draft, Change
+measurement, Details; actions that do not apply are left out, not disabled). Exercises are separated by a
+divider. The set-completion label is now "Set completed" and the menu button "More" (string keys unchanged).
+
+Automated: the exercisecontent and logger host tests, ktlint and the debug build re-ran and passed. Seen on
+the emulator (debug, guided workouts turned on for the check and off again): the new layout for Incline
+Push-up and Dips, the More menu, and the Start set to Set completed swap with Log set hidden. Not verified:
+a load-tracked exercise (Calculate loading and Details with lines), a superset pair, a timed exercise's
+timer controls, a completed (collapsed) exercise, a large font or tablet width, and TalkBack.

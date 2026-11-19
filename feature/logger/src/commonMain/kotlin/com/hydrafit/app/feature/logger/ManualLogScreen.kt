@@ -15,16 +15,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_change_exercise
 import hydrafit.feature.logger.generated.resources.logger_history_back
@@ -82,19 +80,11 @@ internal fun ExercisePickerScreen(
 /** The title plus the explicit way back that every Logger child page carries. */
 @Composable
 internal fun LoggerPageHeader(title: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f).semantics { heading() }
-        )
-        TextButton(onClick = onBack) {
-            Text(stringResource(Res.string.logger_history_back))
-        }
-    }
+    ScreenHeader(
+        title = title,
+        onBack = onBack,
+        backLabel = stringResource(Res.string.logger_history_back)
+    )
 }
 
 /** The one exercise control: an unset prompt, or the chosen name with a change action. */

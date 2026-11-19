@@ -73,6 +73,7 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
 import hydrafit.feature.routines.generated.resources.focus_legs
@@ -320,19 +321,11 @@ fun RoutinesScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(Res.string.routines_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onBack) {
-                        Text(stringResource(Res.string.routines_back))
-                    }
-                }
+                ScreenHeader(
+                    title = stringResource(Res.string.routines_title),
+                    onBack = onBack,
+                    backLabel = stringResource(Res.string.routines_back)
+                )
                 state.message?.let { message ->
                     MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
                 }

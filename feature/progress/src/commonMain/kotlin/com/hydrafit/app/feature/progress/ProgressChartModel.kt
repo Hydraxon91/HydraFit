@@ -59,6 +59,21 @@ internal fun progressChartSegments(points: List<ProgressChartPoint>): List<Progr
         .sortedBy { it.localEpochDay }
         .zipWithNext { earlier, later -> ProgressChartSegment(earlier, later) }
 
+/**
+ * A reference extension of the first recorded value back to the start of the window, or null when the
+ * first observation already sits at the start or there are no observations. It is drawn dashed and
+ * never enters the numeric table: it only keeps a chart whose first mark is mid-window from looking
+ * empty on the left, and it asserts nothing about the days it covers.
+ */
+internal fun progressCarryBackSegment(
+    points: List<ProgressChartPoint>,
+    dayFrom: Long
+): ProgressChartSegment? {
+    val first = points.minByOrNull { it.localEpochDay } ?: return null
+    if (first.localEpochDay <= dayFrom) return null
+    return ProgressChartSegment(ProgressChartPoint(dayFrom, first.value), first)
+}
+
 /** The axis for [metric]: volume keeps a zero baseline, estimates use their padded observed bounds. */
 internal fun progressAxis(
     points: List<ProgressChartPoint>,

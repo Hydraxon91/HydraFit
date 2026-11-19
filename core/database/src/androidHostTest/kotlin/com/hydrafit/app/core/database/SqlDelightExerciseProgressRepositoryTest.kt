@@ -64,6 +64,78 @@ class SqlDelightExerciseProgressRepositoryTest {
     fun tearDown() = driver.close()
 
     @Test
+    fun exerciseActivityCountsDistinctRecentSessionsAndReportsTheNewestWorkingSet() = runBlocking {
+        database.exerciseQueries.insertCustom(
+            "curl",
+            "Curl",
+            "DUMBBELL",
+            "BICEPS_ISOLATION",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        val since = 1_000L
+        // Three squat sets in one recent session count once; another recent session counts once more.
+        writer.add(set(time = 2_000, weight = 100.0).copy(sessionId = "recent-a"))
+        writer.add(set(time = 2_100, weight = 100.0).copy(sessionId = "recent-a"))
+        writer.add(set(time = 2_200, weight = 100.0).copy(sessionId = "recent-a"))
+        writer.add(set(time = 3_000, weight = 100.0).copy(sessionId = "recent-b"))
+        // A set with no session counts once on its own; one before the cutoff adds none.
+        writer.add(set(time = 4_000, weight = 100.0).copy(sessionId = null))
+        writer.add(set(time = 500, weight = 100.0).copy(sessionId = "old"))
+        // A warm-up never counts, and an exercise with only old work still has a last-logged time.
+        writer.add(set(time = 9_000, weight = 40.0).copy(sessionId = "recent-c", isWarmup = true))
+        writer.add(set(time = 600, weight = 20.0).copy(exerciseId = "curl", sessionId = "old"))
+
+        val activity = repository.exerciseActivity(
+            since,
+            nowMillis = 100_000L,
+            utcOffsetMillis = 0L
+        )
+            .associateBy { it.exerciseId }
+
+        assertEquals(3, activity.getValue("squat").recentSessions)
+        assertEquals(4_000L, activity.getValue("squat").lastPerformedAtMillis)
+        assertEquals(0, activity.getValue("curl").recentSessions)
+        assertEquals(600L, activity.getValue("curl").lastPerformedAtMillis)
+        assertEquals(setOf("squat", "curl"), activity.keys)
+    }
+
+    @Test
+    fun exerciseActivityReportsTheLatestAndPreviousEstimatedOneRepMax() = runBlocking {
+        database.exerciseQueries.insertCustom(
+            "curl",
+            "Curl",
+            "DUMBBELL",
+            "BICEPS_ISOLATION",
+            0L,
+            "EXTERNAL",
+            null
+        )
+        // Three recorded days of ten reps; the estimate is weight x (1 + 10 / 30).
+        writer.add(set(time = 2 * DAY, weight = 100.0).copy(sessionId = "d2"))
+        writer.add(set(time = 5 * DAY, weight = 110.0).copy(sessionId = "d5"))
+        writer.add(set(time = 8 * DAY, weight = 120.0).copy(sessionId = "d8"))
+        // A heavier set before the window never counts, and an exercise trained only before it has no estimate.
+        writer.add(set(time = 1, weight = 200.0).copy(sessionId = "old"))
+        writer.add(set(time = 1, weight = 20.0).copy(exerciseId = "curl", sessionId = "old"))
+
+        val activity = repository.exerciseActivity(DAY, nowMillis = 10 * DAY, utcOffsetMillis = 0L)
+            .associateBy { it.exerciseId }
+
+        assertEquals(
+            120.0 * (1.0 + 10.0 / 30.0),
+            activity.getValue("squat").latestEstimatedOneRepMaxKg
+        )
+        assertEquals(
+            110.0 * (1.0 + 10.0 / 30.0),
+            activity.getValue("squat").previousEstimatedOneRepMaxKg
+        )
+        assertNull(activity.getValue("curl").latestEstimatedOneRepMaxKg)
+        assertNull(activity.getValue("curl").previousEstimatedOneRepMaxKg)
+    }
+
+    @Test
     fun tiedTimestampPagesNeverDuplicateOrOmitAndDoNotTruncateProgress() = runBlocking {
         repeat(600) { writer.add(set(time = 1, weight = 10.0 + it % 10)) }
         val ids = mutableListOf<Long>()

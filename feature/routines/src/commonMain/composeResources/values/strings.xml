@@ -23,7 +23,7 @@
     <string name="routines_unarchive">Restore</string>
     <string name="routines_delete">Delete</string>
     <string name="routines_archived_badge">Archived</string>
-    <string name="routines_workout_count">%1$d workouts</string>
+    <string name="routines_workout_count">Workouts: %1$d</string>
 
     <string name="routines_editor_new_title">New routine</string>
     <string name="routines_editor_edit_title">Edit routine</string>
