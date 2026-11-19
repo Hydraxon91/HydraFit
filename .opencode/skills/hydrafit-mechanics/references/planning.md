@@ -1,5 +1,9 @@
 # Planning mechanics
 
+Readable overviews of the two engines, kept in step with the code: `docs/planner-deterministic.md` (selection,
+ranking, arm volume, loads, fatigue use) and `docs/planner-groq-prompts.md` (the prompt, schema, sanitizer and
+failure mapping). Update them with any change to those mechanics.
+
 User-authored routines, frozen activation/occurrence slots and accepted-plan slots support
 exclusive reps, whole seconds or whole metres. Generation otherwise prescribes the engine's own rep
 scheme, with one app-owned exception: `ExerciseMeasureDefaults` maps built-in exercise ids to a

@@ -281,6 +281,8 @@ and take the state plus callbacks.
 
 ### 1.7 Swappable `WorkoutPlannerEngine` strategy (+ model-backed fallbacks)
 
+Reading guides for the two engines: `docs/planner-deterministic.md` and `docs/planner-groq-prompts.md`.
+
 One interface (`WorkoutPlannerEngine`: `id` + `suspend generatePlan(PlanRequest): WeeklyPlan`) has
 two selectable implementations resolved by `DefaultWorkoutPlannerEngineProvider` from the persisted
 engine preference. `GroqWorkoutPlannerEngine` funnels output through the shared `WeeklyPlanSanitizer` +
