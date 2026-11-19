@@ -5603,6 +5603,9 @@ completed now**, beside **Log set**; and `ExerciseDemoButton` uses `ExerciseDemo
 exercise with a name gets the curated video or the YouTube search.
 
 Automated: the existing link tests (`urlFor` curated, fallback, null id and blank name) and a fresh logger
-and exercisecontent host-test, ktlint and debug-build run. Not verified: the layout on a device or emulator
-(no emulator was running), a narrow screen with large font, and the Start set to Set completed now swap
-during a real guided set.
+and exercisecontent host-test, ktlint and debug-build run. Seen on the emulator (debug, guided workouts
+turned on for the check and off again): Instructions with **Watch demo** stacked beneath it for Incline
+Push-up (a search link, since it has no hand-picked video), **Start set** with **Log set** beside it, and
+after tapping Start set one teal **Set completed now** (two lines) with **Log set** greyed and no disabled
+filled button. Not verified: a narrow screen with a large font, the draft-line and manual placements, and
+completing a set from the new button.
