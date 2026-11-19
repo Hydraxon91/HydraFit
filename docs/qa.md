@@ -5617,3 +5617,19 @@ direct sets because an upper day has only four compound slots and two arm slots.
 Known limits: Endurance at its default one accessory set cannot reach four direct sets per arm on a two-day
 week; custom exercises that list a single muscle score lower than seeded lifts that list several; and the final
 id tie-break is still alphabetical for exact ties.
+
+## Goal presets: Endurance accessory sets and goal-based rest (post-0.15.1, 2026-11-19)
+
+Checked against the ACSM 2026 resistance-training overview (press summary), Schoenfeld et al. 2021 (repetition
+continuum), the 2016 long-versus-short rest trial and Pelland's volume meta-regression. Balanced, Strength
+and Hypertrophy sets, reps and weekly targets were left as they are. Endurance accessories go from one set to
+two (the minimum was one), and the global rest default now follows the goal until the user saves one: Strength
+180 s, Balanced and Hypertrophy 120 s, Endurance 60 s (`defaultRestSecondsFor`, read by
+`SqlDelightRestPreferenceRepository` from the stored goal; a saved value always wins, and a backup taken with
+nothing saved exports the goal's default). The Settings text names the three values. Existing accounts who
+never saved a rest default will see their value change when their goal is not Balanced or Hypertrophy;
+anyone who saved one keeps it.
+
+Automated: `TrainingGoal` and rest-default tests in the domain and database suites (goal change, saved value
+winning, the flow re-emitting), and the seeded planner test now covers every goal including Endurance.
+Not verified: the Settings screen and a rest timer on a device, and a backup taken before and after the change.

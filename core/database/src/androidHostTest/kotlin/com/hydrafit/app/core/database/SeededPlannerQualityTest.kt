@@ -40,9 +40,7 @@ class SeededPlannerQualityTest {
 
     @Test
     fun everyFrequencyMeetsTheDirectArmTargetForBothArms() = runTest {
-        // Endurance is left out: at its default one set per accessory exercise a two-day week has six
-        // accessory slots, too few for four sets of each arm.
-        for (goal in TrainingGoal.entries.filter { it != TrainingGoal.ENDURANCE }) {
+        for (goal in TrainingGoal.entries) {
             for (days in 2..6) {
                 val coverage = plan(days, goal).armCoverage
                 assertTrue(

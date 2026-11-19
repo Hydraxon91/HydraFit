@@ -344,7 +344,7 @@ DEFAULT_SETS_PER_EXERCISE = 3  // declared in PlanRequest.kt
 | BALANCED | 3 | 2 | 6 | 12 |
 | STRENGTH | 4 | 3 | 5 | 8 |
 | HYPERTROPHY | 3 | 2 | 8 | 12 |
-| ENDURANCE | 2 | 1 | 15 | 15 |
+| ENDURANCE | 2 | 2 | 15 | 15 |
 
 Progression defaults: `successStreak = 3`, `failureStreak = 3`,
 `roundToKg = 2.5`, `maxIncrements = 5`. Completion is judged against each set's own

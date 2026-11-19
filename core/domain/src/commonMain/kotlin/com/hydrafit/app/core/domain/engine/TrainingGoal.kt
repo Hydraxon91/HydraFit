@@ -15,5 +15,5 @@ enum class TrainingGoal(
     BALANCED(defaultSets = 3, accessorySets = 2, compoundReps = 6, isolationReps = 12),
     STRENGTH(defaultSets = 4, accessorySets = 3, compoundReps = 5, isolationReps = 8),
     HYPERTROPHY(defaultSets = 3, accessorySets = 2, compoundReps = 8, isolationReps = 12),
-    ENDURANCE(defaultSets = 2, accessorySets = 1, compoundReps = 15, isolationReps = 15)
+    ENDURANCE(defaultSets = 2, accessorySets = 2, compoundReps = 15, isolationReps = 15)
 }
