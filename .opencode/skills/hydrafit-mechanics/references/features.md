@@ -1386,3 +1386,18 @@ Workout history, its detail and Acknowledgments still end with a Back button at 
 
 `:core:ui` also holds `HubCard` (a bordered title, line and chevron card with an optional leading glyph); the Settings
 home uses it with one small geometric glyph per category, as the Equipment hub does.
+
+## Appearance themes (post-0.15.1)
+
+Settings home has an **Appearance** page (`settings/appearance`, `AppearanceSettingsScreen`): a light, dark or
+follow-the-device choice and nine colour themes drawn in their own colours: the default **Quiet Strength**, then
+**Mata Fire / Water / Air / Earth / Stone / Ice**, **Makuta** and **Gold Nuva**. Themes change colours only.
+`AppThemeId` and `AppColorMode` (`:core:userdata`, `settings/AppThemePreferenceStore.kt`) are persisted by name, so
+entries are only ever added. The choice is device-local, in a small Android preferences file
+(`AndroidAppThemePreferenceStore`, read once at construction so the first frame is already themed), deliberately
+not in the database or the backup payload (no schema change; a restored backup starts on the default look). iOS
+and tests use `InMemoryAppThemePreferenceStore`. `appColorScheme(theme, dark)` in `:core:ui` `AppPalettes.kt` holds
+Quiet Strength value for value and derives the others from three accent hues and one neutral tint by fixed lightness
+steps; `AppPalettesTest` holds text contrast (4.5) for every content role and outline/primary visibility (3.0) for
+every theme in both variants. `App.kt` reads the store flow, so a pick re-themes the app at once. The theme names
+use no logos or artwork.
