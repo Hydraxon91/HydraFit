@@ -21,7 +21,7 @@ HydraFit is a small, single-purpose Gradle module graph. `:core:domain` is commo
 with no platform APIs; `:core:database`/`:core:network`/`:core:userdata` provide
 implementations and platform glue; `:core:exercisecontent` bundles app-owned catalog content
 (offline exercise instructions) with its read-only viewer; `:core:ui` holds the few shared Compose pieces
-the features reuse (today the screen header with its back arrow); each `:feature:*` owns UI + ViewModel;
+the features reuse (the screen header with its back arrow, the hub card, and the colour themes); each `:feature:*` owns UI + ViewModel;
 `:shared` is the composition root; `:androidApp` is the platform entry point.
 
 - **Examples:** `settings.gradle.kts` (module list), `core/domain/build.gradle.kts` (no Android-only

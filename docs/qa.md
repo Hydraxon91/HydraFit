@@ -5630,6 +5630,18 @@ there are none). Seen on the emulator (debug): the Settings cards, the list with
 and the dashed lead-in with shading on Back Squat. Not verified: a chart with several marks and the shading's
 slope, the Estimated 1RM metric with the lead-in, dark theme, a large font, and a tablet width.
 
+## Appearance themes (post-0.15.1, 2026-11-19)
+
+Settings → Appearance offers light, dark or follow-the-device and nine themes (Quiet Strength default, Mata Fire,
+Water, Air, Earth, Stone, Ice, Makuta, Gold Nuva). The choice is device-local and not part of backups, so a
+restored backup starts on Quiet Strength.
+
+Automated: `AppPalettesTest` (4.5 text contrast on every content role, 3.0 outline and primary visibility, the
+default's original values, distinct themes, both variants), `AppearanceSettingsViewModelTest`, and the Koin graph
+check with the store bound. Seen on the emulator (debug): the Appearance page in light and dark, live re-theming,
+and the choice surviving an app restart. Not verified: screens other than Settings in every theme (chart colours,
+the fatigue map and the workout card in all nine), a large font, a tablet width, and TalkBack on the picker.
+
 ## Planner: arm volume, variety and chest ranking (post-0.15.1, 2026-11-19)
 
 From the maintainer's phone test: a four-day plan gave two arm exercises of two sets for each arm, and an EZ-bar

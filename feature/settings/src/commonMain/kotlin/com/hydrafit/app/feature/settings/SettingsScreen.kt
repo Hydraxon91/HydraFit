@@ -34,11 +34,13 @@ import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalSetupNavigator
 import com.hydrafit.app.core.ui.HubCard
 import com.hydrafit.app.core.ui.ScreenHeader
+import com.hydrafit.app.core.userdata.settings.AppThemeId
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.nav_label
 import hydrafit.feature.settings.generated.resources.settings_back
 import hydrafit.feature.settings.generated.resources.settings_home_about
 import hydrafit.feature.settings.generated.resources.settings_home_about_description
+import hydrafit.feature.settings.generated.resources.settings_home_appearance
 import hydrafit.feature.settings.generated.resources.settings_home_backup_and_data
 import hydrafit.feature.settings.generated.resources.settings_home_backup_and_data_description
 import hydrafit.feature.settings.generated.resources.settings_home_notifications
@@ -64,6 +66,7 @@ internal object SettingsRoutes {
     const val NOTIFICATIONS = "settings/notifications"
     const val PLANNER_ENGINE = "settings/planner-engine"
     const val UNITS = "settings/units"
+    const val APPEARANCE = "settings/appearance"
     const val BACKUP_AND_DATA = "settings/backup-and-data"
     const val LICENSES = "settings/licenses"
 }
@@ -86,6 +89,7 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
                 onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
                 onOpenPlannerEngine = { navController.navigate(SettingsRoutes.PLANNER_ENGINE) },
                 onOpenUnits = { navController.navigate(SettingsRoutes.UNITS) },
+                onOpenAppearance = { navController.navigate(SettingsRoutes.APPEARANCE) },
                 onOpenBackupAndData = { navController.navigate(SettingsRoutes.BACKUP_AND_DATA) },
                 onOpenAcknowledgments = { navController.navigate(acknowledgmentsRoute) },
                 onOpenSetup = LocalSetupNavigator.current
@@ -102,6 +106,9 @@ fun NavGraphBuilder.settingsGraph(navController: NavController) {
         }
         composable(SettingsRoutes.UNITS) {
             UnitsRoute(onBack = { navController.popBackStack() })
+        }
+        composable(SettingsRoutes.APPEARANCE) {
+            AppearanceRoute(onBack = { navController.popBackStack() })
         }
         composable(SettingsRoutes.BACKUP_AND_DATA) {
             BackupAndDataRoute(onBack = { navController.popBackStack() })
@@ -124,13 +131,16 @@ fun SettingsHomeRoute(
     onOpenNotifications: () -> Unit,
     onOpenPlannerEngine: () -> Unit,
     onOpenUnits: () -> Unit,
+    onOpenAppearance: () -> Unit,
     onOpenBackupAndData: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = koinViewModel()
+    viewModel: SettingsViewModel = koinViewModel(),
+    appearanceViewModel: AppearanceSettingsViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val appearance by appearanceViewModel.preference.collectAsStateWithLifecycle()
     // Saves happen on the category pages, so re-read them when the hub is shown again; otherwise
     // its Planner engine and Units summaries could describe the values from before the edit.
     LaunchedEffect(Unit) { viewModel.refresh() }
@@ -140,6 +150,8 @@ fun SettingsHomeRoute(
         onOpenNotifications = onOpenNotifications,
         onOpenPlannerEngine = onOpenPlannerEngine,
         onOpenUnits = onOpenUnits,
+        appearanceTheme = appearance.theme,
+        onOpenAppearance = onOpenAppearance,
         onOpenBackupAndData = onOpenBackupAndData,
         onOpenAcknowledgments = onOpenAcknowledgments,
         onOpenSetup = onOpenSetup,
@@ -154,6 +166,8 @@ fun SettingsHomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenPlannerEngine: () -> Unit,
     onOpenUnits: () -> Unit,
+    appearanceTheme: AppThemeId,
+    onOpenAppearance: () -> Unit,
     onOpenBackupAndData: () -> Unit,
     onOpenAcknowledgments: () -> Unit,
     onOpenSetup: () -> Unit,
@@ -193,6 +207,12 @@ fun SettingsHomeScreen(
             description = stringResource(state.weightUnit.labelResource()) + " · " +
                 stringResource(state.distanceUnit.labelResource()),
             onClick = onOpenUnits
+        )
+        SettingsCategoryRow(
+            title = stringResource(Res.string.settings_home_appearance),
+            icon = SettingsCategoryIcon.APPEARANCE,
+            description = stringResource(appearanceTheme.labelResource()),
+            onClick = onOpenAppearance
         )
         SettingsCategoryRow(
             title = stringResource(Res.string.settings_home_backup_and_data),
@@ -241,7 +261,15 @@ private fun SettingsCategoryRow(
     )
 }
 
-private enum class SettingsCategoryIcon { WORKOUT, NOTIFICATIONS, PLANNER, UNITS, DATA, ABOUT }
+private enum class SettingsCategoryIcon {
+    WORKOUT,
+    NOTIFICATIONS,
+    PLANNER,
+    UNITS,
+    APPEARANCE,
+    DATA,
+    ABOUT
+}
 
 /** One original geometric glyph per category; the title and description carry its meaning. */
 @Composable
@@ -293,6 +321,17 @@ private fun SettingsCategoryGlyph(icon: SettingsCategoryIcon) {
                     listOf(7f, 11f, 15f, 19f).forEach { x ->
                         drawLine(color, Offset(x, 8f), Offset(x, 12f), 1.8f, StrokeCap.Round)
                     }
+                }
+                SettingsCategoryIcon.APPEARANCE -> {
+                    drawCircle(color, 8f, Offset(12f, 12f), style = stroke)
+                    drawArc(
+                        color = color,
+                        startAngle = 90f,
+                        sweepAngle = 180f,
+                        useCenter = true,
+                        topLeft = Offset(4f, 4f),
+                        size = Size(16f, 16f)
+                    )
                 }
                 SettingsCategoryIcon.DATA -> {
                     listOf(5f, 10f, 15f).forEach { y ->
