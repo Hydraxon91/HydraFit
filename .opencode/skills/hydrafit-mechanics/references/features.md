@@ -1359,8 +1359,11 @@ the open session changes and reads the latest accepted plan for planned days and
 `ExerciseDemoVideos` maps seeded exercise IDs to YouTube video IDs; `ExerciseDemoLink.urlFor(id, name)`
 opens the curated video and otherwise falls back to the search, and `curatedUrl` is null for custom and
 unmapped exercises. `ExerciseDemoButton` is a one-tap shortcut at the three Train sites (`urlFor`: the curated
-video, else the YouTube search; it hides only for a blank name). The guided card shows one primary set
-action that follows the set (Start set, then Set completed now once started) beside Log set. On Train the exercise name (overview, guided card, draft line) and the Instructions action open `LoggerExerciseDetailsDialog`, which loads
+video, else the YouTube search; it hides only for a blank name). The guided card shows, per exercise: the name (tap for the details card) with its progress, the target
+line, a quiet reason line, then one primary set action that follows the set (Start set, then Set completed
+once started) beside Log set (hidden while any set is started) and a **More** menu (`GuidedMoreMenu`:
+Instructions, Watch demo, Replace for this workout, Calculate loading, Edit draft, Change measurement,
+Details). Timer controls and the superset turn controls stay inline. On Train the exercise name (overview, guided card, draft line) and the Instructions action open `LoggerExerciseDetailsDialog`, which loads
 `ExerciseDetailsViewModel` (read-only: catalog muscles plus `GetExercisePerformanceUseCase`) and passes
 `ExerciseDetailsContent` to `ExerciseInstructionDialog`: primary and secondary muscles, the last session's
 working sets and the heaviest recent set. The read is `WorkoutLogRepository.recentWorkingSetsForExercise`

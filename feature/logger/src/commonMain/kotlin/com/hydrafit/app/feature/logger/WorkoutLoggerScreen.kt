@@ -59,6 +59,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -95,6 +96,7 @@ import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
 import com.hydrafit.app.core.exercisecontent.ExerciseDemoButton
+import com.hydrafit.app.core.exercisecontent.openExerciseDemo
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
@@ -369,6 +371,7 @@ import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_show
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_skip
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
+import hydrafit.feature.logger.generated.resources.logger_watch_demo
 import hydrafit.feature.logger.generated.resources.logger_weight_label
 import hydrafit.feature.logger.generated.resources.logger_weight_none
 import hydrafit.feature.logger.generated.resources.logger_workout_actions
@@ -4335,45 +4338,39 @@ private fun GuidedWorkoutSection(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            guided.exercises.forEach { exercise ->
+            guided.exercises.forEachIndexed { index, exercise ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
                 // A complete exercise collapses to its name and completion summary until the user
                 // expands it; unfinished work always keeps its rows visible.
-                val collapsed = exercise.isComplete &&
-                    exercise.occurrenceEntryId !in expandedEntryIds
-                Row(
+                val entryId = exercise.occurrenceEntryId
+                val collapsed = exercise.isComplete && entryId !in expandedEntryIds
+                val isStartedSlot = startedSetEntryId == entryId
+                var explanationExpanded by remember(entryId) { mutableStateOf(false) }
+                val explanationView = exercise.explanation?.toExplanationView()
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
                             text = exercise.exerciseName,
                             style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.clickable(
-                                onClickLabel = stringResource(Res.string.logger_instructions),
-                                role = Role.Button
-                            ) { onInstructions(exercise.occurrenceEntryId) }
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(
+                                    onClickLabel = stringResource(Res.string.logger_instructions),
+                                    role = Role.Button
+                                ) { onInstructions(entryId) }
                         )
-                        if (showsTechniqueConsiderations(exercise.exerciseId)) {
-                            Text(
-                                text = stringResource(Res.string.logger_technique_considerations),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        FlowRow {
-                            TextButton(
-                                onClick = { onInstructions(exercise.occurrenceEntryId) },
-                                modifier = Modifier.testTag(
-                                    LoggerTestTags.guidedInstructions(exercise.occurrenceEntryId)
-                                )
-                            ) {
-                                Text(stringResource(Res.string.logger_instructions))
-                            }
-                            ExerciseDemoButton(
-                                exerciseId = exercise.exerciseId,
-                                exerciseName = exercise.exerciseName
-                            )
-                        }
                         Text(
                             text = stringResource(
                                 Res.string.logger_active_progress,
@@ -4384,235 +4381,246 @@ private fun GuidedWorkoutSection(
                             ),
                             style = MaterialTheme.typography.bodySmall
                         )
-                        if (collapsed) {
-                            TextButton(
-                                onClick = { onToggleExpanded(exercise.occurrenceEntryId) }
-                            ) {
-                                Text(stringResource(Res.string.logger_guided_expand_sets))
+                    }
+                    if (showsTechniqueConsiderations(exercise.exerciseId)) {
+                        Text(
+                            text = stringResource(Res.string.logger_technique_considerations),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (collapsed) {
+                        TextButton(onClick = { onToggleExpanded(entryId) }) {
+                            Text(stringResource(Res.string.logger_guided_expand_sets))
+                        }
+                    } else {
+                        val targetSeconds = exercise.durationSeconds
+                        val targetDistance = exercise.distanceMeters
+                        val targetForce = exercise.forceNewtons
+                        val loadText = loadWeightText(
+                            exercise.loadKind,
+                            exercise.weightKg,
+                            weightUnit,
+                            exerciseLoadBasis[exercise.exerciseId]
+                        )
+                        Text(
+                            text = when {
+                                targetForce != null -> stringResource(
+                                    Res.string.logger_guided_target_force,
+                                    stringResource(
+                                        Res.string.logger_force_value,
+                                        formatWeightForDisplay(targetForce)
+                                    )
+                                )
+
+                                targetDistance != null -> stringResource(
+                                    Res.string.logger_guided_target_distance,
+                                    formatDistance(targetDistance, distanceUnit),
+                                    loadText
+                                )
+
+                                targetSeconds != null -> stringResource(
+                                    Res.string.logger_guided_target_timed,
+                                    targetSeconds,
+                                    loadText
+                                )
+
+                                else -> stringResource(
+                                    Res.string.logger_guided_target,
+                                    exercise.reps ?: 0,
+                                    loadText
+                                )
+                            },
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        // A force reading is load-free by design, so it never asks for a load reason.
+                        if (exercise.forceNewtons == null &&
+                            exercise.loadKind == LoadKind.EXTERNAL &&
+                            exercise.weightKg == null
+                        ) {
+                            noLoadReasonText(exercise.explanation)?.let { reason ->
+                                Text(
+                                    text = reason,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        } else {
-                            // A slot that already holds recorded work, or the slot currently started,
-                            // cannot be swapped: hide the action instead of offering a refused one.
-                            if (exercise.occurrenceEntryId !in frozenEntryIds &&
-                                exercise.occurrenceEntryId != startedSetEntryId
-                            ) {
-                                TextButton(
-                                    onClick = { onReplace(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress
-                                ) {
-                                    Text(stringResource(Res.string.logger_replace))
-                                }
-                            }
-                            val targetSeconds = exercise.durationSeconds
-                            val targetDistance = exercise.distanceMeters
-                            val targetForce = exercise.forceNewtons
-                            val loadText = loadWeightText(
-                                exercise.loadKind,
-                                exercise.weightKg,
-                                weightUnit,
-                                exerciseLoadBasis[exercise.exerciseId]
-                            )
+                        }
+                        explanationView?.let { view ->
                             Text(
-                                text = when {
-                                    targetForce != null -> stringResource(
-                                        Res.string.logger_guided_target_force,
-                                        stringResource(
-                                            Res.string.logger_force_value,
-                                            formatWeightForDisplay(targetForce)
-                                        )
-                                    )
-
-                                    targetDistance != null -> stringResource(
-                                        Res.string.logger_guided_target_distance,
-                                        formatDistance(targetDistance, distanceUnit),
-                                        loadText
-                                    )
-
-                                    targetSeconds != null -> stringResource(
-                                        Res.string.logger_guided_target_timed,
-                                        targetSeconds,
-                                        loadText
-                                    )
-
-                                    else -> stringResource(
-                                        Res.string.logger_guided_target,
-                                        exercise.reps ?: 0,
-                                        loadText
-                                    )
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = stringResource(view.summary.labelResource()),
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            // A force reading is load-free by design, so it never asks for a load reason.
-                            if (exercise.forceNewtons == null &&
-                                exercise.loadKind == LoadKind.EXTERNAL &&
-                                exercise.weightKg == null
-                            ) {
-                                noLoadReasonText(exercise.explanation)?.let { reason ->
+                            if (explanationExpanded) {
+                                view.lines.forEach { line ->
                                     Text(
-                                        text = reason,
+                                        text = explanationLineText(line, weightUnit),
                                         style = MaterialTheme.typography.bodySmall
                                     )
-                                }
-                            }
-                            if (loggerLoadingTargetEligible(exercise.loadKind, exercise.weightKg)) {
-                                TextButton(
-                                    onClick = { onLoadingCalculator(exercise) },
-                                    modifier = Modifier.testTag(
-                                        LoggerLoadingCalculatorTestTags.guidedAction(
-                                            exercise.occurrenceEntryId
-                                        )
-                                    )
-                                ) {
-                                    Text(
-                                        stringResource(
-                                            Res.string.logger_loading_calculator_action
-                                        )
-                                    )
-                                }
-                            }
-                            if (startedSetEntryId == exercise.occurrenceEntryId) {
-                                Text(
-                                    text = stringResource(Res.string.logger_guided_set_started),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            exercise.superset?.let { group ->
-                                Text(
-                                    text = stringResource(
-                                        Res.string.logger_superset_pair_note,
-                                        group.transitionSeconds,
-                                        group.pairRestSeconds
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                if (exercise.occurrenceEntryId == nextEntryId) {
-                                    Text(
-                                        text = stringResource(Res.string.logger_superset_next),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                                if (exercise.occurrenceEntryId in supersetControlEntryIds) {
-                                    // The pair owns one control set. Resume appears here when any
-                                    // member is skipped, so it stays reachable from the active one.
-                                    val pairSkipped = skippedEntryId != null &&
-                                        guided.exercises.any {
-                                            it.occurrenceEntryId == skippedEntryId &&
-                                                it.superset?.key == group.key
-                                        }
-                                    Row {
-                                        if (pairSkipped) {
-                                            TextButton(onClick = onResumeTurn) {
-                                                Text(
-                                                    stringResource(
-                                                        Res.string.logger_superset_resume_turn
-                                                    )
-                                                )
-                                            }
-                                        } else {
-                                            TextButton(
-                                                onClick = {
-                                                    onSkipTurn(exercise.occurrenceEntryId)
-                                                },
-                                                enabled = !writeInProgress
-                                            ) {
-                                                Text(
-                                                    stringResource(
-                                                        Res.string.logger_superset_skip_turn
-                                                    )
-                                                )
-                                            }
-                                        }
-                                        TextButton(
-                                            onClick = { onUnpair(exercise.occurrenceEntryId) },
-                                            enabled = !writeInProgress
-                                        ) {
-                                            Text(stringResource(Res.string.logger_superset_unpair))
-                                        }
-                                    }
-                                }
-                            }
-                            if (exercise.isComplete) {
-                                TextButton(
-                                    onClick = { onToggleExpanded(exercise.occurrenceEntryId) }
-                                ) {
-                                    Text(stringResource(Res.string.logger_guided_collapse_sets))
                                 }
                             }
                         }
-                        TargetExplanationDisclosure(
-                            key = exercise.occurrenceEntryId,
-                            explanation = exercise.explanation,
-                            weightUnit = weightUnit
-                        )
+                        if (isStartedSlot) {
+                            Text(
+                                text = stringResource(Res.string.logger_guided_set_started),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        exercise.superset?.let { group ->
+                            Text(
+                                text = stringResource(
+                                    Res.string.logger_superset_pair_note,
+                                    group.transitionSeconds,
+                                    group.pairRestSeconds
+                                ),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            if (entryId == nextEntryId) {
+                                Text(
+                                    text = stringResource(Res.string.logger_superset_next),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (entryId in supersetControlEntryIds) {
+                                // The pair owns one control set. Resume appears here when any
+                                // member is skipped, so it stays reachable from the active one.
+                                val pairSkipped = skippedEntryId != null &&
+                                    guided.exercises.any {
+                                        it.occurrenceEntryId == skippedEntryId &&
+                                            it.superset?.key == group.key
+                                    }
+                                Row {
+                                    if (pairSkipped) {
+                                        TextButton(onClick = onResumeTurn) {
+                                            Text(
+                                                stringResource(
+                                                    Res.string.logger_superset_resume_turn
+                                                )
+                                            )
+                                        }
+                                    } else {
+                                        TextButton(
+                                            onClick = { onSkipTurn(entryId) },
+                                            enabled = !writeInProgress
+                                        ) {
+                                            Text(
+                                                stringResource(
+                                                    Res.string.logger_superset_skip_turn
+                                                )
+                                            )
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { onUnpair(entryId) },
+                                        enabled = !writeInProgress
+                                    ) {
+                                        Text(stringResource(Res.string.logger_superset_unpair))
+                                    }
+                                }
+                            }
+                        }
+                        if (exercise.isComplete) {
+                            TextButton(onClick = { onToggleExpanded(entryId) }) {
+                                Text(stringResource(Res.string.logger_guided_collapse_sets))
+                            }
+                        }
                     }
                     // Only the paired member whose turn it is gets set controls, so the same round
                     // cannot be logged twice from the group. A single exercise keeps its controls.
-                    // The action column shares the row width; unweighted, a wide child such as the
-                    // live timer takes the whole row and leaves the exercise details no width.
-                    if (exercise.occurrenceEntryId in actionEntryIds) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                    if (entryId in actionEntryIds) {
+                        val timer = setTimer?.takeIf { current ->
+                            current.draft.occurrenceEntryId == entryId
+                        }
+                        if (timer != null && timer.phase != SetTimerPhase.CONFIRMING) {
+                            SetTimerControls(
+                                timer = timer,
+                                onStop = onStopSetTimer,
+                                onCancel = onCancelSetTimer
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val isStartedSlot = startedSetEntryId == exercise.occurrenceEntryId
-                            val timer = setTimer?.takeIf { current ->
-                                current.draft.occurrenceEntryId == exercise.occurrenceEntryId
-                            }
-                            if (timer != null && timer.phase != SetTimerPhase.CONFIRMING) {
-                                SetTimerControls(
-                                    timer = timer,
-                                    onStop = onStopSetTimer,
-                                    onCancel = onCancelSetTimer
-                                )
-                            } else if (setTimer == null &&
-                                exercise.occurrenceEntryId in timedEntryIds &&
-                                startedSetEntryId == null
+                            FlowRow(
+                                modifier = Modifier.weight(1f),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                itemVerticalAlignment = Alignment.CenterVertically
                             ) {
-                                TextButton(
-                                    onClick = { onStartSetTimer(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress
-                                ) {
-                                    Text(stringResource(Res.string.logger_set_timer_start))
+                                // One primary action that follows the set: Start set, then Set
+                                // completed once this slot's set is started, so a disabled button
+                                // never sits beside it.
+                                if (isStartedSlot) {
+                                    Button(
+                                        onClick = { onLogSetNow(entryId) },
+                                        enabled = !writeInProgress,
+                                        shape = MaterialTheme.shapes.medium
+                                    ) {
+                                        Text(
+                                            stringResource(
+                                                Res.string.logger_guided_log_completed_now
+                                            )
+                                        )
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { onStartSet(entryId) },
+                                        enabled = !writeInProgress,
+                                        shape = MaterialTheme.shapes.medium
+                                    ) {
+                                        Text(stringResource(Res.string.logger_guided_start_set))
+                                    }
                                 }
-                            }
-                            // One primary action that follows the set: Start set, then Set completed
-                            // now once this slot's set is started, so a disabled button never sits
-                            // in the column.
-                            if (isStartedSlot) {
-                                Button(
-                                    onClick = { onLogSetNow(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress,
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Text(stringResource(Res.string.logger_guided_log_completed_now))
-                                }
-                            } else {
-                                Button(
-                                    onClick = { onStartSet(exercise.occurrenceEntryId) },
-                                    enabled = !writeInProgress,
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Text(stringResource(Res.string.logger_guided_start_set))
-                                }
-                            }
-                            OutlinedButton(
                                 // A live start owns the completion: an ordinary log is only
-                                // available when no guided set is started.
-                                onClick = { onLogSet(exercise.occurrenceEntryId) },
-                                enabled = !writeInProgress && startedSetEntryId == null,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(Res.string.logger_log_button))
+                                // offered when no guided set is started.
+                                if (startedSetEntryId == null) {
+                                    OutlinedButton(
+                                        onClick = { onLogSet(entryId) },
+                                        enabled = !writeInProgress,
+                                        shape = MaterialTheme.shapes.medium
+                                    ) {
+                                        Text(stringResource(Res.string.logger_log_button))
+                                    }
+                                }
+                                if (timer == null &&
+                                    setTimer == null &&
+                                    entryId in timedEntryIds &&
+                                    startedSetEntryId == null
+                                ) {
+                                    TextButton(
+                                        onClick = { onStartSetTimer(entryId) },
+                                        enabled = !writeInProgress
+                                    ) {
+                                        Text(stringResource(Res.string.logger_set_timer_start))
+                                    }
+                                }
                             }
-                            GuidedDraftActionsMenu(
+                            GuidedMoreMenu(
+                                exerciseId = exercise.exerciseId,
                                 exerciseName = exercise.exerciseName,
-                                entryId = exercise.occurrenceEntryId,
+                                entryId = entryId,
                                 writeInProgress = writeInProgress,
-                                canChangeMeasure =
-                                exercise.occurrenceEntryId in measureChangeEntryIds,
-                                onEditSet = onEditSet,
-                                onChangeMeasure = onChangeMeasure
+                                // A slot that already holds recorded work, or the slot currently
+                                // started, cannot be swapped: hide the action instead of offering a
+                                // refused one.
+                                canReplace = !collapsed &&
+                                    entryId !in frozenEntryIds &&
+                                    entryId != startedSetEntryId,
+                                canCalculateLoading = !collapsed &&
+                                    loggerLoadingTargetEligible(
+                                        exercise.loadKind,
+                                        exercise.weightKg
+                                    ),
+                                canChangeMeasure = entryId in measureChangeEntryIds,
+                                hasExplanationLines = !explanationView?.lines.isNullOrEmpty(),
+                                explanationExpanded = explanationExpanded,
+                                onInstructions = { onInstructions(entryId) },
+                                onReplace = { onReplace(entryId) },
+                                onCalculateLoading = { onLoadingCalculator(exercise) },
+                                onEditSet = { onEditSet(entryId) },
+                                onChangeMeasure = { onChangeMeasure(entryId) },
+                                onToggleExplanation = { explanationExpanded = !explanationExpanded }
                             )
                         }
                     }
@@ -4623,20 +4631,30 @@ private fun GuidedWorkoutSection(
 }
 
 /**
- * The guided row's secondary actions. Editing the pending draft or changing the slot's measure
- * never writes on its own, so both live behind one labeled menu while the set controls stay
- * directly visible. A measure change is only offered for a slot that allows it.
+ * The guided exercise's secondary actions, kept behind one menu so the set controls stay the only
+ * visible buttons. Editing the pending draft or changing the slot's measure never writes on its
+ * own. Each action that does not apply to the slot is left out instead of shown disabled.
  */
 @Composable
-private fun GuidedDraftActionsMenu(
+private fun GuidedMoreMenu(
+    exerciseId: String,
     exerciseName: String,
     entryId: Long,
     writeInProgress: Boolean,
+    canReplace: Boolean,
+    canCalculateLoading: Boolean,
     canChangeMeasure: Boolean,
-    onEditSet: (Long) -> Unit,
-    onChangeMeasure: (Long) -> Unit
+    hasExplanationLines: Boolean,
+    explanationExpanded: Boolean,
+    onInstructions: () -> Unit,
+    onReplace: () -> Unit,
+    onCalculateLoading: () -> Unit,
+    onEditSet: () -> Unit,
+    onChangeMeasure: () -> Unit,
+    onToggleExplanation: () -> Unit
 ) {
     var expanded by remember(entryId) { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
     Box {
         val label = stringResource(Res.string.logger_guided_actions_for, exerciseName)
         TextButton(
@@ -4649,11 +4667,48 @@ private fun GuidedDraftActionsMenu(
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
+                text = { Text(stringResource(Res.string.logger_instructions)) },
+                modifier = Modifier.testTag(LoggerTestTags.guidedInstructions(entryId)),
+                onClick = {
+                    expanded = false
+                    onInstructions()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.logger_watch_demo)) },
+                onClick = {
+                    expanded = false
+                    uriHandler.openExerciseDemo(exerciseId, exerciseName)
+                }
+            )
+            if (canReplace) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.logger_replace)) },
+                    enabled = !writeInProgress,
+                    onClick = {
+                        expanded = false
+                        onReplace()
+                    }
+                )
+            }
+            if (canCalculateLoading) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.logger_loading_calculator_action)) },
+                    modifier = Modifier.testTag(
+                        LoggerLoadingCalculatorTestTags.guidedAction(entryId)
+                    ),
+                    onClick = {
+                        expanded = false
+                        onCalculateLoading()
+                    }
+                )
+            }
+            DropdownMenuItem(
                 text = { Text(stringResource(Res.string.logger_draft_edit)) },
                 enabled = !writeInProgress,
                 onClick = {
                     expanded = false
-                    onEditSet(entryId)
+                    onEditSet()
                 }
             )
             if (canChangeMeasure) {
@@ -4670,7 +4725,26 @@ private fun GuidedDraftActionsMenu(
                     enabled = !writeInProgress,
                     onClick = {
                         expanded = false
-                        onChangeMeasure(entryId)
+                        onChangeMeasure()
+                    }
+                )
+            }
+            if (hasExplanationLines) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                if (explanationExpanded) {
+                                    Res.string.logger_explanation_hide_details
+                                } else {
+                                    Res.string.logger_explanation_details
+                                }
+                            )
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onToggleExplanation()
                     }
                 )
             }

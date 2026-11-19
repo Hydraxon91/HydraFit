@@ -5609,3 +5609,19 @@ Push-up (a search link, since it has no hand-picked video), **Start set** with *
 after tapping Start set one teal **Set completed now** (two lines) with **Log set** greyed and no disabled
 filled button. Not verified: a narrow screen with a large font, the draft-line and manual placements, and
 completing a set from the new button.
+
+## Guided card redesign (post-0.15.1, 2026-11-19)
+
+From the same phone test: each guided exercise carried about nine text actions and its buttons floated in a
+vertically centred column. The exercise is now one column: name with its progress on one line, the target
+line (larger), a quiet reason or summary line, then a row with one primary action (**Start set**, then
+**Set completed** once that slot's set is started), **Log set** (shown only while no set is started) and a
+**More** menu (Instructions, Watch demo, Replace for this workout, Calculate loading, Edit draft, Change
+measurement, Details; actions that do not apply are left out, not disabled). Exercises are separated by a
+divider. The set-completion label is now "Set completed" and the menu button "More" (string keys unchanged).
+
+Automated: the exercisecontent and logger host tests, ktlint and the debug build re-ran and passed. Seen on
+the emulator (debug, guided workouts turned on for the check and off again): the new layout for Incline
+Push-up and Dips, the More menu, and the Start set to Set completed swap with Log set hidden. Not verified:
+a load-tracked exercise (Calculate loading and Details with lines), a superset pair, a timed exercise's
+timer controls, a completed (collapsed) exercise, a large font or tablet width, and TalkBack.

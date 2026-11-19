@@ -24,6 +24,11 @@ fun ExerciseDemoButton(exerciseId: String?, exerciseName: String, modifier: Modi
     }
 }
 
+/** Opens the demo for an exercise (its video, else the search); ignored when nothing can open it. */
+fun UriHandler.openExerciseDemo(exerciseId: String?, exerciseName: String) {
+    ExerciseDemoLink.urlFor(exerciseId, exerciseName)?.let { openDemo(it) }
+}
+
 internal fun UriHandler.openDemo(url: String) {
     // A device with no browser or YouTube app cannot open the link; the screen simply stays put
     // instead of crashing.
