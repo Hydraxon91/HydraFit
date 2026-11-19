@@ -5633,3 +5633,37 @@ anyone who saved one keeps it.
 Automated: `TrainingGoal` and rest-default tests in the domain and database suites (goal change, saved value
 winning, the flow re-emitting), and the seeded planner test now covers every goal including Endurance.
 Not verified: the Settings screen and a rest timer on a device, and a backup taken before and after the change.
+
+## Guided card buttons and demo shortcut (post-0.15.1, 2026-11-19)
+
+From the maintainer's phone test of 0.15.1: **Watch demo** in the guided card was squeezed to one letter
+per line beside **Instructions**, **Set completed now** sat disabled and wrapped across three lines, and
+exercises without a hand-picked video had no demo shortcut. Instructions and **Watch demo** now sit in a
+`FlowRow` (side by side when there is room, stacked when not) in the manual and guided sites; the guided
+card shows one primary set action that is **Start set** until the slot's set is started and then **Set
+completed now**, beside **Log set**; and `ExerciseDemoButton` uses `ExerciseDemoLink.urlFor`, so every
+exercise with a name gets the curated video or the YouTube search.
+
+Automated: the existing link tests (`urlFor` curated, fallback, null id and blank name) and a fresh logger
+and exercisecontent host-test, ktlint and debug-build run. Seen on the emulator (debug, guided workouts
+turned on for the check and off again): Instructions with **Watch demo** stacked beneath it for Incline
+Push-up (a search link, since it has no hand-picked video), **Start set** with **Log set** beside it, and
+after tapping Start set one teal **Set completed now** (two lines) with **Log set** greyed and no disabled
+filled button. Not verified: a narrow screen with a large font, the draft-line and manual placements, and
+completing a set from the new button.
+
+## Guided card redesign (post-0.15.1, 2026-11-19)
+
+From the same phone test: each guided exercise carried about nine text actions and its buttons floated in a
+vertically centred column. The exercise is now one column: name with its progress on one line, the target
+line (larger), a quiet reason or summary line, then a row with one primary action (**Start set**, then
+**Set completed** once that slot's set is started), **Log set** (shown only while no set is started) and a
+**More** menu (Instructions, Watch demo, Replace for this workout, Calculate loading, Edit draft, Change
+measurement, Details; actions that do not apply are left out, not disabled). Exercises are separated by a
+divider. The set-completion label is now "Set completed" and the menu button "More" (string keys unchanged).
+
+Automated: the exercisecontent and logger host tests, ktlint and the debug build re-ran and passed. Seen on
+the emulator (debug, guided workouts turned on for the check and off again): the new layout for Incline
+Push-up and Dips, the More menu, and the Start set to Set completed swap with Log set hidden. Not verified:
+a load-tracked exercise (Calculate loading and Details with lines), a superset pair, a timed exercise's
+timer controls, a completed (collapsed) exercise, a large font or tablet width, and TalkBack.
