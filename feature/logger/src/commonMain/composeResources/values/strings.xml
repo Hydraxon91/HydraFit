@@ -182,11 +182,12 @@
     <string name="logger_guided_set_failed">That set was not saved. The set is still pending; try again.</string>
     <string name="logger_log_failed">That set could not be saved. Keep your entries and try again.</string>
     <string name="logger_log_refresh_failed">Your set was saved, but workout information could not be refreshed.</string>
-    <string name="logger_guided_log_completed_now">Set completed now</string>
+    <string name="logger_guided_log_completed_now">Set completed</string>
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
-    <string name="logger_guided_actions">Draft actions</string>
-    <string name="logger_guided_actions_for">Draft actions for %1$s</string>
+    <string name="logger_guided_actions">More</string>
+    <string name="logger_watch_demo">Watch demo</string>
+    <string name="logger_guided_actions_for">More actions for %1$s</string>
     <string name="logger_guided_expand_sets">Show sets</string>
     <string name="logger_guided_collapse_sets">Hide sets</string>
     <string name="logger_superset_pair_note">Superset: alternate with the paired exercise. Transition %1$d s, pair rest %2$d s.</string>
