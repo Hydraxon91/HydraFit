@@ -15,7 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,6 +31,7 @@ import com.hydrafit.app.core.domain.cardio.CardioActivity
 import com.hydrafit.app.core.domain.cardio.CardioActivityType
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.domain.unit.formatDistance
+import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.cardio.generated.resources.Res
 import hydrafit.feature.cardio.generated.resources.cardio_activity_line
 import hydrafit.feature.cardio.generated.resources.cardio_activity_note
@@ -153,13 +153,11 @@ fun CardioScreen(
             .testTag(CardioTestTags.ROOT),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = stringResource(Res.string.cardio_title),
-            style = MaterialTheme.typography.headlineSmall
+        ScreenHeader(
+            title = stringResource(Res.string.cardio_title),
+            onBack = onBack,
+            backLabel = stringResource(Res.string.cardio_back)
         )
-        OutlinedButton(onClick = onBack) {
-            Text(stringResource(Res.string.cardio_back))
-        }
         Button(
             onClick = onAddActivity,
             modifier = Modifier.testTag(CardioTestTags.ADD)

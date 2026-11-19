@@ -280,9 +280,6 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
             restoreState = false
         }
     }
-    val closeProgress: () -> Unit = {
-        if (!navController.popBackStack()) openTab(AppTab.LOG)
-    }
     // Cardio is the same shape: a shell-owned pushed destination so the Logger offers the entry
     // without importing the feature. The graph pops its own back stack entry.
     val openCardio: () -> Unit = {
@@ -431,7 +428,7 @@ private fun AppContent(requestedTabName: String?, onTabRequestConsumed: () -> Un
                             // Setup registers its own routes; it is not a seventh tab entry.
                             onboardingGraph(navController = navController, onClose = closeSetup)
                             // Progress owns its pushed destinations outside the shell tabs.
-                            progressGraph(navController = navController, onClose = closeProgress)
+                            progressGraph(navController = navController)
                             // Cardio is the same standalone pushed destination.
                             cardioGraph(navController = navController)
                         }

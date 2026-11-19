@@ -31,6 +31,7 @@ kotlin {
             implementation(project(":core:domain"))
             implementation(project(":core:userdata"))
             implementation(project(":core:navigation"))
+            implementation(project(":core:ui"))
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.navigation.compose)

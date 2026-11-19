@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.domain.workout.ExerciseActivity
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryPage
 import com.hydrafit.app.core.domain.workout.ExerciseHistoryRequest
 import com.hydrafit.app.core.domain.workout.ExerciseProgress
@@ -25,6 +26,7 @@ import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +51,9 @@ class ProgressViewModelTest {
     private class FakeProgressRepository : ExerciseProgressRepository {
         val progressRequests = mutableListOf<ExerciseProgressRequest>()
         val historyRequests = mutableListOf<ExerciseHistoryRequest>()
+        var activity: List<ExerciseActivity> = emptyList()
+        var activityFails = false
+        var activitySince: Long? = null
         var progressFlow: (ExerciseProgressRequest) -> Flow<ExerciseProgress> =
             { flowOf(ExerciseProgress(emptyList(), emptyList(), emptyList())) }
         var historyFlow: (ExerciseHistoryRequest) -> Flow<ExerciseHistoryPage> =
@@ -56,6 +61,16 @@ class ProgressViewModelTest {
         var setFlow: (String, Long) -> Flow<WorkoutHistorySet?> = { _, _ -> flowOf(null) }
         var stationOptionsFlow: (String) -> Flow<List<StationAttribution>> =
             { flowOf(emptyList()) }
+
+        override suspend fun exerciseActivity(
+            sinceMillis: Long,
+            nowMillis: Long,
+            utcOffsetMillis: Long
+        ): List<ExerciseActivity> {
+            activitySince = sinceMillis
+            check(!activityFails) { "activity read failed" }
+            return activity
+        }
 
         override fun observeHistory(request: ExerciseHistoryRequest): Flow<ExerciseHistoryPage> {
             historyRequests += request
@@ -125,6 +140,132 @@ class ProgressViewModelTest {
         timeProvider = timeProvider,
         distanceUnitRepository = distanceUnitRepository
     )
+
+    @Test
+    fun exercisesAreOrderedByRecentSessionsThenRecencyThenName() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val day = 86_400_000L
+            val repository = FakeProgressRepository().apply {
+                activity = listOf(
+                    ExerciseActivity("squat", nowMillis - 2 * day, recentSessions = 5),
+                    ExerciseActivity("bench", nowMillis - 1 * day, recentSessions = 9),
+                    ExerciseActivity("curl", nowMillis - 40 * day, recentSessions = 0),
+                    ExerciseActivity("row", nowMillis - 3 * day, recentSessions = 5)
+                )
+            }
+            val viewModel = viewModel(
+                repository = repository,
+                catalog = FakeCatalog(
+                    listOf(
+                        exercise("squat", "Squat"),
+                        exercise("bench", "Bench"),
+                        exercise("curl", "Curl"),
+                        exercise("row", "Row"),
+                        exercise("plank", "Plank"),
+                        exercise("ab-roll", "Ab Roll")
+                    )
+                )
+            )
+            advanceUntilIdle()
+
+            val options = viewModel.state.value.exercises
+            // Nine sessions, then five (the more recent of the two first), then logged earlier, then
+            // the never-logged ones A to Z.
+            assertEquals(
+                listOf("bench", "squat", "row", "curl", "ab-roll", "plank"),
+                options.map { it.id }
+            )
+            assertEquals(1, options.first().daysSinceLast)
+            assertEquals(40, options.first { it.id == "curl" }.daysSinceLast)
+            assertNull(options.first { it.id == "plank" }.daysSinceLast)
+            assertEquals(nowMillis - 90 * day, repository.activitySince)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun theLatestEstimateAndItsChangeReachTheListOptions() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository().apply {
+                activity = listOf(
+                    ExerciseActivity(
+                        "a",
+                        nowMillis,
+                        3,
+                        latestEstimatedOneRepMaxKg = 160.0,
+                        previousEstimatedOneRepMaxKg = 140.0
+                    ),
+                    ExerciseActivity("b", nowMillis, 1, latestEstimatedOneRepMaxKg = 90.0)
+                )
+            }
+            val viewModel = viewModel(
+                repository = repository,
+                catalog = FakeCatalog(
+                    listOf(exercise("a", "Squat"), exercise("b", "Bench"), exercise("c", "Curl"))
+                )
+            )
+            advanceUntilIdle()
+
+            val options = viewModel.state.value.exercises.associateBy { it.id }
+            assertEquals(160.0, options.getValue("a").latestEstimateKg)
+            assertEquals(20.0, options.getValue("a").estimateChangeKg)
+            assertEquals(90.0, options.getValue("b").latestEstimateKg)
+            assertNull(options.getValue("b").estimateChangeKg)
+            assertNull(options.getValue("c").latestEstimateKg)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun withNoActivityTheListIsPlainAlphabeticalAndAFailedReadDoesNotBreakIt() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository().apply { activityFails = true }
+            val viewModel = viewModel(
+                repository = repository,
+                catalog = FakeCatalog(
+                    listOf(exercise("b", "Bench"), exercise("a", "Ab Roll"), exercise("c", "Curl"))
+                )
+            )
+            advanceUntilIdle()
+
+            assertEquals(listOf("a", "b", "c"), viewModel.state.value.exercises.map { it.id })
+            assertTrue(viewModel.state.value.exercises.all { it.daysSinceLast == null })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun resumingTheScreenRefreshesTheOrderAfterNewTraining() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeProgressRepository()
+            val viewModel = viewModel(
+                repository = repository,
+                catalog = FakeCatalog(listOf(exercise("a", "Ab Roll"), exercise("b", "Bench")))
+            )
+            advanceUntilIdle()
+            assertEquals(listOf("a", "b"), viewModel.state.value.exercises.map { it.id })
+
+            repository.activity = listOf(ExerciseActivity("b", nowMillis, recentSessions = 1))
+            viewModel.onResume()
+            advanceUntilIdle()
+
+            assertEquals(listOf("b", "a"), viewModel.state.value.exercises.map { it.id })
+            assertEquals(0, viewModel.state.value.exercises.first().daysSinceLast)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
 
     @Test
     fun selectingAnotherExerciseCancelsThePreviousHistoryCollector() = runTest {

@@ -25,8 +25,20 @@ enum class ProgressMetric {
     ESTIMATED_ONE_REP_MAX
 }
 
-/** One selectable exercise, with the current catalog name used for search and display. */
-data class ProgressExerciseOption(val id: String, val name: String)
+/**
+ * One selectable exercise, with the current catalog name used for search and display. [recentSessions]
+ * is how many distinct sessions it appeared in over the recent window and [daysSinceLast] how many
+ * local days ago it was last logged, or null when it never has been.
+ */
+data class ProgressExerciseOption(
+    val id: String,
+    val name: String,
+    val recentSessions: Int = 0,
+    val daysSinceLast: Int? = null,
+    /** The newest recorded estimated one-rep max in kilograms, and its change from the day before. */
+    val latestEstimateKg: Double? = null,
+    val estimateChangeKg: Double? = null
+)
 
 /**
  * Presentation state for the standalone Exercise Progress destination.

@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_back
 import hydrafit.feature.equipment.generated.resources.equipment_profile_active
@@ -70,20 +70,11 @@ internal fun EquipmentHomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = stringResource(Res.string.equipment_profiler_title),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = onBack) {
-                Text(stringResource(Res.string.equipment_back))
-            }
-        }
+        ScreenHeader(
+            title = stringResource(Res.string.equipment_profiler_title),
+            onBack = onBack,
+            backLabel = stringResource(Res.string.equipment_back)
+        )
         // Only a coherent, loaded profile is named. While the first snapshot is missing the hub
         // makes no claim about which profile is active.
         state.profile?.let { summary ->

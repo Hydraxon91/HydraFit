@@ -10,6 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -96,22 +98,28 @@ internal fun ProgressMetricChart(
     val format = currentPresentationNumberFormat()
     val decimals = progressAxisLabelDecimals(axis)
     val markColor = MaterialTheme.colorScheme.primary
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val baselineColor = MaterialTheme.colorScheme.outline
     val labelStyle = MaterialTheme.typography.labelSmall.copy(
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     val textMeasurer = rememberTextMeasurer()
+    val latestLabel: (Double) -> String = { value ->
+        when (metric) {
+            ProgressMetric.ESTIMATED_ONE_REP_MAX -> displayWeight(value, weightUnit, format)
+            ProgressMetric.EXTERNAL_VOLUME -> displayVolume(value, weightUnit, format)
+        }
+    }
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp)
             .clearAndSetSemantics {}
     ) {
-        val markRadius = 3.dp.toPx()
+        val markRadius = 4.dp.toPx()
         val gap = 6.dp.toPx()
         val strokeWidth = 1.dp.toPx()
-        val lineWidth = 2.dp.toPx()
+        val lineWidth = 2.5.dp.toPx()
         val yLabels = axis.ticks.mapIndexed { index, tick ->
             val layout = textMeasurer.measure(
                 text = progressAxisTickLabel(tick, weightUnit, format, decimals),
@@ -178,6 +186,28 @@ internal fun ProgressMetricChart(
         fun yForPoint(point: ProgressChartPoint): Float =
             progressAxisY(point.value, axis, plotTop, plotBottom, markRadius)
 
+        val carryBack = progressCarryBackSegment(points, dayFrom)
+        val sorted = points.sortedBy { it.localEpochDay }
+        // A soft fill of the same colour under the line, including the dashed lead-in, gives the plot
+        // body without implying a value on any day: only the marks are measurements.
+        val fillStart = carryBack?.from ?: sorted.first()
+        val area = Path().apply {
+            moveTo(xForPoint(fillStart), plotBottom)
+            lineTo(xForPoint(fillStart), yForPoint(fillStart))
+            sorted.forEach { lineTo(xForPoint(it), yForPoint(it)) }
+            lineTo(xForPoint(sorted.last()), plotBottom)
+            close()
+        }
+        drawPath(path = area, color = markColor.copy(alpha = 0.12f))
+        carryBack?.let { segment ->
+            drawLine(
+                color = markColor.copy(alpha = 0.55f),
+                start = Offset(xForPoint(segment.from), yForPoint(segment.from)),
+                end = Offset(xForPoint(segment.to), yForPoint(segment.to)),
+                strokeWidth = lineWidth,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 8.dp.toPx()))
+            )
+        }
         // Straight segments join observed values across unlogged dates; dots still mark the only
         // measured values, so the line is a visual connection rather than inferred daily data.
         progressChartSegments(points).forEach { segment ->
@@ -194,6 +224,26 @@ internal fun ProgressMetricChart(
                 radius = markRadius,
                 center = Offset(xForPoint(point), yForPoint(point))
             )
+        }
+        // The newest recorded value is named on the chart, with a soft halo, so the number the eye
+        // goes to is on the plot and not only in the table below.
+        points.maxByOrNull { it.localEpochDay }?.let { latest ->
+            val center = Offset(xForPoint(latest), yForPoint(latest))
+            drawCircle(
+                color = markColor.copy(alpha = 0.18f),
+                radius = markRadius * 2.2f,
+                center = center
+            )
+            val label = textMeasurer.measure(
+                text = latestLabel(latest.value),
+                style = labelStyle.copy(color = markColor),
+                softWrap = false
+            )
+            val left = (center.x - label.size.width / 2f)
+                .coerceIn(plotLeft, (size.width - label.size.width).coerceAtLeast(plotLeft))
+            val top = (center.y - markRadius * 2.2f - label.size.height - 2.dp.toPx())
+                .coerceAtLeast(0f)
+            drawText(textLayoutResult = label, topLeft = Offset(left, top))
         }
 
         datePlacements.forEach { placement ->

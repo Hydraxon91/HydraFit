@@ -54,6 +54,7 @@ import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
+import com.hydrafit.app.core.ui.ScreenHeader
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
@@ -407,20 +408,11 @@ fun EquipmentProfilerScreen(
             .testTag(section.contentTag),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = stringResource(section.title),
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = onBack) {
-                Text(stringResource(Res.string.equipment_back))
-            }
-        }
+        ScreenHeader(
+            title = stringResource(section.title),
+            onBack = onBack,
+            backLabel = stringResource(Res.string.equipment_back)
+        )
         // The profile arrives asynchronously; until it does, a section would read as having no
         // equipment, exclusions or records.
         if (state.isLoading) {

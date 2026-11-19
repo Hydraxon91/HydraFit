@@ -5592,6 +5592,44 @@ set and the filled demo button; Band Row shows muscles, "Not logged yet" and the
 Tapping the name in the workout overview was also seen on the emulator (Incline Push-up). Not verified: the guided-card and draft-line name taps, a timed or bodyweight exercise's lines, pound
 units, and a device. The Library list does not show the card.
 
+## Progress redesign and back arrows (post-0.15.1, 2026-11-19)
+
+From the maintainer's review: the Exercise progress list was A to Z across the whole catalog, its chart read as bare
+gridlines and a dot above a wall of records, and every drill-down screen put Back at the top right (the Progress
+root as well, though the bottom bar already leaves it). The list is now ordered by recent sessions, then recency,
+then name (a grouped `workoutSet` query, no migration), with sections and a collapsed not-logged-yet group; the
+chart gets a larger latest point with a halo and its value and a lighter grid; the detail leads with best
+estimated 1RM and heaviest load cards and folds the record list and the per-day table behind toggles (the
+table stays the accessible numeric equivalent, one tap away); and `:core:ui` `ScreenHeader` gives Body weight,
+Cardio, Equipment, Routines, Settings pages and the Logger's child pages a left back arrow. The Progress root has
+no back action. The routine card reads "Workouts: 1" instead of "1 workouts".
+
+Automated: `exercisesAreOrderedByRecentSessionsThenRecencyThenName`, the plain-A-to-Z fallback with a failing read,
+the on-resume reorder, and `exerciseActivityCountsDistinctRecentSessionsAndReportsTheNewestWorkingSet` (session
+grouping, a session-less set counting once, the cutoff, warm-ups excluded). Seen on the emulator (debug): the new list and
+its sections, the Back Squat detail with the halo and value, the summary cards and All records, the arrow on
+Routines and Workout preferences, and no Back on the Progress root. Not verified: Body weight, Cardio, Equipment
+sections and the Logger child pages after the change, a large font, the two-pane tablet layout, TalkBack on
+the collapsed table, and a long exercise name beside the arrow.
+
+## Progress list estimates, a fuller chart and the Settings hub (post-0.15.1, 2026-11-19)
+
+Follow-ups from the maintainer's review of the previous change. Each Exercise progress row now shows the exercise's
+latest estimated one-rep max and its signed change from the previous recorded day ("+5 kg", an explicit minus sign,
+or "No change"), computed from the last 90 days with the chart's own per-day derivation. The chart no longer
+leaves its left side empty: a dashed, lighter extension carries the first recorded value back to the start of the
+window and a soft shading of the line colour fills beneath the line, with the caption saying plainly that the dashed
+lead-in and the shading are for reference and not measurements. This deliberately relaxes the 0.13.4 rule that
+nothing is carried or filled: the marks, the solid segments and the per-day table still hold only recorded values.
+The Settings home uses a shared `HubCard` with a glyph per category, like the Equipment hub.
+
+Automated: `exerciseActivityReportsTheLatestAndPreviousEstimatedOneRepMax` (window-bounded, an old heavier set
+ignored, an exercise trained only earlier has none), the ViewModel mapping of latest and change to the options, and
+`progressCarryBackSegment` tests (extension to the window start, none when the first mark starts the window or
+there are none). Seen on the emulator (debug): the Settings cards, the list with an estimate and a signed change,
+and the dashed lead-in with shading on Back Squat. Not verified: a chart with several marks and the shading's
+slope, the Estimated 1RM metric with the lead-in, dark theme, a large font, and a tablet width.
+
 ## Planner: arm volume, variety and chest ranking (post-0.15.1, 2026-11-19)
 
 From the maintainer's phone test: a four-day plan gave two arm exercises of two sets for each arm, and an EZ-bar
