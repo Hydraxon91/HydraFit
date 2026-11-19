@@ -1,0 +1,156 @@
+# The deterministic planner — how it works
+
+This is a map of the offline planner, written so a person or another model can understand it without
+reading all of `core/domain/.../engine/`. It describes the code on the day it was written; the code wins
+if they disagree, so fix this note in the same change (see "Keeping this current").
+
+Entry point: `DeterministicWorkoutPlannerEngine.generatePlan(PlanRequest): WeeklyPlan`
+(`core/domain/src/commonMain/kotlin/com/hydrafit/app/core/domain/engine/`). It is one of two engines behind
+the `WorkoutPlannerEngine` interface; the other is Groq (`docs/planner-groq-prompts.md`). The deterministic
+one needs no network, no key and no model. Same request in, same plan out: there is no randomness, and the
+last tie-break is the exercise id.
+
+## What goes in
+
+`PlanRequest` carries everything the engine may look at:
+
+| Input | Meaning |
+| --- | --- |
+| `daysPerWeek` | 2 to 6 (`MIN_DAYS`/`MAX_DAYS`); anything else throws. |
+| `splitPreference` | `AUTO`, full body, upper/lower or push/pull/legs. |
+| `goal` | `BALANCED`, `STRENGTH`, `HYPERTROPHY` or `ENDURANCE`. |
+| `setsPerExercise`, `accessorySetsPerExercise` | 1 to 8; default from the goal, adjustable in the split builder. |
+| `availableEquipment`, `excludedExerciseIds` | Hard gates. |
+| `exercisePreferences` | Soft tier: prefer, neutral, prefer less. Never required, never excluding. |
+| `muscleFatigue`, `fatigueByWorkout` | Modelled fatigue per muscle, now and (when dated) per planned workout. |
+| `recentExerciseIdsByPattern` | What the previous plan used, for rotation. |
+| `suggestedWeightsKg`, `recentWeightCaps`, `lowRepManualFloorsKg`, `suggestedAddedLoadsKg`, `withheldWeightExerciseIds`, `loadExplanations` | The load evidence, built by `BuildPlannerLoadInputsUseCase`. |
+| `equipmentMaxWeights`, `loadingInventory` | Ceiling and the real bars, plates and dumbbells. |
+| `weekNumber`, `cycleNumber`, `isDeload` | Position in the 4-week cycle. |
+| `automaticSetPrescription`, `plannerSupersetPreference` | Opt-ins for ordered per-set targets and arm supersets. |
+
+## The week, step by step
+
+1. **Eligibility** (`PlannerCandidateEligibility`). An exercise is a candidate only if the user has its
+   equipment, has not excluded it, and is not manual-only (shrugs and neck work are never planned). If a
+   focus in the split has no eligible exercise at all, generation fails with `NO_ELIGIBLE_EXERCISES`.
+2. **The split** (`SplitResolver`). Auto is full body for 2 or 3 days, upper/lower for 4, push/pull/legs for
+   6, and a special upper, lower, push, pull, legs cycle for 5 (so legs are not trained once and push and
+   pull twice). Each day gets a focus.
+3. **Targets for the goal.** `WeeklyVolumeTargets` gives each muscle a window of involvement-weighted sets
+   per week: Balanced 8/11/18, Strength 6/9/15, Hypertrophy 8/13/20, Endurance 6/9/16 (min/target/max). The
+   target drives selection; the maximum is a soft ceiling; the minimum is reported only. A deload scales the
+   window by 0.7. These are product defaults, not validated per-muscle optima.
+4. **Day by day**, in order, each day sees the running weekly ledger from the days before it:
+   - **Compounds first.** For each compound group of the focus (for example push: horizontal push, then
+     vertical push) one exercise is chosen. A compound not yet used this week is preferred; if none remains
+     one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
+     pattern's muscles (see "Ranking").
+   - **Then isolation and accessories** until the day has 4 to 6 exercises (`PlannerExerciseCounts`). First
+     any unmet **direct arm** work, then the largest remaining volume deficit. Past 4 exercises an accessory
+     is only added while it still has a deficit to fill.
+5. **Per exercise** (`plannedExercise`): sets, reps, load, timed or counted, with an explanation record.
+6. **Output.** A `WeeklyPlan` with the days, the arm-coverage report and a `PlanExplanation` that lists
+   deload state and which exercises were skipped for soreness. Nothing is persisted by the engine.
+
+## Ranking
+
+`rankCandidates` sorts with an ordered comparator; the first difference decides:
+
+1. the user's preference (prefer, then neutral, then prefer less),
+2. the largest remaining **deficit** (how far the muscles it trains are below the weekly target, weighted
+   by involvement),
+3. for compound slots only, **breadth** (the summed deficit across the pattern's primary muscles),
+4. weighted **fatigue** (a tie-break: a tiny fatigue difference never beats a big deficit),
+5. already used this week,
+6. used by the previous plan for that pattern (rotation),
+7. equipment rank: barbell, dumbbell, cable/machine, kettlebell, band, pull-up bar, bench, bodyweight,
+   custom equipment last,
+8. the id, so the order is stable.
+
+For a compound slot the deficit is the mean over the pattern's primary muscles that the exercise really
+trains, not the maximum over everything it touches. That is why a press is chosen for its chest work and not
+for one high triceps weight. Primaries per pattern are in `PATTERN_PRIMARY_MUSCLES`: horizontal push is
+upper and lower chest, vertical push front and side delts, horizontal pull upper back and lats, vertical pull
+lats, squat and lunge quads and glutes, hinge hamstrings, glutes and lower back. An involvement at or above
+0.7 counts as full, because the catalog is noisy (0.7 on one press and 1.0 on another is not a reason to
+prefer one). Traps are excluded from the volume ledger (they share work with the upper back) but still count
+for fatigue.
+
+## Fatigue and soreness
+
+The fatigue model is documented in `docs/fatigue-formula.md`. In short: each muscle has a bounded index
+between 0 and 1 that rises with working sets and decays exponentially, with a 18 to 24 hour base half-life
+and compound work recovering 1.25 times slower. It is an **uncalibrated heuristic**: it orders and
+gates, it does not measure recovery. The planner uses it twice, with raw targeted fatigue (muscles the
+exercise loads at 0.7 or more):
+
+- **Skip.** At 0.80 or more the candidate is passed over; the next ranked non-sore candidate is used and
+  the skipped ids are recorded.
+- **Reduce.** At 0.65 or more the exercise keeps its place but loses one set (minimum one).
+
+## Direct arm work (`DirectArmCoverage`)
+
+Biceps and triceps get a dedicated weekly target of isolation sets, because compound credits alone leave
+them low. The target grows with frequency: 4 for two days, 6 for three or four, 8 for five or six; Endurance
+stays at 4. Each arm exercise gets at least 3 sets (Endurance keeps its accessory count) so a few slots
+reach the target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
+target is a last resort so one arm cannot take every accessory slot. Pull isolation also includes rear-delt
+work so a second pull day is not only arm repeats. A deload does not chase the target. The result is
+reported in `WeeklyPlan.armCoverage` with a reason when unmet (no candidate, all skipped for fatigue, and so
+on).
+
+## Variety
+
+An isolation exercise not yet used this week is preferred (`pickFreshFirst`), and repeats only when nothing
+else is eligible. An exercise the user marked prefer is never treated as stale. This is what stops, for
+example, the same skullcrusher on both Tuesday and Thursday.
+
+## Sets, reps and load
+
+- **Sets:** the compound or accessory count, minus one if sore, scaled by 0.7 in a deload (minimum one).
+- **Reps:** fixed by the goal, not traded against sets. Balanced 6 compound and 12 isolation, Strength 5 and
+  8, Hypertrophy 8 and 12, Endurance 15 and 15 (`TrainingGoal`, `VolumeAwareReps`).
+- **Default sets:** Balanced 3 compound and 2 accessory, Strength 4 and 3, Hypertrophy 3 and 2, Endurance 2
+  and 2.
+- **Timed exercises** (a plank) carry seconds in place of reps and never a load.
+- **Load:** only for external-resistance exercises. The progressed estimated one-rep max for the exercise,
+  capped by the recent cap, is converted at the planned reps with the NSCA reps-to-percentage table
+  (`SuggestedWeightConfig`: 100% at 1 rep down to 65% at 15) discounted by a reserve buffer of 10% that
+  tapers to 2% between 6 and 12 reps, and scaled by 0.8 in a deload. The result is rounded to 2.5 kg, then
+  resolved to a load actually reachable with the saved bars, plates and dumbbells (always at or below the
+  bound), and clamped to the equipment ceiling. With no usable evidence the exercise carries no number and an
+  `unavailableReason`.
+- **Added load** (weighted pull-ups) is the recorded number advanced by the success and miss streak rule,
+  never estimated from reps and never scaled for a deload.
+- **Ordered per-set targets** come from the shared `ApplySetPrescriptionRecipeUseCase`, the same stage the
+  Groq sanitizer uses, so both engines produce the same shape from the same input.
+
+The load evidence itself is built outside the engine: `BuildPlannerLoadInputsUseCase` takes a
+session-balanced baseline (each session votes with its best set, the median wins; a manual PR counts only at
+three reps or more) and `ProgressWeightsUseCase` and the slot progression use cases advance it.
+
+## Periodization
+
+One "week" is one accepted plan. `PeriodizationConfig` runs a 4-week cycle with the deload in week 4: volume
+scaled by 0.7, intensity by 0.8. Skipping or accepting irregularly cannot shift the deload.
+
+## Known limits
+
+- A 4-day week still gives about 6 direct chest sets; a 2-day week is thin on everything by design.
+- A custom exercise that lists a single muscle ranks slightly lower in compound slots than a catalog lift
+  that lists several.
+- The alphabetical id is the final tie-break, so equal catalog lifts resolve the same way every week.
+- Volume windows, the fatigue model and the deload scales are heuristics expected to be tuned.
+- The engine does not know weekdays or time of day, only the order of workouts.
+
+## Where the behaviour is pinned
+
+`DeterministicWorkoutPlannerEngineTest`, `DirectArmCoverage` tests, `VolumeReasonAttributionTest` and the
+real-catalog `SeededPlannerQualityTest` (`core/database`, 2 to 6 days across every goal). Run
+`./gradlew :core:domain:testAndroidHostTest :core:database:testAndroidHostTest` after any planner change.
+
+## Keeping this current
+
+Change the ranking, the targets, the arm rules, the split or the load conversion, and this file and
+`.opencode/skills/hydrafit-mechanics/references/planning.md` change in the same commit.
