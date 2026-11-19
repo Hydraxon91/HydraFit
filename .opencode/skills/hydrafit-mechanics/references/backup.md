@@ -115,7 +115,7 @@ training-guidance opt-ins; versions 1–5 default them off.
 When the optional settings record is present, `guidedWorkoutEnabled` is required in formats 2–10;
 format 1 defaults it off because that version predates the setting.
 Formats 5–10 carry one global rest duration and optional per-exercise overrides; versions 1–4
-default to a 120-second global duration with no overrides. Countdown state is deliberately
+default to a 120-second global duration with no overrides. A backup taken while no global default is saved exports the selected goal's default. Countdown state is deliberately
 excluded and cleared during restore. Formats 4–10 require per-set timing provenance and explicit nullable elapsed fields; format 3 requires
 and preserves timing provenance while elapsed fields default to null; formats 1–2 default timing
 provenance to `UNKNOWN` and elapsed fields to null. At that point exports used version 21; the

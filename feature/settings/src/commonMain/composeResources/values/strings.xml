@@ -28,7 +28,7 @@
     <string name="settings_guided_workout">Enable guided workouts</string>
     <string name="settings_guided_workout_description">Follow an active scheduled workout one set at a time. Off by default; manual logging stays available.</string>
     <string name="settings_rest_default_section">Default rest duration</string>
-    <string name="settings_rest_default_description">Used when an exercise has no saved rest override. Goal-based ranges are guidance only.</string>
+    <string name="settings_rest_default_description">Used when an exercise has no saved rest override. Until you save your own, it follows your training goal: 3 minutes for Strength, 2 for Balanced and Hypertrophy, 1 for Endurance. These are guidance only.</string>
     <string name="settings_rest_default_seconds">Seconds (1–86400)</string>
     <string name="settings_rest_default_save">Save default</string>
     <string name="settings_rest_alerts">Background rest alerts</string>

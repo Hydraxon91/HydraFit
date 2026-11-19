@@ -24,6 +24,7 @@ class VolumeReasonAttributionTest {
                 compatibleCandidatesByMuscle = mapOf(MuscleGroup.BICEPS to listOf(curl)),
                 fatigue = mapOf(MuscleGroup.BICEPS to 0.9),
                 isDeload = false,
+                targetSets = DirectArmCoverage.BASE_TARGET_SETS_PER_MUSCLE,
                 attribution = attribution,
                 skippedCandidateIds = skipped
             ).single { it.muscle == MuscleGroup.BICEPS }.unmetReason

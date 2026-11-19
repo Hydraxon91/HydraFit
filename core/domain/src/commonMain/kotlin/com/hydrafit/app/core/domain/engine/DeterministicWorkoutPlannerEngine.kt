@@ -57,6 +57,7 @@ class DeterministicWorkoutPlannerEngine(
             request.goal,
             if (isDeload) periodization.deloadVolumeScale else 1.0
         )
+        val armTargetSets = DirectArmCoverage.targetSetsPerMuscle(request.daysPerWeek, request.goal)
 
         val days = List(request.daysPerWeek) { index ->
             val focus = focuses[index]
@@ -70,6 +71,7 @@ class DeterministicWorkoutPlannerEngine(
                     weeklyVolume,
                     directArmSets,
                     target,
+                    armTargetSets,
                     request.fatigueForWorkout(index),
                     request.setsPerExercise,
                     request.accessorySetsPerExercise,
@@ -106,6 +108,7 @@ class DeterministicWorkoutPlannerEngine(
                 compatibleCandidatesByMuscle = compatibleArmCandidates,
                 fatigue = request.muscleFatigue,
                 isDeload = isDeload,
+                targetSets = armTargetSets,
                 skippedCandidateIds = skippedForSoreness
             ),
             explanation = PlanExplanation(
@@ -126,6 +129,7 @@ class DeterministicWorkoutPlannerEngine(
         weeklyVolume: MutableMap<MuscleGroup, Double>,
         directArmSets: MutableMap<MuscleGroup, Int>,
         target: VolumeTarget,
+        armTargetSets: Int,
         fatigue: Map<MuscleGroup, Double>,
         setsPerExercise: Int,
         accessorySetsPerExercise: Int,
@@ -147,7 +151,7 @@ class DeterministicWorkoutPlannerEngine(
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
 
-        fun pick(candidates: List<Exercise>): Boolean {
+        fun pick(candidates: List<Exercise>, slotRanking: Boolean = false): Boolean {
             // Ordering is by weighted fatigue, but the skip uses raw targeted fatigue, so a lower-
             // ranked candidate can be fresh while the top one is sore. Try candidates in order and
             // take the first that is not sore instead of rejecting the whole group.
@@ -158,7 +162,8 @@ class DeterministicWorkoutPlannerEngine(
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
                 weeklyVolume = weeklyVolume,
                 target = target,
-                exercisePreferences = exercisePreferences
+                exercisePreferences = exercisePreferences,
+                slotRanking = slotRanking
             )
             val candidate = pickFirstNonSore(ranked, fatigue)
             ranked.takeWhile { it.id != candidate?.id }.forEach { skippedForSoreness += it.id }
@@ -193,6 +198,17 @@ class DeterministicWorkoutPlannerEngine(
             return true
         }
 
+        // Variety within the week: an isolation exercise not yet used this week is preferred, and one
+        // repeats only when no other eligible candidate remains. An exercise the user prefers is never
+        // treated as stale, so their preference still wins.
+        fun pickFreshFirst(candidates: List<Exercise>): Boolean {
+            val fresh = candidates.filter {
+                it.id !in weekUsed ||
+                    exercisePreferences[it.id] == ExercisePreference.PREFER
+            }
+            return pick(fresh) || pick(candidates)
+        }
+
         // One compound for each major pattern in the focus, chosen by the largest remaining deficit.
         // Prefer a compound not yet used this week; if none remains, repeat an eligible one so the
         // day is not left incomplete (completeness outranks within-week novelty).
@@ -204,7 +220,9 @@ class DeterministicWorkoutPlannerEngine(
                     !isAtMax(it, weeklyVolume, target)
             }
             val fresh = eligible.filter { it.id !in weekUsed }
-            pick(fresh) || pick(eligible)
+            // Each candidate is ranked by its own pattern's muscles, so a press is chosen for its
+            // chest work and not for a single high triceps weight.
+            pick(fresh, slotRanking = true) || pick(eligible, slotRanking = true)
         }
 
         // Pursue unmet direct arm coverage first, then fill toward TARGET_MIN and chase weighted
@@ -219,7 +237,9 @@ class DeterministicWorkoutPlannerEngine(
             val directArmCandidates = if (isDeload) {
                 emptyList()
             } else {
-                candidates.filter { DirectArmCoverage.needsCoverage(it, directArmSets) }
+                candidates.filter {
+                    DirectArmCoverage.needsCoverage(it, directArmSets, armTargetSets)
+                }
             }
             // Fairness: feed the arm with fewer direct sets first, so one arm cannot consume every
             // accessory slot while the other stays under target.
@@ -229,7 +249,7 @@ class DeterministicWorkoutPlannerEngine(
                 }
                 .groupBy({ it.first }, { it.second })
                 .entries.sortedBy { (muscle, _) -> directArmSets[muscle] ?: 0 }
-            if (priorityPools.any { (_, pool) -> pick(pool) }) {
+            if (priorityPools.any { (_, pool) -> pickFreshFirst(pool) }) {
                 // Dedicated arm coverage takes precedence over the weighted ceiling: compound
                 // credits must not make qualifying direct work ineligible.
                 continue
@@ -237,11 +257,21 @@ class DeterministicWorkoutPlannerEngine(
             val remaining = candidates.filter { candidate ->
                 // A deload does not chase the direct-arm target, so an eligible arm isolation is an
                 // ordinary accessory there; only a normal week reserves it for the priority branch.
-                (isDeload || !DirectArmCoverage.needsCoverage(candidate, directArmSets)) &&
+                (
+                    isDeload ||
+                        !DirectArmCoverage.needsCoverage(candidate, directArmSets, armTargetSets)
+                    ) &&
                     !isAtMax(candidate, weeklyVolume, target) &&
                     (!pastMinimum || hasDeficit(candidate, weeklyVolume, target))
             }
-            if (!pick(remaining)) break
+            // Direct arm work beyond the weekly target is a last resort: other isolation work fills
+            // the slot first, so one arm cannot soak up every accessory slot on a pull or push day.
+            val (armOverflow, ordinary) = remaining.partition { candidate ->
+                DirectArmCoverage.muscleFor(candidate)?.let { muscle ->
+                    (directArmSets[muscle] ?: 0) >= armTargetSets
+                } == true
+            }
+            if (!(pickFreshFirst(ordinary) || pickFreshFirst(armOverflow))) break
         }
 
         return picks
@@ -262,7 +292,8 @@ class DeterministicWorkoutPlannerEngine(
         recentExerciseIdsByPattern: Map<MovementPattern, Set<String>>,
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget,
-        exercisePreferences: Map<String, ExercisePreference> = emptyMap()
+        exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
+        slotRanking: Boolean = false
     ): List<Exercise> {
         val comparator = compareBy<Exercise>(
             // Explicit user preference ranks first among candidates that already passed the hard
@@ -271,7 +302,10 @@ class DeterministicWorkoutPlannerEngine(
             // Coverage next: address the largest remaining shortfall, then use the (unvalidated)
             // fatigue estimate only to break ties, so a negligible fatigue difference cannot
             // override a much larger coverage deficit.
-            { -deficitScore(it, weeklyVolume, target) },
+            { -deficitScore(it, weeklyVolume, target, slotRanking) },
+            // When two lifts fill their muscles' deficit equally, the one that reaches more of them
+            // wins, so a press for both chest regions beats one for the lower chest alone.
+            { -slotBreadth(it, weeklyVolume, target, slotRanking) },
             { weightedFatigue(it, fatigue) },
             { it.id in weekUsed },
             { it.id in recentExerciseIdsByPattern[it.movementPattern].orEmpty() },
@@ -310,7 +344,12 @@ class DeterministicWorkoutPlannerEngine(
         automaticSetPrescription: AutomaticSetPrescription? = null
     ): PlannedExercise {
         val isCompound = candidate.movementPattern.isCompound
-        val baseSets = if (isCompound) setsPerExercise else accessorySetsPerExercise
+        val baseSets = when {
+            isCompound -> setsPerExercise
+            DirectArmCoverage.muscleFor(candidate) != null ->
+                DirectArmCoverage.setsPerArmExercise(goal, accessorySetsPerExercise)
+            else -> accessorySetsPerExercise
+        }
         val deloadedSets = if (isDeload) {
             (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
         } else {
@@ -498,13 +537,56 @@ class DeterministicWorkoutPlannerEngine(
     private fun deficitScore(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
-        target: VolumeTarget
-    ): Double = exercise.plannerInvolvements()
-        .filter { (muscle, _) -> (weeklyVolume[muscle] ?: 0.0) < target.targetSets }
-        .maxOfOrNull { (muscle, weight) ->
-            (target.targetSets - weeklyVolume.getValue(muscle)) * weight
+        target: VolumeTarget,
+        slotRanking: Boolean = false
+    ): Double {
+        val involvements = exercise.plannerInvolvements()
+        val primaries = PATTERN_PRIMARY_MUSCLES[exercise.movementPattern]
+        if (slotRanking && !primaries.isNullOrEmpty()) {
+            // A compound slot is ranked by the mean deficit of the pattern's muscles that the
+            // exercise actually trains, so a press is chosen for its chest work and not for one high
+            // triceps weight, and a lift is neither rewarded nor penalized for listing more or fewer
+            // muscles. A weight at or above the targeted-involvement cutoff counts in full: the
+            // catalog records the same lift's chest work as 0.7 on one press and 1.0 on another, and
+            // that difference is modelling noise, not a reason to prefer one press.
+            val trained = primaries.filter { (involvements[it] ?: 0.0) > 0.0 }
+            if (trained.isEmpty()) return 0.0
+            return trained.sumOf { muscle ->
+                val weight = involvements.getValue(muscle)
+                val effective = if (weight >=
+                    fatigueConfig.targetedInvolvementCutoff
+                ) {
+                    1.0
+                } else {
+                    weight
+                }
+                maxOf(0.0, target.targetSets - weeklyVolume.getValue(muscle)) * effective
+            } / trained.size
         }
-        ?: 0.0
+        return involvements
+            .filter { (muscle, _) -> (weeklyVolume[muscle] ?: 0.0) < target.targetSets }
+            .maxOfOrNull { (muscle, weight) ->
+                (target.targetSets - weeklyVolume.getValue(muscle)) * weight
+            }
+            ?: 0.0
+    }
+
+    /** The summed deficit a compound slot's candidate reaches; zero outside slot ranking. */
+    private fun slotBreadth(
+        exercise: Exercise,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget,
+        slotRanking: Boolean
+    ): Double {
+        val primaries = PATTERN_PRIMARY_MUSCLES[exercise.movementPattern]
+        if (!slotRanking || primaries.isNullOrEmpty()) return 0.0
+        val involvements = exercise.plannerInvolvements()
+        return primaries.sumOf { muscle ->
+            val weight = involvements[muscle] ?: 0.0
+            val effective = if (weight >= fatigueConfig.targetedInvolvementCutoff) 1.0 else weight
+            maxOf(0.0, target.targetSets - weeklyVolume.getValue(muscle)) * effective
+        }
+    }
 
     private fun hasDeficit(
         exercise: Exercise,
@@ -574,6 +656,22 @@ class DeterministicWorkoutPlannerEngine(
 
         /** Muscles excluded from weekly-volume deficit targeting (still counted for fatigue). */
         private val PLANNER_DEFERRED_MUSCLES = setOf(MuscleGroup.TRAPS)
+
+        /** The muscles a compound pattern exists to train, used to rank that slot's candidates. */
+        private val PATTERN_PRIMARY_MUSCLES: Map<MovementPattern, Set<MuscleGroup>> = mapOf(
+            MovementPattern.HORIZONTAL_PUSH to
+                setOf(MuscleGroup.CHEST_UPPER, MuscleGroup.CHEST_LOWER),
+            MovementPattern.VERTICAL_PUSH to setOf(MuscleGroup.FRONT_DELTS, MuscleGroup.SIDE_DELTS),
+            MovementPattern.HORIZONTAL_PULL to setOf(MuscleGroup.UPPER_BACK, MuscleGroup.LATS),
+            MovementPattern.VERTICAL_PULL to setOf(MuscleGroup.LATS),
+            MovementPattern.SQUAT to setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
+            MovementPattern.LUNGE to setOf(MuscleGroup.QUADS, MuscleGroup.GLUTES),
+            MovementPattern.HINGE to setOf(
+                MuscleGroup.HAMSTRINGS,
+                MuscleGroup.GLUTES,
+                MuscleGroup.LOWER_BACK
+            )
+        )
 
         private val EQUIPMENT_RANK = mapOf(
             EquipmentTag.BARBELL to 0,
