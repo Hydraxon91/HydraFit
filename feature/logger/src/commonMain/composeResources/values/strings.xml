@@ -186,7 +186,6 @@
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
     <string name="logger_guided_actions">More</string>
-    <string name="logger_watch_demo">Watch demo</string>
     <string name="logger_guided_actions_for">More actions for %1$s</string>
     <string name="logger_guided_expand_sets">Show sets</string>
     <string name="logger_guided_collapse_sets">Hide sets</string>

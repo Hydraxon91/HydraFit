@@ -5,7 +5,6 @@
     <string name="exercise_instruction_unavailable">Instructions for this exercise are not available in this version. Follow your own setup and technique, and use a load you can control.</string>
     <string name="exercise_instruction_close">Close</string>
     <string name="exercise_instruction_demo">Watch a demo on YouTube</string>
-    <string name="exercise_demo_button">Watch demo</string>
     <string name="exercise_muscle_chest_upper">Upper chest</string>
     <string name="exercise_muscle_chest_lower">Lower chest</string>
     <string name="exercise_muscle_lats">Lats</string>
