@@ -134,6 +134,7 @@ import hydrafit.feature.progress.generated.resources.progress_summary_heaviest_v
 import hydrafit.feature.progress.generated.resources.progress_title
 import hydrafit.feature.progress.generated.resources.progress_weight_none
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -519,9 +520,13 @@ private fun estimateChangeText(change: Double, weightUnit: WeightUnit): String =
 private fun lastLoggedText(daysAgo: Int): String = when {
     daysAgo == 0 -> stringResource(Res.string.progress_last_today)
     daysAgo == 1 -> stringResource(Res.string.progress_last_yesterday)
-    daysAgo < 14 -> stringResource(Res.string.progress_last_days_ago, daysAgo)
-    daysAgo < 63 -> stringResource(Res.string.progress_last_weeks_ago, daysAgo / 7)
-    else -> stringResource(Res.string.progress_last_months_ago, daysAgo / 30)
+    daysAgo < 14 -> pluralStringResource(Res.plurals.progress_last_days_ago, daysAgo, daysAgo)
+    daysAgo < 63 -> pluralStringResource(
+        Res.plurals.progress_last_weeks_ago,
+        daysAgo / 7,
+        daysAgo / 7
+    )
+    else -> pluralStringResource(Res.plurals.progress_last_months_ago, daysAgo / 30, daysAgo / 30)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -7,8 +7,10 @@ import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.routine.ClusterKind
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
+import com.hydrafit.app.core.domain.routine.RoutineTemplateFailure
 import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.schedule.OccurrenceDateChange
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
@@ -203,7 +205,17 @@ data class ActivationUiState(
     /** True when a block is already active, so the replacement choice is worth showing. */
     val hasActiveBlock: Boolean = false,
     val replaceActive: Boolean = false,
-    val error: String? = null
+    val error: RoutinesFailure? = null
+)
+
+/**
+ * A failure the screen shows. The reason selects localized text; [detail] is the English message,
+ * shown only for a failure that has no reason (or none this screen has text for).
+ */
+data class RoutinesFailure(
+    val template: RoutineTemplateFailure? = null,
+    val schedule: ScheduleFailure? = null,
+    val detail: String? = null
 )
 
 val DefaultWeekdays: Set<DayOfWeek> = setOf(
@@ -251,5 +263,5 @@ data class RoutinesUiState(
     val pendingPostpone: PendingPostpone? = null,
     val pendingSwitchMode: PendingSwitchMode? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
-    val message: String? = null
+    val message: RoutinesFailure? = null
 )

@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.schedule.GuidedTargetField
 import com.hydrafit.app.core.domain.schedule.GuidedTargetPatch
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
 import com.hydrafit.app.core.domain.schedule.ScheduleException
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
 import com.hydrafit.app.core.domain.workout.WorkoutLogRepository
 
@@ -26,18 +27,33 @@ class ApplySlotProgressionSuggestionUseCase(
 
     suspend operator fun invoke(occurrenceId: Long, entryId: Long) {
         val decision = suggest(occurrenceId, entryId)
-            ?: throw ScheduleException("That slot has no approved progression policy")
+            ?: throw ScheduleException(
+                "That slot has no approved progression policy",
+                ScheduleFailure.SLOT_HAS_NO_PROGRESSION_POLICY
+            )
         if (!decision.canApply) {
-            throw ScheduleException("That slot has no approved progression change to apply")
+            throw ScheduleException(
+                "That slot has no approved progression change to apply",
+                ScheduleFailure.SLOT_HAS_NO_PROGRESSION_CHANGE
+            )
         }
         val occurrence = schedule.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
         val entry = occurrence.entries.firstOrNull { it.id == entryId }
-            ?: throw ScheduleException("That occurrence entry no longer exists")
+            ?: throw ScheduleException(
+                "That occurrence entry no longer exists",
+                ScheduleFailure.ENTRY_NOT_FOUND
+            )
         val recorded = log.setsForOccurrence(occurrenceId)
             .filter { it.occurrenceEntryId == entryId }
         if (recorded.isNotEmpty()) {
-            throw ScheduleException("That slot already has recorded work")
+            throw ScheduleException(
+                "That slot already has recorded work",
+                ScheduleFailure.SLOT_HAS_RECORDED_WORK
+            )
         }
         applyGuidedTargets(
             occurrenceId = occurrenceId,

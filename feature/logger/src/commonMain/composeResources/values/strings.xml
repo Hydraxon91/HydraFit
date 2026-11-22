@@ -53,8 +53,8 @@
     <string name="logger_set_week_day">Week %1$d · Day %2$d</string>
     <string name="logger_confirm_all">Confirm all</string>
     <string name="logger_progression_suggested">Suggested: %1$d × %2$d · %3$s</string>
-    <string name="logger_progression_suggested_ordered">Suggested: %1$d sets · %2$s</string>
-    <string name="logger_progression_suggested_ordered_load">Suggested: %1$d sets · %2$s · %3$s</string>
+    <string name="logger_progression_suggested_ordered">Suggested sets: %1$d · %2$s</string>
+    <string name="logger_progression_suggested_ordered_load">Suggested sets: %1$d · %2$s · %3$s</string>
     <string name="logger_progression_apply">Apply</string>
     <string name="logger_progression_apply_for">Apply for %1$s</string>
     <string name="logger_progression_apply_failed">Couldn’t apply the suggestion. Try again.</string>
@@ -90,10 +90,22 @@
     <string name="logger_replace_empty">No eligible alternative is available. Cancel to keep this exercise, or use the workout’s existing Skip or Finish partially action.</string>
     <string name="logger_replace_recorded">This exercise slot already has recorded sets, including warm-ups. Its prescription cannot be replaced.</string>
     <string name="logger_replace_stale">The workout or available choices changed. Cancel and reopen the choices before trying again.</string>
-    <string name="logger_replace_target">%1$s · %2$d sets × %3$d reps · %4$s</string>
-    <string name="logger_replace_target_timed">%1$s · %2$d sets × %3$d s · %4$s</string>
-    <string name="logger_replace_target_distance">%1$s · %2$d sets × %3$s · %4$s</string>
-    <string name="logger_replace_target_force">%1$s · %2$d sets × %3$s N</string>
+    <plurals name="logger_replace_target">
+        <item quantity="one">%1$s · %2$d set × %3$d reps · %4$s</item>
+        <item quantity="other">%1$s · %2$d sets × %3$d reps · %4$s</item>
+    </plurals>
+    <plurals name="logger_replace_target_timed">
+        <item quantity="one">%1$s · %2$d set × %3$d s · %4$s</item>
+        <item quantity="other">%1$s · %2$d sets × %3$d s · %4$s</item>
+    </plurals>
+    <plurals name="logger_replace_target_distance">
+        <item quantity="one">%1$s · %2$d set × %3$s · %4$s</item>
+        <item quantity="other">%1$s · %2$d sets × %3$s · %4$s</item>
+    </plurals>
+    <plurals name="logger_replace_target_force">
+        <item quantity="one">%1$s · %2$d set × %3$s N</item>
+        <item quantity="other">%1$s · %2$d sets × %3$s N</item>
+    </plurals>
     <string name="logger_end_session">End session</string>
     <string name="logger_new_session">New session</string>
     <string name="logger_time_live">Logging now</string>
@@ -106,7 +118,7 @@
     <string name="logger_pick_time_title">Set time</string>
     <string name="logger_future_time_error">That time is in the future</string>
     <string name="logger_active_workout">Current workout: %1$s</string>
-    <string name="logger_active_progress">%1$d of %2$d sets</string>
+    <string name="logger_active_progress">Sets: %1$d of %2$d</string>
     <string name="logger_workout_start">Start workout</string>
     <string name="logger_workout_resume">Resume workout</string>
     <string name="logger_workout_overview_open">Workout overview</string>
@@ -119,7 +131,10 @@
     <string name="logger_workout_overview_target_timed">%1$d × %2$d s</string>
     <string name="logger_workout_overview_target_distance">%1$d × %2$s</string>
     <string name="logger_workout_overview_target_force">%1$d × %2$s</string>
-    <string name="logger_workout_overview_target_sets">%1$d sets</string>
+    <plurals name="logger_workout_overview_target_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
     <string name="logger_workout_actions">Workout actions</string>
     <string name="logger_plan_open">Manage plan</string>
     <string name="logger_finish">Finish</string>
@@ -154,7 +169,10 @@
     <string name="logger_draft_cluster_segment_rir">Segment %1$d RIR (optional)</string>
     <string name="logger_cluster_kind_drop_set">Drop set</string>
     <string name="logger_cluster_kind_rest_pause">Rest-pause</string>
-    <string name="logger_cluster_segment_count">%1$d segments</string>
+    <plurals name="logger_cluster_segment_count">
+        <item quantity="one">%1$d segment</item>
+        <item quantity="other">%1$d segments</item>
+    </plurals>
     <string name="logger_cluster_draft_error_missing_segment">Enter reps and a load for every segment before logging this cluster.</string>
     <string name="logger_cluster_draft_error_non_positive_segment">Each segment needs positive reps and a positive load.</string>
     <string name="logger_cluster_draft_error_invalid_cluster">These segments don’t fit this cluster. A drop set needs a lower load on each segment; a rest-pause needs the same load on every segment.</string>
@@ -353,7 +371,7 @@
     <string name="logger_summary_target_sets_distance">Target: %1$d × %2$s @ %3$s</string>
     <string name="logger_summary_target_sets_none_distance">Target: %1$d × %2$s</string>
     <string name="logger_summary_target_sets_force">Target: %1$d × %2$s</string>
-    <string name="logger_summary_totals">%1$d recorded sets · %2$d prescribed</string>
+    <string name="logger_summary_totals">Recorded sets: %1$d · Prescribed: %2$d</string>
     <string name="logger_summary_close">Close</string>
     <string name="logger_summary_edit_set_description">Edit %1$s set %2$d, %3$d reps</string>
     <string name="logger_summary_edit_set_duration_description">Edit %1$s set %2$d, %3$d seconds</string>
@@ -440,4 +458,19 @@
     <string name="logger_station_none">No station</string>
     <string name="logger_station_choose">Choose station</string>
     <string name="logger_station_attributed">Station: %1$s</string>
+    <string name="logger_failure_workout_not_found">That workout no longer exists.</string>
+    <string name="logger_failure_workout_already_finished">That workout is already finished.</string>
+    <string name="logger_failure_workout_not_in_active_block">That workout is not in the active block.</string>
+    <string name="logger_failure_workout_changed">That workout changed. Refresh and try again.</string>
+    <string name="logger_failure_workout_already_started">This workout has already started.</string>
+    <string name="logger_failure_workout_has_recorded_sets">This workout has recorded sets.</string>
+    <string name="logger_failure_nothing_logged_skip_instead">Nothing is logged yet. Skip this workout instead.</string>
+    <string name="logger_failure_not_all_sets_recorded">Not every prescribed set is recorded yet.</string>
+    <string name="logger_failure_finish_partial_cluster_first">Finish or resolve the partial cluster first.</string>
+    <string name="logger_failure_entry_not_found">That exercise slot no longer exists.</string>
+    <string name="logger_failure_not_active_guided_workout">That workout is not the active guided workout.</string>
+    <string name="logger_failure_measure_change_unavailable">Changing a slot’s measurement isn’t available.</string>
+    <string name="logger_failure_measure_kept_by_ordered_targets">This slot has ordered per-set targets, so its measurement stays as prescribed.</string>
+    <string name="logger_failure_measure_kept_by_cluster_shape">This slot’s cluster shape can’t be kept with another measurement.</string>
+    <string name="logger_failure_measure_not_valid_for_slot">That measurement isn’t valid for this slot.</string>
 </resources>

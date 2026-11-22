@@ -47,12 +47,21 @@
     <string name="fatigue_map_close">Close</string>
     <string name="fatigue_coverage_heading">Performed coverage</string>
     <string name="fatigue_coverage_section_note">Counts are recorded working sets; credits estimate recorded involvement. Neither is direct sets or a physiological equivalent.</string>
-    <string name="fatigue_coverage_sets">%1$d recorded working sets</string>
-    <string name="fatigue_coverage_clusters">%1$d recorded clusters (separate from working-set credits)</string>
+    <plurals name="fatigue_coverage_sets">
+        <item quantity="one">%1$d recorded working set</item>
+        <item quantity="other">%1$d recorded working sets</item>
+    </plurals>
+    <plurals name="fatigue_coverage_clusters">
+        <item quantity="one">%1$d recorded cluster (separate from working-set credits)</item>
+        <item quantity="other">%1$d recorded clusters (separate from working-set credits)</item>
+    </plurals>
     <string name="fatigue_coverage_credits">%1$d.%2$d estimated involvement credits</string>
     <string name="fatigue_coverage_no_sets">No recorded sets in this window</string>
     <string name="fatigue_coverage_unknown_history">Unclassified history — count unknown</string>
     <string name="fatigue_coverage_last_trained">Last trained %1$s</string>
     <string name="fatigue_coverage_never_trained">Never trained in recorded history</string>
-    <string name="fatigue_coverage_unclassified_window_note">%1$d recorded sets in this window could not be classified.</string>
+    <plurals name="fatigue_coverage_unclassified_window_note">
+        <item quantity="one">%1$d recorded set in this window could not be classified.</item>
+        <item quantity="other">%1$d recorded sets in this window could not be classified.</item>
+    </plurals>
 </resources>

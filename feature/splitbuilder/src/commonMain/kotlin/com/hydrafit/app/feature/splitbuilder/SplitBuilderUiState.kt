@@ -9,6 +9,7 @@ import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.DistanceUnit
@@ -36,8 +37,23 @@ data class SplitScheduleDialogState(
     /** True when a block is already active, so the replacement choice is worth showing. */
     val hasActiveBlock: Boolean = false,
     val replaceActive: Boolean = false,
-    val error: String? = null
+    val error: SplitScheduleError? = null
 )
+
+/** Why the schedule dialog refused to confirm; the screen shows the localized sentence. */
+sealed interface SplitScheduleError {
+    /** The chosen weekdays do not match the plan's workouts per week. */
+    data object Frequency : SplitScheduleError
+
+    /** The planning dates changed since the dialog opened. */
+    data object DatesStale : SplitScheduleError
+
+    /**
+     * Scheduling itself was refused. [detail] is the English message, shown only when [reason] is
+     * missing or has no text on this screen.
+     */
+    data class Rejected(val reason: ScheduleFailure?, val detail: String?) : SplitScheduleError
+}
 
 /**
  * The planning-date configuration: chosen weekdays plus a start date, previewed as civil dates.

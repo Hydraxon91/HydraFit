@@ -87,7 +87,6 @@ import hydrafit.feature.routines.generated.resources.routines_activation_choose_
 import hydrafit.feature.routines.generated.resources.routines_activation_load_failed
 import hydrafit.feature.routines.generated.resources.routines_activation_mode_sequence
 import hydrafit.feature.routines.generated.resources.routines_activation_mode_weekday
-import hydrafit.feature.routines.generated.resources.routines_activation_no_weekday
 import hydrafit.feature.routines.generated.resources.routines_activation_preview
 import hydrafit.feature.routines.generated.resources.routines_activation_replace
 import hydrafit.feature.routines.generated.resources.routines_activation_start_today
@@ -263,6 +262,7 @@ import hydrafit.feature.routines.generated.resources.weekday_sunday
 import hydrafit.feature.routines.generated.resources.weekday_thursday
 import hydrafit.feature.routines.generated.resources.weekday_tuesday
 import hydrafit.feature.routines.generated.resources.weekday_wednesday
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -327,7 +327,7 @@ fun RoutinesScreen(
                     backLabel = stringResource(Res.string.routines_back)
                 )
                 state.message?.let { message ->
-                    MessageBanner(message = message, onDismiss = viewModel::onMessageShown)
+                    MessageBanner(message = message.text(), onDismiss = viewModel::onMessageShown)
                 }
                 ActiveBlockSection(state = state, viewModel = viewModel)
                 if (state.activationLoadFailed) {
@@ -947,7 +947,7 @@ private fun TemplateRow(
 @Composable
 private fun RoutineEditor(
     editor: RoutineEditorState,
-    message: String?,
+    message: RoutinesFailure?,
     excludedExerciseIds: Set<String>,
     viewModel: RoutinesViewModel
 ) {
@@ -971,7 +971,9 @@ private fun RoutineEditor(
                 ),
                 style = MaterialTheme.typography.headlineSmall
             )
-            message?.let { MessageBanner(message = it, onDismiss = viewModel::onMessageShown) }
+            message?.let {
+                MessageBanner(message = it.text(), onDismiss = viewModel::onMessageShown)
+            }
             OutlinedTextField(
                 value = editor.name,
                 onValueChange = viewModel::onEditorNameChanged,
@@ -1960,11 +1962,7 @@ private fun ActivationDialog(
                 }
                 activation.error?.let { error ->
                     Text(
-                        text = if (error == "weekdays") {
-                            stringResource(Res.string.routines_activation_no_weekday)
-                        } else {
-                            error
-                        },
+                        text = error.text(),
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -2213,8 +2211,9 @@ private fun PrescriptionIdentityRow(
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            text = stringResource(
-                Res.string.routines_prescription_import_used_by,
+            text = pluralStringResource(
+                Res.plurals.routines_prescription_import_used_by,
+                identity.usedByRoutineCount,
                 identity.usedByRoutineCount
             ),
             style = MaterialTheme.typography.bodySmall

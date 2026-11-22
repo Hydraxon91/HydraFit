@@ -22,6 +22,7 @@ import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleException
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation as DomainTrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence as DomainWorkoutOccurrence
@@ -164,7 +165,10 @@ class SqlDelightWorkoutScheduleRepository(
         val active = queries.selectActiveActivation().executeAsOneOrNull()
         if (active != null) {
             if (!replaceActive) {
-                throw ScheduleException("A training block is already active")
+                throw ScheduleException(
+                    "A training block is already active",
+                    ScheduleFailure.BLOCK_ALREADY_ACTIVE
+                )
             }
             queries.updateActivationHeader(
                 name = active.name,
@@ -338,13 +342,22 @@ class SqlDelightWorkoutScheduleRepository(
         entries: List<DomainOccurrenceEntry>
     ): DomainWorkoutScheduleState = database.transactionWithResult {
         val occurrence = queries.selectOccurrenceById(occurrenceId).executeAsOneOrNull()
-            ?: throw ScheduleException("That workout no longer exists")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
         val state = queries.selectScheduleState().executeAsOneOrNull()
         if (state?.activeActivationId != occurrence.activationId) {
-            throw ScheduleException("That workout is not in the active block")
+            throw ScheduleException(
+                "That workout is not in the active block",
+                ScheduleFailure.WORKOUT_NOT_IN_ACTIVE_BLOCK
+            )
         }
         if (occurrence.revision != expectedRevision.toLong()) {
-            throw ScheduleException("That workout changed; refresh and try again")
+            throw ScheduleException(
+                "That workout changed; refresh and try again",
+                ScheduleFailure.WORKOUT_CHANGED
+            )
         }
 
         applyEntryChanges(occurrenceId, entries)
@@ -405,7 +418,10 @@ class SqlDelightWorkoutScheduleRepository(
             database.transaction {
                 val current = queries.selectOccurrenceById(occurrence.id).executeAsOneOrNull()
                 if (current == null || current.revision + 1L != occurrence.revision.toLong()) {
-                    throw ScheduleException("That workout changed; refresh and try again")
+                    throw ScheduleException(
+                        "That workout changed; refresh and try again",
+                        ScheduleFailure.WORKOUT_CHANGED
+                    )
                 }
                 queries.updateOccurrence(
                     queuePosition = occurrence.queuePosition.toLong(),
@@ -436,10 +452,16 @@ class SqlDelightWorkoutScheduleRepository(
                 request.occurrenceId,
                 request.entryId
             ).executeAsOneOrNull()
-                ?: throw ScheduleException("That occurrence entry no longer exists")
+                ?: throw ScheduleException(
+                    "That occurrence entry no longer exists",
+                    ScheduleFailure.ENTRY_NOT_FOUND
+                )
             val entry = queries.selectOccurrenceEntryById(request.entryId).executeAsOne()
             if (context.entryId != entry.id || context.exerciseId != entry.exerciseId) {
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
             if (context.legacyFallbackEnabled != 0L ||
                 context.activeActivationId != context.activationId ||
@@ -449,7 +471,10 @@ class SqlDelightWorkoutScheduleRepository(
                 context.exerciseId != request.exerciseId ||
                 context.sets != request.entrySets.toLong()
             ) {
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
             val rows = database.workoutLogQueries.selectSetsForOccurrence(request.occurrenceId)
                 .executeAsList().filter {
@@ -466,7 +491,8 @@ class SqlDelightWorkoutScheduleRepository(
             }
             if (partialCluster) {
                 throw ScheduleException(
-                    "Finish or resolve the partial cluster first"
+                    "Finish or resolve the partial cluster first",
+                    ScheduleFailure.FINISH_PARTIAL_CLUSTER_FIRST
                 )
             }
             val completed = rows.count { row ->
@@ -481,7 +507,10 @@ class SqlDelightWorkoutScheduleRepository(
                 }
             }
             if (completed != request.completedSetCount || completed !in 0..entry.sets.toInt()) {
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
             val domainEntry = entry.toDomain()
             val persisted = entry.guidedTargets?.let {
@@ -505,7 +534,10 @@ class SqlDelightWorkoutScheduleRepository(
                 ).value == 0L
             ) {
                 queries.applyGuidedTargets(priorPayload, request.entryId)
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
         }
     }
@@ -516,14 +548,23 @@ class SqlDelightWorkoutScheduleRepository(
                 request.occurrenceId,
                 request.entryId
             ).executeAsOneOrNull()
-                ?: throw ScheduleException("That occurrence entry no longer exists")
+                ?: throw ScheduleException(
+                    "That occurrence entry no longer exists",
+                    ScheduleFailure.ENTRY_NOT_FOUND
+                )
             val entryRow = queries.selectOccurrenceEntryById(request.entryId).executeAsOneOrNull()
-                ?: throw ScheduleException("That occurrence entry no longer exists")
+                ?: throw ScheduleException(
+                    "That occurrence entry no longer exists",
+                    ScheduleFailure.ENTRY_NOT_FOUND
+                )
             if (context.entryId != entryRow.id ||
                 context.exerciseId != entryRow.exerciseId ||
                 entryRow.occurrenceId != request.occurrenceId
             ) {
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
             if (context.legacyFallbackEnabled != 0L ||
                 context.activeActivationId != context.activationId ||
@@ -532,17 +573,22 @@ class SqlDelightWorkoutScheduleRepository(
                 context.status == OccurrenceStatus.IN_PROGRESS.name ||
                 context.revision != request.occurrenceRevision.toLong()
             ) {
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
             val entry = entryRow.toDomain()
             if (entry.setTargets != null) {
                 throw ScheduleException(
-                    "This slot has ordered per-set targets, so its measurement stays as prescribed"
+                    "This slot has ordered per-set targets, so its measurement stays as prescribed",
+                    ScheduleFailure.MEASURE_KEPT_BY_ORDERED_TARGETS
                 )
             }
             if (entry.cluster != null) {
                 throw ScheduleException(
-                    "This slot's cluster shape cannot be kept with another measurement"
+                    "This slot's cluster shape cannot be kept with another measurement",
+                    ScheduleFailure.MEASURE_KEPT_BY_CLUSTER_SHAPE
                 )
             }
             val recorded = database.workoutLogQueries
@@ -553,14 +599,20 @@ class SqlDelightWorkoutScheduleRepository(
                     .selectSetsForOccurrenceEntry(request.entryId)
                     .executeAsList()
                     .isNotEmpty()
-            if (recorded) throw ScheduleException("This workout has recorded sets")
+            if (recorded) {
+                throw ScheduleException(
+                    "This workout has recorded sets",
+                    ScheduleFailure.WORKOUT_HAS_RECORDED_SETS
+                )
+            }
             val target = request.target
             try {
                 target.requireValid()
                 WorkoutLoadPolicy.validate(entry.loadCapability, target.loadKind, target.weightKg)
             } catch (error: IllegalArgumentException) {
                 throw ScheduleException(
-                    error.message ?: "That measurement is not valid for this slot"
+                    error.message ?: "That measurement is not valid for this slot",
+                    ScheduleFailure.MEASURE_NOT_VALID_FOR_SLOT
                 )
             }
             queries.setOccurrenceEntryMeasure(
@@ -577,7 +629,10 @@ class SqlDelightWorkoutScheduleRepository(
                     request.occurrenceRevision.toLong()
                 ).value == 0L
             ) {
-                throw ScheduleException("That workout changed; refresh and try again")
+                throw ScheduleException(
+                    "That workout changed; refresh and try again",
+                    ScheduleFailure.WORKOUT_CHANGED
+                )
             }
         }
     }

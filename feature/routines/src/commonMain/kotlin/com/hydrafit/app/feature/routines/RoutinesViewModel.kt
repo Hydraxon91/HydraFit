@@ -19,11 +19,13 @@ import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.RoutineTemplateException
+import com.hydrafit.app.core.domain.routine.RoutineTemplateFailure
 import com.hydrafit.app.core.domain.routine.RoutineWorkout
 import com.hydrafit.app.core.domain.routine.Superset
 import com.hydrafit.app.core.domain.routine.validateSupersets
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.ScheduleException
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleActions
 import com.hydrafit.app.core.domain.settings.DEFAULT_REST_SECONDS
@@ -932,7 +934,7 @@ class RoutinesViewModel(
                 routineActions.save(editor.toDraft(numberFormat))
                 _state.update { it.copy(editor = null, picker = null) }
             } catch (error: RoutineTemplateException) {
-                _state.update { it.copy(message = error.message) }
+                _state.update { it.copy(message = error.toFailure()) }
             }
         }
     }
@@ -952,7 +954,7 @@ class RoutinesViewModel(
             try {
                 routineActions.delete(template.id)
             } catch (error: RoutineTemplateException) {
-                _state.update { it.copy(message = error.message) }
+                _state.update { it.copy(message = error.toFailure()) }
             }
         }
     }
@@ -1040,7 +1042,13 @@ class RoutinesViewModel(
             return
         }
         if (activation.mode == ScheduleMode.WEEKDAY && activation.weekdays.isEmpty()) {
-            _state.update { it.copy(activation = activation.copy(error = "weekdays")) }
+            _state.update {
+                it.copy(
+                    activation = activation.copy(
+                        error = RoutinesFailure(schedule = ScheduleFailure.PICK_A_WEEKDAY)
+                    )
+                )
+            }
             return
         }
         viewModelScope.launch {
@@ -1061,7 +1069,7 @@ class RoutinesViewModel(
                 )
                 _state.update { it.copy(activation = null) }
             } catch (error: ScheduleException) {
-                _state.update { it.copy(activation = activation.copy(error = error.message)) }
+                _state.update { it.copy(activation = activation.copy(error = error.toFailure())) }
             }
         }
     }
@@ -1074,7 +1082,7 @@ class RoutinesViewModel(
             try {
                 scheduleActions.finishBlock(active.id)
             } catch (error: ScheduleException) {
-                _state.update { it.copy(message = error.message) }
+                _state.update { it.copy(message = error.toFailure()) }
             }
         }
     }
@@ -1093,7 +1101,7 @@ class RoutinesViewModel(
             val changes = try {
                 scheduleActions.previewMove(occurrenceId, epochDay)
             } catch (error: ScheduleException) {
-                _state.update { it.copy(message = error.message) }
+                _state.update { it.copy(message = error.toFailure()) }
                 return@launch
             }
             _state.update {
@@ -1123,7 +1131,7 @@ class RoutinesViewModel(
             val changes = try {
                 scheduleActions.previewSwitchMode(active.id, mode, weekdays, start)
             } catch (error: ScheduleException) {
-                _state.update { it.copy(message = error.message) }
+                _state.update { it.copy(message = error.toFailure()) }
                 return@launch
             }
             _state.update {
@@ -1338,6 +1346,11 @@ private fun RoutineEditorState.toDraft(numberFormat: PresentationNumberFormat): 
 private fun EditorWorkout.withoutSuperset(key: String): EditorWorkout =
     copy(entries = entries.map { if (it.superset?.key == key) it.copy(superset = null) else it })
 
+private fun RoutineTemplateException.toFailure() =
+    RoutinesFailure(template = reason, detail = message)
+
+private fun ScheduleException.toFailure() = RoutinesFailure(schedule = reason, detail = message)
+
 /**
  * Blank means "no load recorded" (null). A non-blank value must be a finite, non-negative number;
  * anything else is rejected so a malformed entry can never silently clear a prescribed load.
@@ -1350,9 +1363,15 @@ private fun parseDisplayedWeight(
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
     val value = parseLocalizedDecimal(trimmed, format)
-        ?: throw RoutineTemplateException("Weight must be a number")
+        ?: throw RoutineTemplateException(
+            "Weight must be a number",
+            RoutineTemplateFailure.WEIGHT_NOT_A_NUMBER
+        )
     if (!value.isFinite() || value < 0.0) {
-        throw RoutineTemplateException("Weight must be zero or positive")
+        throw RoutineTemplateException(
+            "Weight must be zero or positive",
+            RoutineTemplateFailure.WEIGHT_NOT_VALID
+        )
     }
     return unit.displayToKilograms(value)
 }
@@ -1369,9 +1388,15 @@ private fun parseDisplayedDistance(
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
     val value = parseLocalizedDecimal(trimmed, format)
-        ?: throw RoutineTemplateException("Distance must be a number")
+        ?: throw RoutineTemplateException(
+            "Distance must be a number",
+            RoutineTemplateFailure.DISTANCE_NOT_A_NUMBER
+        )
     if (!value.isFinite() || value <= 0.0) {
-        throw RoutineTemplateException("Distance must be greater than zero")
+        throw RoutineTemplateException(
+            "Distance must be greater than zero",
+            RoutineTemplateFailure.DISTANCE_NOT_POSITIVE
+        )
     }
     return unit.displayToMetres(value)
 }
@@ -1385,14 +1410,21 @@ private fun parseDisplayedForce(input: String, format: PresentationNumberFormat)
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return null
     val value = parseLocalizedDecimal(trimmed, format)
-        ?: throw RoutineTemplateException("Force must be a number")
+        ?: throw RoutineTemplateException(
+            "Force must be a number",
+            RoutineTemplateFailure.FORCE_NOT_A_NUMBER
+        )
     if (!value.isFinite() || value <= 0.0) {
-        throw RoutineTemplateException("Force must be greater than zero")
+        throw RoutineTemplateException(
+            "Force must be greater than zero",
+            RoutineTemplateFailure.FORCE_NOT_POSITIVE
+        )
     }
     if (value !in PrescriptionBounds.MIN_FORCE_NEWTONS..PrescriptionBounds.MAX_FORCE_NEWTONS) {
         throw RoutineTemplateException(
             "Force must be between ${PrescriptionBounds.MIN_FORCE_NEWTONS} and " +
-                "${PrescriptionBounds.MAX_FORCE_NEWTONS} newtons"
+                "${PrescriptionBounds.MAX_FORCE_NEWTONS} newtons",
+            RoutineTemplateFailure.FORCE_OUT_OF_RANGE
         )
     }
     return value

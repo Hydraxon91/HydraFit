@@ -34,33 +34,48 @@ object PrescriptionBounds {
         forceNewtons: Double? = null
     ) {
         if (sets !in MIN_SETS..MAX_SETS) {
-            throw RoutineTemplateException("Sets must be between $MIN_SETS and $MAX_SETS")
+            throw RoutineTemplateException(
+                "Sets must be between $MIN_SETS and $MAX_SETS",
+                RoutineTemplateFailure.SETS_OUT_OF_RANGE
+            )
         }
         try {
             requireValidSetMeasurement(reps, durationSeconds, distanceMeters, forceNewtons)
         } catch (e: IllegalArgumentException) {
             throw RoutineTemplateException(
-                e.message ?: "A slot needs exactly one positive measurement"
+                e.message ?: "A slot needs exactly one positive measurement",
+                RoutineTemplateFailure.SLOT_NEEDS_ONE_MEASUREMENT
             )
         }
         if (reps != null && reps !in MIN_REPS..MAX_REPS) {
-            throw RoutineTemplateException("Reps must be between $MIN_REPS and $MAX_REPS")
+            throw RoutineTemplateException(
+                "Reps must be between $MIN_REPS and $MAX_REPS",
+                RoutineTemplateFailure.REPS_OUT_OF_RANGE
+            )
         }
         if (distanceMeters != null && distanceMeters !in MIN_DISTANCE_METERS..MAX_DISTANCE_METERS) {
             throw RoutineTemplateException(
-                "Distance must be between $MIN_DISTANCE_METERS and $MAX_DISTANCE_METERS metres"
+                "Distance must be between $MIN_DISTANCE_METERS and $MAX_DISTANCE_METERS metres",
+                RoutineTemplateFailure.DISTANCE_OUT_OF_RANGE
             )
         }
         if (forceNewtons != null && forceNewtons !in MIN_FORCE_NEWTONS..MAX_FORCE_NEWTONS) {
             throw RoutineTemplateException(
-                "Force must be between $MIN_FORCE_NEWTONS and $MAX_FORCE_NEWTONS newtons"
+                "Force must be between $MIN_FORCE_NEWTONS and $MAX_FORCE_NEWTONS newtons",
+                RoutineTemplateFailure.FORCE_OUT_OF_RANGE
             )
         }
         if (weightKg != null && (!weightKg.isFinite() || weightKg < 0.0)) {
-            throw RoutineTemplateException("Weight must be zero or positive")
+            throw RoutineTemplateException(
+                "Weight must be zero or positive",
+                RoutineTemplateFailure.WEIGHT_NOT_VALID
+            )
         }
         if (forceNewtons != null && weightKg != null) {
-            throw RoutineTemplateException("A force slot cannot record an external or added load")
+            throw RoutineTemplateException(
+                "A force slot cannot record an external or added load",
+                RoutineTemplateFailure.FORCE_CANNOT_CARRY_LOAD
+            )
         }
     }
 }

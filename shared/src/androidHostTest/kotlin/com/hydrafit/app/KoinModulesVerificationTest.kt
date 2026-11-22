@@ -183,11 +183,13 @@ import com.hydrafit.app.core.userdata.equipment.ExerciseOverrideRepository
 import com.hydrafit.app.core.userdata.equipment.ExercisePreferenceRepository
 import com.hydrafit.app.core.userdata.equipment.PersonalRecordRepository
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AppLanguageStore
 import com.hydrafit.app.core.userdata.settings.AppThemePreferenceStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
 import com.hydrafit.app.core.userdata.settings.GuidedWorkoutPreferenceRepository
+import com.hydrafit.app.core.userdata.settings.InMemoryAppLanguageStore
 import com.hydrafit.app.core.userdata.settings.InMemoryAppThemePreferenceStore
 import com.hydrafit.app.core.userdata.settings.PreferredWeekdaysRepository
 import com.hydrafit.app.core.userdata.settings.SetupRepository
@@ -303,6 +305,7 @@ class KoinModulesVerificationTest {
         single<BootIdentityProvider> { BootIdentityProvider { null } }
         single<ApiKeyStore> { FakeApiKeyStore }
         single<AppThemePreferenceStore> { InMemoryAppThemePreferenceStore() }
+        single<AppLanguageStore> { InMemoryAppLanguageStore() }
         single<AppVersionProvider> { FakeAppVersionProvider }
         single<GroqApiKeyProvider> { GroqApiKeyProvider { "test-key" } }
         single<BackupFileStore> { UnsupportedBackupFileStore() }

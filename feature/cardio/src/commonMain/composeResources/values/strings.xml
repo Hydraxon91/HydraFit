@@ -15,13 +15,19 @@
     <string name="cardio_range_365">365 days</string>
     <string name="cardio_totals_title">Totals by activity type</string>
     <string name="cardio_totals_empty">No cardio activities were recorded in this range.</string>
-    <string name="cardio_type_row">%1$s · %2$d activities</string>
+    <plurals name="cardio_type_row">
+        <item quantity="one">%1$s · %2$d activity</item>
+        <item quantity="other">%1$s · %2$d activities</item>
+    </plurals>
     <string name="cardio_type_duration">Duration: %1$s</string>
     <string name="cardio_type_distance">Distance: %1$s</string>
     <string name="cardio_type_speed">Average speed: %1$s m/s</string>
     <string name="cardio_chart_title">Recorded duration per day</string>
     <string name="cardio_chart_caption">Each bar is one recorded day; days with no recorded activity are left blank, never carried forward.</string>
-    <string name="cardio_day_row">%1$s: %2$d activities, %3$s</string>
+    <plurals name="cardio_day_row">
+        <item quantity="one">%1$s: %2$d activity, %3$s</item>
+        <item quantity="other">%1$s: %2$d activities, %3$s</item>
+    </plurals>
 
     <string name="cardio_history_title">Recorded history</string>
     <string name="cardio_history_note">Every recorded cardio activity, newest first.</string>

@@ -11,6 +11,7 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.StationAttribution
 import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.time.localEpochDay
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -529,6 +530,12 @@ data class DraftEdit(
  * The open "Change measurement" dialog for one unstarted occurrence slot. The metric is chosen
  * explicitly; the typed value is never derived from the previous measure.
  */
+/**
+ * A scheduling failure the logger shows. The reason selects localized text; [detail] is the English
+ * message, shown only for a failure that has no reason (or none this screen has text for).
+ */
+data class LoggerFailure(val schedule: ScheduleFailure? = null, val detail: String? = null)
+
 data class MeasureChangeDialog(
     val occurrenceEntryId: Long,
     val exerciseName: String,
@@ -538,7 +545,7 @@ data class MeasureChangeDialog(
     /** True when the typed value is not a positive number; the screen shows its localized hint. */
     val invalidValue: Boolean = false,
     /** Why the last apply was refused; the dialog stays open so a corrected value can be sent. */
-    val error: String? = null,
+    val error: LoggerFailure? = null,
     /**
      * The number format frozen when the dialog opened, so a locale change mid-edit cannot reinterpret
      * text the user already typed.
@@ -766,7 +773,7 @@ data class WorkoutLoggerUiState(
      */
     val workoutStage: WorkoutStage = WorkoutStage.OVERVIEW,
     /** A finish/skip error to surface (e.g. the workout changed elsewhere). */
-    val occurrenceMessage: String? = null,
+    val occurrenceMessage: LoggerFailure? = null,
     /**
      * The post-finish summary route, or null when it is closed. Opened only by a successful Finish
      * workout or Finish partially; it is transient and never persisted.

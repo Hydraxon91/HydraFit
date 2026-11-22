@@ -576,13 +576,17 @@ class SplitBuilderViewModel(
         val plan = _state.value.plan ?: return
         val dialog = _state.value.scheduleDialog ?: return
         if (dialog.mode == ScheduleMode.WEEKDAY && dialog.weekdays.size != plan.days.size) {
-            _state.update { it.copy(scheduleDialog = dialog.copy(error = "frequency")) }
+            _state.update {
+                it.copy(scheduleDialog = dialog.copy(error = SplitScheduleError.Frequency))
+            }
             return
         }
         // A context refresh may have invalidated the confirmed dates since the dialog opened;
         // re-check against the current request so Confirm cannot activate a stale date context.
         if (_state.value.draftContextStale || blockDatesDifferFromTheDraft(dialog)) {
-            _state.update { it.copy(scheduleDialog = dialog.copy(error = "dates")) }
+            _state.update {
+                it.copy(scheduleDialog = dialog.copy(error = SplitScheduleError.DatesStale))
+            }
             return
         }
         val request = ActivationRequest(
@@ -613,7 +617,11 @@ class SplitBuilderViewModel(
                 }
             } catch (error: ScheduleException) {
                 _state.update { state ->
-                    state.copy(scheduleDialog = state.scheduleDialog?.copy(error = error.message))
+                    state.copy(
+                        scheduleDialog = state.scheduleDialog?.copy(
+                            error = SplitScheduleError.Rejected(error.reason, error.message)
+                        )
+                    )
                 }
             }
         }

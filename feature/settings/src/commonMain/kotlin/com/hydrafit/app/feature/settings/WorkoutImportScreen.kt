@@ -116,6 +116,7 @@ import hydrafit.feature.settings.generated.resources.settings_workout_import_use
 import hydrafit.feature.settings.generated.resources.settings_workout_import_warmup
 import hydrafit.feature.settings.generated.resources.settings_workout_import_working
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -444,8 +445,9 @@ private fun MappingEditor(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = "${mapping.exerciseName} · " +
-                stringResource(
-                    Res.string.settings_workout_import_mapping_rows,
+                pluralStringResource(
+                    Res.plurals.settings_workout_import_mapping_rows,
+                    mapping.occurrenceCount,
                     mapping.occurrenceCount
                 )
         )

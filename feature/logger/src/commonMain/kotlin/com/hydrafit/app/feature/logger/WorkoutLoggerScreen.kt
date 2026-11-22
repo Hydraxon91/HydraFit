@@ -387,6 +387,7 @@ import hydrafit.feature.logger.generated.resources.logger_workout_resume
 import hydrafit.feature.logger.generated.resources.logger_workout_start
 import hydrafit.feature.logger.generated.resources.nav_label
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -2387,10 +2388,12 @@ fun WorkoutLoggerScreen(
                                 // A cluster row shows the parent's own measurement plus the cluster's kind and
                                 // segment count. Its segments are never listed as extra sets or compared to them.
                                 val clusterSuffix = row.cluster?.let { cluster ->
-                                    " · " + clusterKindLabel(cluster.kind) + " · " + stringResource(
-                                        Res.string.logger_cluster_segment_count,
-                                        cluster.performedSegments
-                                    )
+                                    " · " + clusterKindLabel(cluster.kind) + " · " +
+                                        pluralStringResource(
+                                            Res.plurals.logger_cluster_segment_count,
+                                            cluster.performedSegments,
+                                            cluster.performedSegments
+                                        )
                                 } ?: ""
                                 val weekDay = if (row.weekNumber != null && row.dayIndex != null) {
                                     " · " + stringResource(
@@ -2685,7 +2688,7 @@ fun WorkoutLoggerScreen(
                     }
                     dialog.error?.let { message ->
                         Text(
-                            text = message,
+                            text = message.text(),
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -3547,7 +3550,7 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
 @Composable
 private fun WorkoutHeaderSection(
     occurrence: ActiveOccurrence,
-    message: String?,
+    message: LoggerFailure?,
     trainingStage: Boolean,
     onStartTraining: () -> Unit,
     onShowOverview: () -> Unit,
@@ -3669,7 +3672,7 @@ private fun WorkoutHeaderSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = error,
+                        text = error.text(),
                         color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.weight(1f)
                     )
@@ -3831,7 +3834,7 @@ private fun workoutOverviewTarget(
             }
         }
 
-        else -> stringResource(Res.string.logger_workout_overview_target_sets, sets)
+        else -> pluralStringResource(Res.plurals.logger_workout_overview_target_sets, sets, sets)
     }
 }
 

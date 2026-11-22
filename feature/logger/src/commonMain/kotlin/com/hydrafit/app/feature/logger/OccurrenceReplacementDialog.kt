@@ -26,6 +26,7 @@ import hydrafit.feature.logger.generated.resources.logger_replace_target
 import hydrafit.feature.logger.generated.resources.logger_replace_target_distance
 import hydrafit.feature.logger.generated.resources.logger_replace_target_force
 import hydrafit.feature.logger.generated.resources.logger_replace_target_timed
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -85,28 +86,32 @@ fun OccurrenceReplacementDialog(
                                 null
                             }
                             val target = when {
-                                newtons != null -> stringResource(
-                                    Res.string.logger_replace_target_force,
+                                newtons != null -> pluralStringResource(
+                                    Res.plurals.logger_replace_target_force,
+                                    entry.sets,
                                     entry.exerciseName,
                                     entry.sets,
                                     newtons
                                 )
-                                distance != null -> stringResource(
-                                    Res.string.logger_replace_target_distance,
+                                distance != null -> pluralStringResource(
+                                    Res.plurals.logger_replace_target_distance,
+                                    entry.sets,
                                     entry.exerciseName,
                                     entry.sets,
                                     distance,
                                     weight
                                 )
-                                seconds != null -> stringResource(
-                                    Res.string.logger_replace_target_timed,
+                                seconds != null -> pluralStringResource(
+                                    Res.plurals.logger_replace_target_timed,
+                                    entry.sets,
                                     entry.exerciseName,
                                     entry.sets,
                                     seconds,
                                     weight
                                 )
-                                else -> stringResource(
-                                    Res.string.logger_replace_target,
+                                else -> pluralStringResource(
+                                    Res.plurals.logger_replace_target,
+                                    entry.sets,
                                     entry.exerciseName,
                                     entry.sets,
                                     entry.reps ?: 0,

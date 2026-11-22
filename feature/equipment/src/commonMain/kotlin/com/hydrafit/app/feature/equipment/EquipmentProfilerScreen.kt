@@ -74,6 +74,8 @@ import hydrafit.feature.equipment.generated.resources.equipment_delete
 import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_confirm
 import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_message
 import hydrafit.feature.equipment.generated.resources.equipment_delete_exercise_title
+import hydrafit.feature.equipment.generated.resources.equipment_delete_in_use_blocked
+import hydrafit.feature.equipment.generated.resources.equipment_delete_logged_sets_blocked
 import hydrafit.feature.equipment.generated.resources.equipment_delete_personal_record_blocked
 import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_confirm
 import hydrafit.feature.equipment.generated.resources.equipment_delete_tag_message
@@ -90,6 +92,8 @@ import hydrafit.feature.equipment.generated.resources.equipment_exclude_window
 import hydrafit.feature.equipment.generated.resources.equipment_exclusion_section
 import hydrafit.feature.equipment.generated.resources.equipment_exclusions_empty
 import hydrafit.feature.equipment.generated.resources.equipment_exclusions_title
+import hydrafit.feature.equipment.generated.resources.equipment_exercise_error_muscle_required
+import hydrafit.feature.equipment.generated.resources.equipment_exercise_error_name_blank
 import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
 import hydrafit.feature.equipment.generated.resources.equipment_include
@@ -1487,12 +1491,18 @@ private fun ExerciseEditorDialog(
                 val errorMessage = state.error
                 if (errorMessage != null && !state.nameConflict) {
                     Text(
-                        text = if (state.errorReason ==
-                            CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE
-                        ) {
-                            stringResource(Res.string.equipment_delete_personal_record_blocked)
-                        } else {
-                            errorMessage
+                        text = when (state.errorReason) {
+                            CustomExerciseFailureReason.PERSONAL_RECORD_REFERENCE ->
+                                stringResource(Res.string.equipment_delete_personal_record_blocked)
+                            CustomExerciseFailureReason.NAME_BLANK ->
+                                stringResource(Res.string.equipment_exercise_error_name_blank)
+                            CustomExerciseFailureReason.MUSCLE_REQUIRED ->
+                                stringResource(Res.string.equipment_exercise_error_muscle_required)
+                            CustomExerciseFailureReason.HAS_LOGGED_SETS ->
+                                stringResource(Res.string.equipment_delete_logged_sets_blocked)
+                            CustomExerciseFailureReason.USED_BY_PLAN_OR_ROUTINE ->
+                                stringResource(Res.string.equipment_delete_in_use_blocked)
+                            CustomExerciseFailureReason.NAME_CONFLICT, null -> errorMessage
                         },
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall

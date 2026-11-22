@@ -38,6 +38,7 @@ import hydrafit.feature.cardio.generated.resources.cardio_type_speed
 import hydrafit.feature.cardio.generated.resources.cardio_type_walking
 import kotlin.math.round
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 private const val CARDIO_MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
@@ -97,8 +98,9 @@ internal fun CardioTypeTotals(
         totals.forEach { total ->
             Column(modifier = Modifier.padding(vertical = 4.dp)) {
                 Text(
-                    text = stringResource(
-                        Res.string.cardio_type_row,
+                    text = pluralStringResource(
+                        Res.plurals.cardio_type_row,
+                        total.activities,
                         stringResource(total.type.labelResource()),
                         total.activities
                     ),
@@ -189,8 +191,9 @@ internal fun CardioDayTable(
         )
         ordered.forEach { day ->
             Text(
-                text = stringResource(
-                    Res.string.cardio_day_row,
+                text = pluralStringResource(
+                    Res.plurals.cardio_day_row,
+                    day.activities,
                     cardioDayLabel(day.epochDay),
                     day.activities,
                     cardioDurationLabel(day.durationSeconds)

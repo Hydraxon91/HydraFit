@@ -10,6 +10,13 @@
     <string name="settings_home_notifications_description">Rest alerts, guidance and workout reminders.</string>
     <string name="settings_home_planner_engine">Planner engine</string>
     <string name="settings_home_units">Units</string>
+    <string name="settings_home_language">Language</string>
+    <string name="settings_language_hint">Choose the language of the app. Device default follows your phone’s language, and your data stays the same.</string>
+    <string name="settings_language_system">Device default</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_german">Deutsch</string>
+    <string name="settings_language_czech">Čeština</string>
+    <string name="settings_language_hungarian">Magyar</string>
     <string name="settings_home_appearance">Appearance</string>
     <string name="settings_appearance_hint">Themes only change colours. Quiet Strength is the default, and your data and layout stay the same.</string>
     <string name="settings_appearance_mode_section">Light or dark</string>
@@ -133,14 +140,26 @@
     <string name="settings_backup_restored">Restore staged. Close and reopen HydraFit to apply it.</string>
     <string name="settings_backup_merge_staged">Merge staged. Close and reopen HydraFit to apply it.</string>
     <string name="settings_backup_preview_title">Restore this backup?</string>
-    <string name="settings_backup_preview_body">This replaces your current data with %1$d records, including %2$d logged sets and %3$d custom exercises. This can’t be undone.</string>
+    <string name="settings_backup_preview_body">This replaces your current data with the contents of this file. Records: %1$d · Logged sets: %2$d · Custom exercises: %3$d. This can’t be undone.</string>
     <string name="settings_backup_merge_title">Merge instead</string>
-    <string name="settings_backup_merge_body">Merge adds %1$d sessions and %2$d sets (%3$d records in total). It only adds records — nothing you already have is changed or deleted.</string>
+    <string name="settings_backup_merge_body">Merge adds sessions and sets from this file. Sessions: %1$d · Sets: %2$d · Records in total: %3$d. It only adds records — nothing you already have is changed or deleted.</string>
     <string name="settings_backup_merge_nothing_new">Nothing new to merge — every supported record is already on this device.</string>
-    <string name="settings_backup_merge_kept_local">Keeps %1$d existing sessions as they are.</string>
-    <string name="settings_backup_merge_skipped_open">Skips %1$d unfinished sessions from this file.</string>
-    <string name="settings_backup_merge_skipped_unattached">Skips %1$d sets that aren’t linked to a session.</string>
-    <string name="settings_backup_merge_dropped_links">Adds %1$d sets without their link to a scheduled workout.</string>
+    <plurals name="settings_backup_merge_kept_local">
+        <item quantity="one">Keeps %1$d existing session as it is.</item>
+        <item quantity="other">Keeps %1$d existing sessions as they are.</item>
+    </plurals>
+    <plurals name="settings_backup_merge_skipped_open">
+        <item quantity="one">Skips %1$d unfinished session from this file.</item>
+        <item quantity="other">Skips %1$d unfinished sessions from this file.</item>
+    </plurals>
+    <plurals name="settings_backup_merge_skipped_unattached">
+        <item quantity="one">Skips %1$d set that isn’t linked to a session.</item>
+        <item quantity="other">Skips %1$d sets that aren’t linked to a session.</item>
+    </plurals>
+    <plurals name="settings_backup_merge_dropped_links">
+        <item quantity="one">Adds %1$d set without its link to a scheduled workout.</item>
+        <item quantity="other">Adds %1$d sets without their link to a scheduled workout.</item>
+    </plurals>
     <string name="settings_backup_merge_excluded_title">Not merged from this file:</string>
     <string name="settings_backup_merge_excluded_line">%1$s: %2$d</string>
     <string name="settings_backup_merge_excluded_accepted_plans">Accepted plans</string>
@@ -230,7 +249,10 @@
     <string name="settings_workout_import_working">Working set</string>
     <string name="settings_workout_import_unknown_set_type">Set type not recorded</string>
     <string name="settings_workout_import_mapping_title">Exercise mapping</string>
-    <string name="settings_workout_import_mapping_rows">%1$d rows</string>
+    <plurals name="settings_workout_import_mapping_rows">
+        <item quantity="one">%1$d row</item>
+        <item quantity="other">%1$d rows</item>
+    </plurals>
     <string name="settings_workout_import_mapping_none">Not chosen</string>
     <string name="settings_workout_import_mapping_unmatched">No catalog exercise matches this name. Choose one.</string>
     <string name="settings_workout_import_mapping_ambiguous">Several catalog exercises match: %1$s</string>
@@ -261,7 +283,7 @@
     <string name="settings_workout_import_problems_title">Before you import</string>
     <string name="settings_workout_import_problem_row">Row %1$d:</string>
     <string name="settings_workout_import_apply">Import</string>
-    <string name="settings_workout_import_summary">Imported %1$d sessions and %2$d sets; skipped %3$d unchanged.</string>
+    <string name="settings_workout_import_summary">Import finished. Sessions: %1$d · Sets: %2$d · Skipped unchanged: %3$d.</string>
     <string name="settings_workout_import_reset">Import another file</string>
     <string name="settings_workout_import_problem_unresolved_exclusion">Exclude every unsupported row before importing.</string>
     <string name="settings_workout_import_problem_unacknowledged_metadata">Acknowledge the source fields that are not imported.</string>
@@ -296,7 +318,10 @@
     <string name="settings_storage_usage_unavailable">Couldn’t read storage usage.</string>
     <string name="settings_storage_database_size">Database: %1$s</string>
     <string name="settings_storage_snapshots">Automatic snapshots: %1$s</string>
-    <string name="settings_storage_snapshots_count">%1$d files · %2$s</string>
+    <plurals name="settings_storage_snapshots_count">
+        <item quantity="one">%1$d file · %2$s</item>
+        <item quantity="other">%1$d files · %2$s</item>
+    </plurals>
     <string name="settings_storage_snapshots_none">None</string>
     <string name="settings_storage_snapshots_not_configured">Not configured</string>
     <string name="settings_storage_size_unavailable">size unavailable</string>
@@ -331,7 +356,10 @@
     <string name="settings_storage_confirm_type">Type %1$s to confirm.</string>
     <string name="settings_storage_confirm_word">REMOVE</string>
     <string name="settings_storage_confirm_word_label">Confirmation word</string>
-    <string name="settings_storage_confirm_snapshots">This removes %1$d recorded automatic snapshots.</string>
+    <plurals name="settings_storage_confirm_snapshots">
+        <item quantity="one">This removes %1$d recorded automatic snapshot.</item>
+        <item quantity="other">This removes %1$d recorded automatic snapshots.</item>
+    </plurals>
     <string name="settings_storage_confirm_snapshots_none">This removes the recorded automatic snapshots.</string>
     <string name="settings_storage_confirm_snapshots_kept">Automatic backup settings and your folder choice are kept, and manual exports or other files in the folder aren’t touched.</string>
     <string name="settings_storage_confirm_all">This removes every category listed here.</string>
@@ -339,7 +367,10 @@
     <string name="settings_storage_confirm_category_kept">The exercise catalog, saved credentials and backup files aren’t affected.</string>
     <string name="settings_storage_backup_disabled">Turn on automatic backups first.</string>
     <string name="settings_storage_removed_category">%1$s removed.</string>
-    <string name="settings_storage_removed_snapshots">Removed %1$d automatic snapshots.</string>
+    <plurals name="settings_storage_removed_snapshots">
+        <item quantity="one">Removed %1$d automatic snapshot.</item>
+        <item quantity="other">Removed %1$d automatic snapshots.</item>
+    </plurals>
     <string name="settings_storage_remove_failed">Couldn’t remove that data. Please try again.</string>
     <string name="settings_storage_exercise_data_referenced">Some custom exercises are used by your workout history, records or plans. Remove that data first, then try again.</string>
 </resources>

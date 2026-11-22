@@ -2048,7 +2048,7 @@ class SplitBuilderViewModelTest {
             viewModel.onConfirmSchedule()
             advanceUntilIdle()
 
-            assertEquals("dates", viewModel.state.value.scheduleDialog?.error)
+            assertEquals(SplitScheduleError.DatesStale, viewModel.state.value.scheduleDialog?.error)
             assertFalse(viewModel.state.value.isPlanAccepted)
             assertNull(history.latest())
         }
@@ -2089,7 +2089,7 @@ class SplitBuilderViewModelTest {
         viewModel.onConfirmSchedule()
         advanceUntilIdle()
 
-        assertEquals("dates", viewModel.state.value.scheduleDialog?.error)
+        assertEquals(SplitScheduleError.DatesStale, viewModel.state.value.scheduleDialog?.error)
         assertFalse(viewModel.state.value.isPlanAccepted)
         assertNull(history.latest())
         // The rejected Confirm must not have reached the schedule repository at all.

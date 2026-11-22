@@ -103,6 +103,7 @@ import hydrafit.feature.settings.generated.resources.settings_storage_snapshots_
 import hydrafit.feature.settings.generated.resources.settings_storage_snapshots_not_configured
 import hydrafit.feature.settings.generated.resources.settings_storage_usage_unavailable
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -361,7 +362,11 @@ private fun ConfirmBody(state: StorageDataUiState, category: DataCategory) {
             val count = state.usage?.automaticBackupFileCount
             Text(
                 text = if (count != null) {
-                    stringResource(Res.string.settings_storage_confirm_snapshots, count)
+                    pluralStringResource(
+                        Res.plurals.settings_storage_confirm_snapshots,
+                        count,
+                        count
+                    )
                 } else {
                     stringResource(Res.string.settings_storage_confirm_snapshots_none)
                 }
@@ -414,7 +419,12 @@ private fun snapshotsText(fileCount: Int?, bytes: Long?): String = when {
         } else {
             formatBytes(bytes)
         }
-        stringResource(Res.string.settings_storage_snapshots_count, fileCount, size)
+        pluralStringResource(
+            Res.plurals.settings_storage_snapshots_count,
+            fileCount,
+            fileCount,
+            size
+        )
     }
 }
 
@@ -448,7 +458,11 @@ private fun statusMessage(status: StorageDataStatus): String = when (status) {
     )
 
     is StorageDataStatus.BackupFilesRemoved ->
-        stringResource(Res.string.settings_storage_removed_snapshots, status.count)
+        pluralStringResource(
+            Res.plurals.settings_storage_removed_snapshots,
+            status.count,
+            status.count
+        )
 
     is StorageDataStatus.CategoryBlocked ->
         stringResource(status.failure.messageResource())
