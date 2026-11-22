@@ -605,8 +605,12 @@ isolation pool includes shoulder isolation, so rear-delt work can fill it.
 The deterministic planner also targets direct isolation sets for BICEPS and TRICEPS per normal
 generated week, the same number for both arms: `DirectArmCoverage.targetSetsPerMuscle(days, goal)` is 4
 for a two-day week, 6 for three or four days and 8 for five or six; Endurance keeps 4 at any frequency.
-Outside Endurance a direct arm exercise gets at least 3 sets (`setsPerArmExercise`; Endurance keeps the
-selected accessory count), so a few accessory slots reach the target. A set qualifies
+A direct arm exercise uses the selected accessory count, raised only as far as the split's arm slots need
+to reach the target (`setsPerArmExercise`: one slot per arm on an upper or full-body day, two on a push or
+pull day; the same rule in every goal since 0.15.4). Since 0.15.4 weekly volume targets are per muscle
+(`WeeklyVolumeTargets.sizeFactor`: 1.0 large, 0.7 medium, 0.5 other, traps none), paced across the days
+that can mainly train each muscle, and an accessory is added only while a muscle it mainly trains
+(involvement >= `MAIN_INVOLVEMENT` 0.5) is under its paced target; there is no forced 4-exercise minimum. A set qualifies
 only when the exercise uses the matching `BICEPS_ISOLATION` or
 `TRICEPS_ISOLATION` pattern and has positive effective involvement for that
 muscle; the involvement-weight tier is not a biological cutoff. While an arm

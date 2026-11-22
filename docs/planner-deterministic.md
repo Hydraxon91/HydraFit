@@ -39,20 +39,28 @@ last tie-break is the exercise id.
 2. **The split** (`SplitResolver`). Auto is full body for 2 or 3 days, upper/lower for 4, push/pull/legs for
    6, and a special upper, lower, push, pull, legs cycle for 5 (so legs are not trained once and push and
    pull twice). Each day gets a focus.
-3. **Targets for the goal.** `WeeklyVolumeTargets` gives each muscle a window of involvement-weighted sets
-   per week: Balanced 8/11/18, Strength 6/9/15, Hypertrophy 8/13/20, Endurance 6/9/16 (min/target/max). The
-   target drives selection; the maximum is a soft ceiling; the minimum is reported only. A deload scales the
-   window by 0.7. These are product defaults, not validated per-muscle optima.
+3. **Targets for the goal.** `WeeklyVolumeTargets.forGoal` gives a window of involvement-weighted sets per
+   week: Balanced 8/11/18, Strength 6/9/15, Hypertrophy 8/13/20, Endurance 6/9/16 (min/target/max). Since
+   0.15.4 each muscle gets a share of it by size (`sizeFactor`): the full window for chest, lats, upper back,
+   quads, hamstrings and glutes; 0.7 for side and rear delts, biceps, triceps and calves; 0.5 for every
+   other muscle; traps have none. The target drives selection; the maximum is a soft ceiling; the minimum is
+   reported only. A deload scales the window by 0.7. These are product defaults, not validated optima.
+   Each day owes only its **paced share** of a muscle's target: the fraction of the week's days that can
+   mainly train that muscle reached so far. Without pacing, the first such day took the whole week's work
+   and later days were left with their compounds alone.
 4. **Day by day**, in order, each day sees the running weekly ledger from the days before it:
    - **Compounds first.** For each compound group of the focus (for example push: horizontal push, then
      vertical push) one exercise is chosen. A compound not yet used this week is preferred; if none remains
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
      pattern's muscles (see "Ranking").
-   - **Then isolation and accessories** until the day has 4 to 6 exercises (`PlannerExerciseCounts`). First
-     any unmet **direct arm** work, then (on pull and upper days only) one **shrug**, then the largest
-     remaining volume deficit. Traps have no weekly target, so a deficit never picks a shrug; this slot does,
-     within the 6-exercise cap and after arm coverage, so a full 4-day upper day gets none. Past 4 exercises
-     an accessory is only added while it still has a deficit to fill.
+   - **Then isolation and accessories**, up to 6 exercises a day (`PlannerExerciseCounts`), with no forced
+     minimum. First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
+     days only) one **shrug**, then the largest remaining volume deficit. An accessory is added only while
+     a muscle it **mainly** trains (involvement 0.5 or more) is under its paced target; a small side share
+     still counts toward the totals but never justifies a slot. So a higher set count reaches the targets
+     with fewer exercises instead of padding every day to the same length. Traps have no weekly target, so
+     a deficit never picks a shrug; this slot does, within the cap and after arm coverage, so a full 4-day
+     upper day gets none.
 5. **Per exercise** (`plannedExercise`): sets, reps, load, timed or counted, with an explanation record.
 6. **Output.** A `WeeklyPlan` with the days, the arm-coverage report and a `PlanExplanation` that lists
    deload state and which exercises were skipped for soreness. Nothing is persisted by the engine.
@@ -97,8 +105,11 @@ exercise loads at 0.7 or more):
 
 Biceps and triceps get a dedicated weekly target of isolation sets, because compound credits alone leave
 them low. The target grows with frequency: 4 for two days, 6 for three or four, 8 for five or six; Endurance
-stays at 4. Each arm exercise gets at least 3 sets (Endurance keeps its accessory count) so a few slots
-reach the target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
+stays at 4. An arm exercise uses the selected accessory sets, raised only as far as the split needs
+(`setsPerArmExercise`): an upper or full-body day holds one exercise per arm and a push or pull day two, so a
+4-day upper/lower week at 2 accessory sets gets 3 per arm exercise while push/pull/legs keeps 2 and adds
+exercises. A higher selection is never lowered. Compound slots rank patterns by the share of each primary
+muscle's target still missing, so a hinge is not undervalued for its smaller lower-back target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
 target is a last resort so one arm cannot take every accessory slot. Pull isolation also includes rear-delt
 work so a second pull day is not only arm repeats. A deload does not chase the target. The result is
 reported in `WeeklyPlan.armCoverage` with a reason when unmet (no candidate, all skipped for fatigue, and so

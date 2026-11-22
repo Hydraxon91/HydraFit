@@ -96,6 +96,44 @@ class SeededPlannerQualityTest {
     }
 
     @Test
+    fun moreSetsPerExerciseNeverAddsExercisesAndArmTargetsHoldAtEveryCount() = runTest {
+        for (goal in TrainingGoal.entries) {
+            for (days in 2..6) {
+                var previousExercises = Int.MAX_VALUE
+                for (sets in 1..6) {
+                    val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+                        PlanRequest(
+                            daysPerWeek = days,
+                            availableEquipment = everything,
+                            muscleFatigue = emptyMap(),
+                            splitPreference = SplitType.AUTO,
+                            nowMillis = 0L,
+                            goal = goal,
+                            setsPerExercise = sets,
+                            accessorySetsPerExercise = sets
+                        )
+                    )
+                    val label = "goal=$goal days=$days sets=$sets"
+                    val exercises = plan.days.sumOf { it.exercises.size }
+                    assertTrue(exercises <= previousExercises, "$label exercises=$exercises")
+                    previousExercises = exercises
+                    assertTrue(
+                        plan.days.all {
+                            it.exercises.size <=
+                                PlannerExerciseCounts.TARGET_MAX_PER_DAY
+                        },
+                        label
+                    )
+                    assertTrue(
+                        plan.armCoverage.all { it.directIsolationSets >= it.targetSets },
+                        "$label coverage=${plan.armCoverage}"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun anInventoryWithNoEquipmentCanStillPlanEveryFocus() = runTest {
         for (days in 2..6) {
             val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(

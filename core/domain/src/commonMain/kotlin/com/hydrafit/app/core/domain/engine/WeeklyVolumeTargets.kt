@@ -56,6 +56,55 @@ object WeeklyVolumeTargets {
     }
 
     /**
+     * A muscle's share of the goal window from [forGoal], or null when the muscle has no weekly
+     * target of its own (traps only). Large muscles get the full window; smaller ones a fraction,
+     * because the compound lifts already credit them and a uniform window left them permanently
+     * under target, which kept every day filled to the exercise cap. A muscle without a target still
+     * counts for fatigue and appears in the weekly totals; it just never justifies adding a slot.
+     */
+    fun sizeFactor(muscle: MuscleGroup): Double? = when (muscle) {
+        MuscleGroup.CHEST_UPPER,
+        MuscleGroup.CHEST_LOWER,
+        MuscleGroup.LATS,
+        MuscleGroup.UPPER_BACK,
+        MuscleGroup.QUADS,
+        MuscleGroup.HAMSTRINGS,
+        MuscleGroup.GLUTES -> LARGE_MUSCLE_FACTOR
+        MuscleGroup.SIDE_DELTS,
+        MuscleGroup.REAR_DELTS,
+        MuscleGroup.BICEPS,
+        MuscleGroup.TRICEPS,
+        MuscleGroup.CALVES -> MEDIUM_MUSCLE_FACTOR
+        MuscleGroup.FRONT_DELTS,
+        MuscleGroup.ABS,
+        MuscleGroup.LOWER_BACK,
+        MuscleGroup.FOREARMS,
+        MuscleGroup.OBLIQUES,
+        MuscleGroup.ADDUCTORS,
+        MuscleGroup.HIP_ABDUCTORS,
+        MuscleGroup.NECK,
+        MuscleGroup.TIBIALIS_ANTERIOR,
+        MuscleGroup.SERRATUS_ANTERIOR,
+        MuscleGroup.HIP_FLEXORS -> SMALL_MUSCLE_FACTOR
+        // Traps share their work with UPPER_BACK and stay out of deficit targeting (VOL-01).
+        MuscleGroup.TRAPS -> null
+    }
+
+    /** [base] scaled to [muscle] by [sizeFactor]; null when the muscle has no weekly target. */
+    fun forMuscle(base: VolumeTarget, muscle: MuscleGroup): VolumeTarget? =
+        sizeFactor(muscle)?.let { factor ->
+            VolumeTarget(
+                minSets = base.minSets * factor,
+                targetSets = base.targetSets * factor,
+                maxSets = base.maxSets * factor
+            )
+        }
+
+    const val LARGE_MUSCLE_FACTOR = 1.0
+    const val MEDIUM_MUSCLE_FACTOR = 0.7
+    const val SMALL_MUSCLE_FACTOR = 0.5
+
+    /**
      * Effective weighted sets per muscle across [days]: each planned set contributes its exercise's
      * involvement weight to every muscle it trains. Muscles with no work are present with `0.0`.
      */

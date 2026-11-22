@@ -26,9 +26,6 @@ object DirectArmCoverage {
     /** The lowest weekly direct-set target: a two-day week, and the Endurance goal at any frequency. */
     const val BASE_TARGET_SETS_PER_MUSCLE = 4
 
-    /** An arm isolation exercise gets at least this many sets outside Endurance. */
-    const val MIN_ARM_EXERCISE_SETS = 3
-
     /**
      * The weekly direct isolation sets targeted for each of biceps and triceps. It grows with training
      * frequency, since more days leave more accessory slots: [BASE_TARGET_SETS_PER_MUSCLE] for one or
@@ -43,16 +40,35 @@ object DirectArmCoverage {
     }
 
     /**
-     * Sets for one direct arm exercise: the selected accessory count, raised to
-     * [MIN_ARM_EXERCISE_SETS] so a few slots reach the weekly target. Endurance keeps the selected count.
+     * Sets for one direct arm exercise: the selected accessory count, raised only as far as the split
+     * needs to reach [targetSets]. Upper and full-body days share their few accessory slots between
+     * both arms, so they hold one exercise per arm; a push or pull day trains one arm and has room for
+     * two. A 4-day upper/lower week (two upper days, 6 target sets) therefore gets 3 sets per arm
+     * exercise at an accessory count of 2, while a push/pull/legs week keeps the selected count and
+     * adds exercises instead. A higher selected count is never lowered.
      */
-    fun setsPerArmExercise(goal: TrainingGoal, accessorySets: Int): Int = if (goal ==
-        TrainingGoal.ENDURANCE
-    ) {
-        accessorySets
-    } else {
-        maxOf(accessorySets, MIN_ARM_EXERCISE_SETS)
+    fun setsPerArmExercise(
+        muscle: MuscleGroup,
+        focuses: List<SplitFocus>,
+        targetSets: Int,
+        accessorySets: Int
+    ): Int {
+        val pattern = armPatterns[muscle] ?: return accessorySets
+        val slots = focuses.sumOf { focus ->
+            if (pattern !in isolationPatternsFor(focus)) {
+                0
+            } else if (focus == SplitFocus.PUSH || focus == SplitFocus.PULL) {
+                SINGLE_ARM_DAY_SLOTS
+            } else {
+                SHARED_ARM_DAY_SLOTS
+            }
+        }
+        if (slots == 0) return accessorySets
+        return maxOf(accessorySets, (targetSets + slots - 1) / slots)
     }
+
+    private const val SINGLE_ARM_DAY_SLOTS = 2
+    private const val SHARED_ARM_DAY_SLOTS = 1
 
     private val armPatterns = mapOf(
         MuscleGroup.BICEPS to MovementPattern.BICEPS_ISOLATION,

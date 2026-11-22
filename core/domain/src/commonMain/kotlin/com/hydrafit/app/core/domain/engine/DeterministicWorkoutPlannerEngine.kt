@@ -58,6 +58,41 @@ class DeterministicWorkoutPlannerEngine(
             if (isDeload) periodization.deloadVolumeScale else 1.0
         )
         val armTargetSets = DirectArmCoverage.targetSetsPerMuscle(request.daysPerWeek, request.goal)
+        // Pace each muscle's weekly target across the days whose focus can mainly train it, so the
+        // first such day fills only its share and later days are not left with compounds alone.
+        val trainableByFocus = focuses.distinct().associateWith { focus ->
+            val patterns = SplitResolver.compoundGroups(focus).flatten() + isolationPatterns(focus)
+            availableExercises
+                .filter { it.movementPattern in patterns }
+                .flatMap { exercise ->
+                    exercise.effectiveInvolvements.filterValues { it >= MAIN_INVOLVEMENT }.keys
+                }
+                .toSet()
+        }
+        fun paceForDay(dayIndex: Int): Map<MuscleGroup, Double> =
+            MuscleGroup.entries.associateWith { muscle ->
+                val total = focuses.count { muscle in trainableByFocus.getValue(it) }
+                if (total == 0) {
+                    1.0
+                } else {
+                    focuses.take(dayIndex + 1)
+                        .count { muscle in trainableByFocus.getValue(it) }
+                        .toDouble() / total
+                }
+            }
+        // A deload does not chase the arm target, so its arm work keeps the plain accessory count.
+        val armSetsPerExercise = if (isDeload) {
+            emptyMap()
+        } else {
+            listOf(MuscleGroup.BICEPS, MuscleGroup.TRICEPS).associateWith { muscle ->
+                DirectArmCoverage.setsPerArmExercise(
+                    muscle,
+                    focuses,
+                    armTargetSets,
+                    request.accessorySetsPerExercise
+                )
+            }
+        }
 
         val days = List(request.daysPerWeek) { index ->
             val focus = focuses[index]
@@ -88,7 +123,9 @@ class DeterministicWorkoutPlannerEngine(
                     request.loadExplanations,
                     skippedForSoreness,
                     isDeload,
-                    request.automaticSetPrescription
+                    request.automaticSetPrescription,
+                    armSetsPerExercise,
+                    paceForDay(index)
                 )
             )
         }
@@ -146,7 +183,9 @@ class DeterministicWorkoutPlannerEngine(
         loadExplanations: Map<String, LoadOriginExplanation>,
         skippedForSoreness: MutableSet<String>,
         isDeload: Boolean,
-        automaticSetPrescription: AutomaticSetPrescription? = null
+        automaticSetPrescription: AutomaticSetPrescription? = null,
+        armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap(),
+        pace: Map<MuscleGroup, Double> = emptyMap()
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
@@ -163,7 +202,8 @@ class DeterministicWorkoutPlannerEngine(
                 weeklyVolume = weeklyVolume,
                 target = target,
                 exercisePreferences = exercisePreferences,
-                slotRanking = slotRanking
+                slotRanking = slotRanking,
+                pace = pace
             )
             val candidate = pickFirstNonSore(ranked, fatigue)
             ranked.takeWhile { it.id != candidate?.id }.forEach { skippedForSoreness += it.id }
@@ -184,7 +224,8 @@ class DeterministicWorkoutPlannerEngine(
                 loadingInventory,
                 loadExplanations,
                 isDeload,
-                automaticSetPrescription
+                automaticSetPrescription,
+                armSetsPerExercise
             )
             used += candidate.id
             weekUsed += candidate.id
@@ -225,12 +266,21 @@ class DeterministicWorkoutPlannerEngine(
             pick(fresh, slotRanking = true) || pick(eligible, slotRanking = true)
         }
 
-        // Pursue unmet direct arm coverage first, then fill toward TARGET_MIN and chase weighted
-        // deficits up to TARGET_MAX.
+        // Pursue unmet direct arm coverage first, then add accessories only while a muscle they
+        // mainly train is still under its weekly target, up to TARGET_MAX. There is no forced
+        // minimum: the weekly volume target is the budget, so a higher set count fills it with fewer
+        // exercises instead of padding every day to the same length.
         val isolationPool = isolationPatterns(focus)
         var trapSlotTried = false
+
+        // The arm target is paced like the volume targets: this day only owes its share, so the
+        // first arm day does not take the whole week's direct arm work.
+        fun needsArmWork(exercise: Exercise): Boolean =
+            DirectArmCoverage.muscleFor(exercise)?.let { muscle ->
+                val share = armTargetSets * (pace[muscle] ?: 1.0)
+                (directArmSets[muscle] ?: 0) < kotlin.math.ceil(share - ARM_PACE_TOLERANCE)
+            } == true
         while (picks.size < PlannerExerciseCounts.TARGET_MAX_PER_DAY) {
-            val pastMinimum = picks.size >= PlannerExerciseCounts.TARGET_MIN_PER_DAY
             val candidates = exercises.filter {
                 it.movementPattern in isolationPool &&
                     it.id !in used
@@ -238,9 +288,7 @@ class DeterministicWorkoutPlannerEngine(
             val directArmCandidates = if (isDeload) {
                 emptyList()
             } else {
-                candidates.filter {
-                    DirectArmCoverage.needsCoverage(it, directArmSets, armTargetSets)
-                }
+                candidates.filter { needsArmWork(it) }
             }
             // Fairness: feed the arm with fewer direct sets first, so one arm cannot consume every
             // accessory slot while the other stays under target.
@@ -273,8 +321,7 @@ class DeterministicWorkoutPlannerEngine(
                     isDeload ||
                         !DirectArmCoverage.needsCoverage(candidate, directArmSets, armTargetSets)
                     ) &&
-                    !isAtMax(candidate, weeklyVolume, target) &&
-                    (!pastMinimum || hasDeficit(candidate, weeklyVolume, target))
+                    hasDeficit(candidate, weeklyVolume, target, pace)
             }
             // Direct arm work beyond the weekly target is a last resort: other isolation work fills
             // the slot first, so one arm cannot soak up every accessory slot on a pull or push day.
@@ -305,7 +352,8 @@ class DeterministicWorkoutPlannerEngine(
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget,
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
-        slotRanking: Boolean = false
+        slotRanking: Boolean = false,
+        pace: Map<MuscleGroup, Double> = emptyMap()
     ): List<Exercise> {
         val comparator = compareBy<Exercise>(
             // Explicit user preference ranks first among candidates that already passed the hard
@@ -314,7 +362,7 @@ class DeterministicWorkoutPlannerEngine(
             // Coverage next: address the largest remaining shortfall, then use the (unvalidated)
             // fatigue estimate only to break ties, so a negligible fatigue difference cannot
             // override a much larger coverage deficit.
-            { -deficitScore(it, weeklyVolume, target, slotRanking) },
+            { -deficitScore(it, weeklyVolume, target, slotRanking, pace) },
             // When two lifts fill their muscles' deficit equally, the one that reaches more of them
             // wins, so a press for both chest regions beats one for the lower chest alone.
             { -slotBreadth(it, weeklyVolume, target, slotRanking) },
@@ -353,14 +401,16 @@ class DeterministicWorkoutPlannerEngine(
         loadingInventory: LoadingInventory?,
         loadExplanations: Map<String, LoadOriginExplanation>,
         isDeload: Boolean,
-        automaticSetPrescription: AutomaticSetPrescription? = null
+        automaticSetPrescription: AutomaticSetPrescription? = null,
+        armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap()
     ): PlannedExercise {
         val isCompound = candidate.movementPattern.isCompound
+        // Direct arm work uses the split's arm set count (the accessory count, raised only when the
+        // split's arm slots could not otherwise reach the weekly arm target).
         val baseSets = when {
             isCompound -> setsPerExercise
-            DirectArmCoverage.muscleFor(candidate) != null ->
-                DirectArmCoverage.setsPerArmExercise(goal, accessorySetsPerExercise)
-            else -> accessorySetsPerExercise
+            else -> DirectArmCoverage.muscleFor(candidate)?.let { armSetsPerExercise[it] }
+                ?: accessorySetsPerExercise
         }
         val deloadedSets = if (isDeload) {
             (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
@@ -550,7 +600,8 @@ class DeterministicWorkoutPlannerEngine(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget,
-        slotRanking: Boolean = false
+        slotRanking: Boolean = false,
+        pace: Map<MuscleGroup, Double> = emptyMap()
     ): Double {
         val involvements = exercise.plannerInvolvements()
         val primaries = PATTERN_PRIMARY_MUSCLES[exercise.movementPattern]
@@ -572,15 +623,47 @@ class DeterministicWorkoutPlannerEngine(
                 } else {
                     weight
                 }
-                maxOf(0.0, target.targetSets - weeklyVolume.getValue(muscle)) * effective
+                relativeShortfall(muscle, weeklyVolume, target) * effective
             } / trained.size
         }
         return involvements
-            .filter { (muscle, _) -> (weeklyVolume[muscle] ?: 0.0) < target.targetSets }
             .maxOfOrNull { (muscle, weight) ->
-                (target.targetSets - weeklyVolume.getValue(muscle)) * weight
+                shortfall(muscle, weeklyVolume, target, pace) * weight
             }
+            ?.takeIf { it > 0.0 }
             ?: 0.0
+    }
+
+    /**
+     * How far [muscle] is below its own target; zero when met or when it has none. [pace] is the
+     * share of the muscle's training days reached so far in the week (missing means the whole
+     * week), so an accessory fills only that day's part of the weekly target instead of the first
+     * day that trains the muscle taking all of it.
+     */
+    private fun shortfall(
+        muscle: MuscleGroup,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget,
+        pace: Map<MuscleGroup, Double> = emptyMap()
+    ): Double {
+        val muscleTarget = WeeklyVolumeTargets.forMuscle(target, muscle) ?: return 0.0
+        val pacedTarget = muscleTarget.targetSets * (pace[muscle] ?: 1.0)
+        return maxOf(0.0, pacedTarget - (weeklyVolume[muscle] ?: 0.0))
+    }
+
+    /**
+     * [shortfall] as a fraction of the muscle's own weekly target. Compound slots compare patterns
+     * whose primary muscles have different-sized targets (a hinge includes the smaller lower-back
+     * target), so they rank by how much of each target is still missing, not by raw sets.
+     */
+    private fun relativeShortfall(
+        muscle: MuscleGroup,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget
+    ): Double {
+        val muscleTarget = WeeklyVolumeTargets.forMuscle(target, muscle) ?: return 0.0
+        if (muscleTarget.targetSets <= 0.0) return 0.0
+        return shortfall(muscle, weeklyVolume, target) / muscleTarget.targetSets
     }
 
     /** The summed deficit a compound slot's candidate reaches; zero outside slot ranking. */
@@ -596,16 +679,23 @@ class DeterministicWorkoutPlannerEngine(
         return primaries.sumOf { muscle ->
             val weight = involvements[muscle] ?: 0.0
             val effective = if (weight >= fatigueConfig.targetedInvolvementCutoff) 1.0 else weight
-            maxOf(0.0, target.targetSets - weeklyVolume.getValue(muscle)) * effective
+            relativeShortfall(muscle, weeklyVolume, target) * effective
         }
     }
 
+    /**
+     * True while a muscle the exercise mainly trains (involvement at or above
+     * [MAIN_INVOLVEMENT]) is still under its weekly target. A small side share, such as 0.3 abs
+     * on a press, still counts toward the weekly totals but cannot justify adding a slot: almost
+     * every exercise touches some under-target muscle, so counting those kept every day full.
+     */
     private fun hasDeficit(
         exercise: Exercise,
         weeklyVolume: Map<MuscleGroup, Double>,
-        target: VolumeTarget
-    ): Boolean = exercise.plannerInvolvements().any { (muscle, _) ->
-        (weeklyVolume[muscle] ?: 0.0) < target.targetSets
+        target: VolumeTarget,
+        pace: Map<MuscleGroup, Double> = emptyMap()
+    ): Boolean = exercise.plannerInvolvements().any { (muscle, weight) ->
+        weight >= MAIN_INVOLVEMENT && shortfall(muscle, weeklyVolume, target, pace) > 0.0
     }
 
     /**
@@ -618,11 +708,11 @@ class DeterministicWorkoutPlannerEngine(
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget
     ): Boolean {
-        val targeted = exercise.plannerInvolvements()
-        return targeted.isNotEmpty() &&
-            targeted.all { (muscle, _) ->
-                (weeklyVolume[muscle] ?: 0.0) >= target.maxSets
-            }
+        val ceilings = exercise.plannerInvolvements().keys.mapNotNull { muscle ->
+            WeeklyVolumeTargets.forMuscle(target, muscle)?.let { muscle to it.maxSets }
+        }
+        return ceilings.isNotEmpty() &&
+            ceilings.all { (muscle, maxSets) -> (weeklyVolume[muscle] ?: 0.0) >= maxSets }
     }
 
     private fun intensityScale(isDeload: Boolean): Double =
@@ -665,6 +755,12 @@ class DeterministicWorkoutPlannerEngine(
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20
+
+        /** The involvement at which a muscle counts as one an exercise mainly trains (D1). */
+        const val MAIN_INVOLVEMENT = 0.5
+
+        /** Keeps floating-point pacing (e.g. 8 x 0.5) from rounding a met share up a whole set. */
+        private const val ARM_PACE_TOLERANCE = 1e-9
 
         /** Muscles excluded from weekly-volume deficit targeting (still counted for fatigue). */
         private val PLANNER_DEFERRED_MUSCLES = setOf(MuscleGroup.TRAPS)
