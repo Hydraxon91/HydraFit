@@ -66,6 +66,7 @@ It's a solo project that I use myself, so it grows around real training. You can
 - Edit built-in exercises or add your own, including equipment, movement patterns and muscle involvement.
 - Back up and restore your data locally. Core planning and logging work offline; AI options are never required.
 - Android backup leaves out your Groq key and your automatic-backup folder setting, since neither can work on another device.
+- Use the app in English, German, Czech, Hungarian or Dutch, following your device language or chosen in Settings. Exercise names stay in English for now.
 - Read the complete bundled third-party notices offline from Settings → About → Open-source licenses. HydraFit's own source is MIT; libraries, fonts, data and artwork keep their own terms.
 
 ## Download and build

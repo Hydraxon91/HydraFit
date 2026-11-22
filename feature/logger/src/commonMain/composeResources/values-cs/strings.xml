@@ -409,7 +409,7 @@
     <string name="logger_summary_records_reps_at_load">%1$d opak. s %2$s</string>
     <string name="logger_summary_records_estimate">Odhad 1RM: %1$s</string>
     <string name="logger_summary_records_estimate_from">z %1$d opak. s %2$s</string>
-    <string name="logger_summary_records_partial">Částečný trénink: tato zlepšení popisují sérii, které jste zaznamenali, nikoli dokončený předpis.</string>
+    <string name="logger_summary_records_partial">Částečný trénink: tato zlepšení popisují série, které jste zaznamenali, nikoli dokončený předpis.</string>
     <string name="logger_warmup_guidance_title">Zahřátí</string>
     <string name="logger_warmup_guidance_note">Nepovinné a jen jako výchozí bod. Cokoli upravte, přeskočte nebo skryjte, pokud vám to nepomáhá.</string>
     <string name="logger_warmup_guidance_preparation">Příprava</string>
