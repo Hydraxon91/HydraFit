@@ -55,7 +55,9 @@ last tie-break is the exercise id.
      pattern's muscles (see "Ranking").
    - **Then isolation and accessories**, up to 6 exercises a day (`PlannerExerciseCounts`), with no forced
      minimum. First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
-     days only) one **shrug**, then the largest remaining volume deficit. An accessory is added only while
+     days only) one **shrug**, then (on lower and legs days) one **leg extension** and one **leg curl**
+     when the machines are available, since squats and hinges do not replace knee-extension and
+     knee-flexion work, then the largest remaining volume deficit. An accessory is added only while
      a muscle it **mainly** trains (involvement 0.5 or more) is under its paced target; a small side share
      still counts toward the totals but never justifies a slot. So a higher set count reaches the targets
      with fewer exercises instead of padding every day to the same length. Traps have no weekly target, so

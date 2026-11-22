@@ -70,10 +70,22 @@ class SeededPlannerQualityTest {
 
     @Test
     fun noExerciseRepeatsAcrossTheWeekWhenAllEquipmentIsAvailable() = runTest {
+        // The leg-extension slot on every lower day has a single plannable exercise, so it may
+        // repeat; anything with an alternative must not.
+        val soleKneeExtension = DefaultExercises.all
+            .filter {
+                it.movementPattern == MovementPattern.LEG_ISOLATION &&
+                    it.id !in PlannerLibraryOnlyExercises.ids &&
+                    (it.effectiveInvolvements[MuscleGroup.QUADS] ?: 0.0) >= 0.5
+            }
+            .map { it.id }
+            .toSet()
+            .takeIf { it.size == 1 }
+            .orEmpty()
         for (days in 2..6) {
             val ids = plan(days).days.flatMap { day -> day.exercises.map { it.exerciseId } }
             val repeated = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-            assertEquals(emptySet(), repeated, "days=$days")
+            assertEquals(emptySet(), repeated - soleKneeExtension, "days=$days")
         }
     }
 
@@ -128,6 +140,40 @@ class SeededPlannerQualityTest {
                         plan.armCoverage.all { it.directIsolationSets >= it.targetSets },
                         "$label coverage=${plan.armCoverage}"
                     )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun everyLowerOrLegsDayHasALegExtensionAndALegCurl() = runTest {
+        fun trains(id: String, muscle: MuscleGroup): Boolean = byId.getValue(id).let {
+            it.movementPattern == MovementPattern.LEG_ISOLATION &&
+                (it.effectiveInvolvements[muscle] ?: 0.0) >= 0.5
+        }
+        for (goal in TrainingGoal.entries) {
+            for (days in 2..6) {
+                for (sets in listOf(2, 4, 6)) {
+                    val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+                        PlanRequest(
+                            daysPerWeek = days,
+                            availableEquipment = everything,
+                            muscleFatigue = emptyMap(),
+                            splitPreference = SplitType.AUTO,
+                            nowMillis = 0L,
+                            goal = goal,
+                            setsPerExercise = sets,
+                            accessorySetsPerExercise = sets
+                        )
+                    )
+                    plan.days.filter { it.focus == SplitFocus.LOWER || it.focus == SplitFocus.LEGS }
+                        .forEach { day ->
+                            val ids = day.exercises.map { it.exerciseId }
+                            val label = "goal=$goal days=$days sets=$sets " +
+                                "day=${day.dayIndex} ids=$ids"
+                            assertTrue(ids.any { trains(it, MuscleGroup.QUADS) }, label)
+                            assertTrue(ids.any { trains(it, MuscleGroup.HAMSTRINGS) }, label)
+                        }
                 }
             }
         }

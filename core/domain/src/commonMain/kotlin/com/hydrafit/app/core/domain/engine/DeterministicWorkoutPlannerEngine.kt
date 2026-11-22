@@ -272,6 +272,7 @@ class DeterministicWorkoutPlannerEngine(
         // exercises instead of padding every day to the same length.
         val isolationPool = isolationPatterns(focus)
         var trapSlotTried = false
+        var legSlotsTried = false
 
         // The arm target is paced like the volume targets: this day only owes its share, so the
         // first arm day does not take the whole week's direct arm work.
@@ -313,6 +314,24 @@ class DeterministicWorkoutPlannerEngine(
                     it.movementPattern == MovementPattern.TRAP_ISOLATION && it.id !in used
                 }
                 if (pickFreshFirst(trapCandidates)) continue
+            }
+            // A squat and a hinge do not replace knee-extension and knee-flexion work: hinges train
+            // the hamstrings at the hip, not the knee, and squats under-train the rectus femoris.
+            // Every lower or legs day therefore gets one leg extension and one leg curl, when the
+            // equipment allows, before the deficit-driven accessories and within the daily cap.
+            if (!legSlotsTried && (focus == SplitFocus.LOWER || focus == SplitFocus.LEGS)) {
+                legSlotsTried = true
+                var pickedLegWork = false
+                KNEE_ISOLATION_MUSCLES.forEach { muscle ->
+                    if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) return@forEach
+                    val pool = candidates.filter {
+                        it.movementPattern == MovementPattern.LEG_ISOLATION &&
+                            it.id !in used &&
+                            (it.effectiveInvolvements[muscle] ?: 0.0) >= MAIN_INVOLVEMENT
+                    }
+                    if (pickFreshFirst(pool)) pickedLegWork = true
+                }
+                if (pickedLegWork) continue
             }
             val remaining = candidates.filter { candidate ->
                 // A deload does not chase the direct-arm target, so an eligible arm isolation is an
@@ -758,6 +777,9 @@ class DeterministicWorkoutPlannerEngine(
 
         /** The involvement at which a muscle counts as one an exercise mainly trains (D1). */
         const val MAIN_INVOLVEMENT = 0.5
+
+        /** Knee extension, then knee flexion: the two leg isolations every lower or legs day gets. */
+        private val KNEE_ISOLATION_MUSCLES = listOf(MuscleGroup.QUADS, MuscleGroup.HAMSTRINGS)
 
         /** Keeps floating-point pacing (e.g. 8 x 0.5) from rounding a met share up a whole set. */
         private const val ARM_PACE_TOLERANCE = 1e-9
