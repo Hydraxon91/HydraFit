@@ -281,7 +281,10 @@ class DeterministicWorkoutPlannerEngine(
                 val share = armTargetSets * (pace[muscle] ?: 1.0)
                 (directArmSets[muscle] ?: 0) < kotlin.math.ceil(share - ARM_PACE_TOLERANCE)
             } == true
-        while (picks.size < PlannerExerciseCounts.TARGET_MAX_PER_DAY) {
+        // Two caps: the must-haves (direct arm coverage, the shrug, leg extension and leg curl) may
+        // fill a day up to MUST_HAVE_MAX_PER_DAY, while ordinary deficit-filling accessories stop at
+        // TARGET_MAX_PER_DAY. Must-haves always come first, so they never compete with extras.
+        while (picks.size < PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY) {
             val candidates = exercises.filter {
                 it.movementPattern in isolationPool &&
                     it.id !in used
@@ -307,7 +310,7 @@ class DeterministicWorkoutPlannerEngine(
             // Traps have no weekly volume target, so no deficit ever selects a shrug. A pull or upper
             // day gets one right after any unmet direct arm work, so it never displaces a compound or
             // arm coverage and still comes before the ordinary accessories. A shrug not yet used this
-            // week is preferred; the daily maximum still applies through the loop condition.
+            // week is preferred; the must-have maximum applies through the loop condition.
             if (!trapSlotTried && (focus == SplitFocus.PULL || focus == SplitFocus.UPPER)) {
                 trapSlotTried = true
                 val trapCandidates = exercises.filter {
@@ -318,12 +321,12 @@ class DeterministicWorkoutPlannerEngine(
             // A squat and a hinge do not replace knee-extension and knee-flexion work: hinges train
             // the hamstrings at the hip, not the knee, and squats under-train the rectus femoris.
             // Every lower or legs day therefore gets one leg extension and one leg curl, when the
-            // equipment allows, before the deficit-driven accessories and within the daily cap.
+            // equipment allows, before the deficit-driven accessories and within the must-have cap.
             if (!legSlotsTried && (focus == SplitFocus.LOWER || focus == SplitFocus.LEGS)) {
                 legSlotsTried = true
                 var pickedLegWork = false
                 KNEE_ISOLATION_MUSCLES.forEach { muscle ->
-                    if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) return@forEach
+                    if (picks.size >= PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY) return@forEach
                     val pool = candidates.filter {
                         it.movementPattern == MovementPattern.LEG_ISOLATION &&
                             it.id !in used &&
@@ -333,6 +336,8 @@ class DeterministicWorkoutPlannerEngine(
                 }
                 if (pickedLegWork) continue
             }
+            // Ordinary accessories stop at the normal daily maximum.
+            if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) break
             val remaining = candidates.filter { candidate ->
                 // A deload does not chase the direct-arm target, so an eligible arm isolation is an
                 // ordinary accessory there; only a normal week reserves it for the priority branch.

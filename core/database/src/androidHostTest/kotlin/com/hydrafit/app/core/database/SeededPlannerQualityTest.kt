@@ -132,7 +132,7 @@ class SeededPlannerQualityTest {
                     assertTrue(
                         plan.days.all {
                             it.exercises.size <=
-                                PlannerExerciseCounts.TARGET_MAX_PER_DAY
+                                PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY
                         },
                         label
                     )
@@ -209,11 +209,21 @@ class SeededPlannerQualityTest {
                 if (day.focus != SplitFocus.PULL && day.focus != SplitFocus.UPPER) {
                     assertEquals(0, shrugs, "days=$days focus=${day.focus}")
                 }
-                assertTrue(day.exercises.size <= PlannerExerciseCounts.TARGET_MAX_PER_DAY)
+                assertTrue(day.exercises.size <= PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY)
                 shrugDays += shrugs
             }
         }
         assertTrue(shrugDays > 0, "no pull or upper day was given a shrug")
+        // A must-have may go past the ordinary six, so a full 4-day upper day still fits its shrug.
+        plan(4).days.filter { it.focus == SplitFocus.UPPER }.forEach { day ->
+            assertEquals(
+                1,
+                day.exercises.count {
+                    it.exerciseId in shrugIds
+                },
+                "day=${day.dayIndex}"
+            )
+        }
     }
 
     @Test

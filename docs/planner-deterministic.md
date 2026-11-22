@@ -53,16 +53,17 @@ last tie-break is the exercise id.
      vertical push) one exercise is chosen. A compound not yet used this week is preferred; if none remains
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
      pattern's muscles (see "Ranking").
-   - **Then isolation and accessories**, up to 6 exercises a day (`PlannerExerciseCounts`), with no forced
-     minimum. First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
+   - **Then isolation and accessories**, with no forced minimum and two caps (`PlannerExerciseCounts`):
+     the must-haves below may take a day up to 8 exercises, ordinary deficit-filling accessories stop at 6.
+     First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
      days only) one **shrug**, then (on lower and legs days) one **leg extension** and one **leg curl**
      when the machines are available, since squats and hinges do not replace knee-extension and
      knee-flexion work, then the largest remaining volume deficit. An accessory is added only while
      a muscle it **mainly** trains (involvement 0.5 or more) is under its paced target; a small side share
      still counts toward the totals but never justifies a slot. So a higher set count reaches the targets
      with fewer exercises instead of padding every day to the same length. Traps have no weekly target, so
-     a deficit never picks a shrug; this slot does, within the cap and after arm coverage, so a full 4-day
-     upper day gets none.
+     a deficit never picks a shrug; this slot does, after arm coverage and within the must-have cap, so a
+     full 4-day upper day (four compounds and two arm exercises) still gets one as its seventh exercise.
 5. **Per exercise** (`plannedExercise`): sets, reps, load, timed or counted, with an explanation record.
 6. **Output.** A `WeeklyPlan` with the days, the arm-coverage report and a `PlanExplanation` that lists
    deload state and which exercises were skipped for soreness. Nothing is persisted by the engine.
