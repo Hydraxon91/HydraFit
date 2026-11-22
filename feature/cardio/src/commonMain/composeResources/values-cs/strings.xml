@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="cardio_nav_label">Kardio</string>
+    <string name="cardio_title">Kardio</string>
+    <string name="cardio_back">Zpět</string>
+    <string name="cardio_entry_open">Kardio</string>
+    <string name="cardio_log_activity">Zaznamenat aktivitu</string>
+    <string name="cardio_loading">Načítání kardio aktivit…</string>
+    <string name="cardio_load_failed">Kardio aktivity se nepodařilo načíst.</string>
+    <string name="cardio_retry">Zkusit znovu</string>
+    <string name="cardio_empty">Zatím žádné kardio aktivity. Zaznamenejte první aktivitu a začněte historii.</string>
+
+    <string name="cardio_range_28">28 dní</string>
+    <string name="cardio_range_84">84 dní</string>
+    <string name="cardio_range_365">365 dní</string>
+    <string name="cardio_totals_title">Součty podle typu aktivity</string>
+    <string name="cardio_totals_empty">V tomto období nebyly zaznamenány žádné kardio aktivity.</string>
+    <plurals name="cardio_type_row">
+        <item quantity="one">%1$s · %2$d aktivita</item>
+        <item quantity="few">%1$s · %2$d aktivity</item>
+        <item quantity="many">%1$s · %2$d aktivity</item>
+        <item quantity="other">%1$s · %2$d aktivit</item>
+    </plurals>
+    <string name="cardio_type_duration">Doba trvání: %1$s</string>
+    <string name="cardio_type_distance">Vzdálenost: %1$s</string>
+    <string name="cardio_type_speed">Průměrná rychlost: %1$s m/s</string>
+    <string name="cardio_chart_title">Zaznamenaná doba trvání za den</string>
+    <string name="cardio_chart_caption">Každý sloupec je jeden zaznamenaný den; dny bez zaznamenané aktivity zůstávají prázdné a nikdy se nepřenášejí dál.</string>
+    <plurals name="cardio_day_row">
+        <item quantity="one">%1$s: %2$d aktivita, %3$s</item>
+        <item quantity="few">%1$s: %2$d aktivity, %3$s</item>
+        <item quantity="many">%1$s: %2$d aktivity, %3$s</item>
+        <item quantity="other">%1$s: %2$d aktivit, %3$s</item>
+    </plurals>
+
+    <string name="cardio_history_title">Zaznamenaná historie</string>
+    <string name="cardio_history_note">Všechny zaznamenané kardio aktivity, nejnovější první.</string>
+    <string name="cardio_activity_line">%1$s · %2$s</string>
+    <string name="cardio_activity_note">Poznámka: %1$s</string>
+    <string name="cardio_edit">Upravit</string>
+
+    <string name="cardio_add_title">Zaznamenat kardio aktivitu</string>
+    <string name="cardio_edit_title">Upravit kardio aktivitu</string>
+    <string name="cardio_type_label">Typ aktivity</string>
+    <string name="cardio_start_label">Čas zahájení (RRRR-MM-DD HH:mm)</string>
+    <string name="cardio_duration_label">Doba trvání</string>
+    <string name="cardio_minutes_label">Minuty</string>
+    <string name="cardio_seconds_label">Sekundy</string>
+    <string name="cardio_distance_label">Vzdálenost (%1$s)</string>
+    <string name="cardio_note_label">Poznámka (nepovinná)</string>
+    <string name="cardio_save">Uložit</string>
+    <string name="cardio_cancel">Zrušit</string>
+    <string name="cardio_delete">Smazat aktivitu</string>
+    <string name="cardio_delete_confirm_title">Smazat tuto aktivitu?</string>
+    <string name="cardio_delete_confirm_message">Aktivita %1$s dne %2$s bude odstraněna.</string>
+    <string name="cardio_delete_confirm_message_unknown">Tato zaznamenaná aktivita bude odstraněna.</string>
+    <string name="cardio_delete_confirm">Smazat</string>
+
+    <string name="cardio_error_invalid_start">Zadejte čas zahájení ve tvaru RRRR-MM-DD HH:mm.</string>
+    <string name="cardio_error_invalid_duration">Zadejte dobu trvání od 1 sekundy do 24 hodin.</string>
+    <string name="cardio_error_invalid_distance">Zadejte kladnou vzdálenost nebo pole nechte prázdné.</string>
+    <string name="cardio_error_invalid_note">Poznámka může mít nejvýše 2000 znaků.</string>
+    <string name="cardio_error_invalid_activity">Tyto hodnoty se nepodařilo uložit. Zkontrolujte je a zkuste to znovu.</string>
+    <string name="cardio_error_save_failed">Aktivitu se nepodařilo uložit. Zkuste to znovu.</string>
+
+    <string name="cardio_type_walking">Chůze</string>
+    <string name="cardio_type_running">Běh</string>
+    <string name="cardio_type_cycling">Cyklistika</string>
+    <string name="cardio_type_rowing">Veslování</string>
+    <string name="cardio_type_other">Jiné</string>
+
+    <string name="cardio_duration_hours">%1$d h %2$d min</string>
+    <string name="cardio_duration_minutes">%1$d min %2$d s</string>
+</resources>

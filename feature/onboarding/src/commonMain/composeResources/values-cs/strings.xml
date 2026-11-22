@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="onboarding_title">Nastavení HydraFitu</string>
+    <string name="onboarding_step_welcome">Vítejte</string>
+    <string name="onboarding_step_units">Jednotka hmotnosti</string>
+    <string name="onboarding_step_equipment">Vybavení</string>
+    <string name="onboarding_step_goal">Tréninkový cíl</string>
+    <string name="onboarding_step_weekdays">Tréninkové dny</string>
+    <string name="onboarding_step_personal_records">Osobní rekordy</string>
+    <string name="onboarding_step_first_workout">První trénink</string>
+    <string name="onboarding_loading">Načítání vašeho nastavení…</string>
+    <string name="onboarding_load_error">Nastavení se nepodařilo načíst. Zkuste to prosím znovu.</string>
+    <string name="onboarding_error">Nastavení se nepodařilo uložit. Zkuste to prosím znovu.</string>
+    <string name="onboarding_retry">Zkusit znovu</string>
+    <string name="onboarding_skip">Přeskočit nastavení</string>
+    <string name="onboarding_close">Zavřít</string>
+    <string name="onboarding_back">Zpět</string>
+    <string name="onboarding_next">Další</string>
+    <string name="onboarding_saved_on_next">Změny se uloží po stisknutí tlačítka Další.</string>
+
+    <string name="onboarding_welcome_intro">Odpovězte na několik nepovinných otázek a HydraFit bude plánovat podle vašeho vybavení a vašeho týdne. K nastavení se můžete později vrátit v Nastavení.</string>
+
+    <string name="onboarding_units_prompt">Jakou jednotku používáte pro hmotnost?</string>
+    <string name="onboarding_unit_kg">Kilogramy (kg)</string>
+    <string name="onboarding_unit_lb">Libry (lb)</string>
+
+    <string name="onboarding_equipment_prompt">S čím můžete trénovat?</string>
+    <string name="onboarding_equipment_profile">Profil: %1$s</string>
+    <string name="onboarding_equipment_profile_note">Vaše volby se ukládají do tohoto profilu. Profily a podrobnosti o zatížení spravujete v Knihovna → Vybavení.</string>
+    <string name="onboarding_equipment_empty">Zatím není uvedeno žádné vybavení. Nastavení můžete přeskočit a přidat ho později v Knihovna → Vybavení.</string>
+
+    <string name="onboarding_goal_prompt">Na co trénujete?</string>
+    <string name="onboarding_goal_balanced">Vyváženě</string>
+    <string name="onboarding_goal_strength">Síla</string>
+    <string name="onboarding_goal_hypertrophy">Růst svalů</string>
+    <string name="onboarding_goal_endurance">Vytrvalost</string>
+
+    <string name="onboarding_weekdays_prompt">Které dny obvykle trénujete?</string>
+    <string name="onboarding_weekdays_decide_later">Rozhodnout později</string>
+    <string name="onboarding_weekdays_hint">Vyberte 2 až 6 dnů nebo zvolte Rozhodnout později.</string>
+    <string name="onboarding_day_monday">Pondělí</string>
+    <string name="onboarding_day_tuesday">Úterý</string>
+    <string name="onboarding_day_wednesday">Středa</string>
+    <string name="onboarding_day_thursday">Čtvrtek</string>
+    <string name="onboarding_day_friday">Pátek</string>
+    <string name="onboarding_day_saturday">Sobota</string>
+    <string name="onboarding_day_sunday">Neděle</string>
+
+    <string name="onboarding_pr_prompt">Přidejte nejlepší sérii, kterou už znáte. Je to nepovinné a HydraFit ji nikdy nehádá.</string>
+    <string name="onboarding_pr_search">Hledat cviky</string>
+    <string name="onboarding_pr_none">Zatím žádná nejlepší série</string>
+    <string name="onboarding_pr_value">%1$s %2$s × %3$s</string>
+    <string name="onboarding_pr_set">Nastavit nejlepší sérii</string>
+    <string name="onboarding_pr_weight">Hmotnost</string>
+    <string name="onboarding_pr_reps">Opakování</string>
+    <string name="onboarding_pr_save">Uložit nejlepší sérii</string>
+    <string name="onboarding_pr_unknown">Nevím</string>
+    <string name="onboarding_pr_no_match">Žádný cvik neodpovídá tomuto hledání.</string>
+
+    <string name="onboarding_first_workout_intro">Vyberte, jak začít. Nastavení se uloží, jakmile zvolíte jednu z možností.</string>
+    <string name="onboarding_generate_plan">Vytvořit plán</string>
+    <string name="onboarding_build_routine">Sestavit rutinu</string>
+    <string name="onboarding_log_without_plan">Zaznamenat bez plánu</string>
+</resources>

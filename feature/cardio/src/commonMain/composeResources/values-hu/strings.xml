@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="cardio_nav_label">Kardió</string>
+    <string name="cardio_title">Kardió</string>
+    <string name="cardio_back">Vissza</string>
+    <string name="cardio_entry_open">Kardió</string>
+    <string name="cardio_log_activity">Tevékenység rögzítése</string>
+    <string name="cardio_loading">Kardiótevékenységek betöltése…</string>
+    <string name="cardio_load_failed">A kardiótevékenységeket nem sikerült betölteni.</string>
+    <string name="cardio_retry">Újrapróbálás</string>
+    <string name="cardio_empty">Még nincs kardiótevékenység. Rögzítse az elsőt, és kezdje meg az előzményeket.</string>
+
+    <string name="cardio_range_28">28 nap</string>
+    <string name="cardio_range_84">84 nap</string>
+    <string name="cardio_range_365">365 nap</string>
+    <string name="cardio_totals_title">Összesítés tevékenységtípusonként</string>
+    <string name="cardio_totals_empty">Ebben az időszakban nem rögzítettek kardiótevékenységet.</string>
+    <plurals name="cardio_type_row">
+        <item quantity="one">%1$s · %2$d tevékenység</item>
+        <item quantity="other">%1$s · %2$d tevékenység</item>
+    </plurals>
+    <string name="cardio_type_duration">Időtartam: %1$s</string>
+    <string name="cardio_type_distance">Távolság: %1$s</string>
+    <string name="cardio_type_speed">Átlagsebesség: %1$s m/s</string>
+    <string name="cardio_chart_title">Rögzített időtartam naponta</string>
+    <string name="cardio_chart_caption">Minden oszlop egy rögzített nap; a rögzített tevékenység nélküli napok üresen maradnak, és sosem kerülnek át a következő napra.</string>
+    <plurals name="cardio_day_row">
+        <item quantity="one">%1$s: %2$d tevékenység, %3$s</item>
+        <item quantity="other">%1$s: %2$d tevékenység, %3$s</item>
+    </plurals>
+
+    <string name="cardio_history_title">Rögzített előzmények</string>
+    <string name="cardio_history_note">Minden rögzített kardiótevékenység, a legújabb elöl.</string>
+    <string name="cardio_activity_line">%1$s · %2$s</string>
+    <string name="cardio_activity_note">Megjegyzés: %1$s</string>
+    <string name="cardio_edit">Szerkesztés</string>
+
+    <string name="cardio_add_title">Kardiótevékenység rögzítése</string>
+    <string name="cardio_edit_title">Kardiótevékenység szerkesztése</string>
+    <string name="cardio_type_label">Tevékenység típusa</string>
+    <string name="cardio_start_label">Kezdési időpont (ÉÉÉÉ-HH-NN ÓÓ:pp)</string>
+    <string name="cardio_duration_label">Időtartam</string>
+    <string name="cardio_minutes_label">Perc</string>
+    <string name="cardio_seconds_label">Másodperc</string>
+    <string name="cardio_distance_label">Távolság (%1$s)</string>
+    <string name="cardio_note_label">Megjegyzés (nem kötelező)</string>
+    <string name="cardio_save">Mentés</string>
+    <string name="cardio_cancel">Mégse</string>
+    <string name="cardio_delete">Tevékenység törlése</string>
+    <string name="cardio_delete_confirm_title">Törli ezt a tevékenységet?</string>
+    <string name="cardio_delete_confirm_message">A(z) %1$s (%2$s) el lesz távolítva.</string>
+    <string name="cardio_delete_confirm_message_unknown">Ez a rögzített tevékenység el lesz távolítva.</string>
+    <string name="cardio_delete_confirm">Törlés</string>
+
+    <string name="cardio_error_invalid_start">Adja meg a kezdési időpontot ÉÉÉÉ-HH-NN ÓÓ:pp formában.</string>
+    <string name="cardio_error_invalid_duration">Adjon meg 1 másodperc és 24 óra közötti időtartamot.</string>
+    <string name="cardio_error_invalid_distance">Adjon meg pozitív távolságot, vagy hagyja üresen.</string>
+    <string name="cardio_error_invalid_note">A megjegyzés legfeljebb 2000 karakter lehet.</string>
+    <string name="cardio_error_invalid_activity">Ezeket az értékeket nem sikerült menteni. Ellenőrizze őket, és próbálja újra.</string>
+    <string name="cardio_error_save_failed">A tevékenységet nem sikerült menteni. Próbálja újra.</string>
+
+    <string name="cardio_type_walking">Gyaloglás</string>
+    <string name="cardio_type_running">Futás</string>
+    <string name="cardio_type_cycling">Kerékpározás</string>
+    <string name="cardio_type_rowing">Evezés</string>
+    <string name="cardio_type_other">Egyéb</string>
+
+    <string name="cardio_duration_hours">%1$d ó %2$d p</string>
+    <string name="cardio_duration_minutes">%1$d p %2$d mp</string>
+</resources>

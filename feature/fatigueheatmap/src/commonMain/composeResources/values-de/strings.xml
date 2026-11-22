@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="fatigue_heatmap_title">Geschätzte Muskelermüdung</string>
+    <string name="fatigue_estimate_note">Geschätzt aus erfassten Arbeitssätzen. Das ist keine Messung von Muskelkater, Erschöpfung oder Bereitschaft. Niedrige Werte bestätigen keine Erholung; erfasste Muskelzuordnungen können unvollständig sein.</string>
+    <string name="fatigue_percentage">%1$d,%2$d%</string>
+    <string name="fatigue_percentage_near_limit">99,9+%</string>
+    <string name="nav_label">Ermüdung</string>
+    <string name="muscle_chest_upper">Obere Brust</string>
+    <string name="muscle_chest_lower">Untere Brust</string>
+    <string name="muscle_lats">Latissimus</string>
+    <string name="muscle_upper_back">Oberer Rücken</string>
+    <string name="muscle_lower_back">Unterer Rücken</string>
+    <string name="muscle_front_delts">Vordere Schulter</string>
+    <string name="muscle_side_delts">Seitliche Schulter</string>
+    <string name="muscle_rear_delts">Hintere Schulter</string>
+    <string name="muscle_biceps">Bizeps</string>
+    <string name="muscle_triceps">Trizeps</string>
+    <string name="muscle_forearms">Unterarme</string>
+    <string name="muscle_abs">Bauchmuskeln</string>
+    <string name="muscle_obliques">Schräge Bauchmuskeln</string>
+    <string name="muscle_quads">Quadrizeps</string>
+    <string name="muscle_hamstrings">Beinbeuger</string>
+    <string name="muscle_glutes">Gesäßmuskeln</string>
+    <string name="muscle_calves">Waden</string>
+    <string name="muscle_adductors">Adduktoren</string>
+    <string name="muscle_hip_abductors">Hüftabduktoren</string>
+    <string name="muscle_traps">Trapezmuskel</string>
+    <string name="muscle_neck">Nacken</string>
+    <string name="muscle_tibialis_anterior">Vorderer Schienbeinmuskel</string>
+    <string name="muscle_serratus_anterior">Vorderer Sägemuskel</string>
+    <string name="muscle_hip_flexors">Hüftbeuger</string>
+    <string name="fatigue_map_front">Vorderseite</string>
+    <string name="fatigue_map_back">Rückseite</string>
+    <string name="fatigue_map_male">Männlich</string>
+    <string name="fatigue_map_female">Weiblich</string>
+    <string name="fatigue_map_load_failed">Die Körperkarte konnte nicht geladen werden. Die Muskelwerte stehen weiterhin unten zur Verfügung.</string>
+    <string name="fatigue_map_retry">Erneut versuchen</string>
+    <string name="fatigue_load_progress">Dein erfasstes Training wird geladen …</string>
+    <string name="fatigue_load_failed">Dein Trainingsverlauf konnte nicht gelesen werden, daher werden keine Schätzungen angezeigt. Deine erfassten Sätze wurden nicht verändert.</string>
+    <string name="fatigue_load_retry">Erneut versuchen</string>
+    <string name="fatigue_map_figure_description">%1$s, %2$s – geschätzte Muskelermüdung</string>
+    <string name="fatigue_map_legend_low">Geringe geschätzte Ermüdung</string>
+    <string name="fatigue_map_legend_high">Hohe geschätzte Ermüdung</string>
+    <string name="fatigue_map_schematic_note">Schematische Anatomie – Grenzen und weichgezeichnete Farbübergänge sind ungefähr. Die Werte sind Schätzungen, keine Messungen. Grafiken angepasst von MuscleMap (Melih Colpan) und react-native-body-highlighter (ELABBASSI Hicham), beide unter MIT-Lizenz.</string>
+    <string name="fatigue_map_region_description">%1$s, %2$s</string>
+    <string name="fatigue_map_open">Körperkarte</string>
+    <string name="fatigue_map_close">Schließen</string>
+    <string name="fatigue_coverage_heading">Absolvierte Abdeckung</string>
+    <string name="fatigue_coverage_section_note">Die Zahlen sind erfasste Arbeitssätze; Gutschriften schätzen die erfasste Beteiligung. Beides sind weder direkte Sätze noch ein physiologisches Äquivalent.</string>
+    <plurals name="fatigue_coverage_sets">
+        <item quantity="one">%1$d erfasster Arbeitssatz</item>
+        <item quantity="other">%1$d erfasste Arbeitssätze</item>
+    </plurals>
+    <plurals name="fatigue_coverage_clusters">
+        <item quantity="one">%1$d erfasster Cluster (getrennt von den Arbeitssatz-Gutschriften)</item>
+        <item quantity="other">%1$d erfasste Cluster (getrennt von den Arbeitssatz-Gutschriften)</item>
+    </plurals>
+    <string name="fatigue_coverage_credits">%1$d,%2$d geschätzte Beteiligungsgutschriften</string>
+    <string name="fatigue_coverage_no_sets">Keine erfassten Sätze in diesem Zeitraum</string>
+    <string name="fatigue_coverage_unknown_history">Nicht klassifizierter Verlauf – Anzahl unbekannt</string>
+    <string name="fatigue_coverage_last_trained">Zuletzt trainiert: %1$s</string>
+    <string name="fatigue_coverage_never_trained">Im erfassten Verlauf nie trainiert</string>
+    <plurals name="fatigue_coverage_unclassified_window_note">
+        <item quantity="one">%1$d erfasster Satz in diesem Zeitraum konnte nicht klassifiziert werden.</item>
+        <item quantity="other">%1$d erfasste Sätze in diesem Zeitraum konnten nicht klassifiziert werden.</item>
+    </plurals>
+</resources>

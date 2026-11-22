@@ -14,7 +14,8 @@ enum class AppLanguage(val tag: String?) {
     ENGLISH("en"),
     GERMAN("de"),
     CZECH("cs"),
-    HUNGARIAN("hu");
+    HUNGARIAN("hu"),
+    DUTCH("nl");
 
     companion object {
         /** An unknown or missing key reads as [SYSTEM], which also covers a value from a newer build. */

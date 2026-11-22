@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="cardio_nav_label">Cardio</string>
+    <string name="cardio_title">Cardio</string>
+    <string name="cardio_back">Terug</string>
+    <string name="cardio_entry_open">Cardio</string>
+    <string name="cardio_log_activity">Activiteit vastleggen</string>
+    <string name="cardio_loading">Cardio-activiteiten worden geladen…</string>
+    <string name="cardio_load_failed">Cardio-activiteiten konden niet worden geladen.</string>
+    <string name="cardio_retry">Opnieuw proberen</string>
+    <string name="cardio_empty">Nog geen cardio-activiteiten. Leg je eerste activiteit vast om de geschiedenis te starten.</string>
+
+    <string name="cardio_range_28">28 dagen</string>
+    <string name="cardio_range_84">84 dagen</string>
+    <string name="cardio_range_365">365 dagen</string>
+    <string name="cardio_totals_title">Totalen per activiteitstype</string>
+    <string name="cardio_totals_empty">In deze periode zijn geen cardio-activiteiten vastgelegd.</string>
+    <plurals name="cardio_type_row">
+        <item quantity="one">%1$s · %2$d activiteit</item>
+        <item quantity="other">%1$s · %2$d activiteiten</item>
+    </plurals>
+    <string name="cardio_type_duration">Duur: %1$s</string>
+    <string name="cardio_type_distance">Afstand: %1$s</string>
+    <string name="cardio_type_speed">Gemiddelde snelheid: %1$s m/s</string>
+    <string name="cardio_chart_title">Vastgelegde duur per dag</string>
+    <string name="cardio_chart_caption">Elke balk is één vastgelegde dag; dagen zonder vastgelegde activiteit blijven leeg en worden nooit doorgetrokken.</string>
+    <plurals name="cardio_day_row">
+        <item quantity="one">%1$s: %2$d activiteit, %3$s</item>
+        <item quantity="other">%1$s: %2$d activiteiten, %3$s</item>
+    </plurals>
+
+    <string name="cardio_history_title">Vastgelegde geschiedenis</string>
+    <string name="cardio_history_note">Elke vastgelegde cardio-activiteit, nieuwste eerst.</string>
+    <string name="cardio_activity_line">%1$s · %2$s</string>
+    <string name="cardio_activity_note">Notitie: %1$s</string>
+    <string name="cardio_edit">Bewerken</string>
+
+    <string name="cardio_add_title">Cardio-activiteit vastleggen</string>
+    <string name="cardio_edit_title">Cardio-activiteit bewerken</string>
+    <string name="cardio_type_label">Activiteitstype</string>
+    <string name="cardio_start_label">Starttijd (JJJJ-MM-DD UU:mm)</string>
+    <string name="cardio_duration_label">Duur</string>
+    <string name="cardio_minutes_label">Minuten</string>
+    <string name="cardio_seconds_label">Seconden</string>
+    <string name="cardio_distance_label">Afstand (%1$s)</string>
+    <string name="cardio_note_label">Notitie (optioneel)</string>
+    <string name="cardio_save">Opslaan</string>
+    <string name="cardio_cancel">Annuleren</string>
+    <string name="cardio_delete">Activiteit verwijderen</string>
+    <string name="cardio_delete_confirm_title">Deze activiteit verwijderen?</string>
+    <string name="cardio_delete_confirm_message">%1$s op %2$s wordt verwijderd.</string>
+    <string name="cardio_delete_confirm_message_unknown">Deze vastgelegde activiteit wordt verwijderd.</string>
+    <string name="cardio_delete_confirm">Verwijderen</string>
+
+    <string name="cardio_error_invalid_start">Voer de starttijd in als JJJJ-MM-DD UU:mm.</string>
+    <string name="cardio_error_invalid_duration">Voer een duur in tussen 1 seconde en 24 uur.</string>
+    <string name="cardio_error_invalid_distance">Voer een positieve afstand in of laat het veld leeg.</string>
+    <string name="cardio_error_invalid_note">De notitie mag maximaal 2000 tekens bevatten.</string>
+    <string name="cardio_error_invalid_activity">Deze waarden konden niet worden opgeslagen. Controleer ze en probeer het opnieuw.</string>
+    <string name="cardio_error_save_failed">De activiteit kon niet worden opgeslagen. Probeer het opnieuw.</string>
+
+    <string name="cardio_type_walking">Wandelen</string>
+    <string name="cardio_type_running">Hardlopen</string>
+    <string name="cardio_type_cycling">Fietsen</string>
+    <string name="cardio_type_rowing">Roeien</string>
+    <string name="cardio_type_other">Overig</string>
+
+    <string name="cardio_duration_hours">%1$d u %2$d min</string>
+    <string name="cardio_duration_minutes">%1$d min %2$d s</string>
+</resources>

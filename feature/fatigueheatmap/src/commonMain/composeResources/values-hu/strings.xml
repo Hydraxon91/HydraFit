@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="fatigue_heatmap_title">Becsült izomfáradtság</string>
+    <string name="fatigue_estimate_note">A rögzített munkasorozatokból becsülve. Ez nem az izomláz, a kimerültség vagy a terhelhetőség mérése. Az alacsony értékek nem igazolják a regenerálódást; a rögzített izomhozzárendelések hiányosak lehetnek.</string>
+    <string name="fatigue_percentage">%1$d,%2$d%</string>
+    <string name="fatigue_percentage_near_limit">99,9+%</string>
+    <string name="nav_label">Fáradtság</string>
+    <string name="muscle_chest_upper">Felső mell</string>
+    <string name="muscle_chest_lower">Alsó mell</string>
+    <string name="muscle_lats">Széles hátizom</string>
+    <string name="muscle_upper_back">Felső hát</string>
+    <string name="muscle_lower_back">Ágyék</string>
+    <string name="muscle_front_delts">Elülső deltaizom</string>
+    <string name="muscle_side_delts">Oldalsó deltaizom</string>
+    <string name="muscle_rear_delts">Hátsó deltaizom</string>
+    <string name="muscle_biceps">Bicepsz</string>
+    <string name="muscle_triceps">Tricepsz</string>
+    <string name="muscle_forearms">Alkar</string>
+    <string name="muscle_abs">Hasizom</string>
+    <string name="muscle_obliques">Ferde hasizom</string>
+    <string name="muscle_quads">Combfeszítő</string>
+    <string name="muscle_hamstrings">Combhajlító</string>
+    <string name="muscle_glutes">Farizom</string>
+    <string name="muscle_calves">Vádli</string>
+    <string name="muscle_adductors">Comb-közelítők</string>
+    <string name="muscle_hip_abductors">Csípőtávolítók</string>
+    <string name="muscle_traps">Trapézizom</string>
+    <string name="muscle_neck">Nyak</string>
+    <string name="muscle_tibialis_anterior">Elülső sípcsontizom</string>
+    <string name="muscle_serratus_anterior">Elülső fogazott izom</string>
+    <string name="muscle_hip_flexors">Csípőhajlítók</string>
+    <string name="fatigue_map_front">Elölnézet</string>
+    <string name="fatigue_map_back">Hátulnézet</string>
+    <string name="fatigue_map_male">Férfi</string>
+    <string name="fatigue_map_female">Nő</string>
+    <string name="fatigue_map_load_failed">A testtérképet nem sikerült betölteni. Az izomértékek lent továbbra is elérhetők.</string>
+    <string name="fatigue_map_retry">Újrapróbálás</string>
+    <string name="fatigue_load_progress">A rögzített edzések betöltése…</string>
+    <string name="fatigue_load_failed">Az edzéselőzményeket nem sikerült beolvasni, ezért a becslések nem jelennek meg. A rögzített sorozatok nem változtak.</string>
+    <string name="fatigue_load_retry">Újrapróbálás</string>
+    <string name="fatigue_map_figure_description">%1$s, %2$s – becsült izomfáradtság</string>
+    <string name="fatigue_map_legend_low">Alacsony becsült fáradtság</string>
+    <string name="fatigue_map_legend_high">Magas becsült fáradtság</string>
+    <string name="fatigue_map_schematic_note">Sematikus anatómia – a határok és a lágyított színátmenetek közelítőek. Az értékek becslések, nem mérések. A grafika a MuscleMap (Melih Colpan) és a react-native-body-highlighter (ELABBASSI Hicham) alapján készült, mindkettő MIT-licenc alatt.</string>
+    <string name="fatigue_map_region_description">%1$s, %2$s</string>
+    <string name="fatigue_map_open">Testtérkép</string>
+    <string name="fatigue_map_close">Bezárás</string>
+    <string name="fatigue_coverage_heading">Elvégzett lefedettség</string>
+    <string name="fatigue_coverage_section_note">A számok rögzített munkasorozatok; a jóváírások a rögzített részvételt becslik. Egyik sem közvetlen sorozat vagy élettani egyenérték.</string>
+    <plurals name="fatigue_coverage_sets">
+        <item quantity="one">%1$d rögzített munkasorozat</item>
+        <item quantity="other">%1$d rögzített munkasorozat</item>
+    </plurals>
+    <plurals name="fatigue_coverage_clusters">
+        <item quantity="one">%1$d rögzített klaszter (a munkasorozat-jóváírásoktól elkülönítve)</item>
+        <item quantity="other">%1$d rögzített klaszter (a munkasorozat-jóváírásoktól elkülönítve)</item>
+    </plurals>
+    <string name="fatigue_coverage_credits">%1$d,%2$d becsült részvételi jóváírás</string>
+    <string name="fatigue_coverage_no_sets">Ebben az időszakban nincs rögzített sorozat</string>
+    <string name="fatigue_coverage_unknown_history">Besorolatlan előzmények – a szám ismeretlen</string>
+    <string name="fatigue_coverage_last_trained">Utoljára edzve: %1$s</string>
+    <string name="fatigue_coverage_never_trained">A rögzített előzményekben sosem edzett</string>
+    <plurals name="fatigue_coverage_unclassified_window_note">
+        <item quantity="one">%1$d rögzített sorozatot nem sikerült besorolni ebben az időszakban.</item>
+        <item quantity="other">%1$d rögzített sorozatot nem sikerült besorolni ebben az időszakban.</item>
+    </plurals>
+</resources>

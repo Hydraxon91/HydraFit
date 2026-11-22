@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="app_name">HydraFit</string>
+    <string name="nav_train">Training</string>
+    <string name="nav_progress">Fortschritt</string>
+    <string name="nav_library">Bibliothek</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="startup_failure_title">Trainingsdaten können nicht geöffnet werden</string>
+    <string name="startup_failure_body">HydraFit konnte die Datenbank für deine Workouts nicht öffnen, daher wurde noch kein Bildschirm geöffnet. Versuche es erneut und starte die App neu, falls es weiterhin fehlschlägt.</string>
+    <string name="startup_failure_retry">Erneut versuchen</string>
+</resources>

@@ -10,7 +10,7 @@ class AppLanguageTest {
         assertNull(AppLanguage.SYSTEM.tag)
         val tags = AppLanguage.entries.filter { it != AppLanguage.SYSTEM }.map { it.tag }
         assertEquals(tags.size, tags.toSet().size)
-        assertEquals(listOf("en", "de", "cs", "hu"), tags)
+        assertEquals(listOf("en", "de", "cs", "hu", "nl"), tags)
     }
 
     @Test

@@ -17,6 +17,7 @@
     <string name="settings_language_german">Deutsch</string>
     <string name="settings_language_czech">Čeština</string>
     <string name="settings_language_hungarian">Magyar</string>
+    <string name="settings_language_dutch">Nederlands</string>
     <string name="settings_home_appearance">Appearance</string>
     <string name="settings_appearance_hint">Themes only change colours. Quiet Strength is the default, and your data and layout stay the same.</string>
     <string name="settings_appearance_mode_section">Light or dark</string>

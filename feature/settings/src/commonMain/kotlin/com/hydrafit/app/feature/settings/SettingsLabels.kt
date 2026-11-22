@@ -22,6 +22,7 @@ import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
 import hydrafit.feature.settings.generated.resources.settings_language_czech
+import hydrafit.feature.settings.generated.resources.settings_language_dutch
 import hydrafit.feature.settings.generated.resources.settings_language_english
 import hydrafit.feature.settings.generated.resources.settings_language_german
 import hydrafit.feature.settings.generated.resources.settings_language_hungarian
@@ -71,6 +72,7 @@ internal fun AppLanguage.labelResource(): StringResource = when (this) {
     AppLanguage.GERMAN -> Res.string.settings_language_german
     AppLanguage.CZECH -> Res.string.settings_language_czech
     AppLanguage.HUNGARIAN -> Res.string.settings_language_hungarian
+    AppLanguage.DUTCH -> Res.string.settings_language_dutch
 }
 
 internal fun AppColorMode.labelResource(): StringResource = when (this) {

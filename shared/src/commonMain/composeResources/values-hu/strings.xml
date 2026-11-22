@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="app_name">HydraFit</string>
+    <string name="nav_train">Edzés</string>
+    <string name="nav_progress">Fejlődés</string>
+    <string name="nav_library">Könyvtár</string>
+    <string name="nav_settings">Beállítások</string>
+    <string name="startup_failure_title">Az edzésadatok nem nyithatók meg</string>
+    <string name="startup_failure_body">A HydraFit nem tudta megnyitni az edzésekhez szükséges adatbázist, ezért még egyetlen képernyő sem nyílt meg. Próbálja újra, és ha továbbra is hibás, indítsa újra az alkalmazást.</string>
+    <string name="startup_failure_retry">Újrapróbálás</string>
+</resources>

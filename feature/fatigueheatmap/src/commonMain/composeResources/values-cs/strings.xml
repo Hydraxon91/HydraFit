@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="fatigue_heatmap_title">Odhadovaná únava svalů</string>
+    <string name="fatigue_estimate_note">Odhad vychází ze zaznamenaných pracovních sérií. Nejde o měření svalové horečky, vyčerpání ani připravenosti. Nízké hodnoty nepotvrzují zotavení; zaznamenané přiřazení svalů může být neúplné.</string>
+    <string name="fatigue_percentage">%1$d,%2$d %</string>
+    <string name="fatigue_percentage_near_limit">99,9+ %</string>
+    <string name="nav_label">Únava</string>
+    <string name="muscle_chest_upper">Horní hrudník</string>
+    <string name="muscle_chest_lower">Dolní hrudník</string>
+    <string name="muscle_lats">Široký sval zádový</string>
+    <string name="muscle_upper_back">Horní záda</string>
+    <string name="muscle_lower_back">Dolní záda</string>
+    <string name="muscle_front_delts">Přední deltoidy</string>
+    <string name="muscle_side_delts">Boční deltoidy</string>
+    <string name="muscle_rear_delts">Zadní deltoidy</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_triceps">Triceps</string>
+    <string name="muscle_forearms">Předloktí</string>
+    <string name="muscle_abs">Břišní svaly</string>
+    <string name="muscle_obliques">Šikmé břišní svaly</string>
+    <string name="muscle_quads">Čtyřhlavý sval stehenní</string>
+    <string name="muscle_hamstrings">Zadní strana stehen</string>
+    <string name="muscle_glutes">Hýžďové svaly</string>
+    <string name="muscle_calves">Lýtka</string>
+    <string name="muscle_adductors">Přitahovače stehna</string>
+    <string name="muscle_hip_abductors">Odtahovače kyčle</string>
+    <string name="muscle_traps">Trapézy</string>
+    <string name="muscle_neck">Krk</string>
+    <string name="muscle_tibialis_anterior">Přední sval holenní</string>
+    <string name="muscle_serratus_anterior">Přední sval pilovitý</string>
+    <string name="muscle_hip_flexors">Ohybače kyčle</string>
+    <string name="fatigue_map_front">Přední strana</string>
+    <string name="fatigue_map_back">Zadní strana</string>
+    <string name="fatigue_map_male">Muž</string>
+    <string name="fatigue_map_female">Žena</string>
+    <string name="fatigue_map_load_failed">Mapu těla se nepodařilo načíst. Hodnoty svalů jsou stále k dispozici níže.</string>
+    <string name="fatigue_map_retry">Zkusit znovu</string>
+    <string name="fatigue_load_progress">Načítání zaznamenaného tréninku…</string>
+    <string name="fatigue_load_failed">Historii tréninku se nepodařilo přečíst, proto se odhady nezobrazují. Vaše zaznamenané série nebyly změněny.</string>
+    <string name="fatigue_load_retry">Zkusit znovu</string>
+    <string name="fatigue_map_figure_description">%1$s, %2$s – odhadovaná únava svalů</string>
+    <string name="fatigue_map_legend_low">Nízká odhadovaná únava</string>
+    <string name="fatigue_map_legend_high">Vysoká odhadovaná únava</string>
+    <string name="fatigue_map_schematic_note">Schematická anatomie – hranice a zjemněné barevné přechody jsou přibližné. Hodnoty jsou odhady, nikoli měření. Grafika upravena z MuscleMap (Melih Colpan) a react-native-body-highlighter (ELABBASSI Hicham), obojí pod licencí MIT.</string>
+    <string name="fatigue_map_region_description">%1$s, %2$s</string>
+    <string name="fatigue_map_open">Mapa těla</string>
+    <string name="fatigue_map_close">Zavřít</string>
+    <string name="fatigue_coverage_heading">Odcvičené pokrytí</string>
+    <string name="fatigue_coverage_section_note">Počty jsou zaznamenané pracovní série; kredity odhadují zaznamenané zapojení. Nejde ani o přímé série, ani o fyziologický ekvivalent.</string>
+    <plurals name="fatigue_coverage_sets">
+        <item quantity="one">%1$d zaznamenaná pracovní série</item>
+        <item quantity="few">%1$d zaznamenané pracovní série</item>
+        <item quantity="many">%1$d zaznamenané pracovní série</item>
+        <item quantity="other">%1$d zaznamenaných pracovních sérií</item>
+    </plurals>
+    <plurals name="fatigue_coverage_clusters">
+        <item quantity="one">%1$d zaznamenaný cluster (odděleně od kreditů pracovních sérií)</item>
+        <item quantity="few">%1$d zaznamenané clustery (odděleně od kreditů pracovních sérií)</item>
+        <item quantity="many">%1$d zaznamenaného clusteru (odděleně od kreditů pracovních sérií)</item>
+        <item quantity="other">%1$d zaznamenaných clusterů (odděleně od kreditů pracovních sérií)</item>
+    </plurals>
+    <string name="fatigue_coverage_credits">%1$d,%2$d odhadovaných kreditů zapojení</string>
+    <string name="fatigue_coverage_no_sets">V tomto období nejsou zaznamenány žádné série</string>
+    <string name="fatigue_coverage_unknown_history">Neklasifikovaná historie – počet neznámý</string>
+    <string name="fatigue_coverage_last_trained">Naposledy trénováno: %1$s</string>
+    <string name="fatigue_coverage_never_trained">V zaznamenané historii nikdy netrénováno</string>
+    <plurals name="fatigue_coverage_unclassified_window_note">
+        <item quantity="one">%1$d zaznamenanou sérii v tomto období nebylo možné klasifikovat.</item>
+        <item quantity="few">%1$d zaznamenané série v tomto období nebylo možné klasifikovat.</item>
+        <item quantity="many">%1$d zaznamenané série v tomto období nebylo možné klasifikovat.</item>
+        <item quantity="other">%1$d zaznamenaných sérií v tomto období nebylo možné klasifikovat.</item>
+    </plurals>
+</resources>
