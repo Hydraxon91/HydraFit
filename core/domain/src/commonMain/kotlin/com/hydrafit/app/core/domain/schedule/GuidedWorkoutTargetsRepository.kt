@@ -12,7 +12,10 @@ interface GuidedWorkoutTargetsRepository {
      * overrides this, while lightweight test doubles may leave it unsupported.
      */
     suspend fun changeEntryMeasure(request: OccurrenceEntryMeasureRequest): Unit =
-        throw ScheduleException("Changing a slot's measurement is unavailable")
+        throw ScheduleException(
+            "Changing a slot's measurement is unavailable",
+            ScheduleFailure.MEASURE_CHANGE_UNAVAILABLE
+        )
 }
 
 /**

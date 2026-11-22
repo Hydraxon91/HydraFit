@@ -96,7 +96,10 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
             }
             val references = queries.countSetsForExercise(id).executeAsOne()
             if (references > 0L) {
-                throw CustomExerciseException("This exercise has logged sets and can't be deleted")
+                throw CustomExerciseException(
+                    "This exercise has logged sets and can't be deleted",
+                    CustomExerciseFailureReason.HAS_LOGGED_SETS
+                )
             }
             if (database.personalRecordQueries.selectById(id).executeAsOneOrNull() != null) {
                 throw CustomExerciseException(
@@ -119,7 +122,8 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
                 0L
             ) {
                 throw CustomExerciseException(
-                    "This exercise is used by a plan or routine and can't be deleted"
+                    "This exercise is used by a plan or routine and can't be deleted",
+                    CustomExerciseFailureReason.USED_BY_PLAN_OR_ROUTINE
                 )
             }
             // Every exercise-keyed row must go in the same transaction, or an export would carry a
@@ -141,9 +145,17 @@ class SqlDelightCustomExerciseRepository(private val database: HydraFitDatabase)
         involvements: Map<MuscleGroup, Double>
     ): String {
         val trimmed = name.trim()
-        if (trimmed.isEmpty()) throw CustomExerciseException("Name must not be blank")
+        if (trimmed.isEmpty()) {
+            throw CustomExerciseException(
+                "Name must not be blank",
+                CustomExerciseFailureReason.NAME_BLANK
+            )
+        }
         if (involvements.isEmpty()) {
-            throw CustomExerciseException("Pick at least one muscle")
+            throw CustomExerciseException(
+                "Pick at least one muscle",
+                CustomExerciseFailureReason.MUSCLE_REQUIRED
+            )
         }
         val existingIds = equipmentQueries.selectAll().executeAsList().map { it.id }.toSet()
         val unknown = requiredEquipment.filterNot { it.id in existingIds }

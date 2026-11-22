@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="onboarding_title">HydraFit einrichten</string>
+    <string name="onboarding_step_welcome">Willkommen</string>
+    <string name="onboarding_step_units">Gewichtseinheit</string>
+    <string name="onboarding_step_equipment">Ausrüstung</string>
+    <string name="onboarding_step_goal">Trainingsziel</string>
+    <string name="onboarding_step_weekdays">Trainingstage</string>
+    <string name="onboarding_step_personal_records">Persönliche Bestleistungen</string>
+    <string name="onboarding_step_first_workout">Erstes Workout</string>
+    <string name="onboarding_loading">Deine Einrichtung wird geladen …</string>
+    <string name="onboarding_load_error">Deine Einrichtung konnte nicht geladen werden. Bitte versuche es erneut.</string>
+    <string name="onboarding_error">Deine Einrichtung konnte nicht gespeichert werden. Bitte versuche es erneut.</string>
+    <string name="onboarding_retry">Erneut versuchen</string>
+    <string name="onboarding_skip">Einrichtung überspringen</string>
+    <string name="onboarding_close">Schließen</string>
+    <string name="onboarding_back">Zurück</string>
+    <string name="onboarding_next">Weiter</string>
+    <string name="onboarding_saved_on_next">Änderungen werden gespeichert, wenn du auf „Weiter“ tippst.</string>
+
+    <string name="onboarding_welcome_intro">Beantworte ein paar optionale Fragen, und HydraFit plant passend zu deiner Ausrüstung und deiner Woche. Die Einrichtung kannst du später in den Einstellungen erneut öffnen.</string>
+
+    <string name="onboarding_units_prompt">Welche Einheit nutzt du für Gewichte?</string>
+    <string name="onboarding_unit_kg">Kilogramm (kg)</string>
+    <string name="onboarding_unit_lb">Pfund (lb)</string>
+
+    <string name="onboarding_equipment_prompt">Womit kannst du trainieren?</string>
+    <string name="onboarding_equipment_profile">Profil: %1$s</string>
+    <string name="onboarding_equipment_profile_note">Deine Auswahl wird in diesem Profil gespeichert. Profile und Beladungsdetails verwaltest du unter Bibliothek → Ausrüstung.</string>
+    <string name="onboarding_equipment_empty">Es ist noch keine Ausrüstung aufgelistet. Du kannst die Einrichtung überspringen und sie später unter Bibliothek → Ausrüstung hinzufügen.</string>
+
+    <string name="onboarding_goal_prompt">Wofür trainierst du?</string>
+    <string name="onboarding_goal_balanced">Ausgewogen</string>
+    <string name="onboarding_goal_strength">Kraft</string>
+    <string name="onboarding_goal_hypertrophy">Muskelaufbau</string>
+    <string name="onboarding_goal_endurance">Ausdauer</string>
+
+    <string name="onboarding_weekdays_prompt">An welchen Tagen trainierst du normalerweise?</string>
+    <string name="onboarding_weekdays_decide_later">Später entscheiden</string>
+    <string name="onboarding_weekdays_hint">Wähle 2 bis 6 Tage oder tippe auf „Später entscheiden“.</string>
+    <string name="onboarding_day_monday">Montag</string>
+    <string name="onboarding_day_tuesday">Dienstag</string>
+    <string name="onboarding_day_wednesday">Mittwoch</string>
+    <string name="onboarding_day_thursday">Donnerstag</string>
+    <string name="onboarding_day_friday">Freitag</string>
+    <string name="onboarding_day_saturday">Samstag</string>
+    <string name="onboarding_day_sunday">Sonntag</string>
+
+    <string name="onboarding_pr_prompt">Füge einen Bestsatz hinzu, den du bereits kennst. Das ist optional, und HydraFit rät nie einen.</string>
+    <string name="onboarding_pr_search">Übungen suchen</string>
+    <string name="onboarding_pr_none">Noch kein Bestsatz</string>
+    <string name="onboarding_pr_value">%1$s %2$s × %3$s</string>
+    <string name="onboarding_pr_set">Bestsatz festlegen</string>
+    <string name="onboarding_pr_weight">Gewicht</string>
+    <string name="onboarding_pr_reps">Wiederholungen</string>
+    <string name="onboarding_pr_save">Bestsatz speichern</string>
+    <string name="onboarding_pr_unknown">Ich weiß es nicht</string>
+    <string name="onboarding_pr_no_match">Keine Übung passt zu dieser Suche.</string>
+
+    <string name="onboarding_first_workout_intro">Wähle, wie du starten möchtest. Die Einrichtung wird gespeichert, sobald du eine der Optionen wählst.</string>
+    <string name="onboarding_generate_plan">Plan erstellen</string>
+    <string name="onboarding_build_routine">Routine erstellen</string>
+    <string name="onboarding_log_without_plan">Ohne Plan protokollieren</string>
+</resources>

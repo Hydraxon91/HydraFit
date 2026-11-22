@@ -81,6 +81,7 @@ import hydrafit.feature.fatigueheatmap.generated.resources.muscle_upper_back
 import hydrafit.feature.fatigueheatmap.generated.resources.nav_label
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -239,8 +240,9 @@ private fun FatigueCoverageHeading(state: FatigueHeatmapUiState) {
         )
         if (state.unclassifiedSetsInWindow > 0) {
             Text(
-                text = stringResource(
-                    Res.string.fatigue_coverage_unclassified_window_note,
+                text = pluralStringResource(
+                    Res.plurals.fatigue_coverage_unclassified_window_note,
+                    state.unclassifiedSetsInWindow,
                     state.unclassifiedSetsInWindow
                 ),
                 style = MaterialTheme.typography.bodySmall
@@ -276,7 +278,11 @@ private fun CoverageDetails(entry: MuscleFatigueEntry, state: FatigueHeatmapUiSt
     val unknownHistory = state.hasUnclassifiedHistory
     val setsText = when {
         entry.workingSets > 0 ->
-            stringResource(Res.string.fatigue_coverage_sets, entry.workingSets)
+            pluralStringResource(
+                Res.plurals.fatigue_coverage_sets,
+                entry.workingSets,
+                entry.workingSets
+            )
         unknownHistory -> stringResource(Res.string.fatigue_coverage_unknown_history)
         else -> stringResource(Res.string.fatigue_coverage_no_sets)
     }
@@ -292,7 +298,11 @@ private fun CoverageDetails(entry: MuscleFatigueEntry, state: FatigueHeatmapUiSt
     }
     Text(text = setsText, style = MaterialTheme.typography.bodySmall)
     Text(
-        text = stringResource(Res.string.fatigue_coverage_clusters, entry.clusters),
+        text = pluralStringResource(
+            Res.plurals.fatigue_coverage_clusters,
+            entry.clusters,
+            entry.clusters
+        ),
         style = MaterialTheme.typography.bodySmall
     )
     Text(

@@ -21,10 +21,12 @@ import com.hydrafit.app.core.userdata.backup.AndroidBackupEncryptionKeyStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFileStore
 import com.hydrafit.app.core.userdata.backup.AndroidBackupFolderStore
 import com.hydrafit.app.core.userdata.backup.BackupFileStore
+import com.hydrafit.app.core.userdata.settings.AndroidAppLanguageStore
 import com.hydrafit.app.core.userdata.settings.AndroidAppThemePreferenceStore
 import com.hydrafit.app.core.userdata.settings.AndroidAppVersionProvider
 import com.hydrafit.app.core.userdata.settings.AndroidGroqApiKeyStore
 import com.hydrafit.app.core.userdata.settings.ApiKeyStore
+import com.hydrafit.app.core.userdata.settings.AppLanguageStore
 import com.hydrafit.app.core.userdata.settings.AppThemePreferenceStore
 import com.hydrafit.app.core.userdata.settings.AppVersionProvider
 import com.hydrafit.app.core.userdata.storage.AndroidStorageUsagePort
@@ -71,6 +73,7 @@ fun androidDatabaseModule(context: Context): Module = module {
     single<WorkoutReminderScheduler> { get<AndroidWorkoutReminderScheduler>() }
     single<ApiKeyStore> { AndroidGroqApiKeyStore(context.applicationContext) }
     single<AppThemePreferenceStore> { AndroidAppThemePreferenceStore(context.applicationContext) }
+    single<AppLanguageStore> { AndroidAppLanguageStore(context.applicationContext) }
     single<GroqApiKeyProvider> {
         val store = get<ApiKeyStore>()
         GroqApiKeyProvider { store.load().orEmpty() }

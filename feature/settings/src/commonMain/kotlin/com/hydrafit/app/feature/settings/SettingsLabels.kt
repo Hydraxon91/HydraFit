@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.userdata.settings.AppColorMode
+import com.hydrafit.app.core.userdata.settings.AppLanguage
 import com.hydrafit.app.core.userdata.settings.AppThemeId
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_appearance_mode_dark
@@ -20,6 +21,12 @@ import hydrafit.feature.settings.generated.resources.settings_goal_balanced
 import hydrafit.feature.settings.generated.resources.settings_goal_endurance
 import hydrafit.feature.settings.generated.resources.settings_goal_hypertrophy
 import hydrafit.feature.settings.generated.resources.settings_goal_strength
+import hydrafit.feature.settings.generated.resources.settings_language_czech
+import hydrafit.feature.settings.generated.resources.settings_language_dutch
+import hydrafit.feature.settings.generated.resources.settings_language_english
+import hydrafit.feature.settings.generated.resources.settings_language_german
+import hydrafit.feature.settings.generated.resources.settings_language_hungarian
+import hydrafit.feature.settings.generated.resources.settings_language_system
 import hydrafit.feature.settings.generated.resources.settings_theme_gold_nuva
 import hydrafit.feature.settings.generated.resources.settings_theme_makuta
 import hydrafit.feature.settings.generated.resources.settings_theme_mata_air
@@ -57,6 +64,15 @@ internal fun AppThemeId.labelResource(): StringResource = when (this) {
     AppThemeId.MATA_ICE -> Res.string.settings_theme_mata_ice
     AppThemeId.MAKUTA -> Res.string.settings_theme_makuta
     AppThemeId.GOLD_NUVA -> Res.string.settings_theme_gold_nuva
+}
+
+internal fun AppLanguage.labelResource(): StringResource = when (this) {
+    AppLanguage.SYSTEM -> Res.string.settings_language_system
+    AppLanguage.ENGLISH -> Res.string.settings_language_english
+    AppLanguage.GERMAN -> Res.string.settings_language_german
+    AppLanguage.CZECH -> Res.string.settings_language_czech
+    AppLanguage.HUNGARIAN -> Res.string.settings_language_hungarian
+    AppLanguage.DUTCH -> Res.string.settings_language_dutch
 }
 
 internal fun AppColorMode.labelResource(): StringResource = when (this) {

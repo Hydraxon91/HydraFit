@@ -858,7 +858,7 @@ Keep SQLDelight, Koin, Ktor and Compose Multiplatform within the existing archit
 ## Localization (i18n)
 
 - All user-facing strings live in `commonMain` resource files — never hardcoded directly in a Composable.
-- English is the baseline language; adding a new language means adding a new resource file, not touching any Kotlin code.
+- English is the baseline language. Adding a language means a `values-<tag>` resource folder in every module that has strings, plus an `AppLanguage` entry, its `settings_language_*` label and a `locales_config.xml` line (`docs/architecture.md` §1.30). `TranslationParityTest` fails when a language misses a key, changes a placeholder or has the wrong plural forms.
 - Before adding any new UI string, check whether an equivalent string already exists (e.g., a generic "Save"/"Cancel") before creating a duplicate key.
 
 ## Visual Verification

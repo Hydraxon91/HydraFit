@@ -11,7 +11,8 @@ class DeleteRoutineTemplateUseCase(private val repository: RoutineTemplateReposi
         if (repository.get(id) == null) return false
         if (repository.isReferencedByActivation(id)) {
             throw RoutineTemplateException(
-                "This routine is used by a training block and can only be archived"
+                "This routine is used by a training block and can only be archived",
+                RoutineTemplateFailure.ROUTINE_IN_USE
             )
         }
         repository.delete(id)

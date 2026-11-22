@@ -252,7 +252,6 @@ import hydrafit.feature.splitbuilder.generated.resources.split_schedule_dates_st
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_frequency
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_sequence
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_mode_weekday
-import hydrafit.feature.splitbuilder.generated.resources.split_schedule_no_weekday
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_preview
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_replace
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_start_today
@@ -294,6 +293,7 @@ import hydrafit.feature.splitbuilder.generated.resources.weekday_tuesday
 import hydrafit.feature.splitbuilder.generated.resources.weekday_wednesday
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -911,8 +911,9 @@ fun SplitBuilderScreen(
                 )
             }
             state.history.forEach { accepted ->
-                val summary = stringResource(
-                    Res.string.split_history_entry,
+                val summary = pluralStringResource(
+                    Res.plurals.split_history_entry,
+                    accepted.days.size,
                     isoDateUtc(accepted.acceptedAtMillis),
                     stringResource(accepted.engine.labelResource()),
                     accepted.days.size,
@@ -1546,10 +1547,11 @@ private fun SplitScheduleDialog(
                 dialog.error?.let { error ->
                     Text(
                         text = when (error) {
-                            "frequency" -> stringResource(Res.string.split_schedule_frequency)
-                            "weekdays" -> stringResource(Res.string.split_schedule_no_weekday)
-                            "dates" -> stringResource(Res.string.split_schedule_dates_stale)
-                            else -> error
+                            SplitScheduleError.Frequency ->
+                                stringResource(Res.string.split_schedule_frequency)
+                            SplitScheduleError.DatesStale ->
+                                stringResource(Res.string.split_schedule_dates_stale)
+                            is SplitScheduleError.Rejected -> splitScheduleRejectedText(error)
                         },
                         color = MaterialTheme.colorScheme.error
                     )

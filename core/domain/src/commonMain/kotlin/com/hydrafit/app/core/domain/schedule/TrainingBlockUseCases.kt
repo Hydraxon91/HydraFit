@@ -16,12 +16,21 @@ class FinishTrainingBlockUseCase(
 ) {
     suspend operator fun invoke(activationId: Long) {
         val activation = scheduleRepository.getActivation(activationId)
-            ?: throw ScheduleException("That training block no longer exists")
+            ?: throw ScheduleException(
+                "That training block no longer exists",
+                ScheduleFailure.BLOCK_NOT_FOUND
+            )
         if (activation.status != ActivationStatus.ACTIVE) {
-            throw ScheduleException("Only the active block can be finished")
+            throw ScheduleException(
+                "Only the active block can be finished",
+                ScheduleFailure.ONLY_ACTIVE_BLOCK_CAN_FINISH
+            )
         }
         if (scheduleRepository.occurrences(activationId).any { !it.isResolved }) {
-            throw ScheduleException("Some workouts are still pending")
+            throw ScheduleException(
+                "Some workouts are still pending",
+                ScheduleFailure.WORKOUTS_STILL_PENDING
+            )
         }
         val now = timeProvider.nowMillis()
         scheduleRepository.updateActivationHeader(
@@ -51,7 +60,10 @@ class CancelTrainingActivationUseCase(
 ) {
     suspend operator fun invoke(activationId: Long) {
         val activation = scheduleRepository.getActivation(activationId)
-            ?: throw ScheduleException("That training block no longer exists")
+            ?: throw ScheduleException(
+                "That training block no longer exists",
+                ScheduleFailure.BLOCK_NOT_FOUND
+            )
         if (activation.status != ActivationStatus.ACTIVE) return
         scheduleRepository.updateActivationHeader(
             activation.copy(
@@ -89,7 +101,10 @@ class MoveWorkoutOccurrenceUseCase(
     suspend operator fun invoke(occurrenceId: Long, newEpochDay: Long) {
         val occurrence = requireMoved(occurrenceId)
         val activation = scheduleRepository.getActivation(occurrence.activationId)
-            ?: throw ScheduleException("That training block no longer exists")
+            ?: throw ScheduleException(
+                "That training block no longer exists",
+                ScheduleFailure.BLOCK_NOT_FOUND
+            )
 
         if (activation.mode == ScheduleMode.SEQUENCE) {
             scheduleRepository.updateOccurrence(
@@ -108,7 +123,10 @@ class MoveWorkoutOccurrenceUseCase(
     suspend fun preview(occurrenceId: Long, newEpochDay: Long): List<OccurrenceDateChange> {
         val occurrence = requireMoved(occurrenceId)
         val activation = scheduleRepository.getActivation(occurrence.activationId)
-            ?: throw ScheduleException("That training block no longer exists")
+            ?: throw ScheduleException(
+                "That training block no longer exists",
+                ScheduleFailure.BLOCK_NOT_FOUND
+            )
         if (activation.mode == ScheduleMode.SEQUENCE) {
             return listOf(
                 OccurrenceDateChange(occurrence.id, null, notBeforeEpochDay = newEpochDay)
@@ -121,9 +139,15 @@ class MoveWorkoutOccurrenceUseCase(
 
     private suspend fun requireMoved(occurrenceId: Long): WorkoutOccurrence {
         val occurrence = scheduleRepository.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
         if (occurrence.status != OccurrenceStatus.PENDING) {
-            throw ScheduleException("Only a pending workout can be moved")
+            throw ScheduleException(
+                "Only a pending workout can be moved",
+                ScheduleFailure.ONLY_PENDING_WORKOUT_CAN_MOVE
+            )
         }
         return occurrence
     }
@@ -212,9 +236,15 @@ class SwitchScheduleModeUseCase(
 
     private suspend fun requireActive(activationId: Long): TrainingActivation {
         val activation = scheduleRepository.getActivation(activationId)
-            ?: throw ScheduleException("That training block no longer exists")
+            ?: throw ScheduleException(
+                "That training block no longer exists",
+                ScheduleFailure.BLOCK_NOT_FOUND
+            )
         if (activation.status != ActivationStatus.ACTIVE) {
-            throw ScheduleException("Only the active block can be rescheduled")
+            throw ScheduleException(
+                "Only the active block can be rescheduled",
+                ScheduleFailure.ONLY_ACTIVE_BLOCK_CAN_RESCHEDULE
+            )
         }
         return activation
     }
@@ -248,14 +278,28 @@ class EditUnstartedOccurrenceUseCase(
 ) {
     suspend operator fun invoke(occurrenceId: Long, drafts: List<OccurrenceEntryDraft>) {
         val occurrence = scheduleRepository.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
         if (occurrence.status != OccurrenceStatus.PENDING) {
-            throw ScheduleException("A workout can only be edited before it starts")
+            throw ScheduleException(
+                "A workout can only be edited before it starts",
+                ScheduleFailure.ONLY_BEFORE_START_CAN_EDIT
+            )
         }
         if (workoutLogRepository.setsForOccurrence(occurrenceId).isNotEmpty()) {
-            throw ScheduleException("A workout with logged sets can no longer be edited")
+            throw ScheduleException(
+                "A workout with logged sets can no longer be edited",
+                ScheduleFailure.WORKOUT_HAS_RECORDED_SETS
+            )
         }
-        if (drafts.isEmpty()) throw ScheduleException("A workout needs at least one exercise")
+        if (drafts.isEmpty()) {
+            throw ScheduleException(
+                "A workout needs at least one exercise",
+                ScheduleFailure.WORKOUT_NEEDS_EXERCISE
+            )
+        }
 
         val byId = catalog.all().associateBy { it.id }
         val entries = preserveUnchangedSupersets(
@@ -271,10 +315,16 @@ class EditUnstartedOccurrenceUseCase(
                         draft.forceNewtons
                     )
                 } catch (error: RoutineTemplateException) {
-                    throw ScheduleException(error.message ?: "Invalid prescription")
+                    throw ScheduleException(
+                        error.message ?: "Invalid prescription",
+                        ScheduleFailure.PRESCRIPTION_NOT_VALID
+                    )
                 }
                 val exercise = byId[draft.exerciseId]
-                    ?: throw ScheduleException("That exercise no longer exists")
+                    ?: throw ScheduleException(
+                        "That exercise no longer exists",
+                        ScheduleFailure.EXERCISE_NOT_FOUND
+                    )
                 val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
                     exercise.loadCapability,
                     draft.loadKind,
@@ -290,7 +340,10 @@ class EditUnstartedOccurrenceUseCase(
                     it.exerciseId == draft.exerciseId
                 }
                 if (matchingEntries.size > 1) {
-                    throw ScheduleException("An exercise slot cannot be matched unambiguously")
+                    throw ScheduleException(
+                        "An exercise slot cannot be matched unambiguously",
+                        ScheduleFailure.SLOT_NOT_UNIQUE
+                    )
                 }
                 val existing = matchingEntries.singleOrNull()
                 val existingCluster = existing?.cluster
@@ -307,7 +360,8 @@ class EditUnstartedOccurrenceUseCase(
                 }
                 if (existingCluster != null && compatibleCluster == null) {
                     throw ScheduleException(
-                        "A cluster prescription requires compatible reps and external load"
+                        "A cluster prescription requires compatible reps and external load",
+                        ScheduleFailure.CLUSTER_NEEDS_REPS_AND_LOAD
                     )
                 }
                 val preservedTargets = existing?.setTargets
@@ -338,7 +392,10 @@ class EditUnstartedOccurrenceUseCase(
         try {
             validateSupersets(entries.map { it.exerciseId to it.superset })
         } catch (error: IllegalArgumentException) {
-            throw ScheduleException(error.message ?: "A superset would no longer be valid")
+            throw ScheduleException(
+                error.message ?: "A superset would no longer be valid",
+                ScheduleFailure.SUPERSET_NOT_VALID
+            )
         }
         scheduleRepository.replaceOccurrenceEntries(occurrenceId, entries)
         scheduleRepository.updateOccurrence(occurrence.copy(revision = occurrence.revision + 1))

@@ -23,6 +23,7 @@ import com.hydrafit.app.core.domain.routine.ObserveRoutineTemplatesUseCase
 import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
+import com.hydrafit.app.core.domain.routine.RoutineTemplateFailure
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.routine.RoutineWorkout
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
@@ -330,12 +331,24 @@ class RoutinesViewModelTest {
         viewModel.onEntryMetricChanged(0, 0, EntryMetric.FORCE)
 
         val invalidInputs = listOf(
-            "abc" to "Force must be a number",
-            "0" to "Force must be greater than zero",
+            "abc" to RoutinesFailure(
+                template = RoutineTemplateFailure.FORCE_NOT_A_NUMBER,
+                detail = "Force must be a number"
+            ),
+            "0" to RoutinesFailure(
+                template = RoutineTemplateFailure.FORCE_NOT_POSITIVE,
+                detail = "Force must be greater than zero"
+            ),
             // Non-finite text is refused as non-numeric by the locale-aware parser, rather than
             // parsed as an infinite number and then rejected by the range check.
-            "Infinity" to "Force must be a number",
-            "5001" to "Force must be between 0.1 and 5000.0 newtons"
+            "Infinity" to RoutinesFailure(
+                template = RoutineTemplateFailure.FORCE_NOT_A_NUMBER,
+                detail = "Force must be a number"
+            ),
+            "5001" to RoutinesFailure(
+                template = RoutineTemplateFailure.FORCE_OUT_OF_RANGE,
+                detail = "Force must be between 0.1 and 5000.0 newtons"
+            )
         )
         invalidInputs.forEach { (input, message) ->
             viewModel.onEntryForceChanged(0, 0, input)

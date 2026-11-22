@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="app_name">HydraFit</string>
+    <string name="nav_train">Trénink</string>
+    <string name="nav_progress">Pokrok</string>
+    <string name="nav_library">Knihovna</string>
+    <string name="nav_settings">Nastavení</string>
+    <string name="startup_failure_title">Nelze otevřít tréninková data</string>
+    <string name="startup_failure_body">HydraFit nemohl otevřít databázi potřebnou pro vaše tréninky, proto zatím nebyla otevřena žádná obrazovka. Zkuste to znovu a pokud selže i nadále, restartujte aplikaci.</string>
+    <string name="startup_failure_retry">Zkusit znovu</string>
+</resources>

@@ -3027,7 +3027,10 @@ class WorkoutLoggerViewModel(
                         state.copy(
                             measureChange = state.measureChange?.copy(
                                 applying = false,
-                                error = error.message
+                                error = LoggerFailure(
+                                    schedule = (error as? ScheduleException)?.reason,
+                                    detail = error.message
+                                )
                             )
                         )
                     }
@@ -3871,7 +3874,14 @@ class WorkoutLoggerViewModel(
                     loadWorkoutSummary(occurrence.id)
                 }
             } catch (error: ScheduleException) {
-                _state.update { it.copy(occurrenceMessage = error.message) }
+                _state.update {
+                    it.copy(
+                        occurrenceMessage = LoggerFailure(
+                            schedule = error.reason,
+                            detail = error.message
+                        )
+                    )
+                }
             }
         }
     }

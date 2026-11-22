@@ -15,7 +15,10 @@ class SaveRoutineTemplateUseCase(
         val validated = RoutineTemplateValidator.validate(draft)
         val existing = if (draft.id != 0L) {
             repository.get(draft.id)
-                ?: throw RoutineTemplateException("This routine no longer exists")
+                ?: throw RoutineTemplateException(
+                    "This routine no longer exists",
+                    RoutineTemplateFailure.ROUTINE_NOT_FOUND
+                )
         } else {
             null
         }
@@ -31,6 +34,9 @@ class SaveRoutineTemplateUseCase(
         // Reload so the caller gets the persisted child ids (a new template's workouts/slots are
         // assigned by storage); a missing row after the write is a real failure, not a draft.
         return repository.get(id)
-            ?: throw RoutineTemplateException("The routine could not be saved")
+            ?: throw RoutineTemplateException(
+                "The routine could not be saved",
+                RoutineTemplateFailure.ROUTINE_NOT_SAVED
+            )
     }
 }

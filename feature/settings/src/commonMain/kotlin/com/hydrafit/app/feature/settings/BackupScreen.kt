@@ -71,6 +71,7 @@ import hydrafit.feature.settings.generated.resources.settings_backup_unlock
 import hydrafit.feature.settings.generated.resources.settings_backup_unlock_title
 import hydrafit.feature.settings.generated.resources.settings_backup_unsupported
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -229,8 +230,9 @@ private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
         }
         if (merge.keptLocalSessions > 0) {
             Text(
-                text = stringResource(
-                    Res.string.settings_backup_merge_kept_local,
+                text = pluralStringResource(
+                    Res.plurals.settings_backup_merge_kept_local,
+                    merge.keptLocalSessions,
                     merge.keptLocalSessions
                 ),
                 style = MaterialTheme.typography.bodySmall
@@ -238,8 +240,9 @@ private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
         }
         if (merge.skippedOpenSessions > 0) {
             Text(
-                text = stringResource(
-                    Res.string.settings_backup_merge_skipped_open,
+                text = pluralStringResource(
+                    Res.plurals.settings_backup_merge_skipped_open,
+                    merge.skippedOpenSessions,
                     merge.skippedOpenSessions
                 ),
                 style = MaterialTheme.typography.bodySmall
@@ -247,8 +250,9 @@ private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
         }
         if (merge.skippedUnattachedSets > 0) {
             Text(
-                text = stringResource(
-                    Res.string.settings_backup_merge_skipped_unattached,
+                text = pluralStringResource(
+                    Res.plurals.settings_backup_merge_skipped_unattached,
+                    merge.skippedUnattachedSets,
                     merge.skippedUnattachedSets
                 ),
                 style = MaterialTheme.typography.bodySmall
@@ -256,8 +260,9 @@ private fun MergePreviewSummary(merge: BackupMergePreviewUi) {
         }
         if (merge.droppedOccurrenceLinks > 0) {
             Text(
-                text = stringResource(
-                    Res.string.settings_backup_merge_dropped_links,
+                text = pluralStringResource(
+                    Res.plurals.settings_backup_merge_dropped_links,
+                    merge.droppedOccurrenceLinks,
                     merge.droppedOccurrenceLinks
                 ),
                 style = MaterialTheme.typography.bodySmall

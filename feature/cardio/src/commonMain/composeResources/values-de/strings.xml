@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="cardio_nav_label">Cardio</string>
+    <string name="cardio_title">Cardio</string>
+    <string name="cardio_back">Zurück</string>
+    <string name="cardio_entry_open">Cardio</string>
+    <string name="cardio_log_activity">Aktivität erfassen</string>
+    <string name="cardio_loading">Cardio-Aktivitäten werden geladen …</string>
+    <string name="cardio_load_failed">Cardio-Aktivitäten konnten nicht geladen werden.</string>
+    <string name="cardio_retry">Erneut versuchen</string>
+    <string name="cardio_empty">Noch keine Cardio-Aktivitäten. Erfasse deine erste Aktivität, um den Verlauf zu beginnen.</string>
+
+    <string name="cardio_range_28">28 Tage</string>
+    <string name="cardio_range_84">84 Tage</string>
+    <string name="cardio_range_365">365 Tage</string>
+    <string name="cardio_totals_title">Summen nach Aktivitätstyp</string>
+    <string name="cardio_totals_empty">In diesem Zeitraum wurden keine Cardio-Aktivitäten erfasst.</string>
+    <plurals name="cardio_type_row">
+        <item quantity="one">%1$s · %2$d Aktivität</item>
+        <item quantity="other">%1$s · %2$d Aktivitäten</item>
+    </plurals>
+    <string name="cardio_type_duration">Dauer: %1$s</string>
+    <string name="cardio_type_distance">Distanz: %1$s</string>
+    <string name="cardio_type_speed">Durchschnittsgeschwindigkeit: %1$s m/s</string>
+    <string name="cardio_chart_title">Erfasste Dauer pro Tag</string>
+    <string name="cardio_chart_caption">Jeder Balken ist ein erfasster Tag; Tage ohne erfasste Aktivität bleiben leer und werden nie fortgeschrieben.</string>
+    <plurals name="cardio_day_row">
+        <item quantity="one">%1$s: %2$d Aktivität, %3$s</item>
+        <item quantity="other">%1$s: %2$d Aktivitäten, %3$s</item>
+    </plurals>
+
+    <string name="cardio_history_title">Erfasster Verlauf</string>
+    <string name="cardio_history_note">Alle erfassten Cardio-Aktivitäten, die neuesten zuerst.</string>
+    <string name="cardio_activity_line">%1$s · %2$s</string>
+    <string name="cardio_activity_note">Notiz: %1$s</string>
+    <string name="cardio_edit">Bearbeiten</string>
+
+    <string name="cardio_add_title">Cardio-Aktivität erfassen</string>
+    <string name="cardio_edit_title">Cardio-Aktivität bearbeiten</string>
+    <string name="cardio_type_label">Aktivitätstyp</string>
+    <string name="cardio_start_label">Startzeit (JJJJ-MM-TT HH:mm)</string>
+    <string name="cardio_duration_label">Dauer</string>
+    <string name="cardio_minutes_label">Minuten</string>
+    <string name="cardio_seconds_label">Sekunden</string>
+    <string name="cardio_distance_label">Distanz (%1$s)</string>
+    <string name="cardio_note_label">Notiz (optional)</string>
+    <string name="cardio_save">Speichern</string>
+    <string name="cardio_cancel">Abbrechen</string>
+    <string name="cardio_delete">Aktivität löschen</string>
+    <string name="cardio_delete_confirm_title">Diese Aktivität löschen?</string>
+    <string name="cardio_delete_confirm_message">%1$s am %2$s wird entfernt.</string>
+    <string name="cardio_delete_confirm_message_unknown">Diese erfasste Aktivität wird entfernt.</string>
+    <string name="cardio_delete_confirm">Löschen</string>
+
+    <string name="cardio_error_invalid_start">Gib die Startzeit als JJJJ-MM-TT HH:mm ein.</string>
+    <string name="cardio_error_invalid_duration">Gib eine Dauer zwischen 1 Sekunde und 24 Stunden ein.</string>
+    <string name="cardio_error_invalid_distance">Gib eine positive Distanz ein oder lass das Feld leer.</string>
+    <string name="cardio_error_invalid_note">Die Notiz darf höchstens 2000 Zeichen lang sein.</string>
+    <string name="cardio_error_invalid_activity">Diese Werte konnten nicht gespeichert werden. Prüfe sie und versuche es erneut.</string>
+    <string name="cardio_error_save_failed">Die Aktivität konnte nicht gespeichert werden. Versuche es erneut.</string>
+
+    <string name="cardio_type_walking">Gehen</string>
+    <string name="cardio_type_running">Laufen</string>
+    <string name="cardio_type_cycling">Radfahren</string>
+    <string name="cardio_type_rowing">Rudern</string>
+    <string name="cardio_type_other">Sonstiges</string>
+
+    <string name="cardio_duration_hours">%1$d Std. %2$d Min.</string>
+    <string name="cardio_duration_minutes">%1$d Min. %2$d Sek.</string>
+</resources>

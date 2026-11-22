@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="app_name">HydraFit</string>
+    <string name="nav_train">Training</string>
+    <string name="nav_progress">Voortgang</string>
+    <string name="nav_library">Bibliotheek</string>
+    <string name="nav_settings">Instellingen</string>
+    <string name="startup_failure_title">Trainingsgegevens kunnen niet worden geopend</string>
+    <string name="startup_failure_body">HydraFit kon de database voor je workouts niet openen, dus er is nog geen scherm geopend. Probeer het opnieuw en start de app opnieuw op als het blijft mislukken.</string>
+    <string name="startup_failure_retry">Opnieuw proberen</string>
+</resources>

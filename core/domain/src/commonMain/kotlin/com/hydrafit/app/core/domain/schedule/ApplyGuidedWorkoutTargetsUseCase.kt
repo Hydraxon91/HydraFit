@@ -15,17 +15,26 @@ class ApplyGuidedWorkoutTargetsUseCase(
         patches: Map<Int, GuidedTargetPatch> = emptyMap()
     ) {
         val occurrence = schedule.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
         val state = schedule.scheduleState()
         if (occurrence.isResolved ||
             state.legacyFallbackEnabled ||
             state.activeActivationId != occurrence.activationId ||
             state.selectedOccurrenceId != occurrenceId
         ) {
-            throw ScheduleException("That workout is not the active guided occurrence")
+            throw ScheduleException(
+                "That workout is not the active guided occurrence",
+                ScheduleFailure.NOT_ACTIVE_GUIDED_WORKOUT
+            )
         }
         val entry = occurrence.entries.firstOrNull { it.id == entryId }
-            ?: throw ScheduleException("That occurrence entry no longer exists")
+            ?: throw ScheduleException(
+                "That occurrence entry no longer exists",
+                ScheduleFailure.ENTRY_NOT_FOUND
+            )
         require(
             entry.guidedTargets == null ||
                 entry.guidedTargets.overrides.all { override ->
@@ -35,7 +44,12 @@ class ApplyGuidedWorkoutTargetsUseCase(
         val recorded = log.setsForOccurrence(occurrenceId)
             .filter { !it.isWarmup && it.occurrenceEntryId == entryId }
         val partial = recorded.any { it.cluster?.isComplete == false }
-        if (partial) throw ScheduleException("Finish or resolve the partial cluster first")
+        if (partial) {
+            throw ScheduleException(
+                "Finish or resolve the partial cluster first",
+                ScheduleFailure.FINISH_PARTIAL_CLUSTER_FIRST
+            )
+        }
         val completed = recorded.size
         targets.applyTargets(
             GuidedWorkoutTargetsRequest(

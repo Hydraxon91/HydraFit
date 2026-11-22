@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="onboarding_title">A HydraFit beállítása</string>
+    <string name="onboarding_step_welcome">Üdvözöljük</string>
+    <string name="onboarding_step_units">Súlymértékegység</string>
+    <string name="onboarding_step_equipment">Felszerelés</string>
+    <string name="onboarding_step_goal">Edzéscél</string>
+    <string name="onboarding_step_weekdays">Edzésnapok</string>
+    <string name="onboarding_step_personal_records">Egyéni rekordok</string>
+    <string name="onboarding_step_first_workout">Első edzés</string>
+    <string name="onboarding_loading">A beállítások betöltése…</string>
+    <string name="onboarding_load_error">A beállításokat nem sikerült betölteni. Kérjük, próbálja újra.</string>
+    <string name="onboarding_error">A beállításokat nem sikerült menteni. Kérjük, próbálja újra.</string>
+    <string name="onboarding_retry">Újrapróbálás</string>
+    <string name="onboarding_skip">Beállítás kihagyása</string>
+    <string name="onboarding_close">Bezárás</string>
+    <string name="onboarding_back">Vissza</string>
+    <string name="onboarding_next">Tovább</string>
+    <string name="onboarding_saved_on_next">A módosítások a Tovább gomb megnyomásakor mentődnek.</string>
+
+    <string name="onboarding_welcome_intro">Válaszoljon néhány nem kötelező kérdésre, és a HydraFit a felszereléséhez és a heti beosztásához igazodva tervez. A beállítást később is újra megnyithatja a Beállításokban.</string>
+
+    <string name="onboarding_units_prompt">Melyik mértékegységet használja a súlyokhoz?</string>
+    <string name="onboarding_unit_kg">Kilogramm (kg)</string>
+    <string name="onboarding_unit_lb">Font (lb)</string>
+
+    <string name="onboarding_equipment_prompt">Mivel tud edzeni?</string>
+    <string name="onboarding_equipment_profile">Profil: %1$s</string>
+    <string name="onboarding_equipment_profile_note">A választásai ebbe a profilba mentődnek. A profilokat és a terhelési részleteket a Könyvtár → Felszerelés alatt kezelheti.</string>
+    <string name="onboarding_equipment_empty">Még nincs felszerelés felsorolva. Kihagyhatja a beállítást, és később hozzáadhatja a Könyvtár → Felszerelés alatt.</string>
+
+    <string name="onboarding_goal_prompt">Mire edz?</string>
+    <string name="onboarding_goal_balanced">Kiegyensúlyozott</string>
+    <string name="onboarding_goal_strength">Erő</string>
+    <string name="onboarding_goal_hypertrophy">Izomépítés</string>
+    <string name="onboarding_goal_endurance">Állóképesség</string>
+
+    <string name="onboarding_weekdays_prompt">Általában mely napokon edz?</string>
+    <string name="onboarding_weekdays_decide_later">Később döntök</string>
+    <string name="onboarding_weekdays_hint">Válasszon 2–6 napot, vagy válassza a Később döntök lehetőséget.</string>
+    <string name="onboarding_day_monday">Hétfő</string>
+    <string name="onboarding_day_tuesday">Kedd</string>
+    <string name="onboarding_day_wednesday">Szerda</string>
+    <string name="onboarding_day_thursday">Csütörtök</string>
+    <string name="onboarding_day_friday">Péntek</string>
+    <string name="onboarding_day_saturday">Szombat</string>
+    <string name="onboarding_day_sunday">Vasárnap</string>
+
+    <string name="onboarding_pr_prompt">Adjon meg egy már ismert legjobb sorozatot. Ez nem kötelező, és a HydraFit soha nem tippel.</string>
+    <string name="onboarding_pr_search">Gyakorlatok keresése</string>
+    <string name="onboarding_pr_none">Még nincs legjobb sorozat</string>
+    <string name="onboarding_pr_value">%1$s %2$s × %3$s</string>
+    <string name="onboarding_pr_set">Legjobb sorozat megadása</string>
+    <string name="onboarding_pr_weight">Súly</string>
+    <string name="onboarding_pr_reps">Ismétlés</string>
+    <string name="onboarding_pr_save">Legjobb sorozat mentése</string>
+    <string name="onboarding_pr_unknown">Nem tudom</string>
+    <string name="onboarding_pr_no_match">Egyetlen gyakorlat sem felel meg a keresésnek.</string>
+
+    <string name="onboarding_first_workout_intro">Válassza ki, hogyan kezdjen. A beállítás akkor mentődik, amikor ezek egyikét kiválasztja.</string>
+    <string name="onboarding_generate_plan">Terv készítése</string>
+    <string name="onboarding_build_routine">Rutin összeállítása</string>
+    <string name="onboarding_log_without_plan">Naplózás terv nélkül</string>
+</resources>

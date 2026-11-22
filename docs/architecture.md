@@ -1706,6 +1706,33 @@ cannot republish the pre-failure grid. Screens that observe a repository flow wi
 channel are listed in `docs/qa.md` with that limit; the audit fixed the map because its uncomputed
 state actively read as "no fatigue".
 
+### 1.30 Languages (0.15.5)
+
+The app ships English, German, Czech, Hungarian and Dutch. Strings live in each module's
+`composeResources/values/strings.xml` (English) and `values-de`, `values-cs`, `values-hu` and
+`values-nl`; Compose Multiplatform picks the file from `Locale.getDefault()`. Counts that read as a
+sentence use `<plurals>` with `pluralStringResource`: German, Hungarian and Dutch need `one`/`other`,
+Czech needs `one`/`few`/`many`/`other`.
+
+The language is a setting, not only a device default. `AppLanguage` (`:core:userdata`) is
+`SYSTEM`, `ENGLISH`, `GERMAN`, `CZECH`, `HUNGARIAN` or `DUTCH`; `AppLanguageStore` persists it, and on
+Android `AndroidAppLanguage.wrap` applies the choice to the activity context so it overrides the
+device language. `androidApp/src/main/res/xml/locales_config.xml` lists the same tags for the system
+per-app language picker. iOS keeps the choice in memory only. Adding a language therefore needs the
+resource folders in every module, an `AppLanguage` entry with its tag, its `settings_language_*` label,
+a `locales_config.xml` line and the plural forms the language requires.
+
+Typed failure reasons (storage, import, planner, schedule) carry no text; each screen maps them to a
+localized string and falls back to the English message when a reason is missing. Groq prompts, plan
+reasons and release notes stay English. The storage wipe confirmation word `REMOVE` is not translated
+because `StorageDataViewModel.ALL_DATA_CONFIRMATION` compares against it literally. Built-in exercise
+names stay English; only the instructions, cautions and muscle names in `:core:exercisecontent` are
+translated.
+
+`TranslationParityTest` (`shared/src/androidHostTest`) reads every `composeResources` directory and
+fails when a language lacks a file, misses an English key, changes a `%N$x` placeholder, has the wrong
+plural forms or carries a key English does not have.
+
 ## 2. Decision log
 
 Each row: the decision, the **recorded** rationale with a citation, recorded alternatives, and status.

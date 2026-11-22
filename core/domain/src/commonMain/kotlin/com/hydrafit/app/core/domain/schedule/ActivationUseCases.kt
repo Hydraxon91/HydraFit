@@ -22,7 +22,12 @@ class CreateTrainingActivationUseCase(
         request: ActivationRequest,
         acceptedPlan: AcceptedPlan? = null
     ): Long {
-        if (workouts.isEmpty()) throw ScheduleException("A block needs at least one workout")
+        if (workouts.isEmpty()) {
+            throw ScheduleException(
+                "A block needs at least one workout",
+                ScheduleFailure.BLOCK_NEEDS_WORKOUT
+            )
+        }
         val dates = previewSchedule(
             count = workouts.size,
             startEpochDay = request.startEpochDay,
@@ -65,10 +70,16 @@ class ActivateRoutineUseCase(
     /** The frozen activation workouts for [template], or a [ScheduleException] when it is unusable. */
     suspend fun buildWorkouts(template: RoutineTemplate): List<ActivationWorkout> {
         if (template.isArchived) {
-            throw ScheduleException("An archived routine cannot be started")
+            throw ScheduleException(
+                "An archived routine cannot be started",
+                ScheduleFailure.ROUTINE_ARCHIVED
+            )
         }
         if (template.workouts.isEmpty()) {
-            throw ScheduleException("A routine needs at least one workout")
+            throw ScheduleException(
+                "A routine needs at least one workout",
+                ScheduleFailure.ROUTINE_NEEDS_WORKOUT
+            )
         }
         val byId = catalog.all().associateBy { it.id }
         return template.workouts.sortedBy { it.position }.map { workout ->
@@ -79,7 +90,8 @@ class ActivateRoutineUseCase(
                 entries = workout.entries.sortedBy { it.position }.map { entry ->
                     val exercise = byId[entry.exerciseId]
                         ?: throw ScheduleException(
-                            "This routine references an unknown exercise: ${entry.exerciseId}"
+                            "This routine references an unknown exercise: ${entry.exerciseId}",
+                            ScheduleFailure.ROUTINE_UNKNOWN_EXERCISE
                         )
                     val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
                         exercise.loadCapability,
@@ -166,7 +178,10 @@ class RepeatTrainingBlockUseCase(
 ) {
     suspend operator fun invoke(activationId: Long, startEpochDay: Long): Long {
         val source = scheduleRepository.getActivation(activationId)
-            ?: throw ScheduleException("That training block no longer exists")
+            ?: throw ScheduleException(
+                "That training block no longer exists",
+                ScheduleFailure.BLOCK_NOT_FOUND
+            )
         val workouts = source.workouts.sortedBy { it.position }.map { workout ->
             workout.copy(
                 id = 0,

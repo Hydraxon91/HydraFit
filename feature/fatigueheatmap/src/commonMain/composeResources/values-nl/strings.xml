@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="fatigue_heatmap_title">Geschatte spiervermoeidheid</string>
+    <string name="fatigue_estimate_note">Geschat op basis van vastgelegde werksets. Dit is geen meting van spierpijn, uitputting of paraatheid. Lage waarden bevestigen geen herstel; vastgelegde spiertoewijzingen kunnen onvolledig zijn.</string>
+    <string name="fatigue_percentage">%1$d,%2$d%</string>
+    <string name="fatigue_percentage_near_limit">99,9+%</string>
+    <string name="nav_label">Vermoeidheid</string>
+    <string name="muscle_chest_upper">Bovenste borst</string>
+    <string name="muscle_chest_lower">Onderste borst</string>
+    <string name="muscle_lats">Brede rugspieren</string>
+    <string name="muscle_upper_back">Bovenrug</string>
+    <string name="muscle_lower_back">Onderrug</string>
+    <string name="muscle_front_delts">Voorste schouders</string>
+    <string name="muscle_side_delts">Zijkant schouders</string>
+    <string name="muscle_rear_delts">Achterste schouders</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_triceps">Triceps</string>
+    <string name="muscle_forearms">Onderarmen</string>
+    <string name="muscle_abs">Buikspieren</string>
+    <string name="muscle_obliques">Schuine buikspieren</string>
+    <string name="muscle_quads">Quadriceps</string>
+    <string name="muscle_hamstrings">Hamstrings</string>
+    <string name="muscle_glutes">Bilspieren</string>
+    <string name="muscle_calves">Kuiten</string>
+    <string name="muscle_adductors">Adductoren</string>
+    <string name="muscle_hip_abductors">Heupabductoren</string>
+    <string name="muscle_traps">Trapezius</string>
+    <string name="muscle_neck">Nek</string>
+    <string name="muscle_tibialis_anterior">Voorste scheenbeenspier</string>
+    <string name="muscle_serratus_anterior">Voorste zaagspier</string>
+    <string name="muscle_hip_flexors">Heupbuigers</string>
+    <string name="fatigue_map_front">Voorkant</string>
+    <string name="fatigue_map_back">Achterkant</string>
+    <string name="fatigue_map_male">Man</string>
+    <string name="fatigue_map_female">Vrouw</string>
+    <string name="fatigue_map_load_failed">De lichaamskaart kon niet worden geladen. De spierwaarden zijn hieronder nog beschikbaar.</string>
+    <string name="fatigue_map_retry">Opnieuw proberen</string>
+    <string name="fatigue_load_progress">Je vastgelegde training wordt geladen…</string>
+    <string name="fatigue_load_failed">Je trainingsgeschiedenis kon niet worden gelezen, dus de schattingen worden niet getoond. Je vastgelegde sets zijn niet gewijzigd.</string>
+    <string name="fatigue_load_retry">Opnieuw proberen</string>
+    <string name="fatigue_map_figure_description">%1$s, %2$s – geschatte spiervermoeidheid</string>
+    <string name="fatigue_map_legend_low">Lage geschatte vermoeidheid</string>
+    <string name="fatigue_map_legend_high">Hoge geschatte vermoeidheid</string>
+    <string name="fatigue_map_schematic_note">Schematische anatomie – grenzen en verzachte kleurovergangen zijn bij benadering. Waarden zijn schattingen, geen metingen. Afbeeldingen aangepast van MuscleMap (Melih Colpan) en react-native-body-highlighter (ELABBASSI Hicham), beide onder MIT-licentie.</string>
+    <string name="fatigue_map_region_description">%1$s, %2$s</string>
+    <string name="fatigue_map_open">Lichaamskaart</string>
+    <string name="fatigue_map_close">Sluiten</string>
+    <string name="fatigue_coverage_heading">Uitgevoerde dekking</string>
+    <string name="fatigue_coverage_section_note">Aantallen zijn vastgelegde werksets; credits schatten de vastgelegde betrokkenheid. Geen van beide zijn directe sets of een fysiologisch equivalent.</string>
+    <plurals name="fatigue_coverage_sets">
+        <item quantity="one">%1$d vastgelegde werkset</item>
+        <item quantity="other">%1$d vastgelegde werksets</item>
+    </plurals>
+    <plurals name="fatigue_coverage_clusters">
+        <item quantity="one">%1$d vastgelegde cluster (los van de werkset-credits)</item>
+        <item quantity="other">%1$d vastgelegde clusters (los van de werkset-credits)</item>
+    </plurals>
+    <string name="fatigue_coverage_credits">%1$d,%2$d geschatte betrokkenheidscredits</string>
+    <string name="fatigue_coverage_no_sets">Geen vastgelegde sets in deze periode</string>
+    <string name="fatigue_coverage_unknown_history">Niet-geclassificeerde geschiedenis – aantal onbekend</string>
+    <string name="fatigue_coverage_last_trained">Laatst getraind: %1$s</string>
+    <string name="fatigue_coverage_never_trained">Nooit getraind in de vastgelegde geschiedenis</string>
+    <plurals name="fatigue_coverage_unclassified_window_note">
+        <item quantity="one">%1$d vastgelegde set in deze periode kon niet worden geclassificeerd.</item>
+        <item quantity="other">%1$d vastgelegde sets in deze periode konden niet worden geclassificeerd.</item>
+    </plurals>
+</resources>

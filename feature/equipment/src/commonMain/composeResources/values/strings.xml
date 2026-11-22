@@ -97,6 +97,10 @@
     <string name="equipment_personal_records">Personal records</string>
     <string name="equipment_manage_baselines_note">Manually entered baselines used for planning, not performed workout sets.</string>
     <string name="equipment_delete_personal_record_blocked">This exercise has a personal record and cannot be deleted.</string>
+    <string name="equipment_delete_logged_sets_blocked">This exercise has logged sets and cannot be deleted.</string>
+    <string name="equipment_delete_in_use_blocked">This exercise is used by a plan or routine and cannot be deleted.</string>
+    <string name="equipment_exercise_error_name_blank">Give the exercise a name.</string>
+    <string name="equipment_exercise_error_muscle_required">Pick at least one muscle.</string>
     <string name="equipment_pr_exercise">Exercise</string>
     <string name="equipment_pr_weight">Best weight (kg)</string>
     <string name="equipment_pr_reps">Reps</string>

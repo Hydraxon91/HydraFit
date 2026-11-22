@@ -14,10 +14,21 @@ class SelectWorkoutOccurrenceUseCase(private val scheduleRepository: WorkoutSche
 
     private suspend fun requireActive(occurrenceId: Long): WorkoutOccurrence {
         val occurrence = scheduleRepository.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
-        if (occurrence.isResolved) throw ScheduleException("That workout is already finished")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
+        if (occurrence.isResolved) {
+            throw ScheduleException(
+                "That workout is already finished",
+                ScheduleFailure.WORKOUT_ALREADY_FINISHED
+            )
+        }
         if (scheduleRepository.scheduleState().activeActivationId != occurrence.activationId) {
-            throw ScheduleException("That workout is not in the active block")
+            throw ScheduleException(
+                "That workout is not in the active block",
+                ScheduleFailure.WORKOUT_NOT_IN_ACTIVE_BLOCK
+            )
         }
         return occurrence
     }
@@ -30,10 +41,21 @@ class StartWorkoutOccurrenceUseCase(
 ) {
     suspend operator fun invoke(occurrenceId: Long): WorkoutOccurrence {
         val occurrence = scheduleRepository.getOccurrence(occurrenceId)
-            ?: throw ScheduleException("That workout no longer exists")
-        if (occurrence.isResolved) throw ScheduleException("That workout is already finished")
+            ?: throw ScheduleException(
+                "That workout no longer exists",
+                ScheduleFailure.WORKOUT_NOT_FOUND
+            )
+        if (occurrence.isResolved) {
+            throw ScheduleException(
+                "That workout is already finished",
+                ScheduleFailure.WORKOUT_ALREADY_FINISHED
+            )
+        }
         if (scheduleRepository.scheduleState().activeActivationId != occurrence.activationId) {
-            throw ScheduleException("That workout is not in the active block")
+            throw ScheduleException(
+                "That workout is not in the active block",
+                ScheduleFailure.WORKOUT_NOT_IN_ACTIVE_BLOCK
+            )
         }
         val started = if (occurrence.status == OccurrenceStatus.IN_PROGRESS) {
             occurrence
@@ -69,7 +91,10 @@ private suspend fun loadCompletion(
     occurrenceId: Long
 ): CompletionContext {
     val occurrence = scheduleRepository.getOccurrence(occurrenceId)
-        ?: throw ScheduleException("That workout no longer exists")
+        ?: throw ScheduleException(
+            "That workout no longer exists",
+            ScheduleFailure.WORKOUT_NOT_FOUND
+        )
     val recorded = workoutLogRepository.setsForOccurrence(occurrenceId)
     val performed = recorded
         .filterNot(WorkoutSet::isWarmup)
@@ -99,10 +124,16 @@ class FinishWorkoutOccurrenceUseCase(
         val occurrence = context.occurrence
         if (occurrence.isResolved) return scheduleRepository.scheduleState()
         if (context.totalPerformed == 0) {
-            throw ScheduleException("Nothing logged yet; skip this workout instead")
+            throw ScheduleException(
+                "Nothing logged yet; skip this workout instead",
+                ScheduleFailure.NOTHING_LOGGED_SKIP_INSTEAD
+            )
         }
         if (mode == FinishMode.FULL && !context.isFullyRecorded()) {
-            throw ScheduleException("Not every prescribed set is recorded yet")
+            throw ScheduleException(
+                "Not every prescribed set is recorded yet",
+                ScheduleFailure.NOT_ALL_SETS_RECORDED
+            )
         }
 
         val entries = if (mode == FinishMode.FULL) {

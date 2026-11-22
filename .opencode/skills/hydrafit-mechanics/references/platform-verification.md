@@ -45,6 +45,15 @@ Android `\'` escape, so `Couldn\'t` renders with a literal backslash. Resources 
 copy). Use `’` in any new string; verify a new string on a device or in a Compose host test rather
 than assuming Android's aapt escaping applies.
 
+**Languages (0.15.5).** English, German, Czech, Hungarian and Dutch (`values-de|cs|hu|nl`); the
+`AppLanguage` setting (`SYSTEM` plus one entry per language) overrides the device language, and
+`androidApp/.../xml/locales_config.xml` mirrors it. Counts use `<plurals>` (Czech needs
+`one`/`few`/`many`/`other`). Percent text keeps a single `%` with the locale decimal comma. A typed
+failure reason maps to a localized string in the screen, with the English message as the fallback.
+`settings_storage_confirm_word` stays `REMOVE` in every language because the view model compares the
+literal text. Exercise names are not translated yet. `TranslationParityTest` is the gate for a new
+string or language; recipe in `docs/architecture.md` §1.30.
+
 **Startup storage failure (fault injection recipe).** To exercise the launch failure path without
 touching stored data:
 

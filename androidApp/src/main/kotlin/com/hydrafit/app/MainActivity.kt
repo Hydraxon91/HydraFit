@@ -1,5 +1,6 @@
 package com.hydrafit.app
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,6 +15,13 @@ import androidx.compose.ui.tooling.preview.Preview
 class MainActivity : ComponentActivity() {
     /** The tab a notification tap asked for; cleared once the shell has acted on it. */
     private var requestedTabName by mutableStateOf<String?>(null)
+    private var languageObserver: AutoCloseable? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        // The saved language has to be on the context before any resource is read, so it is applied
+        // here rather than after the content is set.
+        super.attachBaseContext(AppLanguageSupport.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -28,12 +36,21 @@ class MainActivity : ComponentActivity() {
             requestedTabName = intent.consumeNotificationTabName()
         }
 
+        // A new language needs a new activity, because resources are resolved from its context.
+        languageObserver = AppLanguageSupport.observe(this) { recreate() }
+
         setContent {
             App(
                 requestedTabName = requestedTabName,
                 onTabRequestConsumed = { requestedTabName = null }
             )
         }
+    }
+
+    override fun onDestroy() {
+        languageObserver?.close()
+        languageObserver = null
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

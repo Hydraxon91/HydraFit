@@ -7,6 +7,7 @@ import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
 import com.hydrafit.app.core.domain.schedule.ScheduleException
+import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutScheduleRepository
@@ -130,7 +131,10 @@ class PlanBuilderActions(
      */
     private fun requireGeneratedFrequency(count: Int, request: ActivationRequest) {
         if (request.mode == ScheduleMode.WEEKDAY && request.weekdays.size != count) {
-            throw ScheduleException("A generated plan needs one chosen weekday per workout")
+            throw ScheduleException(
+                "A generated plan needs one chosen weekday per workout",
+                ScheduleFailure.PLAN_NEEDS_WEEKDAYS
+            )
         }
     }
 

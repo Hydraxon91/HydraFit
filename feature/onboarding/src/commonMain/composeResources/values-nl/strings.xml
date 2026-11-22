@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="onboarding_title">HydraFit instellen</string>
+    <string name="onboarding_step_welcome">Welkom</string>
+    <string name="onboarding_step_units">Gewichtseenheid</string>
+    <string name="onboarding_step_equipment">Apparatuur</string>
+    <string name="onboarding_step_goal">Trainingsdoel</string>
+    <string name="onboarding_step_weekdays">Trainingsdagen</string>
+    <string name="onboarding_step_personal_records">Persoonlijke records</string>
+    <string name="onboarding_step_first_workout">Eerste workout</string>
+    <string name="onboarding_loading">Je instellingen worden geladen…</string>
+    <string name="onboarding_load_error">Je instellingen konden niet worden geladen. Probeer het opnieuw.</string>
+    <string name="onboarding_error">Je instellingen konden niet worden opgeslagen. Probeer het opnieuw.</string>
+    <string name="onboarding_retry">Opnieuw proberen</string>
+    <string name="onboarding_skip">Instellen overslaan</string>
+    <string name="onboarding_close">Sluiten</string>
+    <string name="onboarding_back">Terug</string>
+    <string name="onboarding_next">Volgende</string>
+    <string name="onboarding_saved_on_next">Wijzigingen worden opgeslagen wanneer je op Volgende tikt.</string>
+
+    <string name="onboarding_welcome_intro">Beantwoord een paar optionele vragen en HydraFit plant op basis van je apparatuur en je week. Je kunt de instellingen later opnieuw openen via Instellingen.</string>
+
+    <string name="onboarding_units_prompt">Welke eenheid gebruik je voor gewichten?</string>
+    <string name="onboarding_unit_kg">Kilogram (kg)</string>
+    <string name="onboarding_unit_lb">Pond (lb)</string>
+
+    <string name="onboarding_equipment_prompt">Waarmee kun je trainen?</string>
+    <string name="onboarding_equipment_profile">Profiel: %1$s</string>
+    <string name="onboarding_equipment_profile_note">Je keuzes worden in dit profiel opgeslagen. Beheer profielen en belastingsdetails onder Bibliotheek → Apparatuur.</string>
+    <string name="onboarding_equipment_empty">Er is nog geen apparatuur vermeld. Je kunt het instellen overslaan en het later toevoegen onder Bibliotheek → Apparatuur.</string>
+
+    <string name="onboarding_goal_prompt">Waarvoor train je?</string>
+    <string name="onboarding_goal_balanced">Gebalanceerd</string>
+    <string name="onboarding_goal_strength">Kracht</string>
+    <string name="onboarding_goal_hypertrophy">Spiergroei</string>
+    <string name="onboarding_goal_endurance">Uithoudingsvermogen</string>
+
+    <string name="onboarding_weekdays_prompt">Op welke dagen train je meestal?</string>
+    <string name="onboarding_weekdays_decide_later">Later beslissen</string>
+    <string name="onboarding_weekdays_hint">Kies 2 tot 6 dagen of tik op Later beslissen.</string>
+    <string name="onboarding_day_monday">Maandag</string>
+    <string name="onboarding_day_tuesday">Dinsdag</string>
+    <string name="onboarding_day_wednesday">Woensdag</string>
+    <string name="onboarding_day_thursday">Donderdag</string>
+    <string name="onboarding_day_friday">Vrijdag</string>
+    <string name="onboarding_day_saturday">Zaterdag</string>
+    <string name="onboarding_day_sunday">Zondag</string>
+
+    <string name="onboarding_pr_prompt">Voeg een beste set toe die je al kent. Dit is optioneel en HydraFit raadt er nooit een.</string>
+    <string name="onboarding_pr_search">Oefeningen zoeken</string>
+    <string name="onboarding_pr_none">Nog geen beste set</string>
+    <string name="onboarding_pr_value">%1$s %2$s × %3$s</string>
+    <string name="onboarding_pr_set">Beste set instellen</string>
+    <string name="onboarding_pr_weight">Gewicht</string>
+    <string name="onboarding_pr_reps">Herhalingen</string>
+    <string name="onboarding_pr_save">Beste set opslaan</string>
+    <string name="onboarding_pr_unknown">Ik weet het niet</string>
+    <string name="onboarding_pr_no_match">Geen oefening komt overeen met deze zoekopdracht.</string>
+
+    <string name="onboarding_first_workout_intro">Kies hoe je wilt beginnen. De instellingen worden opgeslagen zodra je een van deze opties kiest.</string>
+    <string name="onboarding_generate_plan">Plan genereren</string>
+    <string name="onboarding_build_routine">Routine samenstellen</string>
+    <string name="onboarding_log_without_plan">Vastleggen zonder plan</string>
+</resources>
