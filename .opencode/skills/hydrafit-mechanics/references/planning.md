@@ -34,9 +34,10 @@ mapping is applied. A unique compatible clustered entry continues to preserve it
 
 `PlanRequest.plannerSupersetPreference` is null by default; a non-null
 `PlannerSupersetPreference(transitionSeconds, pairRestSeconds)` opts in. `GenerateWeeklySplitUseCase`
-applies `PlannerSupersetPairing` after the selected engine returns, so deterministic and cloud output follow one rule. Only already-selected **adjacent** curated biceps/triceps isolation
-slots are grouped; nothing is reordered, added or re-prescribed, and an already-paired slot is left
-alone. Custom exercises and `close-grip-bench-press` are excluded (the catalog classifies it as a
+applies `PlannerSupersetPairing` after the selected engine returns, so deterministic and cloud output follow one rule. Only already-selected curated biceps/triceps isolation slots
+are grouped. Since 0.15.4, when a day has both but none adjacent, one is moved next to the other;
+nothing is added or re-prescribed, and an already-paired slot is left alone. `SeededPlannerQualityTest`
+fails when the curated ids drift from the plannable seeded biceps and triceps isolations. Custom exercises and `close-grip-bench-press` are excluded (the catalog classifies it as a
 compound `HORIZONTAL_PUSH`, not an isolation pattern). Grouping never changes fatigue or
 progression inputs. Accepted plans copy the frozen group through `AcceptWeeklyPlanUseCase`.
 
@@ -75,10 +76,18 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Planner inputs and weight semantics
 
-`PlannerCandidateEligibility` excludes `TRAP_ISOLATION`/`NECK_ISOLATION` and the six
-curated shrug/neck IDs even after pattern overrides. This manual-only policy applies to
+`PlannerCandidateEligibility` excludes `NECK_ISOLATION` and the two curated neck IDs even
+after pattern overrides. Shrugs (`TRAP_ISOLATION`) are plannable since 0.15.3: traps have no
+volume target, so `selectExercises` gives each PULL or UPPER day one shrug right after unmet direct
+arm work (fresh-first). Must-haves (direct arm coverage, the shrug, and one leg extension plus one leg curl
+on LOWER/LEGS days) may fill a day to `MUST_HAVE_MAX_PER_DAY` (8); ordinary deficit accessories stop at
+`TARGET_MAX_PER_DAY` (6). This manual-only policy applies to
 deterministic selection, both AI prompt catalogs, sanitization and planner-backed replacements.
-Manual logging and routine authoring retain the full catalog. Existing traps deficit deferral
+`PlannerLibraryOnlyExercises.ids` is a second, deny-style gate in the same filter: seeded duplicates
+and novelty variants (for example Standing Military Press, Push-Up Wide, Scissor Kick) stay in the
+Library but are never planned. It lists seeded ids only, so custom exercises and new seed rows stay
+plannable unless added on purpose; `SeededPlannerQualityTest` fails on a stale id or if one reaches a
+plan. Manual logging and routine authoring retain the full catalog. Existing traps deficit deferral
 is unchanged; don't infer automatic neck/traps prescriptions from the added seeds.
 
 Tibialis anterior, serratus anterior and iliopsoas-focused hip flexors participate
@@ -333,10 +342,13 @@ strength retention in middle-aged/older adults; it does not establish this lookb
 window, sample threshold or prescription ceiling. See PLANS.md C2D for the approved
 contract and its scope limits.
 
-Reps under shipped Option C: chosen set count is the volume knob; reps stay fixed
-at the goal's compound/isolation values. The older volume-constant formula is
-superseded. `VolumeAwareReps.repsFor` validates a positive set count but does not
-trade reps against it.
+Reps since 0.15.4 (supersedes Option C's fixed reps; sets remain the volume knob):
+each goal has compound and isolation rep ranges (`TrainingGoal.compoundRepRange`/
+`isolationRepRange`), and both engines take the week's reps from `RepProgression`
+(double progression over `PlanRequest.repProgressions`, the last comparable
+non-deload target per external exercise) and attach the range as the slot's
+`SlotProgressionPolicy`. A held load replaces the e1RM conversion. `VolumeAwareReps`
+is no longer called by either engine.
 
 ```text
 reps = if (isCompound) goal.compoundReps else goal.isolationReps
@@ -599,8 +611,12 @@ isolation pool includes shoulder isolation, so rear-delt work can fill it.
 The deterministic planner also targets direct isolation sets for BICEPS and TRICEPS per normal
 generated week, the same number for both arms: `DirectArmCoverage.targetSetsPerMuscle(days, goal)` is 4
 for a two-day week, 6 for three or four days and 8 for five or six; Endurance keeps 4 at any frequency.
-Outside Endurance a direct arm exercise gets at least 3 sets (`setsPerArmExercise`; Endurance keeps the
-selected accessory count), so a few accessory slots reach the target. A set qualifies
+A direct arm exercise uses the selected accessory count, raised only as far as the split's arm slots need
+to reach the target (`setsPerArmExercise`: one slot per arm on an upper or full-body day, two on a push or
+pull day; the same rule in every goal since 0.15.4). Since 0.15.4 weekly volume targets are per muscle
+(`WeeklyVolumeTargets.BALANCED_TARGET_SETS`, scaled to each goal by `sizeFactor`; traps none), paced across the days
+that can mainly train each muscle, and an accessory is added only while a muscle it mainly trains
+(involvement >= `MAIN_INVOLVEMENT` 0.5) is under its paced target; there is no forced 4-exercise minimum. A set qualifies
 only when the exercise uses the matching `BICEPS_ISOLATION` or
 `TRICEPS_ISOLATION` pattern and has positive effective involvement for that
 muscle; the involvement-weight tier is not a biological cutoff. While an arm

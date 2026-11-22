@@ -79,11 +79,25 @@ data class PlanRequest(
      */
     val automaticSetPrescription: AutomaticSetPrescription? = null,
     /**
-     * The user's opt-in for curated, adjacent biceps/triceps pairing, or null to leave generated days
+     * The user's opt-in for curated biceps/triceps pairing, or null to leave generated days
      * exactly as the engine produced them.
      */
-    val plannerSupersetPreference: PlannerSupersetPreference? = null
+    val plannerSupersetPreference: PlannerSupersetPreference? = null,
+    /**
+     * Each exercise's last comparable non-deload target and outcome, the input to double progression
+     * ([RepProgression]). Absent means the slot starts at the bottom of its goal's rep range.
+     */
+    val repProgressions: Map<String, RepProgressionHistory> = emptyMap()
 ) {
+    /** The week's double-progression target for a counted slot, shared by both engines. */
+    fun repTargetFor(exerciseId: String, isCompound: Boolean): RepProgressionTarget =
+        RepProgression.next(
+            last = repProgressions[exerciseId],
+            range = goal.repRange(isCompound),
+            loadStepKg = SuggestedWeightConfig.DEFAULT_ROUND_TO_KG,
+            holdForDeload = isDeload
+        )
+
     init {
         require(workoutEpochDays.isEmpty() || workoutEpochDays.size == daysPerWeek)
         require(fatigueByWorkout.size == workoutEpochDays.size)

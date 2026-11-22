@@ -5561,7 +5561,9 @@ The shared instruction dialog calls it, and `ExerciseDemoButton` (`curatedUrl`, 
 exercise with a hand-picked video) adds a one-tap **Watch demo** button beside **Instructions** at the
 three logger sites (manual logging, draft sets, guided exercise cards). The dialog shows the curated
 case as a filled-tonal button and the search fallback as the plain text button. The Library exercise
-list was not given a button.
+list was not given a button. Superseded: the standalone **Watch demo** buttons and the guided **More**
+menu item were removed as duplicates of the dialog's demo button, so the demo is now reached only
+from the instruction dialog.
 
 Automated: link tests for the curated, fallback, null-ID and blank-name cases, a check that every video
 ID is 11 URL-safe characters, and `ExerciseDemoVideoSeedCoverageTest` (database module, reads the map

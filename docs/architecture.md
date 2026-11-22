@@ -794,8 +794,9 @@ merge, whose equipment profiles are excluded; it never matches a station filter.
 ### 1.13 Catalog profile matching and custom identity (CAT-02 v1)
 
 The manual shrug/neck additions use `TRAP_ISOLATION` and `NECK_ISOLATION`, both non-compound.
-`PlannerCandidateEligibility` rejects these patterns and pins the six curated manual-only IDs
-even when an override changes their pattern. This shared guard covers deterministic generation,
+As of 0.15.3 `PlannerCandidateEligibility` rejects only `NECK_ISOLATION` and pins the two neck IDs
+even when an override changes their pattern; shrugs (`TRAP_ISOLATION`) are plannable through a
+dedicated pull/upper accessory slot (see `docs/planner-deterministic.md`). This shared guard covers deterministic generation,
 both AI prompt catalogs, sanitization and planner-backed substitution; manual logging/routine
 authoring still read the full catalog. New same-name customs are protected from startup dedupe
 and remain editable under the existing protected-collision policy. No schema or format bump;
@@ -1756,7 +1757,9 @@ maintainer; RA does not answer them.
    The intended behavior is shipped 0.2.1 Option C/Q4c: goal-fixed reps, with sets carrying volume.
    The Oct 6 live-testing audit confirmed this against source and corrected the stale
    volume-constant wording in PLANS.md and the mechanics skill. The signature/name remain unchanged;
-   historical review findings are retained in `docs/code-review-0.2.2.md`.
+   historical review findings are retained in `docs/code-review-0.2.2.md`. Superseded in 0.15.4: both
+   planners now take reps from goal rep ranges by double progression (`RepProgression`), and
+   `VolumeAwareReps` is no longer called (see `docs/planner-deterministic.md`).
 6. **`testFixtures` module vs KMP source set** for shared fakes (TS4-001) — the open question is
    recorded in AGENTS.md as "a test fixture couldn't be shared between `:core:domain` and
    `:core:database`", but not which mechanism to adopt.

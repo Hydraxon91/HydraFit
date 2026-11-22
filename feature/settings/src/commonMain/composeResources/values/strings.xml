@@ -88,6 +88,13 @@
     <string name="settings_api_key_clear_message">The key is deleted from this phone and cloud planning stops until you add one again. The built-in planner keeps working.</string>
     <string name="settings_api_key_clear_cancel">Cancel</string>
     <string name="settings_api_key_configured">A key is saved on this device.</string>
+    <string name="settings_groq_tutorial_toggle">How to get a Groq key</string>
+    <string name="settings_groq_tutorial_step_1">1. Sign in or create a free account at console.groq.com.</string>
+    <string name="settings_groq_tutorial_step_2">2. Open API Keys and tap Create API Key.</string>
+    <string name="settings_groq_tutorial_step_3">3. Copy the key. Groq shows it only once.</string>
+    <string name="settings_groq_tutorial_step_4">4. Paste it in the field above and tap Save.</string>
+    <string name="settings_groq_tutorial_privacy">The key stays on this device and is sent only to Groq.</string>
+    <string name="settings_groq_tutorial_open">Open Groq console</string>
     <string name="acknowledgments_title">Acknowledgments</string>
     <string name="acknowledgments_version">Version %1$s</string>
     <string name="acknowledgments_credits_heading">Credits</string>

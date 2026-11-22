@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeightHistoryEntry
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -42,8 +43,8 @@ class PlannerPromptBuilderTest {
         val prompt = builder.build(request(goal = TrainingGoal.ENDURANCE), ids)
 
         assertTrue(prompt.text.contains("Training goal: ENDURANCE"), prompt.text)
-        assertTrue(prompt.text.contains("15 reps for compound exercises"), prompt.text)
-        assertTrue(prompt.text.contains("15 reps for accessory exercises"), prompt.text)
+        assertTrue(prompt.text.contains("12-15 reps for compound exercises"), prompt.text)
+        assertTrue(prompt.text.contains("15-20 reps for accessory exercises"), prompt.text)
         assertTrue(prompt.text.contains("about 4 sets per muscle across the week"), prompt.text)
     }
 
@@ -89,8 +90,35 @@ class PlannerPromptBuilderTest {
 
         assertTrue(json.contains("\"minItems\":3"), "days should be bounded to 3")
         assertTrue(json.contains("\"maxItems\":3"), "days should be bounded to 3")
-        assertTrue(json.contains("\"minItems\":4"), "exercises per day should have a floor")
-        assertTrue(json.contains("\"maxItems\":6"), "exercises per day should have a ceiling")
+        // No forced four: the floor is the validators' two, and must-haves may reach eight.
+        assertTrue(json.contains("\"minItems\":2"), "exercises per day should have a floor")
+        assertTrue(json.contains("\"maxItems\":8"), "exercises per day should have a ceiling")
+    }
+
+    @Test
+    fun sendsTheWeeklyTargetsTheMustHaveRuleAndOnlyNonEmptyPreferences() {
+        val plain = builder.build(request(), ids).text
+        assertTrue(plain.contains("Weekly target sets per muscle"), plain)
+        assertTrue(plain.contains("QUADS=12"), plain)
+        assertTrue(plain.contains("BICEPS=8"), plain)
+        assertFalse(plain.contains("TRAPS="), plain)
+        assertTrue(plain.contains("one leg extension plus one leg curl"), plain)
+        assertFalse(plain.contains("The user prefers"), plain)
+
+        val withPreferences = builder.build(
+            request().copy(
+                exercisePreferences = mapOf(
+                    "bench-press" to ExercisePreference.PREFER,
+                    "squat" to ExercisePreference.PREFER_LESS,
+                    "row" to ExercisePreference.NEUTRAL
+                )
+            ),
+            ids
+        ).text
+        assertTrue(withPreferences.contains("prefers these exercises when suitable: bench-press."))
+        assertTrue(withPreferences.contains("prefers to do less of these"), withPreferences)
+        assertTrue(withPreferences.contains("remains: squat."), withPreferences)
+        assertFalse(withPreferences.contains("row."), withPreferences)
     }
 
     @Test

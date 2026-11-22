@@ -32,23 +32,43 @@ last tie-break is the exercise id.
 ## The week, step by step
 
 1. **Eligibility** (`PlannerCandidateEligibility`). An exercise is a candidate only if the user has its
-   equipment, has not excluded it, and is not manual-only (shrugs and neck work are never planned). If a
+   equipment, has not excluded it, is not manual-only (neck work is never planned) and is not
+   library-only (`PlannerLibraryOnlyExercises`: duplicates and novelty variants of standard lifts that stay in
+   the Library but are never planned; custom exercises are never on that list). If a
    focus in the split has no eligible exercise at all, generation fails with `NO_ELIGIBLE_EXERCISES`.
 2. **The split** (`SplitResolver`). Auto is full body for 2 or 3 days, upper/lower for 4, push/pull/legs for
    6, and a special upper, lower, push, pull, legs cycle for 5 (so legs are not trained once and push and
    pull twice). Each day gets a focus.
-3. **Targets for the goal.** `WeeklyVolumeTargets` gives each muscle a window of involvement-weighted sets
-   per week: Balanced 8/11/18, Strength 6/9/15, Hypertrophy 8/13/20, Endurance 6/9/16 (min/target/max). The
-   target drives selection; the maximum is a soft ceiling; the minimum is reported only. A deload scales the
-   window by 0.7. These are product defaults, not validated per-muscle optima.
+3. **Targets for the goal.** `WeeklyVolumeTargets.forGoal` gives a window of involvement-weighted sets per
+   week: Balanced 8/11/18, Strength 6/9/15, Hypertrophy 8/13/20, Endurance 6/9/16 (min/target/max). Since
+   0.15.4 each muscle has its own target (`BALANCED_TARGET_SETS`, scaled to the other goals by
+   `sizeFactor`): on Balanced 12 for chest, lats, upper back and quads; 10 for hamstrings and side delts;
+   8 for glutes, biceps, triceps, calves and rear delts; 4 for front delts, abs, lower back and every
+   other muscle; traps have none. They follow widely used coaching volume landmarks and the hypertrophy
+   meta-analyses' finding that about ten or more weekly sets per muscle grows it more than fewer; they
+   are sourced defaults, not validated per-person optima. The target drives selection; the maximum is a soft ceiling; the minimum is
+   reported only. A deload scales the window by 0.7. These are product defaults, not validated optima.
+   Each day owes only its **paced share** of a muscle's target: the fraction of the week's days that can
+   mainly train that muscle reached so far. Without pacing, the first such day took the whole week's work
+   and later days were left with their compounds alone.
 4. **Day by day**, in order, each day sees the running weekly ledger from the days before it:
    - **Compounds first.** For each compound group of the focus (for example push: horizontal push, then
      vertical push) one exercise is chosen. A compound not yet used this week is preferred; if none remains
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
      pattern's muscles (see "Ranking").
-   - **Then isolation and accessories** until the day has 4 to 6 exercises (`PlannerExerciseCounts`). First
-     any unmet **direct arm** work, then the largest remaining volume deficit. Past 4 exercises an accessory
-     is only added while it still has a deficit to fill.
+   - **Then isolation and accessories**, with no forced minimum and two caps (`PlannerExerciseCounts`):
+     compounds and ordinary deficit-filling accessories share 6 places, and the must-haves below sit
+     outside them, up to 8 exercises in all. Upper days can add a chest fly, since an upper/lower week
+     has no push day.
+     First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
+     days only) one **shrug**, then (on lower and legs days) one **leg extension** and one **leg curl**
+     when the machines are available, since squats and hinges do not replace knee-extension and
+     knee-flexion work, then the largest remaining volume deficit. An accessory is added only while
+     a muscle it **mainly** trains (involvement 0.5 or more) is under its paced target; a small side share
+     still counts toward the totals but never justifies a slot. So a higher set count reaches the targets
+     with fewer exercises instead of padding every day to the same length. Traps have no weekly target, so
+     a deficit never picks a shrug; this slot does, after arm coverage and within the must-have cap, so a
+     full 4-day upper day (four compounds and two arm exercises) still gets one as its seventh exercise.
 5. **Per exercise** (`plannedExercise`): sets, reps, load, timed or counted, with an explanation record.
 6. **Output.** A `WeeklyPlan` with the days, the arm-coverage report and a `PlanExplanation` that lists
    deload state and which exercises were skipped for soreness. Nothing is persisted by the engine.
@@ -93,8 +113,11 @@ exercise loads at 0.7 or more):
 
 Biceps and triceps get a dedicated weekly target of isolation sets, because compound credits alone leave
 them low. The target grows with frequency: 4 for two days, 6 for three or four, 8 for five or six; Endurance
-stays at 4. Each arm exercise gets at least 3 sets (Endurance keeps its accessory count) so a few slots
-reach the target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
+stays at 4. An arm exercise uses the selected accessory sets, raised only as far as the split needs
+(`setsPerArmExercise`): an upper or full-body day holds one exercise per arm and a push or pull day two, so a
+4-day upper/lower week at 2 accessory sets gets 3 per arm exercise while push/pull/legs keeps 2 and adds
+exercises. A higher selection is never lowered. Compound slots rank patterns by the share of each primary
+muscle's target still missing, so a hinge is not undervalued for its smaller lower-back target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
 target is a last resort so one arm cannot take every accessory slot. Pull isolation also includes rear-delt
 work so a second pull day is not only arm repeats. A deload does not chase the target. The result is
 reported in `WeeklyPlan.armCoverage` with a reason when unmet (no candidate, all skipped for fatigue, and so
@@ -109,8 +132,19 @@ example, the same skullcrusher on both Tuesday and Thursday.
 ## Sets, reps and load
 
 - **Sets:** the compound or accessory count, minus one if sore, scaled by 0.7 in a deload (minimum one).
-- **Reps:** fixed by the goal, not traded against sets. Balanced 6 compound and 12 isolation, Strength 5 and
-  8, Hypertrophy 8 and 12, Endurance 15 and 15 (`TrainingGoal`, `VolumeAwareReps`).
+- **Reps:** a range per goal since 0.15.4 (compound / isolation): Balanced 6–8 / 10–12, Strength 4–6 /
+  6–10, Hypertrophy 8–12 / 10–15, Endurance 12–15 / 15–20 (`TrainingGoal`). Sets are still the volume
+  knob and are never traded against reps. Each week's reps come from **double progression**
+  (`RepProgression`, shared with the Groq sanitizer through `PlanRequest.repTargetFor`), driven by the
+  exercise's last comparable non-deload target (`PlanRequest.repProgressions`, built in
+  `BuildPlannerLoadInputsUseCase` from the same exposure rules as load progression): no usable target
+  starts at the bottom with the converted load; a met target below the top keeps the load and adds a rep;
+  a met target at the top steps the load by 2.5 kg and returns to the bottom; a miss, an unjudged session
+  or a deload week repeats the target. A held load is deload-scaled, capped by the equipment ceiling and
+  resolved onto a reachable load (at or below the step, so a coarse plate or dumbbell grid can hold the
+  load). Every counted slot carries the range as its `SlotProgressionPolicy`, so accepted plans, blocks
+  and routines keep it. Only external work can be judged, so bodyweight slots start at the bottom of
+  their range and do not climb yet.
 - **Default sets:** Balanced 3 compound and 2 accessory, Strength 4 and 3, Hypertrophy 3 and 2, Endurance 2
   and 2.
 - **Timed exercises** (a plank) carry seconds in place of reps and never a load.
@@ -137,7 +171,13 @@ scaled by 0.7, intensity by 0.8. Skipping or accepting irregularly cannot shift 
 
 ## Known limits
 
-- A 4-day week still gives about 6 direct chest sets; a 2-day week is thin on everything by design.
+- A 4-day week gives about 8 to 11 weighted chest sets at 3 to 4 sets per exercise (an upper-day fly
+  helps); a 2-day week is thin on everything by design.
+- At 4 or more sets per exercise an upper day can reach 8 exercises and over 30 working sets, because
+  four compound patterns, a fly, two arm exercises and a shrug all qualify.
+- Obliques and hip flexors keep a small target (they take part in deficit targeting by an earlier
+  decision), and only the plank and hanging leg raise mainly train them, so those two can repeat on
+  every lower day.
 - A custom exercise that lists a single muscle ranks slightly lower in compound slots than a catalog lift
   that lists several.
 - The alphabetical id is the final tie-break, so equal catalog lifts resolve the same way every week.

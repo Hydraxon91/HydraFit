@@ -2,6 +2,8 @@ package com.hydrafit.app.core.domain.engine
 
 import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
+import com.hydrafit.app.core.domain.fatigue.FatigueConfig
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
 import kotlin.math.roundToInt
@@ -19,7 +21,8 @@ class WeeklyPlanSanitizer(
     private val periodization: PeriodizationConfig = PeriodizationConfig(),
     private val weightConfig: SuggestedWeightConfig = SuggestedWeightConfig(),
     private val applySetPrescription: ApplySetPrescriptionRecipeUseCase =
-        ApplySetPrescriptionRecipeUseCase()
+        ApplySetPrescriptionRecipeUseCase(),
+    private val fatigueConfig: FatigueConfig = FatigueConfig()
 ) {
 
     suspend fun sanitize(plan: WeeklyPlan, request: PlanRequest): WeeklyPlan? {
@@ -34,29 +37,49 @@ class WeeklyPlanSanitizer(
         val usable = PlannerCandidateEligibility.candidates(catalog.all(), request)
             .associateBy { it.id }
         val isDeload = request.isDeload
+        // The same arm set rule the deterministic engine uses, from the requested focus schedule.
+        val scheduledFocuses = SplitResolver.focusSequence(
+            request.splitPreference,
+            request.daysPerWeek
+        )
+        val armSetsPerExercise = if (isDeload) {
+            emptyMap()
+        } else {
+            val armTarget = DirectArmCoverage.targetSetsPerMuscle(request.daysPerWeek, request.goal)
+            listOf(MuscleGroup.BICEPS, MuscleGroup.TRICEPS).associateWith { muscle ->
+                DirectArmCoverage.setsPerArmExercise(
+                    muscle,
+                    scheduledFocuses,
+                    armTarget,
+                    request.accessorySetsPerExercise
+                )
+            }
+        }
 
-        val days = plan.days.map { day ->
+        val days = plan.days.mapIndexed { dayIndex, day ->
+            val fatigue = request.fatigueForWorkout(dayIndex)
             day.copy(
                 exercises = day.exercises.mapNotNull { planned ->
                     val exercise = usable[planned.exerciseId] ?: return@mapNotNull null
-                    val sets = setsFor(exercise, request, isDeload)
+                    val setDecision =
+                        setsFor(exercise, request, isDeload, armSetsPerExercise, fatigue)
+                    val sets = setDecision.finalSets
                     val preferredMeasure =
                         ExerciseMeasureDefaults.preferredMeasure(exercise.id)
                     if (preferredMeasure is ExerciseMeasure.Timed) {
                         return@mapNotNull timedExercise(
                             planned = planned,
                             exercise = exercise,
-                            sets = sets,
+                            setDecision = setDecision,
                             durationSeconds = preferredMeasure.durationSeconds,
-                            request = request,
                             isDeload = isDeload
                         )
                     }
-                    val reps = volumeAwareReps.repsFor(
-                        request.goal,
-                        exercise.movementPattern.isCompound,
-                        sets
-                    )
+                    // The deterministic engine's double progression decides reps here too.
+                    val isCompound = exercise.movementPattern.isCompound
+                    val range = request.goal.repRange(isCompound)
+                    val repTarget = request.repTargetFor(exercise.id, isCompound)
+                    val reps = repTarget.reps
                     val capability = exercise.loadCapability
                     val intensityScale = if (isDeload) periodization.deloadIntensityScale else 1.0
                     // The model may propose a number, but the app decides its meaning: only external
@@ -82,6 +105,14 @@ class WeeklyPlanSanitizer(
                                 it <= MAX_SUGGESTED_WEIGHT_KG
                         }
                         ?.let { weight -> weight * intensityScale }
+                    // A held load from double progression is the app's own number from recorded
+                    // history, so it replaces the model's proposal like the deterministic engine's
+                    // conversion would, independent of workout-data sharing.
+                    val heldLoad = repTarget.heldLoadKg
+                        ?.takeIf {
+                            allowed && it > 0.0 && exercise.id !in request.withheldWeightExerciseIds
+                        }
+                        ?.let { it * intensityScale }
                     val progressedCap = request.recentWeightCaps[exercise.id]
                     val effectiveOneRepMax = when {
                         !allowed -> null
@@ -115,7 +146,25 @@ class WeeklyPlanSanitizer(
                     }
                     // A saved implement re-rounds the accepted bound down onto a real load; without
                     // one the model's own value keeps its existing treatment.
-                    val externalSuggestedWeightKg = if (allowed) {
+                    val externalSuggestedWeightKg = if (allowed && heldLoad != null) {
+                        when (
+                            val resolution = resolveInventoryLoad(
+                                inventory = request.loadingInventory,
+                                equipmentId = null,
+                                requiredEquipment = exercise.requiredEquipment,
+                                boundKg = heldLoad,
+                                ceilingKg = ceiling
+                            )
+                        ) {
+                            InventoryLoadResolution.NoApplicableInventory ->
+                                EquipmentWeightLimit.clamp(
+                                    weightConfig.roundToIncrement(heldLoad),
+                                    ceiling
+                                )
+                            is InventoryLoadResolution.Reachable -> resolution.weightKg
+                            InventoryLoadResolution.NoReachableLoad -> null
+                        }
+                    } else if (allowed) {
                         rawUncapped?.let { bound ->
                             when (
                                 val resolution = resolveInventoryLoad(
@@ -150,13 +199,14 @@ class WeeklyPlanSanitizer(
                     val ceilingBinds = ceiling != null && uncapped != null && uncapped > ceiling
                     // A model number is only "accepted" when the app keeps a numeric load for this
                     // exercise; a discarded proposal must not also claim an applied bound or ceiling.
-                    val retained = allowed && proposed != null
+                    val retained = allowed && proposed != null && heldLoad == null
                     val boundedByProgression = retained && bound != null && bound < proposed
                     val cappedByEquipment = retained && ceilingBinds
                     val unavailableReason = when {
                         // Added load is the app's own recorded value, so it never depends on a model
                         // proposal or on workout-data sharing.
                         addedSuggestedWeightKg != null -> null
+                        heldLoad != null && externalSuggestedWeightKg != null -> null
                         capability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE ->
                             LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
                         !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
@@ -214,6 +264,11 @@ class WeeklyPlanSanitizer(
                         loadKind = slotKind,
                         loadCapability = capability,
                         setTargets = setTargets,
+                        progressionPolicy = SlotProgressionPolicy(
+                            minReps = range.first,
+                            maxReps = range.last,
+                            incrementKg = weightConfig.roundToKg
+                        ),
                         explanation = ExerciseTargetExplanation(
                             // The model chose the number; the app only scaled and bounded it, so the
                             // app's adjustments are recorded as separate operations rather than as a
@@ -228,18 +283,15 @@ class WeeklyPlanSanitizer(
                                 equipmentCeilingKg = if (retained) ceiling else null,
                                 cappedByEquipment = cappedByEquipment
                             ),
-                            setCount = SetCountExplanation(
-                                baseSets = if (exercise.movementPattern.isCompound) {
-                                    request.setsPerExercise
-                                } else {
-                                    request.accessorySetsPerExercise
-                                },
-                                deloadApplied = isDeload,
-                                deloadVolumeScale = periodization.deloadVolumeScale,
-                                fatigueEffect = FatigueSetEffect.NONE,
-                                finalSets = sets
-                            ),
-                            unavailableReason = unavailableReason
+                            setCount = setDecision.explanation(isDeload),
+                            unavailableReason = unavailableReason,
+                            repProgression = RepProgressionExplanation(
+                                step = repTarget.step,
+                                minReps = range.first,
+                                maxReps = range.last,
+                                previousReps = request.repProgressions[exercise.id]?.reps,
+                                previousWeightKg = request.repProgressions[exercise.id]?.weightKg
+                            )
                         )
                     )
                 }
@@ -292,20 +344,14 @@ class WeeklyPlanSanitizer(
     private fun timedExercise(
         planned: PlannedExercise,
         exercise: Exercise,
-        sets: Int,
+        setDecision: SetDecision,
         durationSeconds: Int,
-        request: PlanRequest,
         isDeload: Boolean
     ): PlannedExercise {
-        val baseSets = if (exercise.movementPattern.isCompound) {
-            request.setsPerExercise
-        } else {
-            request.accessorySetsPerExercise
-        }
         val intensityScale = if (isDeload) periodization.deloadIntensityScale else 1.0
         return PlannedExercise(
             exerciseId = exercise.id,
-            sets = sets,
+            sets = setDecision.finalSets,
             durationSeconds = durationSeconds,
             loadKind = WorkoutLoadPolicy.defaultKind(exercise.loadCapability),
             loadCapability = exercise.loadCapability,
@@ -320,28 +366,51 @@ class WeeklyPlanSanitizer(
                     equipmentCeilingKg = null,
                     cappedByEquipment = false
                 ),
-                setCount = SetCountExplanation(
-                    baseSets = baseSets,
-                    deloadApplied = isDeload,
-                    deloadVolumeScale = periodization.deloadVolumeScale,
-                    fatigueEffect = FatigueSetEffect.NONE,
-                    finalSets = sets
-                )
+                setCount = setDecision.explanation(isDeload)
             )
         )
     }
 
-    private fun setsFor(exercise: Exercise, request: PlanRequest, isDeload: Boolean): Int {
-        val baseSets = if (exercise.movementPattern.isCompound) {
-            request.setsPerExercise
-        } else {
-            request.accessorySetsPerExercise
+    /** A slot's set count and how it was reached, for the plan and its explanation. */
+    private inner class SetDecision(val baseSets: Int, val deloadedSets: Int, val finalSets: Int) {
+        fun explanation(isDeload: Boolean) = SetCountExplanation(
+            baseSets = baseSets,
+            deloadApplied = isDeload,
+            deloadVolumeScale = periodization.deloadVolumeScale,
+            fatigueEffect = if (finalSets < deloadedSets) {
+                FatigueSetEffect.REDUCED
+            } else {
+                FatigueSetEffect.NONE
+            },
+            finalSets = finalSets
+        )
+    }
+
+    /**
+     * The deterministic engine's set rule: the compound or accessory count (direct arm work by the
+     * split's arm slots), scaled for a deload, and one fewer when the exercise's main muscles are sore.
+     */
+    private fun setsFor(
+        exercise: Exercise,
+        request: PlanRequest,
+        isDeload: Boolean,
+        armSetsPerExercise: Map<MuscleGroup, Int>,
+        fatigue: Map<MuscleGroup, Double>
+    ): SetDecision {
+        val baseSets = when {
+            exercise.movementPattern.isCompound -> request.setsPerExercise
+            else -> DirectArmCoverage.muscleFor(exercise)?.let { armSetsPerExercise[it] }
+                ?: request.accessorySetsPerExercise
         }
-        return if (isDeload) {
+        val deloadedSets = if (isDeload) {
             (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
         } else {
             baseSets
         }
+        val sore = DirectArmCoverage.targetedFatigue(exercise, fatigue, fatigueConfig) >=
+            fatigueConfig.reduceThreshold
+        val finalSets = (deloadedSets - if (sore) 1 else 0).coerceAtLeast(1)
+        return SetDecision(baseSets, deloadedSets, finalSets)
     }
 
     companion object {

@@ -144,6 +144,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_distance
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_force
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_range
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_timed
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
@@ -512,6 +513,158 @@ fun SplitBuilderScreen(
                 color = MaterialTheme.colorScheme.error
             )
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(Res.string.split_configuration_label),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (state.plan != null) {
+                TextButton(onClick = onRegenerate, enabled = state.canRegenerate) {
+                    Text(stringResource(Res.string.split_regenerate))
+                }
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = stringResource(Res.string.split_days_label))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                dayOptions.forEach { days ->
+                    FilterChip(
+                        selected = state.daysPerWeek == days,
+                        onClick = { onDaysPerWeekSelected(days) },
+                        label = { Text(days.toString()) }
+                    )
+                }
+            }
+            Text(text = stringResource(Res.string.split_sets_label))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                setOptions.forEach { sets ->
+                    FilterChip(
+                        selected = state.setsPerExercise == sets,
+                        onClick = { onSetsPerExerciseChanged(sets) },
+                        label = { Text(sets.toString()) }
+                    )
+                }
+            }
+            Text(text = stringResource(Res.string.split_accessory_sets_label))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                setOptions.forEach { sets ->
+                    FilterChip(
+                        selected = state.accessorySetsPerExercise == sets,
+                        onClick = { onAccessorySetsPerExerciseChanged(sets) },
+                        label = { Text(sets.toString()) }
+                    )
+                }
+            }
+            TextButton(onClick = { showConfiguration = !showConfiguration }) {
+                Text(
+                    stringResource(
+                        if (showConfiguration) {
+                            Res.string.split_configuration_hide
+                        } else {
+                            Res.string.split_configuration_show
+                        }
+                    )
+                )
+            }
+        }
+        if (showConfiguration) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text = stringResource(Res.string.split_auto_targets_label))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = state.automaticSetPrescription
+                            ?.let { automaticSetPrescriptionSummary(it) }
+                            ?: stringResource(Res.string.split_auto_targets_off)
+                    )
+                    TextButton(onClick = onAutomaticSetPrescriptionRequested) {
+                        Text(stringResource(Res.string.split_auto_targets_edit))
+                    }
+                    if (state.automaticSetPrescription != null) {
+                        TextButton(onClick = onAutomaticSetPrescriptionCleared) {
+                            Text(stringResource(Res.string.split_auto_targets_clear))
+                        }
+                    }
+                }
+                Text(text = stringResource(Res.string.split_superset_label))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = state.plannerSupersetEnabled,
+                        onCheckedChange = onPlannerSupersetEnabledChanged
+                    )
+                    Text(stringResource(Res.string.split_superset_enabled))
+                }
+                if (state.plannerSupersetEnabled) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = state.plannerSupersetTransitionSeconds,
+                            onValueChange = onPlannerSupersetTransitionChanged,
+                            label = { Text(stringResource(Res.string.split_superset_transition)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = state.plannerSupersetPairRestSeconds,
+                            onValueChange = onPlannerSupersetPairRestChanged,
+                            label = { Text(stringResource(Res.string.split_superset_pair_rest)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (plannerSupersetPreference(
+                            enabled = true,
+                            transitionSeconds = state.plannerSupersetTransitionSeconds,
+                            pairRestSeconds = state.plannerSupersetPairRestSeconds
+                        ) == null
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.split_superset_error),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Text(
+                        text = stringResource(Res.string.split_superset_note),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Text(text = stringResource(Res.string.split_planning_dates_label))
+                if (state.planningDates.dates.isEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.split_planning_dates_unknown),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    state.planningDates.dates.forEach { day ->
+                        Text(
+                            text = isoDateUtc(day * MILLIS_PER_DAY),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                if (state.planningDatesRejected) {
+                    Text(
+                        text = stringResource(Res.string.split_planning_dates_rejected),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                TextButton(onClick = onEditPlanningDates) {
+                    Text(stringResource(Res.string.split_planning_dates_edit))
+                }
+            }
+        }
         state.plan?.let { plan ->
             Text(
                 text = stringResource(
@@ -630,7 +783,10 @@ fun SplitBuilderScreen(
                                     distanceMeters = exercise.distanceMeters,
                                     forceNewtons = exercise.forceNewtons,
                                     distanceUnit = state.distanceUnit,
-                                    weight = weight
+                                    weight = weight,
+                                    repRange = exercise.progressionPolicy?.let {
+                                        it.minReps..it.maxReps
+                                    }
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -669,153 +825,8 @@ fun SplitBuilderScreen(
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(Res.string.split_configuration_label),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall
-            )
-            TextButton(onClick = { showConfiguration = !showConfiguration }) {
-                Text(
-                    stringResource(
-                        if (showConfiguration) {
-                            Res.string.split_configuration_hide
-                        } else {
-                            Res.string.split_configuration_show
-                        }
-                    )
-                )
-            }
-        }
-        if (showConfiguration) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(text = stringResource(Res.string.split_days_label))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    dayOptions.forEach { days ->
-                        FilterChip(
-                            selected = state.daysPerWeek == days,
-                            onClick = { onDaysPerWeekSelected(days) },
-                            label = { Text(days.toString()) }
-                        )
-                    }
-                }
-                Text(text = stringResource(Res.string.split_sets_label))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    setOptions.forEach { sets ->
-                        FilterChip(
-                            selected = state.setsPerExercise == sets,
-                            onClick = { onSetsPerExerciseChanged(sets) },
-                            label = { Text(sets.toString()) }
-                        )
-                    }
-                }
-                Text(text = stringResource(Res.string.split_accessory_sets_label))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    setOptions.forEach { sets ->
-                        FilterChip(
-                            selected = state.accessorySetsPerExercise == sets,
-                            onClick = { onAccessorySetsPerExerciseChanged(sets) },
-                            label = { Text(sets.toString()) }
-                        )
-                    }
-                }
-                Text(text = stringResource(Res.string.split_auto_targets_label))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = state.automaticSetPrescription
-                            ?.let { automaticSetPrescriptionSummary(it) }
-                            ?: stringResource(Res.string.split_auto_targets_off)
-                    )
-                    TextButton(onClick = onAutomaticSetPrescriptionRequested) {
-                        Text(stringResource(Res.string.split_auto_targets_edit))
-                    }
-                    if (state.automaticSetPrescription != null) {
-                        TextButton(onClick = onAutomaticSetPrescriptionCleared) {
-                            Text(stringResource(Res.string.split_auto_targets_clear))
-                        }
-                    }
-                }
-                Text(text = stringResource(Res.string.split_superset_label))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Checkbox(
-                        checked = state.plannerSupersetEnabled,
-                        onCheckedChange = onPlannerSupersetEnabledChanged
-                    )
-                    Text(stringResource(Res.string.split_superset_enabled))
-                }
-                if (state.plannerSupersetEnabled) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = state.plannerSupersetTransitionSeconds,
-                            onValueChange = onPlannerSupersetTransitionChanged,
-                            label = { Text(stringResource(Res.string.split_superset_transition)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = state.plannerSupersetPairRestSeconds,
-                            onValueChange = onPlannerSupersetPairRestChanged,
-                            label = { Text(stringResource(Res.string.split_superset_pair_rest)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    if (plannerSupersetPreference(
-                            enabled = true,
-                            transitionSeconds = state.plannerSupersetTransitionSeconds,
-                            pairRestSeconds = state.plannerSupersetPairRestSeconds
-                        ) == null
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.split_superset_error),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Text(
-                        text = stringResource(Res.string.split_superset_note),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Text(text = stringResource(Res.string.split_planning_dates_label))
-                if (state.planningDates.dates.isEmpty()) {
-                    Text(
-                        text = stringResource(Res.string.split_planning_dates_unknown),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                } else {
-                    state.planningDates.dates.forEach { day ->
-                        Text(
-                            text = isoDateUtc(day * MILLIS_PER_DAY),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-                if (state.planningDatesRejected) {
-                    Text(
-                        text = stringResource(Res.string.split_planning_dates_rejected),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                TextButton(onClick = onEditPlanningDates) {
-                    Text(stringResource(Res.string.split_planning_dates_edit))
-                }
-            }
-        }
         if (state.plan != null) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onRegenerate, enabled = state.canRegenerate) {
-                    Text(stringResource(Res.string.split_regenerate))
-                }
                 TextButton(onClick = onSaveAsRoutine) {
                     Text(stringResource(Res.string.split_save_routine))
                 }
@@ -951,7 +962,8 @@ private fun exerciseLine(
     distanceMeters: Int?,
     forceNewtons: Double?,
     distanceUnit: DistanceUnit,
-    weight: String
+    weight: String,
+    repRange: IntRange? = null
 ): String = when {
     durationSeconds != null -> stringResource(
         Res.string.split_exercise_line_timed,
@@ -975,6 +987,15 @@ private fun exerciseLine(
             Res.string.split_measure_force_value,
             formatSplitWeightForDisplay(forceNewtons)
         ),
+        weight
+    )
+    reps != null && repRange != null -> stringResource(
+        Res.string.split_exercise_line_range,
+        name,
+        sets,
+        reps,
+        repRange.first,
+        repRange.last,
         weight
     )
     reps != null -> stringResource(Res.string.split_exercise_line, name, sets, reps, weight)

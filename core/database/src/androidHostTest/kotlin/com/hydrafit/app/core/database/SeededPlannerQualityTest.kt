@@ -3,11 +3,18 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
+import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
+import com.hydrafit.app.core.domain.engine.PlannerLibraryOnlyExercises
+import com.hydrafit.app.core.domain.engine.PlannerSupersetPairing
+import com.hydrafit.app.core.domain.engine.PlannerSupersetPreference
+import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyVolumeTargets
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -65,11 +72,206 @@ class SeededPlannerQualityTest {
     }
 
     @Test
-    fun noExerciseRepeatsAcrossTheWeekWhenAllEquipmentIsAvailable() = runTest {
+    fun everyPlannableSeededArmIsolationCanPairAndPlansWithBothArmsPair() = runTest {
+        val plannable = PlannerCandidateEligibility.candidates(
+            DefaultExercises.all,
+            PlanRequest(
+                daysPerWeek = 4,
+                availableEquipment = everything,
+                muscleFatigue = emptyMap(),
+                nowMillis = 0L
+            )
+        )
+        val biceps = plannable.filter { it.movementPattern == MovementPattern.BICEPS_ISOLATION }
+        val triceps = plannable.filter { it.movementPattern == MovementPattern.TRICEPS_ISOLATION }
+        assertEquals(
+            biceps.map { it.id }.toSet(),
+            PlannerSupersetPairing.BICEPS_ISOLATION_IDS,
+            "the curated biceps ids must match the plannable seeded biceps isolations"
+        )
+        assertEquals(
+            triceps.map { it.id }.toSet(),
+            PlannerSupersetPairing.TRICEPS_ISOLATION_IDS,
+            "the curated triceps ids must match the plannable seeded triceps isolations"
+        )
+        for (days in 2..5) {
+            val paired = PlannerSupersetPairing.apply(plan(days), PlannerSupersetPreference(10, 60))
+            val pairs = paired.days.sumOf { day -> day.exercises.count { it.superset != null } / 2 }
+            assertTrue(pairs > 0, "days=$days")
+        }
+    }
+
+    @Test
+    fun anExerciseRepeatsOnlyWhenNothingUnusedTrainsItsMuscle() = runTest {
+        // A repeat is allowed only for an exercise that is the sole plannable option for one of
+        // the muscles it mainly trains (the single leg extension, or the plank and hanging leg
+        // raise for obliques and hip flexors); anything with an unused alternative must not repeat.
+        fun mainMuscles(exercise: Exercise) =
+            exercise.effectiveInvolvements.filterValues { it >= 0.5 }.keys
         for (days in 2..6) {
+            val plannable = PlannerCandidateEligibility.candidates(
+                DefaultExercises.all,
+                PlanRequest(
+                    daysPerWeek = days,
+                    availableEquipment = everything,
+                    muscleFatigue = emptyMap(),
+                    nowMillis = 0L
+                )
+            )
             val ids = plan(days).days.flatMap { day -> day.exercises.map { it.exerciseId } }
+            val unused = plannable.filter { it.id !in ids }
             val repeated = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-            assertEquals(emptySet(), repeated, "days=$days")
+            repeated.forEach { id ->
+                // An alternative must fill the same slot: same movement pattern, same main muscle
+                // (a squat is not a substitute for the leg-extension slot).
+                val exercise = byId.getValue(id)
+                assertTrue(
+                    mainMuscles(exercise).any { muscle ->
+                        unused.none {
+                            it.movementPattern == exercise.movementPattern &&
+                                muscle in mainMuscles(it)
+                        }
+                    },
+                    "days=$days repeated=$id"
+                )
+            }
+        }
+    }
+
+    @Test
+    fun theLibraryOnlyListNamesRealSeededExercisesAndNeverReachesAPlan() = runTest {
+        val libraryOnly = PlannerLibraryOnlyExercises.ids
+        assertEquals(emptySet(), libraryOnly - byId.keys, "stale library-only ids")
+        for (goal in TrainingGoal.entries) {
+            for (days in 2..6) {
+                val planned = plan(days, goal).days.flatMap { day ->
+                    day.exercises.map { it.exerciseId }
+                }
+                assertEquals(
+                    emptySet(),
+                    planned.toSet() intersect libraryOnly,
+                    "goal=$goal days=$days"
+                )
+            }
+        }
+    }
+
+    @Test
+    fun moreSetsPerExerciseNeverAddsExercisesAndArmTargetsHoldAtEveryCount() = runTest {
+        for (goal in TrainingGoal.entries) {
+            for (days in 2..6) {
+                var previousExercises = Int.MAX_VALUE
+                for (sets in 1..6) {
+                    val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+                        PlanRequest(
+                            daysPerWeek = days,
+                            availableEquipment = everything,
+                            muscleFatigue = emptyMap(),
+                            splitPreference = SplitType.AUTO,
+                            nowMillis = 0L,
+                            goal = goal,
+                            setsPerExercise = sets,
+                            accessorySetsPerExercise = sets
+                        )
+                    )
+                    val label = "goal=$goal days=$days sets=$sets"
+                    val exercises = plan.days.sumOf { it.exercises.size }
+                    assertTrue(exercises <= previousExercises, "$label exercises=$exercises")
+                    previousExercises = exercises
+                    assertTrue(
+                        plan.days.all {
+                            it.exercises.size <=
+                                PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY
+                        },
+                        label
+                    )
+                    assertTrue(
+                        plan.armCoverage.all { it.directIsolationSets >= it.targetSets },
+                        "$label coverage=${plan.armCoverage}"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun everyLowerOrLegsDayHasALegExtensionAndALegCurl() = runTest {
+        fun trains(id: String, muscle: MuscleGroup): Boolean = byId.getValue(id).let {
+            it.movementPattern == MovementPattern.LEG_ISOLATION &&
+                (it.effectiveInvolvements[muscle] ?: 0.0) >= 0.5
+        }
+        for (goal in TrainingGoal.entries) {
+            for (days in 2..6) {
+                for (sets in listOf(2, 4, 6)) {
+                    val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+                        PlanRequest(
+                            daysPerWeek = days,
+                            availableEquipment = everything,
+                            muscleFatigue = emptyMap(),
+                            splitPreference = SplitType.AUTO,
+                            nowMillis = 0L,
+                            goal = goal,
+                            setsPerExercise = sets,
+                            accessorySetsPerExercise = sets
+                        )
+                    )
+                    plan.days.filter { it.focus == SplitFocus.LOWER || it.focus == SplitFocus.LEGS }
+                        .forEach { day ->
+                            val ids = day.exercises.map { it.exerciseId }
+                            val label = "goal=$goal days=$days sets=$sets " +
+                                "day=${day.dayIndex} ids=$ids"
+                            assertTrue(ids.any { trains(it, MuscleGroup.QUADS) }, label)
+                            assertTrue(ids.any { trains(it, MuscleGroup.HAMSTRINGS) }, label)
+                        }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun anInventoryWithNoEquipmentCanStillPlanEveryFocus() = runTest {
+        for (days in 2..6) {
+            val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+                PlanRequest(
+                    daysPerWeek = days,
+                    availableEquipment = emptySet(),
+                    muscleFatigue = emptyMap(),
+                    splitPreference = SplitType.AUTO,
+                    nowMillis = 0L
+                )
+            )
+            assertTrue(plan.days.all { it.exercises.isNotEmpty() }, "days=$days")
+        }
+    }
+
+    @Test
+    fun shrugsAreAPullOrUpperDayAccessoryAndNeverExceedTheDailyMaximum() = runTest {
+        val shrugIds = DefaultExercises.all
+            .filter { it.movementPattern == MovementPattern.TRAP_ISOLATION }
+            .map { it.id }
+            .toSet()
+        var shrugDays = 0
+        for (days in 2..6) {
+            plan(days).days.forEach { day ->
+                val shrugs = day.exercises.count { it.exerciseId in shrugIds }
+                assertTrue(shrugs <= 1, "days=$days day=${day.dayIndex}")
+                if (day.focus != SplitFocus.PULL && day.focus != SplitFocus.UPPER) {
+                    assertEquals(0, shrugs, "days=$days focus=${day.focus}")
+                }
+                assertTrue(day.exercises.size <= PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY)
+                shrugDays += shrugs
+            }
+        }
+        assertTrue(shrugDays > 0, "no pull or upper day was given a shrug")
+        // A must-have may go past the ordinary six, so a full 4-day upper day still fits its shrug.
+        plan(4).days.filter { it.focus == SplitFocus.UPPER }.forEach { day ->
+            assertEquals(
+                1,
+                day.exercises.count {
+                    it.exerciseId in shrugIds
+                },
+                "day=${day.dayIndex}"
+            )
         }
     }
 

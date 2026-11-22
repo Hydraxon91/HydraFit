@@ -59,7 +59,6 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -95,8 +94,6 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
-import com.hydrafit.app.core.exercisecontent.ExerciseDemoButton
-import com.hydrafit.app.core.exercisecontent.openExerciseDemo
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
@@ -229,6 +226,7 @@ import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_target_distance
 import hydrafit.feature.logger.generated.resources.logger_guided_target_force
+import hydrafit.feature.logger.generated.resources.logger_guided_target_range
 import hydrafit.feature.logger.generated.resources.logger_guided_target_timed
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_history_open
@@ -371,7 +369,6 @@ import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_show
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_skip
 import hydrafit.feature.logger.generated.resources.logger_warmup_guidance_title
 import hydrafit.feature.logger.generated.resources.logger_warmup_suffix
-import hydrafit.feature.logger.generated.resources.logger_watch_demo
 import hydrafit.feature.logger.generated.resources.logger_weight_label
 import hydrafit.feature.logger.generated.resources.logger_weight_none
 import hydrafit.feature.logger.generated.resources.logger_workout_actions
@@ -381,6 +378,8 @@ import hydrafit.feature.logger.generated.resources.logger_workout_overview_targe
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_distance
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_force
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_load
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_range
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_range_load
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_sets
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_timed
 import hydrafit.feature.logger.generated.resources.logger_workout_replace
@@ -1558,12 +1557,6 @@ fun WorkoutLoggerScreen(
                                     ) {
                                         Text(stringResource(Res.string.logger_instructions))
                                     }
-                                    ExerciseDemoButton(
-                                        exerciseId = state.selectedExerciseId,
-                                        exerciseName = state.exercises
-                                            .firstOrNull { it.id == state.selectedExerciseId }
-                                            ?.name.orEmpty()
-                                    )
                                 }
                             }
                         }
@@ -2247,10 +2240,6 @@ fun WorkoutLoggerScreen(
                                         ) {
                                             Text(stringResource(Res.string.logger_instructions))
                                         }
-                                        ExerciseDemoButton(
-                                            exerciseId = draft.exerciseId,
-                                            exerciseName = draft.name
-                                        )
                                         if (loggerLoadingTargetEligible(
                                                 draft.loadKind,
                                                 draft.weightKg
@@ -3810,7 +3799,27 @@ private fun workoutOverviewTarget(
 
         draft.reps != null -> {
             val load = draft.weightKg?.let { loadWeightText(draft.loadKind, it, weightUnit) }
-            if (load == null) {
+            val range = draft.repRange
+            if (range != null) {
+                if (load == null) {
+                    stringResource(
+                        Res.string.logger_workout_overview_target_range,
+                        sets,
+                        draft.reps,
+                        range.first,
+                        range.last
+                    )
+                } else {
+                    stringResource(
+                        Res.string.logger_workout_overview_target_range_load,
+                        sets,
+                        draft.reps,
+                        range.first,
+                        range.last,
+                        load
+                    )
+                }
+            } else if (load == null) {
                 stringResource(Res.string.logger_workout_overview_target, sets, draft.reps)
             } else {
                 stringResource(
@@ -4396,6 +4405,7 @@ private fun GuidedWorkoutSection(
                         val targetSeconds = exercise.durationSeconds
                         val targetDistance = exercise.distanceMeters
                         val targetForce = exercise.forceNewtons
+                        val repRange = exercise.repRange
                         val loadText = loadWeightText(
                             exercise.loadKind,
                             exercise.weightKg,
@@ -4422,6 +4432,14 @@ private fun GuidedWorkoutSection(
                                     Res.string.logger_guided_target_timed,
                                     targetSeconds,
                                     loadText
+                                )
+
+                                repRange != null -> stringResource(
+                                    Res.string.logger_guided_target_range,
+                                    exercise.reps ?: 0,
+                                    loadText,
+                                    repRange.first,
+                                    repRange.last
                                 )
 
                                 else -> stringResource(
@@ -4597,7 +4615,6 @@ private fun GuidedWorkoutSection(
                                 }
                             }
                             GuidedMoreMenu(
-                                exerciseId = exercise.exerciseId,
                                 exerciseName = exercise.exerciseName,
                                 entryId = entryId,
                                 writeInProgress = writeInProgress,
@@ -4637,7 +4654,6 @@ private fun GuidedWorkoutSection(
  */
 @Composable
 private fun GuidedMoreMenu(
-    exerciseId: String,
     exerciseName: String,
     entryId: Long,
     writeInProgress: Boolean,
@@ -4654,7 +4670,6 @@ private fun GuidedMoreMenu(
     onToggleExplanation: () -> Unit
 ) {
     var expanded by remember(entryId) { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
     Box {
         val label = stringResource(Res.string.logger_guided_actions_for, exerciseName)
         TextButton(
@@ -4672,13 +4687,6 @@ private fun GuidedMoreMenu(
                 onClick = {
                     expanded = false
                     onInstructions()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.logger_watch_demo)) },
-                onClick = {
-                    expanded = false
-                    uriHandler.openExerciseDemo(exerciseId, exerciseName)
                 }
             )
             if (canReplace) {

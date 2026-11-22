@@ -114,6 +114,8 @@
     <string name="logger_workout_overview_complete">Every prescribed set is recorded. Finish the workout from Workout actions.</string>
     <string name="logger_workout_overview_target">%1$d × %2$d reps</string>
     <string name="logger_workout_overview_target_load">%1$d × %2$d reps · %3$s</string>
+    <string name="logger_workout_overview_target_range">%1$d × %2$d reps (%3$d–%4$d)</string>
+    <string name="logger_workout_overview_target_range_load">%1$d × %2$d reps (%3$d–%4$d) · %5$s</string>
     <string name="logger_workout_overview_target_timed">%1$d × %2$d s</string>
     <string name="logger_workout_overview_target_distance">%1$d × %2$s</string>
     <string name="logger_workout_overview_target_force">%1$d × %2$s</string>
@@ -175,6 +177,7 @@
     <string name="logger_draft_write_none">The sets could not be saved. The remaining sets are still pending; retry to continue.</string>
     <string name="logger_guided_title">Guided workout</string>
     <string name="logger_guided_target">Target: %1$d × %2$s</string>
+    <string name="logger_guided_target_range">Target: %1$d × %2$s (%3$d–%4$d reps)</string>
     <string name="logger_guided_target_timed">Target: %1$d s × %2$s</string>
     <string name="logger_guided_target_distance">Target: %1$s × %2$s</string>
     <string name="logger_guided_target_force">Target: %1$s</string>
@@ -186,7 +189,6 @@
     <string name="logger_guided_start_set">Start set</string>
     <string name="logger_guided_set_started">Set started</string>
     <string name="logger_guided_actions">More</string>
-    <string name="logger_watch_demo">Watch demo</string>
     <string name="logger_guided_actions_for">More actions for %1$s</string>
     <string name="logger_guided_expand_sets">Show sets</string>
     <string name="logger_guided_collapse_sets">Hide sets</string>

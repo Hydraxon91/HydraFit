@@ -165,7 +165,10 @@ class ManualExerciseCatalogTest {
     @Test
     fun deterministicAndModelBackedPlansCannotPrescribeManualSeeds() = runTest {
         val catalog = SqlDelightExerciseCatalog(database)
-        val manualIds = DefaultExercisesCatalogManual.all.map { it.id }.toSet()
+        val manualIds = DefaultExercisesCatalogManual.all
+            .filter { it.movementPattern == MovementPattern.NECK_ISOLATION }
+            .map { it.id }
+            .toSet()
         val request = PlanRequest(
             daysPerWeek = 2,
             availableEquipment = EquipmentTag.BUILT_IN.toSet(),

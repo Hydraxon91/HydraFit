@@ -25,7 +25,9 @@ data class PlannerLoadInputs(
      * It is reference-only for rep-range prescriptions and only supplies a short prescription's
      * floor, so it is kept apart from the baseline instead of being dropped.
      */
-    val lowRepManualFloorsKg: Map<String, Double> = emptyMap()
+    val lowRepManualFloorsKg: Map<String, Double> = emptyMap(),
+    /** The double-progression input per external exercise; see [PlanRequest.repProgressions]. */
+    val repProgressions: Map<String, RepProgressionHistory> = emptyMap()
 )
 
 /**
@@ -186,8 +188,38 @@ class BuildPlannerLoadInputsUseCase(
             suggestedAddedLoadsKg = suggestedAddedLoadsKg,
             withheldWeightExerciseIds = withheldWeightExerciseIds,
             loadExplanations = loadExplanations,
-            lowRepManualFloorsKg = lowRepManualFloorsKg
+            lowRepManualFloorsKg = lowRepManualFloorsKg,
+            repProgressions = repProgressions(
+                history = sources.progressionHistory,
+                exerciseIds = externalExerciseIds,
+                nowMillis = nowMillis
+            )
         )
+    }
+
+    /**
+     * Each external exercise's last comparable, non-deload, counted target with its outcome, judged
+     * by the same exposure rules as load progression. Only external work can be judged (an exposure
+     * needs a recorded weight), so bodyweight slots start at the bottom of their range.
+     */
+    private fun repProgressions(
+        history: ProgressionHistory,
+        exerciseIds: Set<String>,
+        nowMillis: Long
+    ): Map<String, RepProgressionHistory> {
+        val logged = history.sets.map { it.exerciseId }.toSet() intersect exerciseIds
+        return logged.mapNotNull { exerciseId ->
+            val last = history.exposures(exerciseId, nowMillis).lastOrNull { exposure ->
+                val target = exposure.target
+                target != null && !target.isDeload && target.reps != null
+            } ?: return@mapNotNull null
+            val target = requireNotNull(last.target)
+            exerciseId to RepProgressionHistory(
+                reps = requireNotNull(target.reps),
+                weightKg = target.weightKg,
+                outcome = last.outcome
+            )
+        }.toMap()
     }
 
     /**

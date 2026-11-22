@@ -150,7 +150,7 @@ Backup preview/apply uses the same identity rules; see `backup.md`. No schema/fo
 ## Offline exercise instructions (CAT-01, 0.7.4)
 
 The 0.7.4 authored batch has 17 entries after the approved calf split; the 0.13.2 coverage batches
-add further entries under the same contract, reaching all 195 seeded identities on 2026-11-04.
+add further entries under the same contract, reaching all 195 seeded identities on 2026-11-04 (198 after the three 0.15.3 rows).
 `ExerciseInstructionSeedCoverageTest` asserts set equality with the seeded catalog in both
 directions. `standing-calf-raise` retains its
 dumbbell equipment and identity, with canonical label **Dumbbell Calf Raise**;

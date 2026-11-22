@@ -76,9 +76,10 @@ class PlannerPromptFragmentsTest {
     @Test
     fun derivesVolumeGuidanceFromTheGoal() {
         assertEquals(
-            "Use the goal's fixed rep bands: 6 reps for compound exercises and 12 reps for " +
-                "accessory exercises. The selected set count controls volume; do not trade fewer " +
-                "sets for more reps.",
+            "The goal's rep ranges are 6-8 reps for compound exercises and 10-12 reps for " +
+                "accessory exercises. The app sets each week's exact reps and any held load by " +
+                "double progression, and the selected set count controls volume; do not trade " +
+                "fewer sets for more reps.",
             PlannerPromptFragments.volumeRepsGuidance(request(goal = TrainingGoal.BALANCED))
         )
     }

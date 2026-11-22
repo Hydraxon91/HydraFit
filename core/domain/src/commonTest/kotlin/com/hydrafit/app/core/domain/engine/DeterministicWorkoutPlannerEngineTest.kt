@@ -695,9 +695,16 @@ class DeterministicWorkoutPlannerEngineTest {
 
             assertEquals(goal.defaultSets, push.getValue("bench-press").sets)
             assertEquals(goal.compoundReps, push.getValue("bench-press").reps)
-            // Pushdown is a direct arm exercise, which outside Endurance gets at least three sets.
+            // Direct arm work uses the accessory count, raised only as far as the split's arm slots
+            // need to reach the weekly arm target.
+            val focuses = listOf(SplitFocus.PUSH, SplitFocus.PULL, SplitFocus.LEGS)
             assertEquals(
-                DirectArmCoverage.setsPerArmExercise(goal, goal.accessorySets),
+                DirectArmCoverage.setsPerArmExercise(
+                    MuscleGroup.TRICEPS,
+                    focuses,
+                    DirectArmCoverage.targetSetsPerMuscle(3, goal),
+                    goal.accessorySets
+                ),
                 push.getValue("pushdown").sets
             )
             assertEquals(goal.isolationReps, push.getValue("pushdown").reps)
@@ -727,25 +734,65 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun aDirectArmExerciseGetsAtLeastThreeSetsExceptInEndurance() {
+    fun doubleProgressionSetsTheWeeksRepsHoldsTheLoadAndAttachesTheGoalRange() {
         val exercises = listOf(
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
             exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
         )
-        fun pushdownSets(goal: TrainingGoal, accessory: Int) = engine.plan(
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS).copy(
+                // Last week: the bench target was met at 7 reps, the pushdown at the top of 10-12.
+                repProgressions = mapOf(
+                    "bench-press" to
+                        RepProgressionHistory(7, 60.0, ProgressionExposureOutcome.SUCCESS),
+                    "pushdown" to
+                        RepProgressionHistory(12, 20.0, ProgressionExposureOutcome.SUCCESS)
+                )
+            ),
+            exercises
+        )
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.associateBy {
+            it.exerciseId
+        }
+        val bench = push.getValue("bench-press")
+        assertEquals(8, bench.reps)
+        assertEquals(60.0, bench.suggestedWeightKg)
+        assertEquals(
+            SlotProgressionPolicy(minReps = 6, maxReps = 8, incrementKg = 2.5),
+            bench.progressionPolicy
+        )
+        assertEquals(RepProgressionStep.ADD_REP, bench.explanation?.repProgression?.step)
+        val pushdown = push.getValue("pushdown")
+        assertEquals(10, pushdown.reps)
+        assertEquals(22.5, pushdown.suggestedWeightKg)
+        assertEquals(RepProgressionStep.STEP_LOAD, pushdown.explanation?.repProgression?.step)
+    }
+
+    @Test
+    fun aDirectArmExerciseGetsOnlyTheSetsItsSplitNeedsForTheArmTarget() {
+        val exercises = listOf(
+            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+            exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+        )
+        fun pushdownSets(goal: TrainingGoal, accessory: Int, days: Int = 3) = engine.plan(
             request(
-                daysPerWeek = 3,
+                daysPerWeek = days,
                 split = SplitType.PUSH_PULL_LEGS,
                 goal = goal,
                 accessorySetsPerExercise = accessory
             ),
             exercises
         ).days.first { it.focus == SplitFocus.PUSH }.exercises
-            .single { it.exerciseId == "pushdown" }.sets
+            .first { it.exerciseId == "pushdown" }.sets
 
+        // One push day holds two triceps slots: a 6-set target needs 3 sets each at a selection of 2.
         assertEquals(3, pushdownSets(TrainingGoal.HYPERTROPHY, accessory = 2))
+        // A higher selection is never lowered.
         assertEquals(4, pushdownSets(TrainingGoal.STRENGTH, accessory = 4))
-        assertEquals(1, pushdownSets(TrainingGoal.ENDURANCE, accessory = 1))
+        // Endurance's 4-set target needs 2 sets across those two slots.
+        assertEquals(2, pushdownSets(TrainingGoal.ENDURANCE, accessory = 1))
+        // Two push days hold four slots, so an 8-set target keeps the selected 2 sets.
+        assertEquals(2, pushdownSets(TrainingGoal.HYPERTROPHY, accessory = 2, days = 6))
     }
 
     @Test
@@ -765,8 +812,19 @@ class DeterministicWorkoutPlannerEngineTest {
         val lowerIds = plan.days.filter { it.focus == SplitFocus.LOWER }
             .flatMap { day -> day.exercises.map { it.exerciseId } }
             .filter { it in lowerIsolations.map { exercise -> exercise.id } }
-        // Two lower days of four isolation slots can use all six exercises, so a repeat must wait.
-        assertEquals(6, lowerIds.toSet().size, "ids=$lowerIds")
+        // An exercise repeats only when no unused exercise trains the same muscle: the sole leg
+        // curl, calf raise and plank may come back, but a second adductor exercise is used before
+        // the first one repeats.
+        val muscleOf = lowerIsolations.associate { it.id to it.primaryMuscles.single() }
+        val repeated = lowerIds.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        val unused = lowerIsolations.map { it.id }.toSet() - lowerIds.toSet()
+        repeated.forEach { id ->
+            assertTrue(
+                unused.none { muscleOf.getValue(it) == muscleOf.getValue(id) },
+                "ids=$lowerIds repeated=$id unused=$unused"
+            )
+        }
+        assertTrue(lowerIds.contains("leg-curl"), "ids=$lowerIds")
     }
 
     @Test
@@ -1283,8 +1341,9 @@ class DeterministicWorkoutPlannerEngineTest {
     fun keepsEveryDayWithinTheTargetExerciseCountRange() {
         val plan = engine.plan(request(daysPerWeek = 3, equipment = everything), richCatalog())
 
-        val minimum = PlannerExerciseCounts.TARGET_MIN_PER_DAY
-        val maximum = PlannerExerciseCounts.TARGET_MAX_PER_DAY
+        // No forced minimum beyond the validators' floor; must-haves may go past the ordinary six.
+        val minimum = PlannerExerciseCounts.FLOOR_PER_DAY
+        val maximum = PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY
         val sizes = plan.days.map { it.exercises.size }
         assertTrue(sizes.all { it in minimum..maximum }, "sizes=$sizes")
     }
@@ -1383,8 +1442,9 @@ class DeterministicWorkoutPlannerEngineTest {
 
             val biceps = plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }
             val triceps = plan.armCoverage.single { it.muscle == MuscleGroup.TRICEPS }
-            // Two days, one arm exercise per day: three sets each, or the selected two in Endurance.
-            val expectedDirectSets = if (goal == TrainingGoal.ENDURANCE) 4 else 6
+            // Two days, one arm exercise per day at the selected two sets: the 4-set target is met
+            // without raising the set count.
+            val expectedDirectSets = 4
             assertEquals(
                 expectedDirectSets,
                 biceps.directIsolationSets,
@@ -1451,13 +1511,15 @@ class DeterministicWorkoutPlannerEngineTest {
             exercises
         )
 
-        assertTrue(lowSets.armCoverage.any { it.directIsolationSets < it.targetSets })
-        assertTrue(
-            lowSets.armCoverage.all {
-                it.directIsolationSets >= it.targetSets ||
-                    it.unmetReason == ArmCoverageUnmetReason.NOT_MET_WITH_AVAILABLE_CANDIDATES
-            }
-        )
+        // One arm slot per full-body day cannot reach the 4-set target at 1 set, so the arm sets
+        // are raised to 2; the selection of 2 already fits and is kept.
+        fun armSets(plan: WeeklyPlan) = plan.days.flatMap { it.exercises }
+            .filter { it.exerciseId == "curl" || it.exerciseId == "extension" }
+            .map { it.sets }
+            .toSet()
+        assertEquals(setOf(2), armSets(lowSets))
+        assertEquals(setOf(2), armSets(normalSets))
+        assertTrue(lowSets.armCoverage.all { it.directIsolationSets >= it.targetSets })
         assertTrue(normalSets.armCoverage.all { it.directIsolationSets >= it.targetSets })
         assertTrue(
             lowSets.days.all {
@@ -1493,8 +1555,14 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val biceps = plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }
         val triceps = plan.armCoverage.single { it.muscle == MuscleGroup.TRICEPS }
-        assertEquals(biceps.directIsolationSets, triceps.directIsolationSets)
-        assertTrue(triceps.directIsolationSets > 0, "triceps=$triceps biceps=$biceps")
+        // Fairness means neither arm is starved: both reach the weekly target. Once both have,
+        // a spare slot may add the fresher arm's second curl, since the triceps has no second
+        // exercise in this catalog.
+        assertTrue(
+            biceps.directIsolationSets >= biceps.targetSets &&
+                triceps.directIsolationSets >= triceps.targetSets,
+            "triceps=$triceps biceps=$biceps"
+        )
     }
 
     @Test
@@ -1535,8 +1603,8 @@ class DeterministicWorkoutPlannerEngineTest {
                 val sore = plan.armCoverage.single { it.muscle == soreMuscle }
                 val fresh = plan.armCoverage.single { it.muscle != soreMuscle }
                 assertEquals(0, sore.directIsolationSets)
-                // One arm exercise on each of the two days, three sets apiece.
-                assertEquals(6, fresh.directIsolationSets)
+                // One arm exercise on each of the two days still meets the fresh arm's target.
+                assertEquals(fresh.targetSets, fresh.directIsolationSets)
                 assertEquals(
                     ArmCoverageUnmetReason.ALL_COMPATIBLE_CANDIDATES_SKIPPED_FOR_FATIGUE,
                     sore.unmetReason
@@ -1622,7 +1690,7 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
-    fun stopsAddingAnExerciseOnceItsMusclesReachTheWeeklyCeiling() {
+    fun stopsAddingAnExerciseOnceItsMusclesReachTheirWeeklyTarget() {
         val plan = engine.plan(
             request(
                 daysPerWeek = 6,
@@ -1636,9 +1704,15 @@ class DeterministicWorkoutPlannerEngineTest {
         val bicepsSets = plan.days.sumOf { day ->
             day.exercises.filter { it.exerciseId == "curl" }.sumOf { it.sets }
         }
-        // Five 3-set days reach the STRENGTH ceiling of 15; the sixth day is refused.
-        val ceiling = WeeklyVolumeTargets.forGoal(TrainingGoal.STRENGTH).maxSets
-        assertEquals(ceiling, bicepsSets.toDouble())
+        // The 8-set direct arm target takes three 3-set curls (9 sets), which also clears the
+        // biceps volume target; nothing is added on the other three days, far below the old
+        // soft ceiling of 15.
+        assertEquals(DirectArmCoverage.targetSetsPerMuscle(6, TrainingGoal.STRENGTH), 8)
+        assertEquals(9, bicepsSets)
+        assertTrue(
+            bicepsSets < WeeklyVolumeTargets.forGoal(TrainingGoal.STRENGTH).maxSets,
+            "sets=$bicepsSets"
+        )
     }
 
     @Test
@@ -1663,12 +1737,13 @@ class DeterministicWorkoutPlannerEngineTest {
         )
         assertEquals(listOf("deficit", "satisfied"), byDeficit.map { it.id })
 
-        // With deficits tied, the lower weighted fatigue sorts first.
+        // With deficits tied (two muscles with the same-sized target), the lower weighted fatigue
+        // sorts first.
         val highFatigue = exercise("high", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER)
-        val lowFatigue = exercise("low", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.SIDE_DELTS)
+        val lowFatigue = exercise("low", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_LOWER)
         val byFatigue = engine.rankCandidates(
             candidates = listOf(highFatigue, lowFatigue),
-            fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.6, MuscleGroup.SIDE_DELTS to 0.1),
+            fatigue = mapOf(MuscleGroup.CHEST_UPPER to 0.6, MuscleGroup.CHEST_LOWER to 0.1),
             weekUsed = emptySet(),
             recentExerciseIdsByPattern = emptyMap(),
             weeklyVolume = noVolume,
@@ -1884,11 +1959,12 @@ class DeterministicWorkoutPlannerEngineTest {
     fun twoDayPlanOutputIsUnchangedAfterTheRankingExtraction() {
         val plan = engine.plan(request(daysPerWeek = 2, equipment = everything), catalog())
 
+        // Two full-body days with one curl each reach the 4-set arm target at the selected 2 sets.
         assertEquals(
             "FULL_BODY[back-squat:3:6:null,bench-press:3:6:null,pull-up:3:6:null," +
-                "curl:3:12:null,calf-raise:2:12:null,plank:2:null:null];" +
+                "curl:2:10:null,calf-raise:2:10:null,plank:2:null:null];" +
                 "FULL_BODY[rdl:3:6:null,ohp:3:6:null,barbell-row:3:6:null," +
-                "curl:3:12:null,calf-raise:2:12:null,plank:2:null:null]",
+                "curl:2:10:null,calf-raise:2:10:null,plank:2:null:null]",
             render(plan)
         )
     }
@@ -1901,11 +1977,11 @@ class DeterministicWorkoutPlannerEngineTest {
         // accessory-only; the second lower day similarly repeats the hinge.
         assertEquals(
             "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
-                "curl:3:12:null];" +
-                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:null:null];" +
+                "curl:3:10:null];" +
+                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:10:null,plank:2:null:null];" +
                 "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
-                "curl:3:12:null];" +
-                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:null:null]",
+                "curl:3:10:null];" +
+                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:10:null,plank:2:null:null]",
             render(plan)
         )
     }

@@ -145,6 +145,21 @@ without extending startup dedupe to aliases/translations/dashes. Accepted non-co
 separate custom identities. CAT-P7 seed-name collisions follow the approved preservation contract
 below; other future catalog batches require their own decision gate.
 
+### 0.15.3 — Wide-Grip Bench Press and bench dips
+
+Three rows in `DefaultExercisesCatalog0153`, requested by the maintainer. They are not from the
+dataset above; the weights are model parameters set by analogy with the nearest existing row, on the
+0.3/0.5/0.7/1.0 scale, not measured muscle activation.
+
+| Row | Pattern / equipment | Weights | Basis |
+| --- | --- | --- | --- |
+| `wide-grip-bench-press` / Wide-Grip Bench Press | HORIZONTAL_PUSH / barbell, bench | CHEST_UPPER 0.7; CHEST_LOWER 0.7; FRONT_DELTS 0.5; TRICEPS 0.3; ABS 0.3 | Barbell Bench Press with the triceps share lowered for the wider grip. |
+| `bench-dips` / Bench Dips | TRICEPS_ISOLATION / bodyweight, bench; BODYWEIGHT_ADDABLE | TRICEPS 1.0; FRONT_DELTS 0.5; CHEST_LOWER 0.3 | Triceps-led dip; counts as direct triceps work for arm coverage. |
+| `feet-elevated-bench-dips` / Feet-Elevated Bench Dips | TRICEPS_ISOLATION / bodyweight, bench; BODYWEIGHT_ADDABLE | TRICEPS 1.0; FRONT_DELTS 0.7; CHEST_LOWER 0.5 | Bench Dips with more load shifted to the chest and front delts. |
+
+The instruction text is authored in `core/exercisecontent` (setup and execution for each id). No
+demo video is mapped, so each opens the YouTube search.
+
 ### CAT-P7 — general catalog variations (approved batch)
 
 The approved CAT-P7 batch adds ten distinct canonical identities in the existing movement

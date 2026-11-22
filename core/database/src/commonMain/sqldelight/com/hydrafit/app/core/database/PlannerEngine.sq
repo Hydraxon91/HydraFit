@@ -6,8 +6,30 @@ CREATE TABLE plannerEngine (
     shareWorkoutData INTEGER NOT NULL DEFAULT 0,
     weightUnit TEXT NOT NULL DEFAULT 'KG',
     guidedWorkoutEnabled INTEGER NOT NULL DEFAULT 0,
-    distanceUnit TEXT NOT NULL DEFAULT 'METERS'
+    distanceUnit TEXT NOT NULL DEFAULT 'METERS',
+    setsPerExercise INTEGER,
+    accessorySetsPerExercise INTEGER,
+    autoTargetShape TEXT,
+    autoTargetMinReps INTEGER,
+    autoTargetMaxReps INTEGER,
+    autoTargetRir INTEGER
 );
+
+selectPlanParameters:
+SELECT setsPerExercise, accessorySetsPerExercise, autoTargetShape, autoTargetMinReps,
+    autoTargetMaxReps, autoTargetRir
+FROM plannerEngine WHERE id = 0;
+
+updateSetsPerExercise:
+UPDATE plannerEngine SET setsPerExercise = ? WHERE id = 0;
+
+updateAccessorySetsPerExercise:
+UPDATE plannerEngine SET accessorySetsPerExercise = ? WHERE id = 0;
+
+updateAutoTarget:
+UPDATE plannerEngine SET autoTargetShape = ?, autoTargetMinReps = ?, autoTargetMaxReps = ?,
+    autoTargetRir = ?
+WHERE id = 0;
 
 selectEngine:
 SELECT engineId FROM plannerEngine WHERE id = 0;

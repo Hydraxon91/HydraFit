@@ -32,6 +32,7 @@ import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SubstituteExerciseUseCase
 import com.hydrafit.app.core.domain.engine.SuggestedWeightConfig
+import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSources
 import com.hydrafit.app.core.domain.engine.WorkoutPlanSourcesRepository
@@ -74,6 +75,8 @@ import com.hydrafit.app.core.userdata.equipment.EquipmentSelectionRepository
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.PlanParameterPreferenceRepository
+import com.hydrafit.app.core.userdata.settings.PlanParameterPreferences
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -575,6 +578,43 @@ class SplitBuilderViewModelTest {
             .map { it.sets }
         assertTrue(sets.isNotEmpty())
         assertTrue(sets.all { it == 5 })
+    }
+
+    @Test
+    fun savedSetCountsAreUsedFromTheFirstPlanAndNewChoicesAreSaved() = runTest(dispatcher) {
+        val saved = FakePlanParameterPreferences(
+            PlanParameterPreferences(setsPerExercise = 5, accessorySetsPerExercise = 4)
+        )
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planParameterPreferences = saved
+        )
+        advanceUntilIdle()
+
+        assertEquals(5, viewModel.state.value.setsPerExercise)
+        assertEquals(4, viewModel.state.value.accessorySetsPerExercise)
+        val sets = viewModel.state.value.plan!!.days.flatMap { it.exercises }.map { it.sets }
+        assertTrue(sets.isNotEmpty() && sets.all { it == 5 }, "sets=$sets")
+
+        viewModel.onSetsPerExerciseChanged(3)
+        viewModel.onAccessorySetsPerExerciseChanged(2)
+        advanceUntilIdle()
+        assertEquals(PlanParameterPreferences(3, 2, null), saved.current())
+    }
+
+    @Test
+    fun withNothingSavedTheChipsShowTheGoalDefaultsThePlannerUses() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planParameterPreferences = FakePlanParameterPreferences()
+        )
+        advanceUntilIdle()
+
+        assertEquals(TrainingGoal.BALANCED.defaultSets, viewModel.state.value.setsPerExercise)
+        assertEquals(
+            TrainingGoal.BALANCED.accessorySets,
+            viewModel.state.value.accessorySetsPerExercise
+        )
     }
 
     @Test
@@ -2212,6 +2252,7 @@ class SplitBuilderViewModelTest {
         timeProvider: TimeProvider = TimeProvider { 0L },
         distanceUnitRepository: DistanceUnitRepository? = null,
         numberFormat: PresentationNumberFormat = PresentationNumberFormat('.'),
+        planParameterPreferences: PlanParameterPreferenceRepository? = null,
         onActivation: () -> Unit = {}
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
@@ -2239,8 +2280,27 @@ class SplitBuilderViewModelTest {
             exerciseCatalog = catalog,
             enginePreference = preference,
             distanceUnitRepository = distanceUnitRepository,
+            planParameterPreferences = planParameterPreferences,
             numberFormatProvider = { numberFormat }
         )
+    }
+
+    private class FakePlanParameterPreferences(
+        private var saved: PlanParameterPreferences = PlanParameterPreferences()
+    ) : PlanParameterPreferenceRepository {
+        override suspend fun current(): PlanParameterPreferences = saved
+
+        override suspend fun setSetsPerExercise(sets: Int?) {
+            saved = saved.copy(setsPerExercise = sets)
+        }
+
+        override suspend fun setAccessorySetsPerExercise(sets: Int?) {
+            saved = saved.copy(accessorySetsPerExercise = sets)
+        }
+
+        override suspend fun setAutomaticSetPrescription(prescription: AutomaticSetPrescription?) {
+            saved = saved.copy(automaticSetPrescription = prescription)
+        }
     }
 
     private fun planBuilderActions(

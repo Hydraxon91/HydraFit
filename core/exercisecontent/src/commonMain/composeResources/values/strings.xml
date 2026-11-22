@@ -5,7 +5,6 @@
     <string name="exercise_instruction_unavailable">Instructions for this exercise are not available in this version. Follow your own setup and technique, and use a load you can control.</string>
     <string name="exercise_instruction_close">Close</string>
     <string name="exercise_instruction_demo">Watch a demo on YouTube</string>
-    <string name="exercise_demo_button">Watch demo</string>
     <string name="exercise_muscle_chest_upper">Upper chest</string>
     <string name="exercise_muscle_chest_lower">Lower chest</string>
     <string name="exercise_muscle_lats">Lats</string>
@@ -429,4 +428,10 @@
     <string name="exercise_instruction_forehead_neck_bridge_execution">Apply gentle pressure through your forehead, holding briefly without forcing. Release and rest between repetitions. Keep the effort small and skip the movement if the position feels uncomfortable.</string>
     <string name="exercise_instruction_self_resisted_neck_lateral_flexion_setup">Sit or stand upright with one hand resting against the side of your head. Keep your shoulders relaxed and your trunk steady.</string>
     <string name="exercise_instruction_self_resisted_neck_lateral_flexion_execution">Tilt your head gently toward your hand while your hand resists, holding briefly without forcing. Return to upright and repeat or change sides. Use light pressure only.</string>
+    <string name="exercise_instruction_wide_grip_bench_press_setup">Lie on the bench with your eyes beneath the bar. Plant both feet, settle your upper back on the pad, and take a grip clearly wider than shoulder width, with your forearms still close to vertical at the bottom. Unrack the bar with your arms extended.</string>
+    <string name="exercise_instruction_wide_grip_bench_press_execution">Lower the bar under control to the lower part of your chest, with your elbows flared more than in a standard grip. Touch lightly without bouncing, then press up until your arms are extended. A very wide grip can strain the shoulders, so move your hands in if it pinches.</string>
+    <string name="exercise_instruction_bench_dips_setup">Sit on the edge of a bench and place your hands beside your hips, fingers pointing forward. Slide your hips off the bench with your arms extended and your legs out in front, knees bent or straight.</string>
+    <string name="exercise_instruction_bench_dips_execution">Bend your elbows to lower your hips toward the floor, keeping your back close to the bench and your shoulders down. Stop when your upper arms are about parallel to the floor, then press back up until your arms are extended. Stop short of any shoulder discomfort.</string>
+    <string name="exercise_instruction_feet_elevated_bench_dips_setup">Place your hands on the edge of one bench and rest your heels on a second bench in front of you. Lift your hips off the bench with your arms extended and your shoulders settled down away from your ears.</string>
+    <string name="exercise_instruction_feet_elevated_bench_dips_execution">Bend your elbows to lower your hips toward the floor, keeping your back close to the bench. Stop when your upper arms are about parallel to the floor, then press back up until your arms are extended. Keep the descent controlled and stop short of any shoulder discomfort.</string>
 </resources>

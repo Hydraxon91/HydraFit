@@ -36,6 +36,8 @@ internal object ExerciseLoadDefaults {
     val bodyweightAddable: Set<String> = setOf(
         "push-up",
         "dips",
+        "bench-dips",
+        "feet-elevated-bench-dips",
         "pull-up",
         "chin-up",
         "glute-bridge",
