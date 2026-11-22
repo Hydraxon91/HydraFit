@@ -168,7 +168,9 @@ data class ExerciseTargetExplanation(
     /** The model's proposal and the app's adjustments to it; null for a deterministic target. */
     val aiAdjustment: AiLoadExplanation? = null,
     val setCount: SetCountExplanation? = null,
-    val unavailableReason: LoadUnavailableReason? = null
+    val unavailableReason: LoadUnavailableReason? = null,
+    /** How double progression set this week's reps and held load; not stored after acceptance. */
+    val repProgression: RepProgressionExplanation? = null
 )
 
 /** Plan-level context shared by its exercises. */

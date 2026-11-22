@@ -44,7 +44,7 @@ Choose ONLY exerciseId values from this list: <id, id, ...>
 Give each day up to 6 exercises, and fewer when the set count is high and the weekly targets are already met. Only these must-haves may take a day up to 8: direct biceps and triceps isolation, one shrug on each PULL or UPPER day, and one leg extension plus one leg curl on each LOWER or LEGS day.
 Follow the focus schedule above exactly; a focus may appear on more than one day. Do not reuse a compound lift across days; isolation exercises may repeat.
 Use <sets> sets for compound lifts and <accessorySets> sets for accessory exercises.
-Use the goal's fixed rep bands: <compoundReps> reps for compound exercises and <isolationReps> reps for accessory exercises. The selected set count controls volume; do not trade fewer sets for more reps.
+The goal's rep ranges are <min>-<max> reps for compound exercises and <min>-<max> reps for accessory exercises. The app sets each week's exact reps and any held load by double progression, and the selected set count controls volume; do not trade fewer sets for more reps.
 Where compatible exercises and session capacity allow, include dedicated biceps and triceps isolation work for about <N> sets per muscle across the week. Compound involvement is a separate estimate and does not replace this direct-work objective. This is a planning preference, not a guarantee of physiological adequacy.
                                                                       (in a deload: "This is a deload: do not add work to meet the normal-week direct arm coverage objective.")
 Weekly target sets per muscle (each set counts once per unit of the muscle's involvement in the exercise; aim near these, not far above): <MUSCLE=sets, ...>     (traps omitted; deload-scaled)
@@ -101,7 +101,9 @@ optional fields become nullable and are listed as required, because strict mode 
    - **sets are replaced** by the deterministic engine's rule: the compound or accessory count, direct arm work
      raised only as far as the split's arm slots need (`DirectArmCoverage.setsPerArmExercise`), scaled for a
      deload and one fewer when the exercise's main muscles are sore (recorded as `REDUCED` in the
-     explanation); **reps are replaced** by the goal's fixed rep band; the model's sets and reps are not used;
+     explanation); **reps are replaced** by the deterministic engine's double progression inside the goal's
+     range, and a held load from that rule replaces the model's weight (it applies without workout-data
+     sharing, since it is the app's own recorded number); the model's sets and reps are not used;
    - a timed exercise (plank) gets the app's default duration and no load;
    - a **weight** proposal is kept only for external-resistance exercises, only when data sharing is on, only
      if above 0 and at most 1000 kg; it is scaled by 0.8 in a deload, then **capped** by the app's own

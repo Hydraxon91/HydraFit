@@ -43,8 +43,8 @@ class PlannerPromptBuilderTest {
         val prompt = builder.build(request(goal = TrainingGoal.ENDURANCE), ids)
 
         assertTrue(prompt.text.contains("Training goal: ENDURANCE"), prompt.text)
-        assertTrue(prompt.text.contains("15 reps for compound exercises"), prompt.text)
-        assertTrue(prompt.text.contains("15 reps for accessory exercises"), prompt.text)
+        assertTrue(prompt.text.contains("12-15 reps for compound exercises"), prompt.text)
+        assertTrue(prompt.text.contains("15-20 reps for accessory exercises"), prompt.text)
         assertTrue(prompt.text.contains("about 4 sets per muscle across the week"), prompt.text)
     }
 

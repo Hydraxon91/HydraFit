@@ -734,6 +734,41 @@ class DeterministicWorkoutPlannerEngineTest {
     }
 
     @Test
+    fun doubleProgressionSetsTheWeeksRepsHoldsTheLoadAndAttachesTheGoalRange() {
+        val exercises = listOf(
+            exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
+            exercise("pushdown", MovementPattern.TRICEPS_ISOLATION, MuscleGroup.TRICEPS)
+        )
+        val plan = engine.plan(
+            request(daysPerWeek = 3, split = SplitType.PUSH_PULL_LEGS).copy(
+                // Last week: the bench target was met at 7 reps, the pushdown at the top of 10-12.
+                repProgressions = mapOf(
+                    "bench-press" to
+                        RepProgressionHistory(7, 60.0, ProgressionExposureOutcome.SUCCESS),
+                    "pushdown" to
+                        RepProgressionHistory(12, 20.0, ProgressionExposureOutcome.SUCCESS)
+                )
+            ),
+            exercises
+        )
+        val push = plan.days.first { it.focus == SplitFocus.PUSH }.exercises.associateBy {
+            it.exerciseId
+        }
+        val bench = push.getValue("bench-press")
+        assertEquals(8, bench.reps)
+        assertEquals(60.0, bench.suggestedWeightKg)
+        assertEquals(
+            SlotProgressionPolicy(minReps = 6, maxReps = 8, incrementKg = 2.5),
+            bench.progressionPolicy
+        )
+        assertEquals(RepProgressionStep.ADD_REP, bench.explanation?.repProgression?.step)
+        val pushdown = push.getValue("pushdown")
+        assertEquals(10, pushdown.reps)
+        assertEquals(22.5, pushdown.suggestedWeightKg)
+        assertEquals(RepProgressionStep.STEP_LOAD, pushdown.explanation?.repProgression?.step)
+    }
+
+    @Test
     fun aDirectArmExerciseGetsOnlyTheSetsItsSplitNeedsForTheArmTarget() {
         val exercises = listOf(
             exercise("bench-press", MovementPattern.HORIZONTAL_PUSH, MuscleGroup.CHEST_UPPER),
@@ -1927,9 +1962,9 @@ class DeterministicWorkoutPlannerEngineTest {
         // Two full-body days with one curl each reach the 4-set arm target at the selected 2 sets.
         assertEquals(
             "FULL_BODY[back-squat:3:6:null,bench-press:3:6:null,pull-up:3:6:null," +
-                "curl:2:12:null,calf-raise:2:12:null,plank:2:null:null];" +
+                "curl:2:10:null,calf-raise:2:10:null,plank:2:null:null];" +
                 "FULL_BODY[rdl:3:6:null,ohp:3:6:null,barbell-row:3:6:null," +
-                "curl:2:12:null,calf-raise:2:12:null,plank:2:null:null]",
+                "curl:2:10:null,calf-raise:2:10:null,plank:2:null:null]",
             render(plan)
         )
     }
@@ -1942,11 +1977,11 @@ class DeterministicWorkoutPlannerEngineTest {
         // accessory-only; the second lower day similarly repeats the hinge.
         assertEquals(
             "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
-                "curl:3:12:null];" +
-                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:null:null];" +
+                "curl:3:10:null];" +
+                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:10:null,plank:2:null:null];" +
                 "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
-                "curl:3:12:null];" +
-                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:12:null,plank:2:null:null]",
+                "curl:3:10:null];" +
+                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:10:null,plank:2:null:null]",
             render(plan)
         )
     }

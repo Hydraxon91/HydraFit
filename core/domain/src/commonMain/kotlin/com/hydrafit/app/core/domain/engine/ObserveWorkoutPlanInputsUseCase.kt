@@ -99,7 +99,8 @@ class ObserveWorkoutPlanInputsUseCase(
                 loadExplanations = loadInputs.loadExplanations,
                 workoutEpochDays = dates,
                 fatigueByWorkout = projectedFatigue,
-                automaticSetPrescription = automatic
+                automaticSetPrescription = automatic,
+                repProgressions = loadInputs.repProgressions
             ),
             requestedEngine = current.selectedEngine,
             exercisePreferences = current.exercisePreferences,

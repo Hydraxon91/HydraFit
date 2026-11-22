@@ -47,9 +47,12 @@ object PlannerPromptFragments {
 
     /** Volume/rep guidance derived from the training goal. */
     fun volumeRepsGuidance(request: PlanRequest): String =
-        "Use the goal's fixed rep bands: ${request.goal.compoundReps} reps for compound " +
-            "exercises and ${request.goal.isolationReps} reps for accessory exercises. The " +
-            "selected set count controls volume; do not trade fewer sets for more reps."
+        "The goal's rep ranges are ${request.goal.compoundRepRange.first}-" +
+            "${request.goal.compoundRepRange.last} reps for compound exercises and " +
+            "${request.goal.isolationRepRange.first}-${request.goal.isolationRepRange.last} reps " +
+            "for accessory exercises. The app sets each week's exact reps and any held load by " +
+            "double progression, and the selected set count controls volume; do not trade fewer " +
+            "sets for more reps."
 
     /** Advisory weekly direct-arm coverage; output is assessed but not rejected for missing it. */
     fun directArmCoverageGuidance(request: PlanRequest): String = if (request.isDeload) {

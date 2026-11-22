@@ -1757,7 +1757,9 @@ maintainer; RA does not answer them.
    The intended behavior is shipped 0.2.1 Option C/Q4c: goal-fixed reps, with sets carrying volume.
    The Oct 6 live-testing audit confirmed this against source and corrected the stale
    volume-constant wording in PLANS.md and the mechanics skill. The signature/name remain unchanged;
-   historical review findings are retained in `docs/code-review-0.2.2.md`.
+   historical review findings are retained in `docs/code-review-0.2.2.md`. Superseded in 0.15.4: both
+   planners now take reps from goal rep ranges by double progression (`RepProgression`), and
+   `VolumeAwareReps` is no longer called (see `docs/planner-deterministic.md`).
 6. **`testFixtures` module vs KMP source set** for shared fakes (TS4-001) — the open question is
    recorded in AGENTS.md as "a test fixture couldn't be shared between `:core:domain` and
    `:core:database`", but not which mechanism to adopt.

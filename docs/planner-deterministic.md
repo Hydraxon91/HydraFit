@@ -132,8 +132,19 @@ example, the same skullcrusher on both Tuesday and Thursday.
 ## Sets, reps and load
 
 - **Sets:** the compound or accessory count, minus one if sore, scaled by 0.7 in a deload (minimum one).
-- **Reps:** fixed by the goal, not traded against sets. Balanced 6 compound and 12 isolation, Strength 5 and
-  8, Hypertrophy 8 and 12, Endurance 15 and 15 (`TrainingGoal`, `VolumeAwareReps`).
+- **Reps:** a range per goal since 0.15.4 (compound / isolation): Balanced 6–8 / 10–12, Strength 4–6 /
+  6–10, Hypertrophy 8–12 / 10–15, Endurance 12–15 / 15–20 (`TrainingGoal`). Sets are still the volume
+  knob and are never traded against reps. Each week's reps come from **double progression**
+  (`RepProgression`, shared with the Groq sanitizer through `PlanRequest.repTargetFor`), driven by the
+  exercise's last comparable non-deload target (`PlanRequest.repProgressions`, built in
+  `BuildPlannerLoadInputsUseCase` from the same exposure rules as load progression): no usable target
+  starts at the bottom with the converted load; a met target below the top keeps the load and adds a rep;
+  a met target at the top steps the load by 2.5 kg and returns to the bottom; a miss, an unjudged session
+  or a deload week repeats the target. A held load is deload-scaled, capped by the equipment ceiling and
+  resolved onto a reachable load (at or below the step, so a coarse plate or dumbbell grid can hold the
+  load). Every counted slot carries the range as its `SlotProgressionPolicy`, so accepted plans, blocks
+  and routines keep it. Only external work can be judged, so bodyweight slots start at the bottom of
+  their range and do not climb yet.
 - **Default sets:** Balanced 3 compound and 2 accessory, Strength 4 and 3, Hypertrophy 3 and 2, Endurance 2
   and 2.
 - **Timed exercises** (a plank) carry seconds in place of reps and never a load.

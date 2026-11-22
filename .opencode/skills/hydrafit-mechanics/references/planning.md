@@ -342,10 +342,13 @@ strength retention in middle-aged/older adults; it does not establish this lookb
 window, sample threshold or prescription ceiling. See PLANS.md C2D for the approved
 contract and its scope limits.
 
-Reps under shipped Option C: chosen set count is the volume knob; reps stay fixed
-at the goal's compound/isolation values. The older volume-constant formula is
-superseded. `VolumeAwareReps.repsFor` validates a positive set count but does not
-trade reps against it.
+Reps since 0.15.4 (supersedes Option C's fixed reps; sets remain the volume knob):
+each goal has compound and isolation rep ranges (`TrainingGoal.compoundRepRange`/
+`isolationRepRange`), and both engines take the week's reps from `RepProgression`
+(double progression over `PlanRequest.repProgressions`, the last comparable
+non-deload target per external exercise) and attach the range as the slot's
+`SlotProgressionPolicy`. A held load replaces the e1RM conversion. `VolumeAwareReps`
+is no longer called by either engine.
 
 ```text
 reps = if (isCompound) goal.compoundReps else goal.isolationReps

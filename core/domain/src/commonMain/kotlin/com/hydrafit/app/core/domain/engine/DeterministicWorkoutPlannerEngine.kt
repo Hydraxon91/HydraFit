@@ -125,7 +125,8 @@ class DeterministicWorkoutPlannerEngine(
                     isDeload,
                     request.automaticSetPrescription,
                     armSetsPerExercise,
-                    paceForDay(index)
+                    paceForDay(index),
+                    request.repProgressions
                 )
             )
         }
@@ -185,7 +186,8 @@ class DeterministicWorkoutPlannerEngine(
         isDeload: Boolean,
         automaticSetPrescription: AutomaticSetPrescription? = null,
         armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap(),
-        pace: Map<MuscleGroup, Double> = emptyMap()
+        pace: Map<MuscleGroup, Double> = emptyMap(),
+        repProgressions: Map<String, RepProgressionHistory> = emptyMap()
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
@@ -225,7 +227,8 @@ class DeterministicWorkoutPlannerEngine(
                 loadExplanations,
                 isDeload,
                 automaticSetPrescription,
-                armSetsPerExercise
+                armSetsPerExercise,
+                repProgressions
             )
             used += candidate.id
             weekUsed += candidate.id
@@ -435,7 +438,8 @@ class DeterministicWorkoutPlannerEngine(
         loadExplanations: Map<String, LoadOriginExplanation>,
         isDeload: Boolean,
         automaticSetPrescription: AutomaticSetPrescription? = null,
-        armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap()
+        armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap(),
+        repProgressions: Map<String, RepProgressionHistory> = emptyMap()
     ): PlannedExercise {
         val isCompound = candidate.movementPattern.isCompound
         // Direct arm work uses the split's arm set count (the accessory count, raised only when the
@@ -467,7 +471,16 @@ class DeterministicWorkoutPlannerEngine(
         if (preferredMeasure is ExerciseMeasure.Timed) {
             return timedExercise(candidate, sets, setCount, preferredMeasure.durationSeconds)
         }
-        val reps = volumeAwareReps.repsFor(goal, isCompound, sets)
+        // Double progression inside the goal's rep range: the week's reps, and the load to hold when
+        // the last comparable target supplies one.
+        val range = goal.repRange(isCompound)
+        val repTarget = RepProgression.next(
+            last = repProgressions[candidate.id],
+            range = range,
+            loadStepKg = weightConfig.roundToKg,
+            holdForDeload = isDeload
+        )
+        val reps = repTarget.reps
         val capability = candidate.loadCapability
         val scale = intensityScale(isDeload)
         // A numeric working weight is only meaningful for external resistance. A bodyweight or
@@ -497,9 +510,13 @@ class DeterministicWorkoutPlannerEngine(
             null
         }
         val ceiling = EquipmentWeightLimit.ceilingFor(candidate, equipmentMaxWeights)
+        // A held load from double progression replaces the conversion: the same weight gains a rep,
+        // or steps up at the top of the range. It is still deload-scaled, capped by the equipment
+        // ceiling and resolved onto a reachable load below.
+        val heldLoad = repTarget.heldLoadKg?.takeIf { allowed && !withheld && it > 0.0 }
         // The conversion is recorded at the generic increment, while reachability is resolved from
         // the unrounded working bound so an inventory load can never land above it.
-        val unroundedWorking = oneRepMax?.let {
+        val unroundedWorking = heldLoad?.let { it * scale } ?: oneRepMax?.let {
             it * weightConfig.intensityForReps(reps) * scale
         }
         val working = unroundedWorking?.let(weightConfig::roundToIncrement)
@@ -574,10 +591,18 @@ class DeterministicWorkoutPlannerEngine(
             loadKind = slotKind,
             loadCapability = capability,
             setTargets = setTargets,
+            // The goal's range travels with the slot, so accepted plans, blocks and routines keep
+            // the same double-progression range and step.
+            progressionPolicy = SlotProgressionPolicy(
+                minReps = range.first,
+                maxReps = range.last,
+                incrementKg = weightConfig.roundToKg
+            ),
             explanation = ExerciseTargetExplanation(
                 baseline = loadExplanations[candidate.id]?.baseline,
                 progression = loadExplanations[candidate.id]?.progression,
-                conversion = working?.let {
+                // A held load was not converted from the estimate, so no conversion is recorded.
+                conversion = working?.takeIf { heldLoad == null }?.let {
                     LoadConversionExplanation(
                         reps = reps,
                         intensityFraction = weightConfig.intensityForReps(reps),
@@ -591,9 +616,17 @@ class DeterministicWorkoutPlannerEngine(
                 setCount = setCount,
                 unavailableReason = when {
                     !allowed -> LoadUnavailableReason.NOT_LOAD_TRACKED
-                    oneRepMax == null -> LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
+                    oneRepMax == null && heldLoad == null ->
+                        LoadUnavailableReason.INSUFFICIENT_RECENT_EVIDENCE
                     else -> null
-                }
+                },
+                repProgression = RepProgressionExplanation(
+                    step = repTarget.step,
+                    minReps = range.first,
+                    maxReps = range.last,
+                    previousReps = repProgressions[candidate.id]?.reps,
+                    previousWeightKg = repProgressions[candidate.id]?.weightKg
+                )
             )
         )
     }
@@ -783,8 +816,10 @@ class DeterministicWorkoutPlannerEngine(
         const val MIN_SETS = 1
         const val MAX_SETS = 8
         const val DEFAULT_SETS = DEFAULT_SETS_PER_EXERCISE
-        const val COMPOUND_REPS = 6
-        const val ISOLATION_REPS = 12
+
+        /** Balanced's starting reps, the bottom of its compound and isolation ranges. */
+        val COMPOUND_REPS = TrainingGoal.BALANCED.compoundReps
+        val ISOLATION_REPS = TrainingGoal.BALANCED.isolationReps
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20

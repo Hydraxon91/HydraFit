@@ -604,6 +604,28 @@ class WeeklyPlanSanitizerTest {
         assertEquals(TrainingGoal.BALANCED.defaultSets, bench.sets)
     }
 
+    @Test
+    fun groqPlansGetTheSameDoubleProgressionRepsHeldLoadAndRange() = runTest {
+        val request = request().copy(
+            repProgressions = mapOf(
+                "bench-press" to RepProgressionHistory(7, 60.0, ProgressionExposureOutcome.SUCCESS)
+            )
+        )
+        val sanitized = assertNotNullPlan(
+            sanitizer.sanitize(planOf(listOf("bench-press", "barbell-row")), request)
+        )
+        val bench = sanitized.days.single().exercises.single { it.exerciseId == "bench-press" }
+        assertEquals(8, bench.reps)
+        // The held load is the app's own number, so it applies without workout-data sharing.
+        assertEquals(60.0, bench.suggestedWeightKg)
+        assertEquals(
+            SlotProgressionPolicy(minReps = 6, maxReps = 8, incrementKg = 2.5),
+            bench.progressionPolicy
+        )
+        val row = sanitized.days.single().exercises.single { it.exerciseId == "barbell-row" }
+        assertEquals(TrainingGoal.BALANCED.compoundReps, row.reps)
+    }
+
     private fun assertNotNullPlan(plan: WeeklyPlan?): WeeklyPlan {
         assertTrue(plan != null, "the plan should survive sanitizing")
         return plan!!
