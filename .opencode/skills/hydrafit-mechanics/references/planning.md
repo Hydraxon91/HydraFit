@@ -78,7 +78,11 @@ Paths are relative to the repository root; package shorthand is defined in
 `PlannerCandidateEligibility` excludes `TRAP_ISOLATION`/`NECK_ISOLATION` and the six
 curated shrug/neck IDs even after pattern overrides. This manual-only policy applies to
 deterministic selection, both AI prompt catalogs, sanitization and planner-backed replacements.
-Manual logging and routine authoring retain the full catalog. Existing traps deficit deferral
+`PlannerLibraryOnlyExercises.ids` is a second, deny-style gate in the same filter: seeded duplicates
+and novelty variants (for example Standing Military Press, Push-Up Wide, Scissor Kick) stay in the
+Library but are never planned. It lists seeded ids only, so custom exercises and new seed rows stay
+plannable unless added on purpose; `SeededPlannerQualityTest` fails on a stale id or if one reaches a
+plan. Manual logging and routine authoring retain the full catalog. Existing traps deficit deferral
 is unchanged; don't infer automatic neck/traps prescriptions from the added seeds.
 
 Tibialis anterior, serratus anterior and iliopsoas-focused hip flexors participate

@@ -54,6 +54,28 @@ class PlannerCandidateEligibilityTest {
     }
 
     @Test
+    fun libraryOnlySeededIdsAreNeverPlannedEvenWhenPreferredOrAvailable() {
+        val libraryOnly = PlannerLibraryOnlyExercises.ids.map { catalog.first().copy(id = it) }
+        val preferred = request().copy(
+            exercisePreferences = PlannerLibraryOnlyExercises.ids
+                .associateWith { ExercisePreference.PREFER }
+        )
+        assertEquals(
+            catalog,
+            PlannerCandidateEligibility.candidates(catalog + libraryOnly, preferred)
+        )
+    }
+
+    @Test
+    fun customExercisesStayPlannableBesideTheLibraryOnlyList() {
+        val custom = catalog.first().copy(id = "custom-1", name = "My Press", isCustom = true)
+        assertEquals(
+            catalog + custom,
+            PlannerCandidateEligibility.candidates(catalog + custom, request())
+        )
+    }
+
+    @Test
     fun manualOnlyPatternsExcludeCustomProfilesWithoutHidingOtherExercises() {
         val manual = listOf(MovementPattern.TRAP_ISOLATION, MovementPattern.NECK_ISOLATION)
             .map { catalog.first().copy(id = "custom-$it", movementPattern = it, isCustom = true) }

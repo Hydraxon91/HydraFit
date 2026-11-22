@@ -32,7 +32,9 @@ last tie-break is the exercise id.
 ## The week, step by step
 
 1. **Eligibility** (`PlannerCandidateEligibility`). An exercise is a candidate only if the user has its
-   equipment, has not excluded it, and is not manual-only (shrugs and neck work are never planned). If a
+   equipment, has not excluded it, is not manual-only (shrugs and neck work are never planned) and is not
+   library-only (`PlannerLibraryOnlyExercises`: duplicates and novelty variants of standard lifts that stay in
+   the Library but are never planned; custom exercises are never on that list). If a
    focus in the split has no eligible exercise at all, generation fails with `NO_ELIGIBLE_EXERCISES`.
 2. **The split** (`SplitResolver`). Auto is full body for 2 or 3 days, upper/lower for 4, push/pull/legs for
    6, and a special upper, lower, push, pull, legs cycle for 5 (so legs are not trained once and push and

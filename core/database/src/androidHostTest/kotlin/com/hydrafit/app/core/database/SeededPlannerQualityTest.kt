@@ -3,6 +3,7 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerLibraryOnlyExercises
 import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -70,6 +71,24 @@ class SeededPlannerQualityTest {
             val ids = plan(days).days.flatMap { day -> day.exercises.map { it.exerciseId } }
             val repeated = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
             assertEquals(emptySet(), repeated, "days=$days")
+        }
+    }
+
+    @Test
+    fun theLibraryOnlyListNamesRealSeededExercisesAndNeverReachesAPlan() = runTest {
+        val libraryOnly = PlannerLibraryOnlyExercises.ids
+        assertEquals(emptySet(), libraryOnly - byId.keys, "stale library-only ids")
+        for (goal in TrainingGoal.entries) {
+            for (days in 2..6) {
+                val planned = plan(days, goal).days.flatMap { day ->
+                    day.exercises.map { it.exerciseId }
+                }
+                assertEquals(
+                    emptySet(),
+                    planned.toSet() intersect libraryOnly,
+                    "goal=$goal days=$days"
+                )
+            }
         }
     }
 

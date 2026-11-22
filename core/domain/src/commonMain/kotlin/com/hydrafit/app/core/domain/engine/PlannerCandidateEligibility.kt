@@ -10,6 +10,7 @@ object PlannerCandidateEligibility {
             it.isAvailableWith(request.availableEquipment) &&
                 it.id !in request.excludedExerciseIds &&
                 it.id !in MANUAL_ONLY_EXERCISE_IDS &&
+                it.id !in PlannerLibraryOnlyExercises.ids &&
                 it.movementPattern !in MANUAL_ONLY_PATTERNS
         }
 
