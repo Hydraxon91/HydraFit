@@ -1611,7 +1611,8 @@ class WorkoutLoggerViewModel(
                         forceNewtons = prefill?.forceNewtons ?: exercise.forceNewtons,
                         setTargets = exercise.setTargets,
                         orderedPrefill = prefill,
-                        cluster = exercise.cluster
+                        cluster = exercise.cluster,
+                        repRange = exercise.progressionPolicy?.let { it.minReps..it.maxReps }
                     )
                 },
                 nowMillis = nowMillis,
@@ -2504,7 +2505,8 @@ class WorkoutLoggerViewModel(
             prefill?.forceNewtons ?: if (prefill == null) entry.forceNewtons else null,
             setTargets = effectiveTargets,
             orderedPrefill = prefill,
-            cluster = effectiveCluster
+            cluster = effectiveCluster,
+            repRange = entry.progressionPolicy?.let { it.minReps..it.maxReps }
         )
     }
 

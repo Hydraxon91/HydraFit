@@ -411,7 +411,12 @@ data class DraftSet(
      * set position: it never changes [sets], and its later segments are recorded beside the parent
      * set rather than as additional sets.
      */
-    val cluster: ClusterPrescription? = null
+    val cluster: ClusterPrescription? = null,
+    /**
+     * The slot's rep range from its progression policy, or null when it has none. Shown beside the
+     * target only; never logged or written back.
+     */
+    val repRange: IntRange? = null
 )
 
 /**

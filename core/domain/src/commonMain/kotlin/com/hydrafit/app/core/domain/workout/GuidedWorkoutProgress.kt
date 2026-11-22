@@ -35,7 +35,9 @@ data class GuidedExerciseProgress(
     val explanation: ExerciseTargetExplanation? = null,
     val superset: Superset? = null,
     /** Effective target for the next pending set position, or the final target when complete. */
-    val nextTarget: GuidedWorkoutTargetOverride? = null
+    val nextTarget: GuidedWorkoutTargetOverride? = null,
+    /** The slot's progression rep range, or null when it has no policy. Display only. */
+    val repRange: IntRange? = null
 ) {
     /** Prescribed working sets still unrecorded for this entry. */
     val remainingSets: Int get() = (prescribedSets - performedWorkingSets).coerceAtLeast(0)
@@ -111,7 +113,8 @@ fun buildGuidedWorkoutProgress(
                 loadCapability = entry.loadCapability,
                 explanation = entry.explanation,
                 superset = entry.superset,
-                nextTarget = targets[nextIndex]
+                nextTarget = targets[nextIndex],
+                repRange = entry.progressionPolicy?.let { it.minReps..it.maxReps }
             )
         }
 )

@@ -226,6 +226,7 @@ import hydrafit.feature.logger.generated.resources.logger_guided_start_set
 import hydrafit.feature.logger.generated.resources.logger_guided_target
 import hydrafit.feature.logger.generated.resources.logger_guided_target_distance
 import hydrafit.feature.logger.generated.resources.logger_guided_target_force
+import hydrafit.feature.logger.generated.resources.logger_guided_target_range
 import hydrafit.feature.logger.generated.resources.logger_guided_target_timed
 import hydrafit.feature.logger.generated.resources.logger_guided_title
 import hydrafit.feature.logger.generated.resources.logger_history_open
@@ -377,6 +378,8 @@ import hydrafit.feature.logger.generated.resources.logger_workout_overview_targe
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_distance
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_force
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_load
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_range
+import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_range_load
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_sets
 import hydrafit.feature.logger.generated.resources.logger_workout_overview_target_timed
 import hydrafit.feature.logger.generated.resources.logger_workout_replace
@@ -3796,7 +3799,27 @@ private fun workoutOverviewTarget(
 
         draft.reps != null -> {
             val load = draft.weightKg?.let { loadWeightText(draft.loadKind, it, weightUnit) }
-            if (load == null) {
+            val range = draft.repRange
+            if (range != null) {
+                if (load == null) {
+                    stringResource(
+                        Res.string.logger_workout_overview_target_range,
+                        sets,
+                        draft.reps,
+                        range.first,
+                        range.last
+                    )
+                } else {
+                    stringResource(
+                        Res.string.logger_workout_overview_target_range_load,
+                        sets,
+                        draft.reps,
+                        range.first,
+                        range.last,
+                        load
+                    )
+                }
+            } else if (load == null) {
                 stringResource(Res.string.logger_workout_overview_target, sets, draft.reps)
             } else {
                 stringResource(
@@ -4382,6 +4405,7 @@ private fun GuidedWorkoutSection(
                         val targetSeconds = exercise.durationSeconds
                         val targetDistance = exercise.distanceMeters
                         val targetForce = exercise.forceNewtons
+                        val repRange = exercise.repRange
                         val loadText = loadWeightText(
                             exercise.loadKind,
                             exercise.weightKg,
@@ -4408,6 +4432,14 @@ private fun GuidedWorkoutSection(
                                     Res.string.logger_guided_target_timed,
                                     targetSeconds,
                                     loadText
+                                )
+
+                                repRange != null -> stringResource(
+                                    Res.string.logger_guided_target_range,
+                                    exercise.reps ?: 0,
+                                    loadText,
+                                    repRange.first,
+                                    repRange.last
                                 )
 
                                 else -> stringResource(

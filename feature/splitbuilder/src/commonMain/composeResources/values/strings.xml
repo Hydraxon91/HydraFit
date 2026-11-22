@@ -31,6 +31,7 @@
     <string name="split_load_basis_per_hand">per hand</string>
     <string name="split_load_basis_per_dumbbell">per dumbbell</string>
     <string name="split_exercise_line">%1$s  %2$d x %3$d  %4$s</string>
+    <string name="split_exercise_line_range">%1$s  %2$d x %3$d (%4$d–%5$d)  %6$s</string>
     <string name="split_exercise_line_timed">%1$s  %2$d × %3$d s  %4$s</string>
     <string name="split_exercise_line_distance">%1$s  %2$d × %3$s  %4$s</string>
     <string name="split_exercise_line_force">%1$s  %2$d × %3$s  %4$s</string>

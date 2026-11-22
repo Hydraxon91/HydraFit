@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.ExerciseTargetExplanation
 import com.hydrafit.app.core.domain.engine.FatigueSetEffect
 import com.hydrafit.app.core.domain.engine.SetCountExplanation
 import com.hydrafit.app.core.domain.engine.SetTarget
+import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetOverride
@@ -38,6 +39,26 @@ class GuidedWorkoutProgressTest {
         assertEquals(0, progress.exercises[1].remainingSets)
         assertTrue(progress.exercises[1].isComplete)
         assertFalse(progress.allComplete)
+    }
+
+    @Test
+    fun carriesTheSlotRepRangeOnlyWhenTheEntryHasAProgressionPolicy() {
+        val occurrence = occurrenceWith(
+            entry(id = 40, position = 0, sets = 3).copy(
+                progressionPolicy = SlotProgressionPolicy(
+                    minReps = 8,
+                    maxReps = 12,
+                    incrementKg = 2.5
+                )
+            ),
+            entry(id = 41, position = 1, exerciseId = "bench-press", sets = 3)
+        )
+
+        val progress =
+            buildGuidedWorkoutProgress(occurrence, performedWorkingSetsByEntry = emptyMap())
+
+        assertEquals(8..12, progress.exercises[0].repRange)
+        assertNull(progress.exercises[1].repRange)
     }
 
     @Test

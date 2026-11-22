@@ -144,6 +144,7 @@ import hydrafit.feature.splitbuilder.generated.resources.split_error_transient
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_distance
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_force
+import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_range
 import hydrafit.feature.splitbuilder.generated.resources.split_exercise_line_timed
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_accepted
 import hydrafit.feature.splitbuilder.generated.resources.split_explanation_ai_bounded_by_progression
@@ -782,7 +783,10 @@ fun SplitBuilderScreen(
                                     distanceMeters = exercise.distanceMeters,
                                     forceNewtons = exercise.forceNewtons,
                                     distanceUnit = state.distanceUnit,
-                                    weight = weight
+                                    weight = weight,
+                                    repRange = exercise.progressionPolicy?.let {
+                                        it.minReps..it.maxReps
+                                    }
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -958,7 +962,8 @@ private fun exerciseLine(
     distanceMeters: Int?,
     forceNewtons: Double?,
     distanceUnit: DistanceUnit,
-    weight: String
+    weight: String,
+    repRange: IntRange? = null
 ): String = when {
     durationSeconds != null -> stringResource(
         Res.string.split_exercise_line_timed,
@@ -982,6 +987,15 @@ private fun exerciseLine(
             Res.string.split_measure_force_value,
             formatSplitWeightForDisplay(forceNewtons)
         ),
+        weight
+    )
+    reps != null && repRange != null -> stringResource(
+        Res.string.split_exercise_line_range,
+        name,
+        sets,
+        reps,
+        repRange.first,
+        repRange.last,
         weight
     )
     reps != null -> stringResource(Res.string.split_exercise_line, name, sets, reps, weight)
