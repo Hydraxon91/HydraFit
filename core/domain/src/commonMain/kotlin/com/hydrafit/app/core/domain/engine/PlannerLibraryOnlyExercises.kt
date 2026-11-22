@@ -9,6 +9,10 @@ package com.hydrafit.app.core.domain.engine
  * Custom exercises are never listed here, so they stay plannable. A seeded id that is not listed
  * is planned as before; a new catalog row must be added here on purpose if it should not be.
  * Exclusions, equipment and soreness are separate gates in [PlannerCandidateEligibility].
+ *
+ * Keep at least one plannable exercise per focus for an inventory with no equipment selected: the
+ * two bodyweight pull-ups (`v-bar-pullup`, `wide-grip-rear-pull-up`) are the only equipment-free pull
+ * work in the catalog, so listing them would make a pull day impossible to generate.
  */
 object PlannerLibraryOnlyExercises {
     val ids: Set<String> = setOf(
@@ -109,8 +113,6 @@ object PlannerLibraryOnlyExercises {
         "upright-barbell-row",
         "upright-cable-row",
         "v-bar-pulldown",
-        "v-bar-pullup",
-        "wide-grip-pulldown-behind-the-neck",
-        "wide-grip-rear-pull-up"
+        "wide-grip-pulldown-behind-the-neck"
     )
 }

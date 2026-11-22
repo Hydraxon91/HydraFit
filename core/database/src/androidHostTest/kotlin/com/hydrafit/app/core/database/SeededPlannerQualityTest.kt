@@ -96,6 +96,22 @@ class SeededPlannerQualityTest {
     }
 
     @Test
+    fun anInventoryWithNoEquipmentCanStillPlanEveryFocus() = runTest {
+        for (days in 2..6) {
+            val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+                PlanRequest(
+                    daysPerWeek = days,
+                    availableEquipment = emptySet(),
+                    muscleFatigue = emptyMap(),
+                    splitPreference = SplitType.AUTO,
+                    nowMillis = 0L
+                )
+            )
+            assertTrue(plan.days.all { it.exercises.isNotEmpty() }, "days=$days")
+        }
+    }
+
+    @Test
     fun shrugsAreAPullOrUpperDayAccessoryAndNeverExceedTheDailyMaximum() = runTest {
         val shrugIds = DefaultExercises.all
             .filter { it.movementPattern == MovementPattern.TRAP_ISOLATION }
