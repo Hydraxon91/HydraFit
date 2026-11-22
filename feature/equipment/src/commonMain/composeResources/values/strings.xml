@@ -19,6 +19,8 @@
     <string name="equipment_add_button">Add</string>
     <string name="equipment_remove">Remove</string>
     <string name="equipment_manage">Manage</string>
+    <string name="equipment_inventory_selected_heading">In your inventory</string>
+    <string name="equipment_inventory_unselected_heading">Not selected</string>
     <string name="equipment_delete">Delete</string>
     <string name="equipment_delete_tag_title">Delete this equipment?</string>
     <string name="equipment_delete_tag_message">This equipment is removed from your equipment together with its stations. Logged workouts keep the labels they were recorded with. This can’t be undone.</string>

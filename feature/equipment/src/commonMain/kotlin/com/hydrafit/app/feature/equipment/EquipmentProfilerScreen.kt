@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -36,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -91,6 +94,8 @@ import hydrafit.feature.equipment.generated.resources.equipment_exercise_section
 import hydrafit.feature.equipment.generated.resources.equipment_find_profile
 import hydrafit.feature.equipment.generated.resources.equipment_include
 import hydrafit.feature.equipment.generated.resources.equipment_instructions
+import hydrafit.feature.equipment.generated.resources.equipment_inventory_selected_heading
+import hydrafit.feature.equipment.generated.resources.equipment_inventory_unselected_heading
 import hydrafit.feature.equipment.generated.resources.equipment_involvement_edit
 import hydrafit.feature.equipment.generated.resources.equipment_involvement_edit_description
 import hydrafit.feature.equipment.generated.resources.equipment_keep_editing
@@ -807,24 +812,22 @@ private fun InventorySection(
     onNewEquipmentNameChanged: (String) -> Unit,
     onAddEquipment: () -> Unit
 ) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        state.equipment.forEach { equipment ->
-            Column {
-                FilterChip(
-                    selected = equipment.id in state.selectedTags,
-                    onClick = { onTagToggled(equipment.id) },
-                    label = { Text(equipment.name) }
-                )
-                TextButton(onClick = { onManageEquipment(equipment.id) }) {
-                    Text(stringResource(Res.string.equipment_manage))
-                }
-            }
-        }
-    }
+    val (selectedEquipment, otherEquipment) =
+        state.equipment.partition { it.id in state.selectedTags }
+    InventoryGroup(
+        heading = Res.string.equipment_inventory_selected_heading,
+        equipment = selectedEquipment,
+        selected = true,
+        onTagToggled = onTagToggled,
+        onManageEquipment = onManageEquipment
+    )
+    InventoryGroup(
+        heading = Res.string.equipment_inventory_unselected_heading,
+        equipment = otherEquipment,
+        selected = false,
+        onTagToggled = onTagToggled,
+        onManageEquipment = onManageEquipment
+    )
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -848,6 +851,45 @@ private fun InventorySection(
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+    }
+}
+
+@Composable
+private fun InventoryGroup(
+    heading: StringResource,
+    equipment: List<Equipment>,
+    selected: Boolean,
+    onTagToggled: (EquipmentTag) -> Unit,
+    onManageEquipment: (EquipmentTag) -> Unit
+) {
+    if (equipment.isEmpty()) return
+    Text(
+        text = stringResource(heading),
+        style = MaterialTheme.typography.titleSmall
+    )
+    equipment.forEach { item ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = selected,
+                    role = Role.Checkbox,
+                    onValueChange = { onTagToggled(item.id) }
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(checked = selected, onCheckedChange = null)
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            )
+            TextButton(onClick = { onManageEquipment(item.id) }) {
+                Text(stringResource(Res.string.equipment_manage))
+            }
         }
     }
 }
