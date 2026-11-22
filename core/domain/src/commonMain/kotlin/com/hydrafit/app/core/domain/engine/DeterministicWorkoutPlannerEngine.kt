@@ -228,6 +228,7 @@ class DeterministicWorkoutPlannerEngine(
         // Pursue unmet direct arm coverage first, then fill toward TARGET_MIN and chase weighted
         // deficits up to TARGET_MAX.
         val isolationPool = isolationPatterns(focus)
+        var trapSlotTried = false
         while (picks.size < PlannerExerciseCounts.TARGET_MAX_PER_DAY) {
             val pastMinimum = picks.size >= PlannerExerciseCounts.TARGET_MIN_PER_DAY
             val candidates = exercises.filter {
@@ -253,6 +254,17 @@ class DeterministicWorkoutPlannerEngine(
                 // Dedicated arm coverage takes precedence over the weighted ceiling: compound
                 // credits must not make qualifying direct work ineligible.
                 continue
+            }
+            // Traps have no weekly volume target, so no deficit ever selects a shrug. A pull or upper
+            // day gets one right after any unmet direct arm work, so it never displaces a compound or
+            // arm coverage and still comes before the ordinary accessories. A shrug not yet used this
+            // week is preferred; the daily maximum still applies through the loop condition.
+            if (!trapSlotTried && (focus == SplitFocus.PULL || focus == SplitFocus.UPPER)) {
+                trapSlotTried = true
+                val trapCandidates = exercises.filter {
+                    it.movementPattern == MovementPattern.TRAP_ISOLATION && it.id !in used
+                }
+                if (pickFreshFirst(trapCandidates)) continue
             }
             val remaining = candidates.filter { candidate ->
                 // A deload does not chase the direct-arm target, so an eligible arm isolation is an

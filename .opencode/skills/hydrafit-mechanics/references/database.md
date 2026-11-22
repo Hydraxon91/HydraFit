@@ -10,8 +10,10 @@ Schema directory:
 numbers named inside the migration narratives below describe the chain *at that point in its
 history*, not the current version; the current value is the one stated here.
 
-`DefaultExercisesCatalogManual` seeds six manual-only shrug/neck profiles additively through
-the existing seed transaction. The new isolation patterns are enum strings in existing columns,
+`DefaultExercisesCatalogManual` seeds six shrug/neck profiles additively through the existing
+seed transaction. The four shrugs became plannable accessories in 0.15.3; the two neck profiles stay
+manual-only. `DefaultExercisesCatalog0153` adds Wide-Grip Bench Press, Bench Dips and Feet-Elevated
+Bench Dips the same way (198 seeded identities). The new isolation patterns are enum strings in existing columns,
 not a schema change. `CustomExerciseDedupe`, `SqlDelightBackupCatalog.dedupeSeedKeys` and
 `SqlDelightCustomExerciseRepository` protect same-name pre-existing customs consistently.
 

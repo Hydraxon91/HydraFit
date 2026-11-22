@@ -32,7 +32,7 @@ last tie-break is the exercise id.
 ## The week, step by step
 
 1. **Eligibility** (`PlannerCandidateEligibility`). An exercise is a candidate only if the user has its
-   equipment, has not excluded it, is not manual-only (shrugs and neck work are never planned) and is not
+   equipment, has not excluded it, is not manual-only (neck work is never planned) and is not
    library-only (`PlannerLibraryOnlyExercises`: duplicates and novelty variants of standard lifts that stay in
    the Library but are never planned; custom exercises are never on that list). If a
    focus in the split has no eligible exercise at all, generation fails with `NO_ELIGIBLE_EXERCISES`.
@@ -49,8 +49,10 @@ last tie-break is the exercise id.
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
      pattern's muscles (see "Ranking").
    - **Then isolation and accessories** until the day has 4 to 6 exercises (`PlannerExerciseCounts`). First
-     any unmet **direct arm** work, then the largest remaining volume deficit. Past 4 exercises an accessory
-     is only added while it still has a deficit to fill.
+     any unmet **direct arm** work, then (on pull and upper days only) one **shrug**, then the largest
+     remaining volume deficit. Traps have no weekly target, so a deficit never picks a shrug; this slot does,
+     within the 6-exercise cap and after arm coverage, so a full 4-day upper day gets none. Past 4 exercises
+     an accessory is only added while it still has a deficit to fill.
 5. **Per exercise** (`plannedExercise`): sets, reps, load, timed or counted, with an explanation record.
 6. **Output.** A `WeeklyPlan` with the days, the arm-coverage report and a `PlanExplanation` that lists
    deload state and which exercises were skipped for soreness. Nothing is persisted by the engine.

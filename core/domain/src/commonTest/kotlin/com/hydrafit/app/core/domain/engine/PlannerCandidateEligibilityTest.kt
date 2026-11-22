@@ -36,10 +36,6 @@ class PlannerCandidateEligibilityTest {
     @Test
     fun manualOnlyIdentitiesCannotOptIntoPlanningThroughOverridesOrPreference() {
         val ids = setOf(
-            "dumbbell-shrug",
-            "ez-bar-shrug",
-            "trap-bar-shrug",
-            "barbell-shrug",
             "forehead-neck-bridge",
             "self-resisted-neck-lateral-flexion"
         )
@@ -77,12 +73,29 @@ class PlannerCandidateEligibilityTest {
 
     @Test
     fun manualOnlyPatternsExcludeCustomProfilesWithoutHidingOtherExercises() {
-        val manual = listOf(MovementPattern.TRAP_ISOLATION, MovementPattern.NECK_ISOLATION)
+        val manual = listOf(MovementPattern.NECK_ISOLATION)
             .map { catalog.first().copy(id = "custom-$it", movementPattern = it, isCustom = true) }
         assertEquals(catalog, PlannerCandidateEligibility.candidates(catalog + manual, request()))
         assertFailsWith<PlanGenerationException> {
             PlannerCandidateEligibility.requireWorkouts(manual, request())
         }
+    }
+
+    @Test
+    fun shrugsAndTrapProfilesAreEligibleForPlanning() {
+        val shrug = catalog.first().copy(
+            id = "barbell-shrug",
+            movementPattern = MovementPattern.TRAP_ISOLATION
+        )
+        val customTrap = catalog.first().copy(
+            id = "custom-trap",
+            movementPattern = MovementPattern.TRAP_ISOLATION,
+            isCustom = true
+        )
+        assertEquals(
+            catalog + shrug + customTrap,
+            PlannerCandidateEligibility.candidates(catalog + shrug + customTrap, request())
+        )
     }
 
     @Test

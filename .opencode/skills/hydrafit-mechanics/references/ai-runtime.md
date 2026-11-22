@@ -15,8 +15,9 @@ per-set prescription stage when the plan request carries one, overwriting anythi
 model returned, so no engine can bypass the same shape the deterministic engine
 produces. Suggested weights must be
 positive and at most `1_000.0` kg before scaling/clamping.
-Shared `PlannerCandidateEligibility` also removes the manual-only trap/neck isolation
-patterns and six canonical shrug/neck IDs. The cloud planner uses this guard for its
+Shared `PlannerCandidateEligibility` also removes the manual-only neck isolation
+pattern and two canonical neck IDs, and the seeded `PlannerLibraryOnlyExercises` list. Shrugs
+and trap isolation are plannable since 0.15.3. The cloud planner uses this guard for its
 prompt catalog; the sanitizer enforces it again if model output nevertheless names a
 manual-only exercise.
 

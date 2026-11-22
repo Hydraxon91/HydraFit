@@ -3,12 +3,15 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerLibraryOnlyExercises
+import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 import com.hydrafit.app.core.domain.engine.WeeklyVolumeTargets
 import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -90,6 +93,27 @@ class SeededPlannerQualityTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun shrugsAreAPullOrUpperDayAccessoryAndNeverExceedTheDailyMaximum() = runTest {
+        val shrugIds = DefaultExercises.all
+            .filter { it.movementPattern == MovementPattern.TRAP_ISOLATION }
+            .map { it.id }
+            .toSet()
+        var shrugDays = 0
+        for (days in 2..6) {
+            plan(days).days.forEach { day ->
+                val shrugs = day.exercises.count { it.exerciseId in shrugIds }
+                assertTrue(shrugs <= 1, "days=$days day=${day.dayIndex}")
+                if (day.focus != SplitFocus.PULL && day.focus != SplitFocus.UPPER) {
+                    assertEquals(0, shrugs, "days=$days focus=${day.focus}")
+                }
+                assertTrue(day.exercises.size <= PlannerExerciseCounts.TARGET_MAX_PER_DAY)
+                shrugDays += shrugs
+            }
+        }
+        assertTrue(shrugDays > 0, "no pull or upper day was given a shrug")
     }
 
     @Test

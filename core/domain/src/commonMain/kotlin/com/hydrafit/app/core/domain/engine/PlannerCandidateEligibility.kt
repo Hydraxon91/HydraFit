@@ -16,17 +16,10 @@ object PlannerCandidateEligibility {
 
     // Pin curated identities too: changing a built-in's pattern must not opt it into planning.
     private val MANUAL_ONLY_EXERCISE_IDS = setOf(
-        "dumbbell-shrug",
-        "ez-bar-shrug",
-        "trap-bar-shrug",
-        "barbell-shrug",
         "forehead-neck-bridge",
         "self-resisted-neck-lateral-flexion"
     )
-    private val MANUAL_ONLY_PATTERNS = setOf(
-        MovementPattern.TRAP_ISOLATION,
-        MovementPattern.NECK_ISOLATION
-    )
+    private val MANUAL_ONLY_PATTERNS = setOf(MovementPattern.NECK_ISOLATION)
 
     /**
      * Reject a focus with no automatically eligible work, before engine generation.

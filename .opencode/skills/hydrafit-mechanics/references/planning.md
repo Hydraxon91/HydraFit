@@ -75,8 +75,10 @@ Paths are relative to the repository root; package shorthand is defined in
 
 ## Planner inputs and weight semantics
 
-`PlannerCandidateEligibility` excludes `TRAP_ISOLATION`/`NECK_ISOLATION` and the six
-curated shrug/neck IDs even after pattern overrides. This manual-only policy applies to
+`PlannerCandidateEligibility` excludes `NECK_ISOLATION` and the two curated neck IDs even
+after pattern overrides. Shrugs (`TRAP_ISOLATION`) are plannable since 0.15.3: traps have no
+volume target, so `selectExercises` gives each PULL or UPPER day one shrug right after unmet direct
+arm work (fresh-first, within the 6-exercise cap; a full 4-day upper day gets none). This manual-only policy applies to
 deterministic selection, both AI prompt catalogs, sanitization and planner-backed replacements.
 `PlannerLibraryOnlyExercises.ids` is a second, deny-style gate in the same filter: seeded duplicates
 and novelty variants (for example Standing Military Press, Push-Up Wide, Scissor Kick) stay in the
