@@ -46,7 +46,7 @@ class ExerciseInstructionResourcesTest {
             english.forEachIndexed { index, text ->
                 assertTrue(text.isNotBlank(), "${resources[index].key} resolves to blank content")
             }
-            Locale.setDefault(Locale.GERMAN)
+            Locale.setDefault(Locale.FRENCH)
             assertEquals(english, resources.map { getString(it) })
         } finally {
             Locale.setDefault(previousLocale)
