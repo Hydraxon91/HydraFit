@@ -1,5 +1,7 @@
 package com.hydrafit.app.core.domain.engine
 
+import com.hydrafit.app.core.domain.equipment.ExercisePreference
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoDateUtc
 import com.hydrafit.app.core.domain.workout.LoadKind
 
@@ -60,6 +62,63 @@ object PlannerPromptFragments {
             "per muscle across the week. Compound involvement is a separate estimate and does " +
             "not replace this direct-work objective. This is a planning preference, not a " +
             "guarantee of physiological adequacy."
+    }
+
+    /** How many exercises a day may hold, and which must-haves may go past the ordinary limit. */
+    fun exerciseCountGuidance(): String =
+        "Give each day up to ${PlannerExerciseCounts.TARGET_MAX_PER_DAY} exercises, and fewer " +
+            "when the set count is high and the weekly targets are already met. Only these " +
+            "must-haves may take a day up to ${PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY}: " +
+            "direct biceps " +
+            "and triceps isolation, one shrug on each PULL or UPPER day, and one leg extension " +
+            "plus one leg curl on each LOWER or LEGS day."
+
+    /**
+     * The weekly involvement-weighted set target per muscle the deterministic planner uses, so the
+     * model balances volume against the same numbers. Muscles without a target are left out.
+     */
+    fun weeklyTargetsLine(request: PlanRequest): String {
+        val base = WeeklyVolumeTargets.forGoal(
+            request.goal,
+            if (request.isDeload) PeriodizationConfig().deloadVolumeScale else 1.0
+        )
+        val targets = MuscleGroup.entries
+            .mapNotNull { muscle ->
+                WeeklyVolumeTargets.forMuscle(base, muscle)?.let { target ->
+                    "${muscle.name}=${formatSets(target.targetSets)}"
+                }
+            }
+            .joinToString(", ")
+        return "Weekly target sets per muscle (each set counts once per unit of the muscle's " +
+            "involvement in the exercise; aim near these, not far above): $targets"
+    }
+
+    /** The user's prefer / prefer-less marks as exercise ids, or null when there are none. */
+    fun preferencesLine(request: PlanRequest): String? {
+        val prefer = request.exercisePreferences
+            .filterValues { it == ExercisePreference.PREFER }
+            .keys.sorted()
+        val preferLess = request.exercisePreferences
+            .filterValues { it == ExercisePreference.PREFER_LESS }
+            .keys.sorted()
+        if (prefer.isEmpty() && preferLess.isEmpty()) return null
+        return buildList {
+            if (prefer.isNotEmpty()) {
+                add("The user prefers these exercises when suitable: ${prefer.joinToString(", ")}.")
+            }
+            if (preferLess.isNotEmpty()) {
+                add(
+                    "The user prefers to do less of these; choose them only when nothing equally " +
+                        "suitable remains: ${preferLess.joinToString(", ")}."
+                )
+            }
+        }.joinToString(" ")
+    }
+
+    /** One decimal at most, so 7.7 stays 7.7 and 11.0 prints as 11. */
+    private fun formatSets(sets: Double): String {
+        val tenths = kotlin.math.round(sets * 10).toLong()
+        return if (tenths % 10 == 0L) (tenths / 10).toString() else "${tenths / 10}.${tenths % 10}"
     }
 
     /** Recent working-weight entries, or null when sharing is off or there is no history. */

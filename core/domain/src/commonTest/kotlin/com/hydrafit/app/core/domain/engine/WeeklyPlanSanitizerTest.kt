@@ -543,6 +543,72 @@ class WeeklyPlanSanitizerTest {
         assertEquals(LoadUnavailableReason.NOT_LOAD_TRACKED, explanation.unavailableReason)
     }
 
+    @Test
+    fun appliesTheEnginesArmSetRuleAndCutsASetForSoreMuscles() = runTest {
+        val armCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(
+                Exercise(
+                    id = "bench-press",
+                    name = "Bench Press",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.CHEST_UPPER),
+                    movementPattern = MovementPattern.HORIZONTAL_PUSH
+                ),
+                Exercise(
+                    id = "barbell-row",
+                    name = "Barbell Row",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.UPPER_BACK),
+                    movementPattern = MovementPattern.HORIZONTAL_PULL
+                ),
+                Exercise(
+                    id = "curl",
+                    name = "Curl",
+                    requiredEquipment = setOf(EquipmentTag.BARBELL),
+                    primaryMuscles = setOf(MuscleGroup.BICEPS),
+                    movementPattern = MovementPattern.BICEPS_ISOLATION
+                )
+            )
+        }
+        val plan = WeeklyPlan(
+            engine = PlannerEngineId.LOCAL_LLM,
+            days = listOf(
+                dayOf(0, listOf("bench-press", "curl")),
+                dayOf(1, listOf("barbell-row", "curl"))
+            )
+        )
+        // Two full-body days hold one arm slot each, so a selection of 1 accessory set is raised to
+        // 2 to reach the 4-set arm target, exactly as the deterministic engine's shared rule says.
+        val expectedCurlSets = DirectArmCoverage.setsPerArmExercise(
+            MuscleGroup.BICEPS,
+            listOf(SplitFocus.FULL_BODY, SplitFocus.FULL_BODY),
+            DirectArmCoverage.targetSetsPerMuscle(2, TrainingGoal.BALANCED),
+            1
+        )
+        assertEquals(2, expectedCurlSets)
+        val twoDays = request(daysPerWeek = 2, accessorySetsPerExercise = 1)
+
+        val fresh = assertNotNullPlan(WeeklyPlanSanitizer(armCatalog).sanitize(plan, twoDays))
+        val freshCurl = fresh.days.first().exercises.single { it.exerciseId == "curl" }
+        assertEquals(expectedCurlSets, freshCurl.sets)
+
+        val soreRequest = twoDays.copy(muscleFatigue = mapOf(MuscleGroup.BICEPS to 0.9))
+        val sore = assertNotNullPlan(WeeklyPlanSanitizer(armCatalog).sanitize(plan, soreRequest))
+        val soreCurl = sore.days.first().exercises.single { it.exerciseId == "curl" }
+        assertEquals(expectedCurlSets - 1, soreCurl.sets)
+        assertEquals(
+            FatigueSetEffect.REDUCED,
+            soreCurl.explanation?.setCount?.fatigueEffect
+        )
+        val bench = sore.days.first().exercises.single { it.exerciseId == "bench-press" }
+        assertEquals(TrainingGoal.BALANCED.defaultSets, bench.sets)
+    }
+
+    private fun assertNotNullPlan(plan: WeeklyPlan?): WeeklyPlan {
+        assertTrue(plan != null, "the plan should survive sanitizing")
+        return plan!!
+    }
+
     private fun planOf(exerciseIds: List<String>) = WeeklyPlan(
         engine = PlannerEngineId.LOCAL_LLM,
         days = listOf(dayOf(0, exerciseIds))
