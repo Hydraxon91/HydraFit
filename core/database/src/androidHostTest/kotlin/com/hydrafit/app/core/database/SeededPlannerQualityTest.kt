@@ -3,8 +3,11 @@ package com.hydrafit.app.core.database
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerLibraryOnlyExercises
+import com.hydrafit.app.core.domain.engine.PlannerSupersetPairing
+import com.hydrafit.app.core.domain.engine.PlannerSupersetPreference
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
@@ -69,23 +72,69 @@ class SeededPlannerQualityTest {
     }
 
     @Test
-    fun noExerciseRepeatsAcrossTheWeekWhenAllEquipmentIsAvailable() = runTest {
-        // The leg-extension slot on every lower day has a single plannable exercise, so it may
-        // repeat; anything with an alternative must not.
-        val soleKneeExtension = DefaultExercises.all
-            .filter {
-                it.movementPattern == MovementPattern.LEG_ISOLATION &&
-                    it.id !in PlannerLibraryOnlyExercises.ids &&
-                    (it.effectiveInvolvements[MuscleGroup.QUADS] ?: 0.0) >= 0.5
-            }
-            .map { it.id }
-            .toSet()
-            .takeIf { it.size == 1 }
-            .orEmpty()
+    fun everyPlannableSeededArmIsolationCanPairAndPlansWithBothArmsPair() = runTest {
+        val plannable = PlannerCandidateEligibility.candidates(
+            DefaultExercises.all,
+            PlanRequest(
+                daysPerWeek = 4,
+                availableEquipment = everything,
+                muscleFatigue = emptyMap(),
+                nowMillis = 0L
+            )
+        )
+        val biceps = plannable.filter { it.movementPattern == MovementPattern.BICEPS_ISOLATION }
+        val triceps = plannable.filter { it.movementPattern == MovementPattern.TRICEPS_ISOLATION }
+        assertEquals(
+            biceps.map { it.id }.toSet(),
+            PlannerSupersetPairing.BICEPS_ISOLATION_IDS,
+            "the curated biceps ids must match the plannable seeded biceps isolations"
+        )
+        assertEquals(
+            triceps.map { it.id }.toSet(),
+            PlannerSupersetPairing.TRICEPS_ISOLATION_IDS,
+            "the curated triceps ids must match the plannable seeded triceps isolations"
+        )
+        for (days in 2..5) {
+            val paired = PlannerSupersetPairing.apply(plan(days), PlannerSupersetPreference(10, 60))
+            val pairs = paired.days.sumOf { day -> day.exercises.count { it.superset != null } / 2 }
+            assertTrue(pairs > 0, "days=$days")
+        }
+    }
+
+    @Test
+    fun anExerciseRepeatsOnlyWhenNothingUnusedTrainsItsMuscle() = runTest {
+        // A repeat is allowed only for an exercise that is the sole plannable option for one of
+        // the muscles it mainly trains (the single leg extension, or the plank and hanging leg
+        // raise for obliques and hip flexors); anything with an unused alternative must not repeat.
+        fun mainMuscles(exercise: Exercise) =
+            exercise.effectiveInvolvements.filterValues { it >= 0.5 }.keys
         for (days in 2..6) {
+            val plannable = PlannerCandidateEligibility.candidates(
+                DefaultExercises.all,
+                PlanRequest(
+                    daysPerWeek = days,
+                    availableEquipment = everything,
+                    muscleFatigue = emptyMap(),
+                    nowMillis = 0L
+                )
+            )
             val ids = plan(days).days.flatMap { day -> day.exercises.map { it.exerciseId } }
+            val unused = plannable.filter { it.id !in ids }
             val repeated = ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-            assertEquals(emptySet(), repeated - soleKneeExtension, "days=$days")
+            repeated.forEach { id ->
+                // An alternative must fill the same slot: same movement pattern, same main muscle
+                // (a squat is not a substitute for the leg-extension slot).
+                val exercise = byId.getValue(id)
+                assertTrue(
+                    mainMuscles(exercise).any { muscle ->
+                        unused.none {
+                            it.movementPattern == exercise.movementPattern &&
+                                muscle in mainMuscles(it)
+                        }
+                    },
+                    "days=$days repeated=$id"
+                )
+            }
         }
     }
 

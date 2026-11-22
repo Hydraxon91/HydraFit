@@ -121,6 +121,8 @@ object DirectArmCoverage {
         SplitFocus.UPPER -> listOf(
             MovementPattern.BICEPS_ISOLATION,
             MovementPattern.TRICEPS_ISOLATION,
+            // An upper/lower week has no push day, so chest flies belong on upper days too.
+            MovementPattern.CHEST_FLY,
             MovementPattern.FOREARM_ISOLATION,
             MovementPattern.SHOULDER_ISOLATION
         )

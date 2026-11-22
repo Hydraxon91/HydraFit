@@ -23,16 +23,26 @@ class WeeklyVolumeTargetsTest {
     }
 
     @Test
-    fun largeMusclesGetTheFullWindowSmallerOnesLessAndOnlyTrapsNone() {
+    fun balancedUsesTheSourcedTableAndOnlyTrapsHaveNoTarget() {
         val base = WeeklyVolumeTargets.forGoal(TrainingGoal.BALANCED)
-        assertEquals(base, WeeklyVolumeTargets.forMuscle(base, MuscleGroup.QUADS))
+        WeeklyVolumeTargets.BALANCED_TARGET_SETS.forEach { (muscle, sets) ->
+            assertEquals(
+                sets,
+                WeeklyVolumeTargets.forMuscle(base, muscle)!!.targetSets,
+                1e-9,
+                "muscle=$muscle"
+            )
+        }
         val quads = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.QUADS)!!.targetSets
         val biceps = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.BICEPS)!!.targetSets
         val forearms = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.FOREARMS)!!.targetSets
         assertTrue(quads > biceps && biceps > forearms, "$quads $biceps $forearms")
-        assertEquals(null, WeeklyVolumeTargets.forMuscle(base, MuscleGroup.TRAPS))
-        MuscleGroup.entries.filter { it != MuscleGroup.TRAPS }.forEach { muscle ->
-            assertTrue(WeeklyVolumeTargets.sizeFactor(muscle) != null, "muscle=$muscle")
+        MuscleGroup.entries.forEach { muscle ->
+            assertEquals(
+                muscle != MuscleGroup.TRAPS,
+                WeeklyVolumeTargets.sizeFactor(muscle) != null,
+                "muscle=$muscle"
+            )
         }
     }
 

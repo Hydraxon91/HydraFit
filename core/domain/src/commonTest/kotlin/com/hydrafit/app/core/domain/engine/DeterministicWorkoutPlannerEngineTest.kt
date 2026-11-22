@@ -777,8 +777,19 @@ class DeterministicWorkoutPlannerEngineTest {
         val lowerIds = plan.days.filter { it.focus == SplitFocus.LOWER }
             .flatMap { day -> day.exercises.map { it.exerciseId } }
             .filter { it in lowerIsolations.map { exercise -> exercise.id } }
-        // Two lower days of four isolation slots can use all six exercises, so a repeat must wait.
-        assertEquals(6, lowerIds.toSet().size, "ids=$lowerIds")
+        // An exercise repeats only when no unused exercise trains the same muscle: the sole leg
+        // curl, calf raise and plank may come back, but a second adductor exercise is used before
+        // the first one repeats.
+        val muscleOf = lowerIsolations.associate { it.id to it.primaryMuscles.single() }
+        val repeated = lowerIds.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        val unused = lowerIsolations.map { it.id }.toSet() - lowerIds.toSet()
+        repeated.forEach { id ->
+            assertTrue(
+                unused.none { muscleOf.getValue(it) == muscleOf.getValue(id) },
+                "ids=$lowerIds repeated=$id unused=$unused"
+            )
+        }
+        assertTrue(lowerIds.contains("leg-curl"), "ids=$lowerIds")
     }
 
     @Test
@@ -1295,8 +1306,9 @@ class DeterministicWorkoutPlannerEngineTest {
     fun keepsEveryDayWithinTheTargetExerciseCountRange() {
         val plan = engine.plan(request(daysPerWeek = 3, equipment = everything), richCatalog())
 
-        val minimum = PlannerExerciseCounts.TARGET_MIN_PER_DAY
-        val maximum = PlannerExerciseCounts.TARGET_MAX_PER_DAY
+        // No forced minimum beyond the validators' floor; must-haves may go past the ordinary six.
+        val minimum = PlannerExerciseCounts.FLOOR_PER_DAY
+        val maximum = PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY
         val sizes = plan.days.map { it.exercises.size }
         assertTrue(sizes.all { it in minimum..maximum }, "sizes=$sizes")
     }
@@ -1508,8 +1520,14 @@ class DeterministicWorkoutPlannerEngineTest {
 
         val biceps = plan.armCoverage.single { it.muscle == MuscleGroup.BICEPS }
         val triceps = plan.armCoverage.single { it.muscle == MuscleGroup.TRICEPS }
-        assertEquals(biceps.directIsolationSets, triceps.directIsolationSets)
-        assertTrue(triceps.directIsolationSets > 0, "triceps=$triceps biceps=$biceps")
+        // Fairness means neither arm is starved: both reach the weekly target. Once both have,
+        // a spare slot may add the fresher arm's second curl, since the triceps has no second
+        // exercise in this catalog.
+        assertTrue(
+            biceps.directIsolationSets >= biceps.targetSets &&
+                triceps.directIsolationSets >= triceps.targetSets,
+            "triceps=$triceps biceps=$biceps"
+        )
     }
 
     @Test

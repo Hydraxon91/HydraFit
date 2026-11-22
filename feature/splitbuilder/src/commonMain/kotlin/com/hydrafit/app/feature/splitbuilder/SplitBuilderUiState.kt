@@ -185,7 +185,7 @@ data class SplitBuilderUiState(
     /** The open automatic-prescription dialog; null when closed. */
     val automaticSetPrescriptionDialog: AutomaticSetPrescriptionState? = null,
     /**
-     * The user's opt-in for curated adjacent biceps/triceps pairing. Off by default; on passes the
+     * The user's opt-in for curated biceps/triceps pairing. Off by default; on passes the
      * configured transition and pair rest with the next generation request.
      */
     val plannerSupersetEnabled: Boolean = false,

@@ -99,8 +99,8 @@ class PlannerPromptBuilderTest {
     fun sendsTheWeeklyTargetsTheMustHaveRuleAndOnlyNonEmptyPreferences() {
         val plain = builder.build(request(), ids).text
         assertTrue(plain.contains("Weekly target sets per muscle"), plain)
-        assertTrue(plain.contains("QUADS=11"), plain)
-        assertTrue(plain.contains("BICEPS=7.7"), plain)
+        assertTrue(plain.contains("QUADS=12"), plain)
+        assertTrue(plain.contains("BICEPS=8"), plain)
         assertFalse(plain.contains("TRAPS="), plain)
         assertTrue(plain.contains("one leg extension plus one leg curl"), plain)
         assertFalse(plain.contains("The user prefers"), plain)

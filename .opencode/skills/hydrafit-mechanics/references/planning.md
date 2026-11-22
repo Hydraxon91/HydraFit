@@ -34,9 +34,10 @@ mapping is applied. A unique compatible clustered entry continues to preserve it
 
 `PlanRequest.plannerSupersetPreference` is null by default; a non-null
 `PlannerSupersetPreference(transitionSeconds, pairRestSeconds)` opts in. `GenerateWeeklySplitUseCase`
-applies `PlannerSupersetPairing` after the selected engine returns, so deterministic and cloud output follow one rule. Only already-selected **adjacent** curated biceps/triceps isolation
-slots are grouped; nothing is reordered, added or re-prescribed, and an already-paired slot is left
-alone. Custom exercises and `close-grip-bench-press` are excluded (the catalog classifies it as a
+applies `PlannerSupersetPairing` after the selected engine returns, so deterministic and cloud output follow one rule. Only already-selected curated biceps/triceps isolation slots
+are grouped. Since 0.15.4, when a day has both but none adjacent, one is moved next to the other;
+nothing is added or re-prescribed, and an already-paired slot is left alone. `SeededPlannerQualityTest`
+fails when the curated ids drift from the plannable seeded biceps and triceps isolations. Custom exercises and `close-grip-bench-press` are excluded (the catalog classifies it as a
 compound `HORIZONTAL_PUSH`, not an isolation pattern). Grouping never changes fatigue or
 progression inputs. Accepted plans copy the frozen group through `AcceptWeeklyPlanUseCase`.
 
@@ -610,7 +611,7 @@ for a two-day week, 6 for three or four days and 8 for five or six; Endurance ke
 A direct arm exercise uses the selected accessory count, raised only as far as the split's arm slots need
 to reach the target (`setsPerArmExercise`: one slot per arm on an upper or full-body day, two on a push or
 pull day; the same rule in every goal since 0.15.4). Since 0.15.4 weekly volume targets are per muscle
-(`WeeklyVolumeTargets.sizeFactor`: 1.0 large, 0.7 medium, 0.5 other, traps none), paced across the days
+(`WeeklyVolumeTargets.BALANCED_TARGET_SETS`, scaled to each goal by `sizeFactor`; traps none), paced across the days
 that can mainly train each muscle, and an accessory is added only while a muscle it mainly trains
 (involvement >= `MAIN_INVOLVEMENT` 0.5) is under its paced target; there is no forced 4-exercise minimum. A set qualifies
 only when the exercise uses the matching `BICEPS_ISOLATION` or

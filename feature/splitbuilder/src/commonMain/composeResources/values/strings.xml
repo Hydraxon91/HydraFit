@@ -180,7 +180,7 @@
     <string name="split_superset_transition">Transition (seconds)</string>
     <string name="split_superset_pair_rest">Pair rest (seconds)</string>
     <string name="split_superset_error">Enter whole seconds: transition 0 or more, pair rest 1 or more.</string>
-    <string name="split_superset_note">Pairs already-selected, adjacent biceps and triceps isolation exercises. Nothing is reordered and no prescription changes.</string>
+    <string name="split_superset_note">Pairs a biceps and a triceps isolation exercise on the same day, moving one next to the other if needed. No exercise is added or removed and no sets or reps change.</string>
     <string name="split_planning_dates_unknown">Unknown dates — the planner uses your recorded training as of today.</string>
     <string name="split_planning_dates_edit">Choose dates</string>
     <string name="split_planning_dates_rejected">These dates can’t be used yet: choose one per workout day, today or later. Fix them and regenerate.</string>

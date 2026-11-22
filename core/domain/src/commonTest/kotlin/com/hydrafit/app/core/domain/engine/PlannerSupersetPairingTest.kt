@@ -56,10 +56,25 @@ class PlannerSupersetPairingTest {
     }
 
     @Test
-    fun nonAdjacentSamePatternCustomAndCompoundSlotsAreNeverPaired() {
+    fun aSeparatedBicepsAndTricepsPairIsMovedTogetherWithoutChangingAnySlot() {
+        val entries = listOf(slot("barbell-curl"), slot("back-squat"), slot("triceps-pushdown"))
+        val result = PlannerSupersetPairing.apply(
+            plan.copy(days = listOf(plan.days.single().copy(exercises = entries))),
+            preference
+        ).days.single().exercises
+        assertEquals(
+            listOf("barbell-curl", "triceps-pushdown", "back-squat"),
+            result.map { it.exerciseId }
+        )
+        assertEquals(result[0].superset, result[1].superset)
+        assertNull(result[2].superset)
+        assertEquals(entries.map { it.sets }, result.map { it.sets })
+    }
+
+    @Test
+    fun samePatternCustomAndCompoundSlotsAreNeverPaired() {
         listOf(
             listOf(slot("barbell-curl"), slot("hammer-curl")),
-            listOf(slot("barbell-curl"), slot("back-squat"), slot("triceps-pushdown")),
             listOf(slot("my-custom-curl"), slot("triceps-pushdown")),
             listOf(slot("barbell-curl"), slot("close-grip-bench-press"))
         ).forEach { entries ->

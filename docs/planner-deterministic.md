@@ -41,9 +41,12 @@ last tie-break is the exercise id.
    pull twice). Each day gets a focus.
 3. **Targets for the goal.** `WeeklyVolumeTargets.forGoal` gives a window of involvement-weighted sets per
    week: Balanced 8/11/18, Strength 6/9/15, Hypertrophy 8/13/20, Endurance 6/9/16 (min/target/max). Since
-   0.15.4 each muscle gets a share of it by size (`sizeFactor`): the full window for chest, lats, upper back,
-   quads, hamstrings and glutes; 0.7 for side and rear delts, biceps, triceps and calves; 0.5 for every
-   other muscle; traps have none. The target drives selection; the maximum is a soft ceiling; the minimum is
+   0.15.4 each muscle has its own target (`BALANCED_TARGET_SETS`, scaled to the other goals by
+   `sizeFactor`): on Balanced 12 for chest, lats, upper back and quads; 10 for hamstrings and side delts;
+   8 for glutes, biceps, triceps, calves and rear delts; 4 for front delts, abs, lower back and every
+   other muscle; traps have none. They follow widely used coaching volume landmarks and the hypertrophy
+   meta-analyses' finding that about ten or more weekly sets per muscle grows it more than fewer; they
+   are sourced defaults, not validated per-person optima. The target drives selection; the maximum is a soft ceiling; the minimum is
    reported only. A deload scales the window by 0.7. These are product defaults, not validated optima.
    Each day owes only its **paced share** of a muscle's target: the fraction of the week's days that can
    mainly train that muscle reached so far. Without pacing, the first such day took the whole week's work
@@ -54,7 +57,9 @@ last tie-break is the exercise id.
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
      pattern's muscles (see "Ranking").
    - **Then isolation and accessories**, with no forced minimum and two caps (`PlannerExerciseCounts`):
-     the must-haves below may take a day up to 8 exercises, ordinary deficit-filling accessories stop at 6.
+     compounds and ordinary deficit-filling accessories share 6 places, and the must-haves below sit
+     outside them, up to 8 exercises in all. Upper days can add a chest fly, since an upper/lower week
+     has no push day.
      First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
      days only) one **shrug**, then (on lower and legs days) one **leg extension** and one **leg curl**
      when the machines are available, since squats and hinges do not replace knee-extension and
@@ -155,7 +160,13 @@ scaled by 0.7, intensity by 0.8. Skipping or accepting irregularly cannot shift 
 
 ## Known limits
 
-- A 4-day week still gives about 6 direct chest sets; a 2-day week is thin on everything by design.
+- A 4-day week gives about 8 to 11 weighted chest sets at 3 to 4 sets per exercise (an upper-day fly
+  helps); a 2-day week is thin on everything by design.
+- At 4 or more sets per exercise an upper day can reach 8 exercises and over 30 working sets, because
+  four compound patterns, a fly, two arm exercises and a shrug all qualify.
+- Obliques and hip flexors keep a small target (they take part in deficit targeting by an earlier
+  decision), and only the plank and hanging leg raise mainly train them, so those two can repeat on
+  every lower day.
 - A custom exercise that lists a single muscle ranks slightly lower in compound slots than a catalog lift
   that lists several.
 - The alphabetical id is the final tie-break, so equal catalog lifts resolve the same way every week.

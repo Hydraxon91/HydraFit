@@ -20,8 +20,10 @@ data class PlannerSupersetPreference(val transitionSeconds: Int, val pairRestSec
 /**
  * Curated, opt-in agonist/antagonist pairing for generated plans.
  *
- * Only already-selected, adjacent biceps/triceps isolation slots are grouped: nothing is reordered,
- * added or re-prescribed, and a slot already carrying a manual group is left alone. The curated ids
+ * Only already-selected biceps/triceps isolation slots are grouped. When a day has both but none
+ * adjacent, one is moved next to the other first; nothing is added, dropped or re-prescribed, and a
+ * slot already carrying a manual group is left alone. `SeededPlannerQualityTest` keeps the curated
+ * ids in step with every plannable seeded biceps and triceps isolation. The curated ids
  * exclude custom exercises and close-grip bench press, which the catalog classifies as a compound
  * `HORIZONTAL_PUSH` rather than an isolation pattern. Grouping changes guidance only; fatigue and
  * progression inputs are untouched.
@@ -33,15 +35,20 @@ object PlannerSupersetPairing {
         "dumbbell-curl",
         "band-curl",
         "hammer-curl",
-        "supinated-curl",
-        "preacher-curl"
+        "preacher-curl",
+        "ez-bar-curl",
+        "incline-hammer-curls",
+        "incline-dumbbell-curl"
     )
 
     /** Curated built-in triceps isolation ids; the close-grip bench press is deliberately absent. */
     val TRICEPS_ISOLATION_IDS: Set<String> = setOf(
         "triceps-pushdown",
         "overhead-triceps-extension",
-        "dumbbell-triceps-overhead-extension"
+        "ez-bar-skullcrusher",
+        "tricep-dumbbell-kickback",
+        "bench-dips",
+        "feet-elevated-bench-dips"
     )
 
     fun apply(plan: WeeklyPlan, preference: PlannerSupersetPreference?): WeeklyPlan {
@@ -58,8 +65,7 @@ object PlannerSupersetPairing {
         day: WorkoutDay,
         preference: PlannerSupersetPreference
     ): List<PlannedExercise> {
-        val exercises = day.exercises
-        val paired = exercises.toMutableList()
+        val paired = withArmPairAdjacent(day.exercises).toMutableList()
         var index = 0
         while (index < paired.lastIndex) {
             val first = paired[index]
@@ -81,6 +87,34 @@ object PlannerSupersetPairing {
             }
         }
         return paired
+    }
+
+    /**
+     * The planner adds arm work by need, so a day's biceps and triceps isolations are often not next
+     * to each other and could never pair. When a day has an unpaired curated biceps and triceps slot
+     * but no adjacent curated pair, the later of the first two moves to sit right after the earlier.
+     * Only the order changes: no slot is added, dropped or re-prescribed.
+     */
+    private fun withArmPairAdjacent(exercises: List<PlannedExercise>): List<PlannedExercise> {
+        val hasAdjacentPair = exercises.zipWithNext().any { (first, second) ->
+            first.superset == null &&
+                second.superset == null &&
+                isCuratedPair(first.exerciseId, second.exerciseId)
+        }
+        if (hasAdjacentPair) return exercises
+        val biceps = exercises.indexOfFirst {
+            it.superset == null && it.exerciseId in BICEPS_ISOLATION_IDS
+        }
+        val triceps = exercises.indexOfFirst {
+            it.superset == null && it.exerciseId in TRICEPS_ISOLATION_IDS
+        }
+        if (biceps < 0 || triceps < 0) return exercises
+        val anchor = minOf(biceps, triceps)
+        val moved = maxOf(biceps, triceps)
+        val reordered = exercises.toMutableList()
+        val slot = reordered.removeAt(moved)
+        reordered.add(anchor + 1, slot)
+        return reordered
     }
 
     private fun isCuratedPair(first: String, second: String): Boolean =
