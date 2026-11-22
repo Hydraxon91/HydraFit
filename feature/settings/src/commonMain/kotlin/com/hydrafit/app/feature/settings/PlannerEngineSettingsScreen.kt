@@ -20,9 +20,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +39,13 @@ import hydrafit.feature.settings.generated.resources.settings_api_key_label
 import hydrafit.feature.settings.generated.resources.settings_api_key_save
 import hydrafit.feature.settings.generated.resources.settings_api_key_section
 import hydrafit.feature.settings.generated.resources.settings_cloud_unavailable
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_open
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_privacy
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_step_1
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_step_2
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_step_3
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_step_4
+import hydrafit.feature.settings.generated.resources.settings_groq_tutorial_toggle
 import hydrafit.feature.settings.generated.resources.settings_home_planner_engine
 import hydrafit.feature.settings.generated.resources.settings_share_data
 import hydrafit.feature.settings.generated.resources.settings_share_data_description
@@ -60,6 +69,39 @@ fun PlannerEngineRoute(
         onBack = onBack,
         modifier = modifier
     )
+}
+
+private const val GROQ_KEYS_URL = "https://console.groq.com/keys"
+
+@Composable
+private fun GroqKeyTutorial() {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    TextButton(onClick = { expanded = !expanded }) {
+        Text(stringResource(Res.string.settings_groq_tutorial_toggle))
+    }
+    if (expanded) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(
+                Res.string.settings_groq_tutorial_step_1,
+                Res.string.settings_groq_tutorial_step_2,
+                Res.string.settings_groq_tutorial_step_3,
+                Res.string.settings_groq_tutorial_step_4
+            ).forEach { step ->
+                Text(
+                    text = stringResource(step),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Text(
+                text = stringResource(Res.string.settings_groq_tutorial_privacy),
+                style = MaterialTheme.typography.bodySmall
+            )
+            OutlinedButton(onClick = { uriHandler.openUri(GROQ_KEYS_URL) }) {
+                Text(stringResource(Res.string.settings_groq_tutorial_open))
+            }
+        }
+    }
 }
 
 @Composable
@@ -150,6 +192,7 @@ fun PlannerEngineScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        GroqKeyTutorial()
 
         Row(
             modifier = Modifier.fillMaxWidth(),
