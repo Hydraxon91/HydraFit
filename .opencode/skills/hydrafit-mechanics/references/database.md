@@ -6,7 +6,7 @@ Paths are relative to the repository root; package shorthand is defined in
 Schema directory:
 `core/database/src/commonMain/sqldelight/com/hydrafit/app/core/database/`.
 
-**Current schema version: 67** — schema v1 plus migrations `1.sqm` through `66.sqm`. Version
+**Current schema version: 68** — schema v1 plus migrations `1.sqm` through `67.sqm`. Version
 numbers named inside the migration narratives below describe the chain *at that point in its
 history*, not the current version; the current value is the one stated here.
 
@@ -375,6 +375,14 @@ predates SQLite 3.35's `DROP COLUMN` support.
 
 `selectSessionsFromLocalDay` (0.15.0, queries only) backs `WorkoutSessionRepository.sessionsFromLocalDay` for
 the Train weekly card; the session table is small, so it has no index of its own.
+
+Migration `67.sqm` (schema 67→68) adds six nullable `plannerEngine` columns for the split builder's
+plan parameters: `setsPerExercise`, `accessorySetsPerExercise` and the automatic per-set target
+(`autoTargetShape`, `autoTargetMinReps`, `autoTargetMaxReps`, `autoTargetRir`). NULL means "not
+chosen" and the goal default applies. `SqlDelightPlanParameterPreferenceRepository` (bound to
+`PlanParameterPreferenceRepository` in `:core:userdata`) reads a stored target that no longer validates
+as not chosen. These columns are deliberately not in backups: a restore leaves them unchanged, so the
+backup format is unchanged. `SqlDelightPlanParameterPreferenceRepositoryTest` covers the migration.
 
 Migration `66.sqm` (schema 66→67) adds two `workoutSet` indexes, `workoutSet_performedAt` and
 `workoutSet_occurrenceEntryId`, for the Logger's bounded reads (`selectLatestSessionIdExcluding`,

@@ -38,6 +38,7 @@ import com.hydrafit.app.core.userdata.presentation.exactLocalizedDecimalText
 import com.hydrafit.app.core.userdata.presentation.parseLocalizedDecimal
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.EnginePreferenceRepository
+import com.hydrafit.app.core.userdata.settings.PlanParameterPreferenceRepository
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -62,6 +63,11 @@ class SplitBuilderViewModel(
      * whole metres either way, so only the field and slot line change.
      */
     private val distanceUnitRepository: DistanceUnitRepository? = null,
+    /**
+     * Keeps the chosen sets, accessory sets and automatic per-set targets between launches. Null
+     * (tests) keeps them for the ViewModel's lifetime only.
+     */
+    private val planParameterPreferences: PlanParameterPreferenceRepository? = null,
     /**
      * Supplies the number format for human-facing decimals. Koin's explicit constructor call uses
      * the default; tests pass a fixed format to exercise a comma locale.
@@ -111,6 +117,14 @@ class SplitBuilderViewModel(
             }
         }
         viewModelScope.launch {
+            // The saved parameters are loaded before the first request is built, so a plan is
+            // never generated with the defaults and then again with the saved values.
+            planParameterPreferences?.current()?.let { saved ->
+                setsPerExercise.value = saved.setsPerExercise
+                accessorySetsPerExercise.value = saved.accessorySetsPerExercise
+                automaticSetPrescription.value = saved.automaticSetPrescription
+                _state.update { it.copy(automaticSetPrescription = saved.automaticSetPrescription) }
+            }
             val accepted = planHistory.latest()
             if (accepted != null) showAccepted(accepted)
             var previous: WorkoutPlanInputs? = null
@@ -123,6 +137,14 @@ class SplitBuilderViewModel(
                 val prior = previous
                 previous = inputs
                 lastRequest = inputs.request
+                // The chips always show the counts the planner will actually use: the saved
+                // choice, or the training goal's default when none was chosen.
+                _state.update {
+                    it.copy(
+                        setsPerExercise = inputs.request.setsPerExercise,
+                        accessorySetsPerExercise = inputs.request.accessorySetsPerExercise
+                    )
+                }
                 val settingsChanged = prior != null &&
                     (
                         prior.exercisePreferences != inputs.exercisePreferences ||
@@ -204,11 +226,15 @@ class SplitBuilderViewModel(
     fun onSetsPerExerciseChanged(setsPerExercise: Int) {
         this.setsPerExercise.value = setsPerExercise
         _state.update { it.copy(setsPerExercise = setsPerExercise) }
+        viewModelScope.launch { planParameterPreferences?.setSetsPerExercise(setsPerExercise) }
     }
 
     fun onAccessorySetsPerExerciseChanged(setsPerExercise: Int) {
         this.accessorySetsPerExercise.value = setsPerExercise
         _state.update { it.copy(accessorySetsPerExercise = setsPerExercise) }
+        viewModelScope.launch {
+            planParameterPreferences?.setAccessorySetsPerExercise(setsPerExercise)
+        }
     }
 
     // --- Curated planner superset pairing ---
@@ -291,6 +317,7 @@ class SplitBuilderViewModel(
             return
         }
         automaticSetPrescription.value = candidate
+        viewModelScope.launch { planParameterPreferences?.setAutomaticSetPrescription(candidate) }
         _state.update {
             it.copy(
                 automaticSetPrescription = candidate,
@@ -302,6 +329,7 @@ class SplitBuilderViewModel(
     /** Turns automatic generation off; the next generation carries no automatic prescription. */
     fun onAutomaticSetPrescriptionCleared() {
         automaticSetPrescription.value = null
+        viewModelScope.launch { planParameterPreferences?.setAutomaticSetPrescription(null) }
         _state.update {
             it.copy(automaticSetPrescription = null, automaticSetPrescriptionDialog = null)
         }
@@ -912,7 +940,6 @@ class SplitBuilderViewModel(
         val catalog = exerciseCatalog.all()
         val catalogNames = catalog.associate { it.id to it.name }
         val catalogBases = catalog.loadBases()
-        val exercises = accepted.days.flatMap { it.exercises }
         lastGeneratedFingerprint = null
         shownPlan = accepted
         _state.update {
@@ -933,13 +960,7 @@ class SplitBuilderViewModel(
                 volumeExplanationInvalidated = accepted.volumeExplanationStatus ==
                     VolumeExplanationStatus.INVALIDATED_BY_SUBSTITUTION,
                 requestedEngine = accepted.engine,
-                daysPerWeek = accepted.days.size,
-                setsPerExercise = exercises.firstOrNull { exercise ->
-                    exercise.movementPattern.isCompound
-                }?.sets ?: it.setsPerExercise,
-                accessorySetsPerExercise = exercises.firstOrNull { exercise ->
-                    !exercise.movementPattern.isCompound
-                }?.sets ?: it.accessorySetsPerExercise
+                daysPerWeek = accepted.days.size
             )
         }
     }

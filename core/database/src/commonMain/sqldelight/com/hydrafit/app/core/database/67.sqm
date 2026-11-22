@@ -1,0 +1,8 @@
+-- The split builder's plan parameters, kept between launches. NULL means "not chosen": the
+-- planner keeps the training goal's default for that value.
+ALTER TABLE plannerEngine ADD COLUMN setsPerExercise INTEGER;
+ALTER TABLE plannerEngine ADD COLUMN accessorySetsPerExercise INTEGER;
+ALTER TABLE plannerEngine ADD COLUMN autoTargetShape TEXT;
+ALTER TABLE plannerEngine ADD COLUMN autoTargetMinReps INTEGER;
+ALTER TABLE plannerEngine ADD COLUMN autoTargetMaxReps INTEGER;
+ALTER TABLE plannerEngine ADD COLUMN autoTargetRir INTEGER;
