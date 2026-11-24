@@ -58,7 +58,7 @@ object WeeklyVolumeTargets {
 
     /**
      * A muscle's share of the goal window from [forGoal], or null when the muscle has no weekly
-     * target of its own (traps only). The shares come from [BALANCED_TARGET_SETS], each muscle's
+     * target of its own (traps and forearms). The shares come from [BALANCED_TARGET_SETS], each muscle's
      * weekly target on the Balanced goal divided by Balanced's base target, so every goal keeps the
      * same proportions. A uniform window left smaller muscles permanently under target, which kept
      * every day filled to the exercise cap. A muscle without a target still counts for fatigue and
@@ -73,7 +73,9 @@ object WeeklyVolumeTargets {
      * per muscle grows it more than fewer: the large prime movers sit above ten, the smaller muscles
      * near eight, and muscles that presses, rows and hinges already train heavily (front delts, lower
      * back) or that rarely need direct work low. These are sourced product defaults, not validated
-     * per-person optima; see `docs/planner-deterministic.md`. Traps are left out on purpose (VOL-01).
+     * per-person optima; see `docs/planner-deterministic.md`. Traps are left out on purpose (VOL-01), and so are forearms: every pull, press and curl already
+     * loads the grip, the catalog credits none of it, and a target would only chase a false deficit.
+     * Wrist work stays in the library to be logged or picked by hand.
      */
     val BALANCED_TARGET_SETS: Map<MuscleGroup, Double> = mapOf(
         MuscleGroup.CHEST_UPPER to 12.0,
@@ -91,7 +93,6 @@ object WeeklyVolumeTargets {
         MuscleGroup.FRONT_DELTS to 4.0,
         MuscleGroup.ABS to 4.0,
         MuscleGroup.LOWER_BACK to 4.0,
-        MuscleGroup.FOREARMS to 4.0,
         MuscleGroup.OBLIQUES to 4.0,
         MuscleGroup.ADDUCTORS to 4.0,
         MuscleGroup.HIP_ABDUCTORS to 4.0,

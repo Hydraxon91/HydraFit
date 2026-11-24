@@ -49,7 +49,8 @@ class ForearmAccessoryPolicyTest {
     }
 
     @Test
-    fun newAccessoryIsSelectedWithItsOwnSetCountAndKeepsTheHardGates() {
+    fun forearmsHaveNoWeeklyTargetSoNoDeficitEverSelectsAWristExercise() {
+        assertEquals(null, WeeklyVolumeTargets.sizeFactor(MuscleGroup.FOREARMS))
         val request = PlanRequest(
             daysPerWeek = 2,
             availableEquipment = wrist.requiredEquipment,
@@ -58,15 +59,8 @@ class ForearmAccessoryPolicyTest {
             accessorySetsPerExercise = 2,
             exercisePreferences = mapOf(wrist.id to ExercisePreference.PREFER)
         )
-        val planned = engine.plan(request, listOf(wrist)).days.first().exercises.single()
-        assertEquals(wrist.id, planned.exerciseId)
-        assertEquals(2, planned.sets)
-        listOf(
-            request.copy(availableEquipment = setOf(EquipmentTag.DUMBBELL)),
-            request.copy(excludedExerciseIds = setOf(wrist.id)),
-            request.copy(muscleFatigue = mapOf(MuscleGroup.FOREARMS to 1.0))
-        ).forEach { constrained ->
-            assertTrue(engine.plan(constrained, listOf(wrist)).days.all { it.exercises.isEmpty() })
-        }
+        // Grip work is trained by every pull, press and curl, so the planner never chases a forearm
+        // deficit; the exercise stays in the library for manual logging.
+        assertTrue(engine.plan(request, listOf(wrist)).days.all { it.exercises.isEmpty() })
     }
 }
