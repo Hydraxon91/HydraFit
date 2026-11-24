@@ -55,7 +55,11 @@ last tie-break is the exercise id.
    - **Compounds first.** For each compound group of the focus (for example push: horizontal push, then
      vertical push) one exercise is chosen. A compound not yet used this week is preferred; if none remains
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
-     pattern's muscles (see "Ranking").
+     pattern's muscles (see "Ranking"). A lower or legs day has three slots: a squat (barbell squat, leg
+     press, hack squat), a hinge, then a lunge or split squat. The lunge is extra quad work, decided after
+     the leg extension and leg curl below and offered only while a muscle it mainly trains is still under
+     its paced target, so squats and leg presses always lead and a leg extension can replace the lunge.
+     It is listed right after the day's other compounds.
    - **Then isolation and accessories**, with no forced minimum and two caps (`PlannerExerciseCounts`):
      compounds and ordinary deficit-filling accessories share 6 places, and the must-haves below sit
      outside them, up to 8 exercises in all. The **session length** (`SessionLength`, chosen in the
@@ -63,7 +67,9 @@ last tie-break is the exercise id.
      Upper days can add a chest fly, since an upper/lower week has no push day.
      First any unmet **direct arm** work (paced like the volume targets), then any **weekly floor**
      still open, then (on pull and upper days only) one **shrug** a week, then (on lower and legs
-     days) one **leg extension** and one **leg curl** when the machines are available, since squats and
+     days) one **leg extension** and one **leg curl** when the machines are available (the muscle must be
+     the exercise's own target, involvement 0.7 or more, so a glute kickback listing the hamstrings at
+     0.5 never counts as a curl), since squats and
      hinges do not replace knee-extension and knee-flexion work, then the largest remaining volume
      deficit. An accessory is added only while a muscle it **mainly** trains (involvement 0.5 or more)
      is under its paced target; a small side share still counts toward the totals but never justifies a
@@ -128,7 +134,9 @@ them low. The target grows with frequency: 4 for two days, 6 for three or four, 
 stays at 4. An arm exercise uses the selected accessory sets, raised only as far as the split needs
 (`setsPerArmExercise`): an upper or full-body day holds one exercise per arm and a push or pull day two, so a
 4-day upper/lower week at 2 accessory sets gets 3 per arm exercise while push/pull/legs keeps 2 and adds
-exercises. A higher selection is never lowered. Compound slots rank patterns by the share of each primary
+exercises. A higher selection is never lowered. The arm slot ranks its candidates by that arm's own
+shortfall, then freshness and equipment, so a dip (which credits the lower chest) does not beat a pushdown
+and the triceps exercise rotates between upper days. Compound slots rank patterns by the share of each primary
 muscle's target still missing, so a hinge is not undervalued for its smaller lower-back target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
 target is a last resort so one arm cannot take every accessory slot. Pull isolation also includes rear-delt
 work so a second pull day is not only arm repeats. A deload does not chase the target. The result is
@@ -187,6 +195,9 @@ scaled by 0.7, intensity by 0.8. Skipping or accepting irregularly cannot shift 
   helps); a 2-day week is thin on everything by design.
 - At 4 or more sets per exercise an upper day can reach 8 exercises and over 30 working sets, because
   four compound patterns, two arm exercises and the floor fills all qualify; Longer sessions go to 11.
+- Forearms have no weekly target, so the planner never selects a wrist exercise; use them from the
+  library. Glutes and hamstrings can sit at two to three times their target because squats, hinges and
+  lunges all credit them and the leg curl is a must-have.
 - A floor can stay unmet. The upper back has no isolation path, a day never repeats a compound pattern,
   and the slot cap can run out first; the plan is not forced, and the shortfall is not yet shown in
   the plan explanation or stored with the accepted plan.

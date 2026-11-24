@@ -592,12 +592,20 @@ The isolation pool is focus-scoped and determines reachability (a catalog
 exercise whose pattern is in no pool is never auto-selected): push adds
 triceps/shoulder isolation plus chest fly; pull adds biceps/forearm isolation; upper adds
 biceps/triceps/forearm/shoulder isolation; legs/lower adds leg isolation, calf raises and
-core; full-body is the union. Lunge competes in the leg/lower squat group rather
-than being full-body-only. These are product reachability choices informed by
+core; full-body is the union. A lower or legs day has three compound slots, squat (including leg
+press and hack squat), then hinge, then lunge; the lunge slot is decided after the leg extension and
+leg curl must-haves and offered only while a muscle the lunge mainly trains is under its paced target,
+so the squat pattern always leads (it is inserted after the other compounds). The leg extension and
+leg curl pools need the muscle at `targetedInvolvementCutoff` (0.7) or more, not just `MAIN_INVOLVEMENT`. Full-body days still
+share one squat/hinge/lunge group. These are product reachability choices informed by
 general resistance-training evidence (e.g. pec-deck/chest-fly regional
 hypertrophy), not a claim that each isolation exercise is optimal.
-FOREARM_ISOLATION (0.8.1) uses ordinary accessory set counts and weighted deficits,
-never the dedicated direct-arm priority/target. Existing exclusions, soreness and
+FOREARM_ISOLATION (0.8.1) never uses the dedicated direct-arm priority/target. Since 0.15.6
+forearms have no weekly volume target at all (like traps), so a forearm deficit never selects a wrist
+exercise: grip work is loaded by every pull, press and curl, the catalog credits none of it, and the
+wrist exercises stay planner-eligible and in the library for manual use. The direct arm slot is ranked
+by that arm's own shortfall (`armRanking`), not the maximum over every muscle the exercise touches, so
+a dip's lower-chest credit cannot lift it above a pushdown. Existing exclusions, soreness and
 daily caps still apply; no TRAPS policy or fatigue constants change.
 
 Compounds are chosen one per focus group; a compound not yet used this week is preferred,
