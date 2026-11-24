@@ -9,9 +9,10 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
  *
  * [targetSets] is the goal the selector chases. [maxSets] is a **soft** ceiling: ordinary selection
  * stops offering an exercise only once *every* muscle it targets is already at it, and whole-slot
- * additions may overshoot; the direct-arm coverage priority bypasses it. [minSets] is currently
- * **report-only** — selection keys on [targetSets], so [minSets] is not enforced and any consumer
- * (e.g. the volume-explanation slice) should treat it as an informational threshold.
+ * additions may overshoot; the direct-arm coverage priority bypasses it. [minSets] is the weekly
+ * floor for the [WeeklyVolumeTargets.FLOOR_MUSCLES] prime movers: selection fills one that is below
+ * its (paced) floor before the shrug or ordinary accessories. For every other muscle it stays an
+ * informational threshold, since selection keys on [targetSets].
  */
 data class VolumeTarget(val minSets: Double, val targetSets: Double, val maxSets: Double) {
     init {
@@ -99,6 +100,36 @@ object WeeklyVolumeTargets {
         MuscleGroup.SERRATUS_ANTERIOR to 4.0,
         MuscleGroup.HIP_FLEXORS to 4.0
     )
+
+    /**
+     * The prime movers that get a guaranteed weekly floor: the planner fills any of them still below
+     * its [VolumeTarget.minSets] before arm overflow, the shrug or ordinary accessories. Biceps and
+     * triceps keep their own direct-set guarantee ([DirectArmCoverage]); smaller muscles keep their
+     * soft targets only.
+     */
+    val FLOOR_MUSCLES: Set<MuscleGroup> = setOf(
+        MuscleGroup.CHEST_UPPER,
+        MuscleGroup.CHEST_LOWER,
+        MuscleGroup.LATS,
+        MuscleGroup.UPPER_BACK,
+        MuscleGroup.QUADS,
+        MuscleGroup.HAMSTRINGS,
+        MuscleGroup.GLUTES,
+        MuscleGroup.SIDE_DELTS
+    )
+
+    /**
+     * Weighted sets each [FLOOR_MUSCLES] member is still missing against its weekly floor, from a
+     * ledger such as [weightedSetsByMuscle]. Only muscles under their floor are present.
+     */
+    fun floorShortfalls(
+        weightedSets: Map<MuscleGroup, Double>,
+        base: VolumeTarget
+    ): Map<MuscleGroup, Double> = FLOOR_MUSCLES.mapNotNull { muscle ->
+        val floor = forMuscle(base, muscle)?.minSets ?: return@mapNotNull null
+        val missing = floor - (weightedSets[muscle] ?: 0.0)
+        if (missing > 0.0) muscle to missing else null
+    }.toMap()
 
     /** Balanced's base weekly target, the window [forGoal] returns for it. */
     private const val BALANCED_BASE_TARGET_SETS = 11.0
