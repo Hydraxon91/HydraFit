@@ -60,5 +60,6 @@ do not assume the generation target and post-filter floor should be identical.
   `LOCAL_LLM` stay as readable legacy identities for stored plans and resolve to the deterministic
   engine. The shared prompt and response schema live in network `PlannerPromptBuilder.kt` and
   `PlanSchema.kt`; the shared JSON and HTTP client factory is `PlannerHttpClient.kt`. Groq owns its
-  transport, retries (`MAX_RETRIES = 2`, base delay `1_000` ms, maximum `8_000` ms) and failure
+  transport, retries (`MAX_RETRIES = 2`, base delay `1_000` ms, maximum `8_000` ms; a 400
+  `json_validate_failed` is retried like a transient status) and failure
   mapping.
