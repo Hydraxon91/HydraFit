@@ -36,7 +36,8 @@ class PlannerPromptBuilder {
             appendLine(PlannerPromptFragments.periodizationLine(request))
             PlannerPromptFragments.deloadInstruction(request)?.let { appendLine(it) }
             appendLine("Choose ONLY exerciseId values from this list: $exerciseIds")
-            appendLine(PlannerPromptFragments.exerciseCountGuidance())
+            appendLine(PlannerPromptFragments.exerciseCountGuidance(request))
+            appendLine(PlannerPromptFragments.slotGuidance())
             appendLine(
                 "Follow the focus schedule above exactly; a focus may appear on more than one " +
                     "day. Do not reuse a compound lift across days; isolation exercises may repeat."
@@ -48,6 +49,7 @@ class PlannerPromptBuilder {
             appendLine(PlannerPromptFragments.volumeRepsGuidance(request))
             appendLine(PlannerPromptFragments.directArmCoverageGuidance(request))
             appendLine(PlannerPromptFragments.weeklyTargetsLine(request))
+            appendLine(PlannerPromptFragments.weeklyFloorsLine(request))
             PlannerPromptFragments.preferencesLine(request)?.let { appendLine(it) }
             appendLine("Prefer exercises whose muscles are less fatigued.")
             val recentlyUsed = request.recentExerciseIdsByPattern
@@ -102,7 +104,7 @@ class PlannerPromptBuilder {
                         "exercises" to PlanSchema(
                             type = "ARRAY",
                             minItems = PlannerExerciseCounts.FLOOR_PER_DAY,
-                            maxItems = PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY,
+                            maxItems = PlannerExerciseCounts.mustHaveMax(request.sessionLength),
                             items = PlanSchema(
                                 type = "OBJECT",
                                 properties = exerciseSchemaProperties(request),

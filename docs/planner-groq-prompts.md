@@ -41,13 +41,15 @@ Current muscle fatigue (0.0-1.0): <MUSCLE=value, ...>
 Periodization: week <w> of cycle <c>.
 This is a deload week: use fewer sets and roughly 80% of the normal working weight to allow recovery.   (deload only)
 Choose ONLY exerciseId values from this list: <id, id, ...>
-Give each day up to 6 exercises, and fewer when the set count is high and the weekly targets are already met. Only these must-haves may take a day up to 8: direct biceps and triceps isolation, one shrug on each PULL or UPPER day, and one leg extension plus one leg curl on each LOWER or LEGS day.
+Give each day up to <6|9> exercises, and fewer when the set count is high and the weekly targets are already met. Only these must-haves may take a day up to <8|11>: direct biceps and triceps isolation, an exercise that lifts a muscle still below its weekly floor, at most one shrug in the whole week (on a PULL or UPPER day, only when a slot is left), and one leg extension plus one leg curl on each LOWER or LEGS day.     (6 and 8 on a Standard session, 9 and 11 on a Longer one)
+On each LOWER or LEGS day start with one squat-pattern exercise (squat, leg press or hack squat), then one hinge; add a lunge or split squat only when the quads still need volume after the leg extension. Prefer a pushdown or an extension for the triceps and vary the triceps exercise between days; do not repeat a dip variant.
 Follow the focus schedule above exactly; a focus may appear on more than one day. Do not reuse a compound lift across days; isolation exercises may repeat.
 Use <sets> sets for compound lifts and <accessorySets> sets for accessory exercises.
 The goal's rep ranges are <min>-<max> reps for compound exercises and <min>-<max> reps for accessory exercises. The app sets each week's exact reps and any held load by double progression, and the selected set count controls volume; do not trade fewer sets for more reps.
 Where compatible exercises and session capacity allow, include dedicated biceps and triceps isolation work for about <N> sets per muscle across the week. Compound involvement is a separate estimate and does not replace this direct-work objective. This is a planning preference, not a guarantee of physiological adequacy.
                                                                       (in a deload: "This is a deload: do not add work to meet the normal-week direct arm coverage objective.")
-Weekly target sets per muscle (each set counts once per unit of the muscle's involvement in the exercise; aim near these, not far above): <MUSCLE=sets, ...>     (traps omitted; deload-scaled)
+Weekly target sets per muscle (each set counts once per unit of the muscle's involvement in the exercise; aim near these, not far above): <MUSCLE=sets, ...>     (traps and forearms omitted; deload-scaled)
+Weekly floor sets for the prime movers (reach at least these before adding shrugs or other accessories, counted the same way as the targets): <MUSCLE=sets, ...>     (chest, lats, upper back, quads, hamstrings, glutes, side delts; deload-scaled; advisory, a plan is not rejected for missing one)
 The user prefers these exercises when suitable: <ids>. The user prefers to do less of these; choose them only when nothing equally suitable remains: <ids>.     (only the non-empty parts, only when any mark exists)
 Prefer exercises whose muscles are less fatigued.
 Used in the previous accepted week (prefer a different exercise for the same movement pattern when an equally suitable option exists): <PATTERN: id, id; ...>     (only with history)
@@ -83,7 +85,7 @@ optional fields become nullable and are listed as required, because strict mode 
 ```
 
 - `days` has exactly `daysPerWeek` items; each day has 2 to 8 exercises (the validators' floor and the
-  must-have cap).
+  must-have cap), or up to 11 on a Longer session (`PlanRequest.sessionLength`).
 - `suggestedWeightKg` exists in the schema only when workout data is shared.
 - `exerciseId` is deliberately a plain string with no `enum`: a provider once rejected the whole request
   with HTTP 400 when the id list was an enum. The prompt lists the ids and the app repairs the answer.
