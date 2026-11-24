@@ -1573,7 +1573,10 @@ private fun SplitScheduleDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(stringResource(Res.string.split_schedule_replace))
+                        Text(
+                            text = stringResource(Res.string.split_schedule_replace),
+                            modifier = Modifier.weight(1f)
+                        )
                         Switch(
                             checked = dialog.replaceActive,
                             onCheckedChange = viewModel::onScheduleReplaceActiveChanged
