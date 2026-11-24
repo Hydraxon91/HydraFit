@@ -17,6 +17,8 @@ data class PlanRequest(
     val goal: TrainingGoal = TrainingGoal.BALANCED,
     val setsPerExercise: Int = goal.defaultSets,
     val accessorySetsPerExercise: Int = goal.accessorySets,
+    /** The most exercises a day may hold; see [SessionLength]. */
+    val sessionLength: SessionLength = SessionLength.DEFAULT,
     val recentExerciseIdsByPattern: Map<MovementPattern, Set<String>> = emptyMap(),
     val suggestedWeightsKg: Map<String, Double> = emptyMap(),
     /**

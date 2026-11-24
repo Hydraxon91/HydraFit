@@ -57,9 +57,13 @@ object SplitResolver {
             listOf(MovementPattern.VERTICAL_PULL),
             listOf(MovementPattern.HORIZONTAL_PULL)
         )
+        // Squats and leg presses (the squat pattern) lead, then the hinge, then one lunge or split
+        // squat as the extra quad work. The lunge has its own slot rather than competing in the
+        // squat's, so it never displaces a squat or a leg press.
         SplitFocus.LEGS, SplitFocus.LOWER -> listOf(
-            listOf(MovementPattern.SQUAT, MovementPattern.LUNGE),
-            listOf(MovementPattern.HINGE)
+            listOf(MovementPattern.SQUAT),
+            listOf(MovementPattern.HINGE),
+            listOf(MovementPattern.LUNGE)
         )
         SplitFocus.UPPER -> listOf(
             listOf(MovementPattern.HORIZONTAL_PUSH),

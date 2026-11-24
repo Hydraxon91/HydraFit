@@ -4,6 +4,7 @@ import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SwapCandidate
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -154,6 +155,7 @@ data class SplitBuilderUiState(
     val daysPerWeek: Int = 4,
     val setsPerExercise: Int = 3,
     val accessorySetsPerExercise: Int = 2,
+    val sessionLength: SessionLength = SessionLength.DEFAULT,
     val plan: WeeklyPlan? = null,
     val exerciseNames: Map<String, String> = emptyMap(),
     /** How each dumbbell exercise's numeric load is stated; ids absent here are unlabeled. */

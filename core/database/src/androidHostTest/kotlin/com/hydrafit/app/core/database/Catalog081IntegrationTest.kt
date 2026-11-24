@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hydrafit.app.core.domain.backup.BackupValidator
 import com.hydrafit.app.core.domain.engine.DeterministicWorkoutPlannerEngine
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.PlannerCandidateEligibility
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
@@ -120,19 +121,22 @@ class Catalog081IntegrationTest {
     @Test
     fun actualSeededAccessoriesReachThePlannerAndPreservePerHandLoggedLoad() = runTest {
         val catalog = SqlDelightExerciseCatalog(database)
-        val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
-            PlanRequest(
-                daysPerWeek = 2,
-                availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
-                muscleFatigue = emptyMap(),
-                nowMillis = 0L,
-                excludedExerciseIds = DefaultExercises.all
-                    .filterNot { it.movementPattern == MovementPattern.FOREARM_ISOLATION }
-                    .map { it.id }.toSet()
-            )
+        val request = PlanRequest(
+            daysPerWeek = 2,
+            availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BENCH),
+            muscleFatigue = emptyMap(),
+            nowMillis = 0L,
+            excludedExerciseIds = DefaultExercises.all
+                .filterNot { it.movementPattern == MovementPattern.FOREARM_ISOLATION }
+                .map { it.id }.toSet()
         )
-        assertTrue(plan.days.first().exercises.isNotEmpty())
-        assertTrue(plan.days.flatMap { it.exercises }.all { "wrist" in it.exerciseId })
+        // The wrist exercises stay planner-eligible, so a focus is never rejected for lack of work,
+        // but forearms have no weekly target and the planner never selects one on a deficit.
+        val eligible = PlannerCandidateEligibility.candidates(catalog.all(), request)
+        assertTrue(eligible.isNotEmpty())
+        assertTrue(eligible.all { "wrist" in it.id })
+        val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(request)
+        assertTrue(plan.days.flatMap { it.exercises }.isEmpty())
         database.workoutSessionQueries.insertSession("wrist-session", 1L, 1L, 0L)
         val log = SqlDelightWorkoutLogRepository(database)
         log.add(

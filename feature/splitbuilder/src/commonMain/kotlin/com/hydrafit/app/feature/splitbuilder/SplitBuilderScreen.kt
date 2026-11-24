@@ -65,6 +65,8 @@ import com.hydrafit.app.core.domain.engine.PlanAttribution
 import com.hydrafit.app.core.domain.engine.PlanExplanation
 import com.hydrafit.app.core.domain.engine.PlanFailureReason
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SplitFocus
@@ -257,6 +259,10 @@ import hydrafit.feature.splitbuilder.generated.resources.split_schedule_replace
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_start_today
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_title
 import hydrafit.feature.splitbuilder.generated.resources.split_schedule_weekdays
+import hydrafit.feature.splitbuilder.generated.resources.split_session_length_hint
+import hydrafit.feature.splitbuilder.generated.resources.split_session_length_label
+import hydrafit.feature.splitbuilder.generated.resources.split_session_length_longer
+import hydrafit.feature.splitbuilder.generated.resources.split_session_length_standard
 import hydrafit.feature.splitbuilder.generated.resources.split_sets_label
 import hydrafit.feature.splitbuilder.generated.resources.split_start_block
 import hydrafit.feature.splitbuilder.generated.resources.split_suggested_weight
@@ -360,6 +366,7 @@ fun SplitBuilderRoute(
             onDaysPerWeekSelected = viewModel::onDaysPerWeekSelected,
             onSetsPerExerciseChanged = viewModel::onSetsPerExerciseChanged,
             onAccessorySetsPerExerciseChanged = viewModel::onAccessorySetsPerExerciseChanged,
+            onSessionLengthChanged = viewModel::onSessionLengthChanged,
             onAutomaticSetPrescriptionRequested = viewModel::onAutomaticSetPrescriptionRequested,
             onAutomaticSetPrescriptionCleared = viewModel::onAutomaticSetPrescriptionCleared,
             onPlannerSupersetEnabledChanged = viewModel::onPlannerSupersetEnabledChanged,
@@ -418,6 +425,7 @@ fun SplitBuilderScreen(
     onDaysPerWeekSelected: (Int) -> Unit,
     onSetsPerExerciseChanged: (Int) -> Unit,
     onAccessorySetsPerExerciseChanged: (Int) -> Unit,
+    onSessionLengthChanged: (SessionLength) -> Unit = {},
     onAutomaticSetPrescriptionRequested: () -> Unit = {},
     onAutomaticSetPrescriptionCleared: () -> Unit = {},
     onPlannerSupersetEnabledChanged: (Boolean) -> Unit = {},
@@ -559,6 +567,34 @@ fun SplitBuilderScreen(
                     )
                 }
             }
+            Text(text = stringResource(Res.string.split_session_length_label))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SessionLength.entries.forEach { length ->
+                    FilterChip(
+                        selected = state.sessionLength == length,
+                        onClick = { onSessionLengthChanged(length) },
+                        label = {
+                            Text(
+                                stringResource(
+                                    when (length) {
+                                        SessionLength.STANDARD ->
+                                            Res.string.split_session_length_standard
+                                        SessionLength.LONGER ->
+                                            Res.string.split_session_length_longer
+                                    }
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+            Text(
+                text = stringResource(
+                    Res.string.split_session_length_hint,
+                    PlannerExerciseCounts.mustHaveMax(state.sessionLength)
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
             TextButton(onClick = { showConfiguration = !showConfiguration }) {
                 Text(
                     stringResource(
@@ -1537,7 +1573,10 @@ private fun SplitScheduleDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(stringResource(Res.string.split_schedule_replace))
+                        Text(
+                            text = stringResource(Res.string.split_schedule_replace),
+                            modifier = Modifier.weight(1f)
+                        )
                         Switch(
                             checked = dialog.replaceActive,
                             onCheckedChange = viewModel::onScheduleReplaceActiveChanged

@@ -78,10 +78,12 @@ Paths are relative to the repository root; package shorthand is defined in
 
 `PlannerCandidateEligibility` excludes `NECK_ISOLATION` and the two curated neck IDs even
 after pattern overrides. Shrugs (`TRAP_ISOLATION`) are plannable since 0.15.3: traps have no
-volume target, so `selectExercises` gives each PULL or UPPER day one shrug right after unmet direct
-arm work (fresh-first). Must-haves (direct arm coverage, the shrug, and one leg extension plus one leg curl
-on LOWER/LEGS days) may fill a day to `MUST_HAVE_MAX_PER_DAY` (8); ordinary deficit accessories stop at
-`TARGET_MAX_PER_DAY` (6). This manual-only policy applies to
+volume target, so `selectExercises` plans at most one shrug a week (3 sets at most), on the first
+PULL or UPPER day with a slot left after unmet direct arm work and the weekly floors (fresh-first).
+Must-haves (direct arm coverage, floor fills, the shrug, and one leg extension plus one leg curl
+on LOWER/LEGS days) may fill a day to `PlannerExerciseCounts.mustHaveMax(sessionLength)` (8 Standard,
+11 Longer); ordinary deficit accessories stop at `targetMax(sessionLength)` (6 Standard, 9 Longer).
+`PlanRequest.sessionLength` comes from the remembered split-builder choice. This manual-only policy applies to
 deterministic selection, both AI prompt catalogs, sanitization and planner-backed replacements.
 `PlannerLibraryOnlyExercises.ids` is a second, deny-style gate in the same filter: seeded duplicates
 and novelty variants (for example Standing Military Press, Push-Up Wide, Scissor Kick) stay in the
@@ -571,7 +573,10 @@ volume or a validated direct/indirect hypertrophy conversion. Accessories fill
 toward four exercises/day, then chase deficits up to six. Unfilled weighted
 targets remain possible. The weekly `minSets`/`targetSets`/`maxSets` window is a
 soft heuristic: the selector chases `targetSets`, treats `maxSets` as a pre-pick
-gate with possible whole-slot overshoot, and ignores `minSets` (report-only). In a deload week
+gate with possible whole-slot overshoot, and uses `minSets` only as the weekly floor of
+`WeeklyVolumeTargets.FLOOR_MUSCLES` (chest upper/lower, lats, upper back, quads, hamstrings, glutes, side
+delts): a floor muscle below its paced `minSets` gets an isolation exercise (`floorRanking`) after direct
+arm work and before the shrug; for every other muscle `minSets` stays report-only. In a deload week
 `WeeklyVolumeTargets.forGoal` scales the whole window by `PeriodizationConfig.deloadVolumeScale`
 (0.7), because the ledger counts the already reduced sets; without it a deload would chase the full
 deficit and pad each day with extra exercises. `SubstituteExerciseUseCase` still ranks against the
@@ -587,12 +592,20 @@ The isolation pool is focus-scoped and determines reachability (a catalog
 exercise whose pattern is in no pool is never auto-selected): push adds
 triceps/shoulder isolation plus chest fly; pull adds biceps/forearm isolation; upper adds
 biceps/triceps/forearm/shoulder isolation; legs/lower adds leg isolation, calf raises and
-core; full-body is the union. Lunge competes in the leg/lower squat group rather
-than being full-body-only. These are product reachability choices informed by
+core; full-body is the union. A lower or legs day has three compound slots, squat (including leg
+press and hack squat), then hinge, then lunge; the lunge slot is decided after the leg extension and
+leg curl must-haves and offered only while a muscle the lunge mainly trains is under its paced target,
+so the squat pattern always leads (it is inserted after the other compounds). The leg extension and
+leg curl pools need the muscle at `targetedInvolvementCutoff` (0.7) or more, not just `MAIN_INVOLVEMENT`. Full-body days still
+share one squat/hinge/lunge group. These are product reachability choices informed by
 general resistance-training evidence (e.g. pec-deck/chest-fly regional
 hypertrophy), not a claim that each isolation exercise is optimal.
-FOREARM_ISOLATION (0.8.1) uses ordinary accessory set counts and weighted deficits,
-never the dedicated direct-arm priority/target. Existing exclusions, soreness and
+FOREARM_ISOLATION (0.8.1) never uses the dedicated direct-arm priority/target. Since 0.15.6
+forearms have no weekly volume target at all (like traps), so a forearm deficit never selects a wrist
+exercise: grip work is loaded by every pull, press and curl, the catalog credits none of it, and the
+wrist exercises stay planner-eligible and in the library for manual use. The direct arm slot is ranked
+by that arm's own shortfall (`armRanking`), not the maximum over every muscle the exercise touches, so
+a dip's lower-chest credit cannot lift it above a pushdown. Existing exclusions, soreness and
 daily caps still apply; no TRAPS policy or fatigue constants change.
 
 Compounds are chosen one per focus group; a compound not yet used this week is preferred,

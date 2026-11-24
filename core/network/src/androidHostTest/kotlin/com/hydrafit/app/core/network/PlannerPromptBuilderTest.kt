@@ -1,6 +1,7 @@
 package com.hydrafit.app.core.network
 
 import com.hydrafit.app.core.domain.engine.PlanRequest
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.engine.WeightHistoryEntry
@@ -93,6 +94,33 @@ class PlannerPromptBuilderTest {
         // No forced four: the floor is the validators' two, and must-haves may reach eight.
         assertTrue(json.contains("\"minItems\":2"), "exercises per day should have a floor")
         assertTrue(json.contains("\"maxItems\":8"), "exercises per day should have a ceiling")
+    }
+
+    @Test
+    fun aLongerSessionRaisesTheCapsInThePromptAndTheSchema() {
+        val standard = builder.build(request(), ids)
+        val longer = builder.build(request().copy(sessionLength = SessionLength.LONGER), ids)
+
+        assertTrue(standard.text.contains("up to 6 exercises"), standard.text)
+        assertTrue(standard.text.contains("a day up to 8:"), standard.text)
+        assertTrue(longer.text.contains("up to 9 exercises"), longer.text)
+        assertTrue(longer.text.contains("a day up to 11:"), longer.text)
+        assertTrue(plannerJson.encodeToString(longer.schema).contains("\"maxItems\":11"))
+        assertFalse(plannerJson.encodeToString(standard.schema).contains("\"maxItems\":11"))
+    }
+
+    @Test
+    fun sendsTheWeeklyFloorsTheSlotRulesAndNoForearmTarget() {
+        val text = builder.build(request(), ids).text
+
+        assertTrue(text.contains("Weekly floor sets for the prime movers"), text)
+        assertTrue(text.contains("CHEST_UPPER=8.7"), text)
+        assertTrue(text.contains("UPPER_BACK=8.7"), text)
+        assertFalse(text.contains("FOREARMS="), text)
+        assertTrue(text.contains("at most one shrug in the whole week"), text)
+        assertTrue(text.contains("squat-pattern exercise"), text)
+        assertTrue(text.contains("every LOWER or LEGS day gets both"), text)
+        assertTrue(text.contains("do not repeat a dip variant"), text)
     }
 
     @Test

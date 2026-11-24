@@ -126,7 +126,8 @@ class DeterministicWorkoutPlannerEngine(
                     request.automaticSetPrescription,
                     armSetsPerExercise,
                     paceForDay(index),
-                    request.repProgressions
+                    request.repProgressions,
+                    request.sessionLength
                 )
             )
         }
@@ -187,12 +188,21 @@ class DeterministicWorkoutPlannerEngine(
         automaticSetPrescription: AutomaticSetPrescription? = null,
         armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap(),
         pace: Map<MuscleGroup, Double> = emptyMap(),
-        repProgressions: Map<String, RepProgressionHistory> = emptyMap()
+        repProgressions: Map<String, RepProgressionHistory> = emptyMap(),
+        sessionLength: SessionLength = SessionLength.DEFAULT
     ): List<PlannedExercise> {
         val used = mutableSetOf<String>()
         val picks = mutableListOf<PlannedExercise>()
+        val targetMax = PlannerExerciseCounts.targetMax(sessionLength)
+        val mustHaveMax = PlannerExerciseCounts.mustHaveMax(sessionLength)
 
-        fun pick(candidates: List<Exercise>, slotRanking: Boolean = false): Boolean {
+        fun pick(
+            candidates: List<Exercise>,
+            slotRanking: Boolean = false,
+            floorRanking: Boolean = false,
+            armRanking: Boolean = false,
+            insertAt: Int? = null
+        ): Boolean {
             // Ordering is by weighted fatigue, but the skip uses raw targeted fatigue, so a lower-
             // ranked candidate can be fresh while the top one is sore. Try candidates in order and
             // take the first that is not sore instead of rejecting the whole group.
@@ -205,7 +215,9 @@ class DeterministicWorkoutPlannerEngine(
                 target = target,
                 exercisePreferences = exercisePreferences,
                 slotRanking = slotRanking,
-                pace = pace
+                pace = pace,
+                floorRanking = floorRanking,
+                armRanking = armRanking
             )
             val candidate = pickFirstNonSore(ranked, fatigue)
             ranked.takeWhile { it.id != candidate?.id }.forEach { skippedForSoreness += it.id }
@@ -232,7 +244,7 @@ class DeterministicWorkoutPlannerEngine(
             )
             used += candidate.id
             weekUsed += candidate.id
-            picks += planned
+            if (insertAt != null) picks.add(insertAt, planned) else picks += planned
             candidate.effectiveInvolvements.forEach { (muscle, weight) ->
                 weeklyVolume[muscle] = weeklyVolume.getValue(muscle) + planned.sets * weight
             }
@@ -245,19 +257,31 @@ class DeterministicWorkoutPlannerEngine(
         // Variety within the week: an isolation exercise not yet used this week is preferred, and one
         // repeats only when no other eligible candidate remains. An exercise the user prefers is never
         // treated as stale, so their preference still wins.
-        fun pickFreshFirst(candidates: List<Exercise>): Boolean {
+        fun pickFreshFirst(
+            candidates: List<Exercise>,
+            floorRanking: Boolean = false,
+            armRanking: Boolean = false
+        ): Boolean {
             val fresh = candidates.filter {
                 it.id !in weekUsed ||
                     exercisePreferences[it.id] == ExercisePreference.PREFER
             }
-            return pick(fresh) || pick(candidates)
+            return pick(fresh, floorRanking = floorRanking, armRanking = armRanking) ||
+                pick(candidates, floorRanking = floorRanking, armRanking = armRanking)
         }
 
         // One compound for each major pattern in the focus, chosen by the largest remaining deficit.
         // Prefer a compound not yet used this week; if none remains, repeat an eligible one so the
         // day is not left incomplete (completeness outranks within-week novelty).
+        // A lower or legs day's lunge slot is extra quad work behind the squat, the leg press and the
+        // leg extension, so it is decided after the knee isolation must-haves below and only while a
+        // muscle the lunge mainly trains is still under its paced target: a squat and a leg extension
+        // that already meet the quads leave no lunge to pile more on the glutes. Once chosen it is
+        // placed right after the other compounds, so a day still lists its compounds first.
+        val lungeOnlyGroup = listOf(MovementPattern.LUNGE)
         SplitResolver.compoundGroups(focus).forEach { group ->
-            if (picks.size >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) return@forEach
+            if (group == lungeOnlyGroup) return@forEach
+            if (picks.size >= targetMax) return@forEach
             val eligible = exercises.filter {
                 it.movementPattern in group &&
                     it.id !in used &&
@@ -268,6 +292,7 @@ class DeterministicWorkoutPlannerEngine(
             // chest work and not for a single high triceps weight.
             pick(fresh, slotRanking = true) || pick(eligible, slotRanking = true)
         }
+        val compoundEnd = picks.size
 
         // Pursue unmet direct arm coverage first, then add accessories only while a muscle they
         // mainly train is still under its weekly target, up to TARGET_MAX. There is no forced
@@ -276,6 +301,7 @@ class DeterministicWorkoutPlannerEngine(
         val isolationPool = isolationPatterns(focus)
         var trapSlotTried = false
         var legSlotsTried = false
+        var lungeSlotTried = false
         var mustHaves = 0
 
         // The arm target is paced like the volume targets: this day only owes its share, so the
@@ -285,10 +311,27 @@ class DeterministicWorkoutPlannerEngine(
                 val share = armTargetSets * (pace[muscle] ?: 1.0)
                 (directArmSets[muscle] ?: 0) < kotlin.math.ceil(share - ARM_PACE_TOLERANCE)
             } == true
-        // Two caps: the must-haves (direct arm coverage, the shrug, leg extension and leg curl) may
-        // fill a day up to MUST_HAVE_MAX_PER_DAY, while ordinary deficit-filling accessories stop at
-        // TARGET_MAX_PER_DAY. Must-haves always come first, so they never compete with extras.
-        while (picks.size < PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY) {
+
+        // How far a prime mover is below its weekly floor, paced like the targets so a day owes only
+        // its share. A floor exercise must train a floor muscle mainly (involvement >= MAIN_INVOLVEMENT).
+        fun floorDeficit(exercise: Exercise): Double = exercise.plannerInvolvements()
+            .maxOfOrNull { (muscle, weight) ->
+                if (muscle in WeeklyVolumeTargets.FLOOR_MUSCLES && weight >= MAIN_INVOLVEMENT) {
+                    floorShortfall(muscle, weeklyVolume, target, pace) * weight
+                } else {
+                    0.0
+                }
+            } ?: 0.0
+        // Floors are filled from the focus's isolation work only: a day keeps one compound per
+        // pattern (see neverRepeatsAPatternWithinADay), so a muscle with no isolation path, such as
+        // the upper back, can stay under its floor and is reported rather than forced. Arm isolation
+        // never fills a floor (a dip's chest credit must not stand in for chest work).
+        val floorPatterns = isolationPool
+        // Three caps: the must-haves (direct arm coverage, floor fills, the shrug, leg extension and
+        // leg curl) may fill a day up to the must-have maximum, while ordinary deficit-filling
+        // accessories stop at the target maximum. Must-haves always come first, so they never
+        // compete with extras.
+        while (picks.size < mustHaveMax) {
             val candidates = exercises.filter {
                 it.movementPattern in isolationPool &&
                     it.id !in used
@@ -306,17 +349,37 @@ class DeterministicWorkoutPlannerEngine(
                 }
                 .groupBy({ it.first }, { it.second })
                 .entries.sortedBy { (muscle, _) -> directArmSets[muscle] ?: 0 }
-            if (priorityPools.any { (_, pool) -> pickFreshFirst(pool) }) {
+            if (priorityPools.any { (_, pool) -> pickFreshFirst(pool, armRanking = true) }) {
                 // Dedicated arm coverage takes precedence over the weighted ceiling: compound
                 // credits must not make qualifying direct work ineligible.
                 mustHaves++
                 continue
             }
-            // Traps have no weekly volume target, so no deficit ever selects a shrug. A pull or upper
-            // day gets one right after any unmet direct arm work, so it never displaces a compound or
-            // arm coverage and still comes before the ordinary accessories. A shrug not yet used this
-            // week is preferred; the must-have maximum applies through the loop condition.
-            if (!trapSlotTried && (focus == SplitFocus.PULL || focus == SplitFocus.UPPER)) {
+            // A prime mover still below its paced weekly floor is filled next, after the direct arm
+            // work, so the floors are met before the shrug or any ordinary accessory.
+            val floorPool = exercises.filter {
+                it.movementPattern in floorPatterns &&
+                    it.id !in used &&
+                    DirectArmCoverage.muscleFor(it) == null &&
+                    !isAtMax(it, weeklyVolume, target) &&
+                    floorDeficit(it) > 0.0
+            }
+            if (floorPool.isNotEmpty() && pickFreshFirst(floorPool, floorRanking = true)) {
+                mustHaves++
+                continue
+            }
+            // Traps have no weekly volume target, so no deficit ever selects a shrug. It is optional
+            // work, so only one is planned a week, on the first pull or upper day that still has a
+            // slot once the arms and floors are met. It never displaces a compound, arm coverage or a
+            // floor, and still comes before the ordinary accessories. The must-have maximum applies
+            // through the loop condition.
+            val shrugPlannedThisWeek = exercises.any {
+                it.id in weekUsed && it.movementPattern == MovementPattern.TRAP_ISOLATION
+            }
+            if (!trapSlotTried &&
+                !shrugPlannedThisWeek &&
+                (focus == SplitFocus.PULL || focus == SplitFocus.UPPER)
+            ) {
                 trapSlotTried = true
                 val trapCandidates = exercises.filter {
                     it.movementPattern == MovementPattern.TRAP_ISOLATION && it.id !in used
@@ -334,11 +397,14 @@ class DeterministicWorkoutPlannerEngine(
                 legSlotsTried = true
                 var pickedLegWork = false
                 KNEE_ISOLATION_MUSCLES.forEach { muscle ->
-                    if (picks.size >= PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY) return@forEach
+                    if (picks.size >= mustHaveMax) return@forEach
+                    // The muscle must be the exercise's own target, not a side credit: a glute
+                    // kickback that lists the hamstrings at 0.5 is not knee-flexion work.
                     val pool = candidates.filter {
                         it.movementPattern == MovementPattern.LEG_ISOLATION &&
                             it.id !in used &&
-                            (it.effectiveInvolvements[muscle] ?: 0.0) >= MAIN_INVOLVEMENT
+                            (it.effectiveInvolvements[muscle] ?: 0.0) >=
+                            fatigueConfig.targetedInvolvementCutoff
                     }
                     if (pickFreshFirst(pool)) {
                         pickedLegWork = true
@@ -347,9 +413,28 @@ class DeterministicWorkoutPlannerEngine(
                 }
                 if (pickedLegWork) continue
             }
+            // The deferred lunge, after the leg extension and leg curl have added their quad and
+            // hamstring work.
+            if (!lungeSlotTried && lungeOnlyGroup in SplitResolver.compoundGroups(focus)) {
+                lungeSlotTried = true
+                if (picks.size - mustHaves < targetMax) {
+                    val eligible = exercises.filter {
+                        it.movementPattern in lungeOnlyGroup &&
+                            it.id !in used &&
+                            !isAtMax(it, weeklyVolume, target) &&
+                            hasDeficit(it, weeklyVolume, target, pace)
+                    }
+                    val fresh = eligible.filter { it.id !in weekUsed }
+                    if (pick(fresh, slotRanking = true, insertAt = compoundEnd) ||
+                        pick(eligible, slotRanking = true, insertAt = compoundEnd)
+                    ) {
+                        continue
+                    }
+                }
+            }
             // Compounds and ordinary accessories share the normal daily maximum; must-haves sit
             // outside it, up to the must-have cap the loop condition enforces.
-            if (picks.size - mustHaves >= PlannerExerciseCounts.TARGET_MAX_PER_DAY) break
+            if (picks.size - mustHaves >= targetMax) break
             val remaining = candidates.filter { candidate ->
                 // A deload does not chase the direct-arm target, so an eligible arm isolation is an
                 // ordinary accessory there; only a normal week reserves it for the priority branch.
@@ -389,7 +474,9 @@ class DeterministicWorkoutPlannerEngine(
         target: VolumeTarget,
         exercisePreferences: Map<String, ExercisePreference> = emptyMap(),
         slotRanking: Boolean = false,
-        pace: Map<MuscleGroup, Double> = emptyMap()
+        pace: Map<MuscleGroup, Double> = emptyMap(),
+        floorRanking: Boolean = false,
+        armRanking: Boolean = false
     ): List<Exercise> {
         val comparator = compareBy<Exercise>(
             // Explicit user preference ranks first among candidates that already passed the hard
@@ -398,7 +485,9 @@ class DeterministicWorkoutPlannerEngine(
             // Coverage next: address the largest remaining shortfall, then use the (unvalidated)
             // fatigue estimate only to break ties, so a negligible fatigue difference cannot
             // override a much larger coverage deficit.
-            { -deficitScore(it, weeklyVolume, target, slotRanking, pace) },
+            {
+                -deficitScore(it, weeklyVolume, target, slotRanking, pace, floorRanking, armRanking)
+            },
             // When two lifts fill their muscles' deficit equally, the one that reaches more of them
             // wins, so a press for both chest regions beats one for the lower chest alone.
             { -slotBreadth(it, weeklyVolume, target, slotRanking) },
@@ -446,6 +535,9 @@ class DeterministicWorkoutPlannerEngine(
         // split's arm slots could not otherwise reach the weekly arm target).
         val baseSets = when {
             isCompound -> setsPerExercise
+            // The shrug is optional, once-a-week work, so it never takes a full accessory count.
+            candidate.movementPattern == MovementPattern.TRAP_ISOLATION ->
+                minOf(accessorySetsPerExercise, TRAP_SETS)
             else -> DirectArmCoverage.muscleFor(candidate)?.let { armSetsPerExercise[it] }
                 ?: accessorySetsPerExercise
         }
@@ -667,9 +759,29 @@ class DeterministicWorkoutPlannerEngine(
         weeklyVolume: Map<MuscleGroup, Double>,
         target: VolumeTarget,
         slotRanking: Boolean = false,
-        pace: Map<MuscleGroup, Double> = emptyMap()
+        pace: Map<MuscleGroup, Double> = emptyMap(),
+        floorRanking: Boolean = false,
+        armRanking: Boolean = false
     ): Double {
         val involvements = exercise.plannerInvolvements()
+        if (armRanking) {
+            // A direct arm slot is ranked by its own arm's shortfall, so a dip's lower-chest credit
+            // cannot lift it above a pushdown; equal arm work falls through to the next keys
+            // (freshness, then equipment), which rotates the exercise across the week.
+            val arm = DirectArmCoverage.muscleFor(exercise) ?: return 0.0
+            return shortfall(arm, weeklyVolume, target, pace) * (involvements[arm] ?: 0.0)
+        }
+        if (floorRanking) {
+            // A floor fill is chosen only for the floor shortfall it closes, so a high credit to a
+            // muscle with a larger soft-target deficit (a dip's lower chest) cannot outrank it.
+            return involvements.maxOfOrNull { (muscle, weight) ->
+                if (muscle in WeeklyVolumeTargets.FLOOR_MUSCLES) {
+                    floorShortfall(muscle, weeklyVolume, target, pace) * weight
+                } else {
+                    0.0
+                }
+            } ?: 0.0
+        }
         val primaries = PATTERN_PRIMARY_MUSCLES[exercise.movementPattern]
         if (slotRanking && !primaries.isNullOrEmpty()) {
             // A compound slot is ranked by the mean deficit of the pattern's muscles that the
@@ -715,6 +827,21 @@ class DeterministicWorkoutPlannerEngine(
         val muscleTarget = WeeklyVolumeTargets.forMuscle(target, muscle) ?: return 0.0
         val pacedTarget = muscleTarget.targetSets * (pace[muscle] ?: 1.0)
         return maxOf(0.0, pacedTarget - (weeklyVolume[muscle] ?: 0.0))
+    }
+
+    /**
+     * How far [muscle] is below its weekly floor ([VolumeTarget.minSets]), paced like [shortfall] so
+     * a day owes only its share. Zero for a muscle with no target or already at its floor.
+     */
+    private fun floorShortfall(
+        muscle: MuscleGroup,
+        weeklyVolume: Map<MuscleGroup, Double>,
+        target: VolumeTarget,
+        pace: Map<MuscleGroup, Double> = emptyMap()
+    ): Double {
+        val muscleTarget = WeeklyVolumeTargets.forMuscle(target, muscle) ?: return 0.0
+        val pacedFloor = muscleTarget.minSets * (pace[muscle] ?: 1.0)
+        return maxOf(0.0, pacedFloor - (weeklyVolume[muscle] ?: 0.0))
     }
 
     /**
@@ -823,6 +950,9 @@ class DeterministicWorkoutPlannerEngine(
 
         /** Any user-added equipment is ranked after the built-ins until it has its own preference. */
         const val CUSTOM_EQUIPMENT_RANK = 20
+
+        /** Sets for the weekly shrug, a product default for optional upper-trap work. */
+        private const val TRAP_SETS = 3
 
         /** The involvement at which a muscle counts as one an exercise mainly trains (D1). */
         const val MAIN_INVOLVEMENT = 0.5

@@ -69,6 +69,7 @@ class GroqWorkoutPlannerEngineTest {
         assertEquals("Bearer test-key", authorization)
         assertTrue(requestBody.contains("openai/gpt-oss-120b"))
         assertTrue(requestBody.contains("response_format"))
+        assertTrue(requestBody.contains("\"reasoning_effort\":\"low\""), requestBody.take(200))
     }
 
     @Test
@@ -406,6 +407,73 @@ class GroqWorkoutPlannerEngineTest {
         )
         val failure = assertFailsWith<PlanGenerationException> { engine.generatePlan(request) }
         assertEquals(PlanFailureReason.INVALID_RESPONSE, failure.reason)
+    }
+
+    @Test
+    fun retriesAJsonValidationFailureThenReportsIt() = runTest {
+        var calls = 0
+        val mock = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":"json_validate_failed"}}""",
+                HttpStatusCode.BadRequest,
+                headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engineFor(mock).generatePlan(request)
+        }
+        assertEquals(PlanFailureReason.INVALID_RESPONSE, failure.reason)
+        assertEquals(3, calls)
+    }
+
+    @Test
+    fun aPlanAfterAJsonValidationFailureIsUsed() = runTest {
+        var calls = 0
+        val content = """{"days":[""" + listOf("press", "row", "squat").joinToString(",") {
+            """{"focus":"FULL_BODY","exercises":[{"exerciseId":"$it","sets":3,"reps":8},""" +
+                """{"exerciseId":"curl","sets":2,"reps":10}]}"""
+        } + "]}"
+        val plan = plannerJson.encodeToString(
+            GroqResponse(listOf(GroqChoice(GroqMessage("assistant", content))))
+        )
+        val mock = MockEngine {
+            calls++
+            if (calls == 1) {
+                respond(
+                    """{"error":{"code":"json_validate_failed"}}""",
+                    HttpStatusCode.BadRequest,
+                    headersOf(HttpHeaders.ContentType, "application/json")
+                )
+            } else {
+                respond(
+                    plan,
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json")
+                )
+            }
+        }
+        val result = engineFor(mock).generatePlan(request)
+        assertEquals(3, result.days.size)
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun aPlainBadRequestIsNotRetried() = runTest {
+        var calls = 0
+        val mock = MockEngine {
+            calls++
+            respond(
+                """{"error":{"code":"invalid_request_error"}}""",
+                HttpStatusCode.BadRequest,
+                headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val failure = assertFailsWith<PlanGenerationException> {
+            engineFor(mock).generatePlan(request)
+        }
+        assertEquals(PlanFailureReason.INVALID_REQUEST, failure.reason)
+        assertEquals(1, calls)
     }
 
     private fun exercise(

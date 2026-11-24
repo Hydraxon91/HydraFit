@@ -37,7 +37,11 @@ exercises is left unresolved so the sanitizer drops that slot, instead of the ap
 choosing a catalog row the user did not get.
 
 `PlannerExerciseCounts.kt` owns the distinct prompt/schema targets and looser
-validation floor. Read its values and comments before diagnosing count failures;
+validation floor. The prompt's caps and the schema's `maxItems` follow
+`PlanRequest.sessionLength` (`targetMax`/`mustHaveMax`: 6 and 8 Standard, 9 and 11 Longer).
+`PlannerPromptFragments.weeklyFloorsLine` sends the prime-mover floors and `slotGuidance` the
+squat/hinge/lunge and triceps-variety rules; both are advisory like arm coverage, and the sanitizer
+does not reject a plan that misses a floor. Read its values and comments before diagnosing count failures;
 do not assume the generation target and post-filter floor should be identical.
 
 - Active remote implementation: network `GroqWorkoutPlannerEngine.kt` uses the shared
@@ -56,5 +60,6 @@ do not assume the generation target and post-filter floor should be identical.
   `LOCAL_LLM` stay as readable legacy identities for stored plans and resolve to the deterministic
   engine. The shared prompt and response schema live in network `PlannerPromptBuilder.kt` and
   `PlanSchema.kt`; the shared JSON and HTTP client factory is `PlannerHttpClient.kt`. Groq owns its
-  transport, retries (`MAX_RETRIES = 2`, base delay `1_000` ms, maximum `8_000` ms) and failure
+  transport, retries (`MAX_RETRIES = 2`, base delay `1_000` ms, maximum `8_000` ms; a 400
+  `json_validate_failed` is retried like a transient status) and failure
   mapping.

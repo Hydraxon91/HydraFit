@@ -55,20 +55,38 @@ last tie-break is the exercise id.
    - **Compounds first.** For each compound group of the focus (for example push: horizontal push, then
      vertical push) one exercise is chosen. A compound not yet used this week is preferred; if none remains
      one is repeated, because a complete day outranks novelty. Candidates here are ranked by their own
-     pattern's muscles (see "Ranking").
+     pattern's muscles (see "Ranking"). A lower or legs day has three slots: a squat (barbell squat, leg
+     press, hack squat), a hinge, then a lunge or split squat. The lunge is extra quad work, decided after
+     the leg extension and leg curl below and offered only while a muscle it mainly trains is still under
+     its paced target, so squats and leg presses always lead and a leg extension can replace the lunge.
+     It is listed right after the day's other compounds.
    - **Then isolation and accessories**, with no forced minimum and two caps (`PlannerExerciseCounts`):
      compounds and ordinary deficit-filling accessories share 6 places, and the must-haves below sit
-     outside them, up to 8 exercises in all. Upper days can add a chest fly, since an upper/lower week
-     has no push day.
-     First any unmet **direct arm** work (paced like the volume targets), then (on pull and upper
-     days only) one **shrug**, then (on lower and legs days) one **leg extension** and one **leg curl**
-     when the machines are available, since squats and hinges do not replace knee-extension and
-     knee-flexion work, then the largest remaining volume deficit. An accessory is added only while
-     a muscle it **mainly** trains (involvement 0.5 or more) is under its paced target; a small side share
-     still counts toward the totals but never justifies a slot. So a higher set count reaches the targets
-     with fewer exercises instead of padding every day to the same length. Traps have no weekly target, so
-     a deficit never picks a shrug; this slot does, after arm coverage and within the must-have cap, so a
-     full 4-day upper day (four compounds and two arm exercises) still gets one as its seventh exercise.
+     outside them, up to 8 exercises in all. The **session length** (`SessionLength`, chosen in the
+     split builder and remembered) moves both caps: Standard keeps 6 and 8, Longer allows 9 and 11.
+     Upper days can add a chest fly, since an upper/lower week has no push day.
+     First any unmet **direct arm** work (paced like the volume targets), then any **weekly floor**
+     still open, then (on pull and upper days only) one **shrug** a week, then (on lower and legs
+     days) one **leg extension** and one **leg curl** when the machines are available (the muscle must be
+     the exercise's own target, involvement 0.7 or more, so a glute kickback listing the hamstrings at
+     0.5 never counts as a curl), since squats and
+     hinges do not replace knee-extension and knee-flexion work, then the largest remaining volume
+     deficit. An accessory is added only while a muscle it **mainly** trains (involvement 0.5 or more)
+     is under its paced target; a small side share still counts toward the totals but never justifies a
+     slot. So a higher set count reaches the targets with fewer exercises instead of padding every day to
+     the same length.
+   - **Weekly floors.** The prime movers (upper and lower chest, lats, upper back, quads, hamstrings,
+     glutes, side delts: `WeeklyVolumeTargets.FLOOR_MUSCLES`) have a floor, their `minSets`, paced
+     across the days that train them like the targets. A floor is filled from the focus's isolation
+     work only, ranked by the floor shortfall it closes (`rankCandidates(floorRanking = true)`), so a
+     dip's lower-chest credit cannot stand in for chest work and arm isolation never fills a floor.
+     Biceps and triceps keep their direct-set guarantee instead. A floor that no isolation can reach
+     (the upper back, which only rows train) stays below its floor rather than repeating a compound
+     pattern within a day. Floors scale with a deload like the targets.
+   - **The shrug** is optional: traps have no weekly target, so a deficit never picks one. At most one
+     is planned a week, on the first pull or upper day that still has a slot after the arms and
+     floors, at no more than 3 sets. A full day (four compounds, two arm exercises, two floor fills)
+     leaves no slot for it on a Standard session.
 5. **Per exercise** (`plannedExercise`): sets, reps, load, timed or counted, with an explanation record.
 6. **Output.** A `WeeklyPlan` with the days, the arm-coverage report and a `PlanExplanation` that lists
    deload state and which exercises were skipped for soreness. Nothing is persisted by the engine.
@@ -116,7 +134,9 @@ them low. The target grows with frequency: 4 for two days, 6 for three or four, 
 stays at 4. An arm exercise uses the selected accessory sets, raised only as far as the split needs
 (`setsPerArmExercise`): an upper or full-body day holds one exercise per arm and a push or pull day two, so a
 4-day upper/lower week at 2 accessory sets gets 3 per arm exercise while push/pull/legs keeps 2 and adds
-exercises. A higher selection is never lowered. Compound slots rank patterns by the share of each primary
+exercises. A higher selection is never lowered. The arm slot ranks its candidates by that arm's own
+shortfall, then freshness and equipment, so a dip (which credits the lower chest) does not beat a pushdown
+and the triceps exercise rotates between upper days. Compound slots rank patterns by the share of each primary
 muscle's target still missing, so a hinge is not undervalued for its smaller lower-back target. The arm with fewer direct sets is fed first so neither starves, and arm work beyond the
 target is a last resort so one arm cannot take every accessory slot. Pull isolation also includes rear-delt
 work so a second pull day is not only arm repeats. A deload does not chase the target. The result is
@@ -174,7 +194,15 @@ scaled by 0.7, intensity by 0.8. Skipping or accepting irregularly cannot shift 
 - A 4-day week gives about 8 to 11 weighted chest sets at 3 to 4 sets per exercise (an upper-day fly
   helps); a 2-day week is thin on everything by design.
 - At 4 or more sets per exercise an upper day can reach 8 exercises and over 30 working sets, because
-  four compound patterns, a fly, two arm exercises and a shrug all qualify.
+  four compound patterns, two arm exercises and the floor fills all qualify; Longer sessions go to 11.
+- Forearms have no weekly target, so the planner never selects a wrist exercise; use them from the
+  library. Glutes and hamstrings can sit at two to three times their target because squats, hinges and
+  lunges all credit them and the leg curl is a must-have.
+- A floor can stay unmet. The upper back has no isolation path, a day never repeats a compound pattern,
+  and the slot cap can run out first; the plan is not forced, and the shortfall is not yet shown in
+  the plan explanation or stored with the accepted plan.
+- The catalog gives deadlifts no upper-back credit, which keeps the upper-back total low; changing it
+  is a catalog decision, not a planner one.
 - Obliques and hip flexors keep a small target (they take part in deficit targeting by an earlier
   decision), and only the plank and hanging leg raise mainly train them, so those two can repeat on
   every lower day.

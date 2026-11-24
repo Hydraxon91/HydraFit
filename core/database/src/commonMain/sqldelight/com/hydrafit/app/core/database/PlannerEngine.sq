@@ -12,13 +12,17 @@ CREATE TABLE plannerEngine (
     autoTargetShape TEXT,
     autoTargetMinReps INTEGER,
     autoTargetMaxReps INTEGER,
-    autoTargetRir INTEGER
+    autoTargetRir INTEGER,
+    sessionLength TEXT
 );
 
 selectPlanParameters:
 SELECT setsPerExercise, accessorySetsPerExercise, autoTargetShape, autoTargetMinReps,
-    autoTargetMaxReps, autoTargetRir
+    autoTargetMaxReps, autoTargetRir, sessionLength
 FROM plannerEngine WHERE id = 0;
+
+updateSessionLength:
+UPDATE plannerEngine SET sessionLength = ? WHERE id = 0;
 
 updateSetsPerExercise:
 UPDATE plannerEngine SET setsPerExercise = ? WHERE id = 0;

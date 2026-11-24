@@ -35,11 +35,11 @@ class WeeklyVolumeTargetsTest {
         }
         val quads = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.QUADS)!!.targetSets
         val biceps = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.BICEPS)!!.targetSets
-        val forearms = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.FOREARMS)!!.targetSets
-        assertTrue(quads > biceps && biceps > forearms, "$quads $biceps $forearms")
+        val adductors = WeeklyVolumeTargets.forMuscle(base, MuscleGroup.ADDUCTORS)!!.targetSets
+        assertTrue(quads > biceps && biceps > adductors, "$quads $biceps $adductors")
         MuscleGroup.entries.forEach { muscle ->
             assertEquals(
-                muscle != MuscleGroup.TRAPS,
+                muscle != MuscleGroup.TRAPS && muscle != MuscleGroup.FOREARMS,
                 WeeklyVolumeTargets.sizeFactor(muscle) != null,
                 "muscle=$muscle"
             )

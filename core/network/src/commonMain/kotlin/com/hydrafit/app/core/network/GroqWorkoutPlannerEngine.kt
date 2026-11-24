@@ -64,7 +64,8 @@ class GroqWorkoutPlannerEngine(
                 "json_schema",
                 GroqJsonSchema("weekly_plan", true, schema)
             ),
-            maxCompletionTokens = MAX_COMPLETION_TOKENS
+            maxCompletionTokens = MAX_COMPLETION_TOKENS,
+            reasoningEffort = REASONING_EFFORT
         )
 
         var attempt = 0
@@ -98,8 +99,10 @@ class GroqWorkoutPlannerEngine(
                 status in 500..599 -> PlanFailureReason.SERVICE_UNAVAILABLE
                 else -> PlanFailureReason.INVALID_REQUEST
             }
+            // A failed JSON validation is the model's output, which differs on every sample, so
+            // another request can succeed; the same request after a 4xx otherwise cannot.
             val transient = !dailyQuota &&
-                (status == 408 || status == 429 || status in 500..599)
+                (status == 408 || status == 429 || status in 500..599 || validationFailure)
             if (!transient || attempt >= MAX_RETRIES) {
                 throw failure(reason, "Groq request failed with status $status", transient)
             }
@@ -218,7 +221,14 @@ class GroqWorkoutPlannerEngine(
     private companion object {
         const val BASE_URL = "https://api.groq.com/openai/v1"
         const val MODEL = "openai/gpt-oss-120b"
-        const val MAX_COMPLETION_TOKENS = 3000
+
+        // Groq's free tier counts the prompt (about 2,000 tokens) plus this ceiling against an
+        // 8,000 tokens-per-minute limit, so a higher value is refused before it generates (413).
+        const val MAX_COMPLETION_TOKENS = 4500
+
+        // The model's reasoning shares that ceiling; at the default effort it sometimes used all
+        // of it and returned an empty plan (a 400 json_validate_failed with no generation).
+        const val REASONING_EFFORT = "low"
         const val MAX_RETRIES = 2
         const val BASE_BACKOFF_MILLIS = 1_000L
         const val MAX_BACKOFF_MILLIS = 8_000L

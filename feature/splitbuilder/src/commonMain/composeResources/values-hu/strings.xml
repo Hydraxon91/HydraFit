@@ -8,6 +8,10 @@
     <string name="split_days_label">Napok hetente</string>
     <string name="split_sets_label">Sorozat gyakorlatonként</string>
     <string name="split_accessory_sets_label">Sorozat kiegészítő gyakorlatonként</string>
+    <string name="split_session_length_label">Edzés hossza</string>
+    <string name="split_session_length_standard">Normál</string>
+    <string name="split_session_length_longer">Hosszabb</string>
+    <string name="split_session_length_hint">Naponta legfeljebb %1$d gyakorlat</string>
 
     <string name="split_auto_targets_label">Automatikus célok sorozatonként</string>
     <string name="split_auto_targets_off">Ki</string>
@@ -104,7 +108,7 @@
     <string name="split_muscle_triceps">Tricepsz</string>
     <string name="split_volume_explanation_title">A volumen magyarázata</string>
     <string name="split_volume_deterministic">A beépített tervező számítása alapján.</string>
-    <string name="split_volume_ai">Az MI által készített terv értékelése, nem állítás a modell gondolatmenetéről.</string>
+    <string name="split_volume_ai">Az MI által készített terv kiértékelése. Nem a modell saját indoklása.</string>
     <string name="split_volume_direct_label">%1$s közvetlen izolációs sorozat: %2$d / %3$d</string>
     <string name="split_volume_indirect_label">Becsült egyéb részvétel: %1$s sorozat</string>
     <string name="split_volume_not_enforced">A normál hét közvetlen karedzés-célját a tehermentesítő héten nem érvényesítjük.</string>

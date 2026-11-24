@@ -21,7 +21,8 @@ data class GroqRequest(
     val model: String,
     val messages: List<GroqMessage>,
     @SerialName("response_format") val responseFormat: GroqResponseFormat,
-    @SerialName("max_completion_tokens") val maxCompletionTokens: Int
+    @SerialName("max_completion_tokens") val maxCompletionTokens: Int,
+    @SerialName("reasoning_effort") val reasoningEffort: String? = null
 )
 
 @Serializable

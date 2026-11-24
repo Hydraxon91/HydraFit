@@ -1974,14 +1974,17 @@ class DeterministicWorkoutPlannerEngineTest {
         val plan = engine.plan(request(daysPerWeek = 4, equipment = everything), catalog())
 
         // The second upper day repeats its compounds (no alternative exists) instead of being
-        // accessory-only; the second lower day similarly repeats the hinge.
+        // accessory-only; the second lower day similarly repeats the hinge and the lunge. A lower
+        // day has three compound slots: squat, hinge, then the lunge as extra quad work.
         assertEquals(
             "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
                 "curl:3:10:null];" +
-                "LOWER[back-squat:3:6:null,rdl:3:6:null,calf-raise:2:10:null,plank:2:null:null];" +
+                "LOWER[back-squat:3:6:null,rdl:3:6:null,lunge:3:6:null,calf-raise:2:10:null," +
+                "plank:2:null:null];" +
                 "UPPER[bench-press:3:6:null,ohp:3:6:null,barbell-row:3:6:null,pull-up:3:6:null," +
                 "curl:3:10:null];" +
-                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,calf-raise:2:10:null,plank:2:null:null]",
+                "LOWER[goblet-squat:3:6:null,rdl:3:6:null,lunge:3:6:null,calf-raise:2:10:null," +
+                "plank:2:null:null]",
             render(plan)
         )
     }

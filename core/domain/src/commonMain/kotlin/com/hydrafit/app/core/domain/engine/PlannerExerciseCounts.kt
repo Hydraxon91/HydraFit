@@ -15,4 +15,20 @@ object PlannerExerciseCounts {
     const val TARGET_MIN_PER_DAY = 4
     const val TARGET_MAX_PER_DAY = 6
     const val MUST_HAVE_MAX_PER_DAY = 8
+
+    /** Longer sessions keep the same two-tier shape with a higher ceiling on each tier. */
+    const val LONGER_TARGET_MAX_PER_DAY = 9
+    const val LONGER_MUST_HAVE_MAX_PER_DAY = 11
+
+    /** Ordinary deficit-filling accessories stop here for the chosen [length]. */
+    fun targetMax(length: SessionLength): Int = when (length) {
+        SessionLength.STANDARD -> TARGET_MAX_PER_DAY
+        SessionLength.LONGER -> LONGER_TARGET_MAX_PER_DAY
+    }
+
+    /** Must-haves (direct arm work, weekly floors, the shrug, leg isolation) stop here. */
+    fun mustHaveMax(length: SessionLength): Int = when (length) {
+        SessionLength.STANDARD -> MUST_HAVE_MAX_PER_DAY
+        SessionLength.LONGER -> LONGER_MUST_HAVE_MAX_PER_DAY
+    }
 }

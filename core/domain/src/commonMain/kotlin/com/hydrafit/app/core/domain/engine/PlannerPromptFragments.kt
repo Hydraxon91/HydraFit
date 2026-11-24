@@ -68,13 +68,43 @@ object PlannerPromptFragments {
     }
 
     /** How many exercises a day may hold, and which must-haves may go past the ordinary limit. */
-    fun exerciseCountGuidance(): String =
-        "Give each day up to ${PlannerExerciseCounts.TARGET_MAX_PER_DAY} exercises, and fewer " +
-            "when the set count is high and the weekly targets are already met. Only these " +
-            "must-haves may take a day up to ${PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY}: " +
-            "direct biceps " +
-            "and triceps isolation, one shrug on each PULL or UPPER day, and one leg extension " +
-            "plus one leg curl on each LOWER or LEGS day."
+    fun exerciseCountGuidance(request: PlanRequest): String =
+        "Give each day up to ${PlannerExerciseCounts.targetMax(request.sessionLength)} " +
+            "exercises, and fewer when the set count is high and the weekly targets are " +
+            "already met. Only these must-haves may take a day up to " +
+            "${PlannerExerciseCounts.mustHaveMax(request.sessionLength)}: direct biceps and " +
+            "triceps isolation, an exercise that lifts a muscle still below its weekly floor, " +
+            "at most one shrug in the whole week (on a PULL or UPPER day, only when a slot is " +
+            "left), and one leg extension plus one leg curl on each LOWER or LEGS day."
+
+    /**
+     * The weekly floor of each prime mover, the deterministic planner's minimum before it adds a
+     * shrug or ordinary accessory. Scaled for a deload like the targets.
+     */
+    fun weeklyFloorsLine(request: PlanRequest): String {
+        val base = WeeklyVolumeTargets.forGoal(
+            request.goal,
+            if (request.isDeload) PeriodizationConfig().deloadVolumeScale else 1.0
+        )
+        val floors = WeeklyVolumeTargets.FLOOR_MUSCLES
+            .sortedBy { it.ordinal }
+            .mapNotNull { muscle ->
+                WeeklyVolumeTargets.forMuscle(base, muscle)?.let { target ->
+                    "${muscle.name}=${formatSets(target.minSets)}"
+                }
+            }
+            .joinToString(", ")
+        return "Weekly floor sets for the prime movers (reach at least these before adding " +
+            "shrugs or other accessories, counted the same way as the targets): $floors"
+    }
+
+    /** How the deterministic planner shapes lower days and the triceps slot, in prompt form. */
+    fun slotGuidance(): String =
+        "On each LOWER or LEGS day start with one squat-pattern exercise (squat, leg press or " +
+            "hack squat), then one hinge, then one leg extension and one leg curl: every LOWER " +
+            "or LEGS day gets both, not only the first; add a lunge or split squat only when " +
+            "the quads still need volume after the leg extension. Prefer a pushdown or an " +
+            "extension for the triceps and vary the triceps exercise between days; do not repeat a dip variant."
 
     /**
      * The weekly involvement-weighted set target per muscle the deterministic planner uses, so the

@@ -250,29 +250,27 @@ class SeededPlannerQualityTest {
             .filter { it.movementPattern == MovementPattern.TRAP_ISOLATION }
             .map { it.id }
             .toSet()
-        var shrugDays = 0
+        var shrugWeeks = 0
         for (days in 2..6) {
-            plan(days).days.forEach { day ->
-                val shrugs = day.exercises.count { it.exerciseId in shrugIds }
-                assertTrue(shrugs <= 1, "days=$days day=${day.dayIndex}")
+            val week = plan(days)
+            // The shrug is optional work: at most one a week, never more than three sets.
+            val weekShrugs = week.days.flatMap { it.exercises }.filter { it.exerciseId in shrugIds }
+            assertTrue(weekShrugs.size <= 1, "days=$days shrugs=${weekShrugs.size}")
+            assertTrue(weekShrugs.all { it.sets <= 3 }, "days=$days")
+            if (weekShrugs.isNotEmpty()) shrugWeeks++
+            week.days.forEach { day ->
                 if (day.focus != SplitFocus.PULL && day.focus != SplitFocus.UPPER) {
-                    assertEquals(0, shrugs, "days=$days focus=${day.focus}")
+                    assertEquals(
+                        0,
+                        day.exercises.count { it.exerciseId in shrugIds },
+                        "days=$days focus=${day.focus}"
+                    )
                 }
                 assertTrue(day.exercises.size <= PlannerExerciseCounts.MUST_HAVE_MAX_PER_DAY)
-                shrugDays += shrugs
             }
         }
-        assertTrue(shrugDays > 0, "no pull or upper day was given a shrug")
-        // A must-have may go past the ordinary six, so a full 4-day upper day still fits its shrug.
-        plan(4).days.filter { it.focus == SplitFocus.UPPER }.forEach { day ->
-            assertEquals(
-                1,
-                day.exercises.count {
-                    it.exerciseId in shrugIds
-                },
-                "day=${day.dayIndex}"
-            )
-        }
+        // Floors and arm work come first, so a week may have no slot left; some week still does.
+        assertTrue(shrugWeeks > 0, "no pull or upper day was given a shrug")
     }
 
     @Test

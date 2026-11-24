@@ -32,7 +32,7 @@ class WorkoutSetIndexMigrationTest {
 
         HydraFitDatabase.Schema.migrate(driver, 66, HydraFitDatabase.Schema.version)
 
-        assertEquals(68L, HydraFitDatabase.Schema.version)
+        assertEquals(69L, HydraFitDatabase.Schema.version)
         assertEquals(1L, indexCount("workoutSet_performedAt"))
         assertEquals(1L, indexCount("workoutSet_occurrenceEntryId"))
         assertEquals(

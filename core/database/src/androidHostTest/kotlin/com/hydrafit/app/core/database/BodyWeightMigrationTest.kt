@@ -49,7 +49,7 @@ class BodyWeightMigrationTest {
     fun freshSchemaAlsoCreatesBodyWeightTables() {
         driver = HistoricalDatabaseFixtures.empty()
         HydraFitDatabase.Schema.create(driver)
-        assertEquals(68L, HydraFitDatabase.Schema.version)
+        assertEquals(69L, HydraFitDatabase.Schema.version)
         assertEquals(2L, tableCount())
     }
 
