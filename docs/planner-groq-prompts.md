@@ -19,7 +19,9 @@ almost everything (see "What the app does with the answer").
 | The guard that rewrites and rejects | `core/domain/.../engine/WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt` |
 
 The model is pinned in code: `openai/gpt-oss-120b` on `https://api.groq.com/openai/v1/chat/completions`, with
-`max_completion_tokens` 3000. The key is the user's own, stored in a separate Android Keystore slot. There is
+`max_completion_tokens` 4500. The model's reasoning counts against it, so too low a value truncates the JSON
+(`json_validate_failed`); too high a value fails too, because Groq's free tier counts the prompt (about
+2,000 tokens) plus this ceiling against an 8,000 tokens-per-minute limit and refuses the request with 413. The key is the user's own, stored in a separate Android Keystore slot. There is
 no other prompt in the app: one request per plan generation, nothing else is sent to a model. (Earlier
 Gemini and on-device engines are retired; a saved Gemini or local-model selection now uses the
 deterministic planner.)
@@ -42,7 +44,7 @@ Periodization: week <w> of cycle <c>.
 This is a deload week: use fewer sets and roughly 80% of the normal working weight to allow recovery.   (deload only)
 Choose ONLY exerciseId values from this list: <id, id, ...>
 Give each day up to <6|9> exercises, and fewer when the set count is high and the weekly targets are already met. Only these must-haves may take a day up to <8|11>: direct biceps and triceps isolation, an exercise that lifts a muscle still below its weekly floor, at most one shrug in the whole week (on a PULL or UPPER day, only when a slot is left), and one leg extension plus one leg curl on each LOWER or LEGS day.     (6 and 8 on a Standard session, 9 and 11 on a Longer one)
-On each LOWER or LEGS day start with one squat-pattern exercise (squat, leg press or hack squat), then one hinge; add a lunge or split squat only when the quads still need volume after the leg extension. Prefer a pushdown or an extension for the triceps and vary the triceps exercise between days; do not repeat a dip variant.
+On each LOWER or LEGS day start with one squat-pattern exercise (squat, leg press or hack squat), then one hinge, then one leg extension and one leg curl: every LOWER or LEGS day gets both, not only the first; add a lunge or split squat only when the quads still need volume after the leg extension. Prefer a pushdown or an extension for the triceps and vary the triceps exercise between days; do not repeat a dip variant.
 Follow the focus schedule above exactly; a focus may appear on more than one day. Do not reuse a compound lift across days; isolation exercises may repeat.
 Use <sets> sets for compound lifts and <accessorySets> sets for accessory exercises.
 The goal's rep ranges are <min>-<max> reps for compound exercises and <min>-<max> reps for accessory exercises. The app sets each week's exact reps and any held load by double progression, and the selected set count controls volume; do not trade fewer sets for more reps.
@@ -124,7 +126,8 @@ optional fields become nullable and are listed as required, because strict mode 
 
 ## Failures and retries
 
-A request is retried at most twice, only for a transient cause, with `Retry-After` honoured up to 60 seconds
+A request is retried at most twice, only for a transient cause (a 408, 429 other than a per-day quota, 5xx, or
+a 400 `json_validate_failed`, since the model's output differs on every sample), with `Retry-After` honoured up to 60 seconds
 and otherwise 1 to 8 seconds of jittered exponential backoff. Mapping (`PlanFailureReason`): 429 per-day quota
 is `QUOTA_EXHAUSTED` (not retried), other 429 `RATE_LIMITED`, 401 or 403 `INVALID_API_KEY`, 408 and timeouts
 `TIMEOUT`, no connection `NETWORK`, 400 with `json_validate_failed` `INVALID_RESPONSE`, 5xx

@@ -101,9 +101,10 @@ object PlannerPromptFragments {
     /** How the deterministic planner shapes lower days and the triceps slot, in prompt form. */
     fun slotGuidance(): String =
         "On each LOWER or LEGS day start with one squat-pattern exercise (squat, leg press or " +
-            "hack squat), then one hinge; add a lunge or split squat only when the quads still " +
-            "need volume after the leg extension. Prefer a pushdown or an extension for the " +
-            "triceps and vary the triceps exercise between days; do not repeat a dip variant."
+            "hack squat), then one hinge, then one leg extension and one leg curl: every LOWER " +
+            "or LEGS day gets both, not only the first; add a lunge or split squat only when " +
+            "the quads still need volume after the leg extension. Prefer a pushdown or an " +
+            "extension for the triceps and vary the triceps exercise between days; do not repeat a dip variant."
 
     /**
      * The weekly involvement-weighted set target per muscle the deterministic planner uses, so the

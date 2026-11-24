@@ -119,6 +119,7 @@ class PlannerPromptBuilderTest {
         assertFalse(text.contains("FOREARMS="), text)
         assertTrue(text.contains("at most one shrug in the whole week"), text)
         assertTrue(text.contains("squat-pattern exercise"), text)
+        assertTrue(text.contains("every LOWER or LEGS day gets both"), text)
         assertTrue(text.contains("do not repeat a dip variant"), text)
     }
 
