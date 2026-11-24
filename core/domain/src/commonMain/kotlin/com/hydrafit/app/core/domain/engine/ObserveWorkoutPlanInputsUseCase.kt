@@ -23,7 +23,8 @@ class ObserveWorkoutPlanInputsUseCase(
         accessorySetsPerExercise: Flow<Int?> = flowOf(null),
         refreshRequests: Flow<Unit> = emptyFlow(),
         workoutEpochDays: Flow<List<Long>> = flowOf(emptyList()),
-        automaticSetPrescription: Flow<AutomaticSetPrescription?> = flowOf(null)
+        automaticSetPrescription: Flow<AutomaticSetPrescription?> = flowOf(null),
+        sessionLength: Flow<SessionLength?> = flowOf(null)
     ): Flow<WorkoutPlanInputs> = combine(
         sources.observe().distinctUntilChanged(),
         setsPerExercise.distinctUntilChanged(),
@@ -33,9 +34,10 @@ class ObserveWorkoutPlanInputsUseCase(
         // to an untyped vararg combine.
         combine(
             workoutEpochDays.distinctUntilChanged(),
-            automaticSetPrescription.distinctUntilChanged()
-        ) { dates, automatic -> dates to automatic }
-    ) { current, sets, accessorySets, _, (requestedDates, automatic) ->
+            automaticSetPrescription.distinctUntilChanged(),
+            sessionLength.distinctUntilChanged()
+        ) { dates, automatic, length -> Triple(dates, automatic, length) }
+    ) { current, sets, accessorySets, _, (requestedDates, automatic, length) ->
         val nowMillis = timeProvider.nowMillis()
         val latestPlan = planHistoryRepository.latest()
         val (weekNumber, cycleNumber) = nextPeriodization(latestPlan)
@@ -81,6 +83,7 @@ class ObserveWorkoutPlanInputsUseCase(
                 goal = current.goal,
                 setsPerExercise = sets ?: current.goal.defaultSets,
                 accessorySetsPerExercise = accessorySets ?: current.goal.accessorySets,
+                sessionLength = length ?: SessionLength.DEFAULT,
                 recentExerciseIdsByPattern = recentExerciseIdsByPattern,
                 suggestedWeightsKg = loadInputs.suggestedWeightsKg,
                 recentWeightCaps = loadInputs.recentWeightCaps,

@@ -8,6 +8,10 @@
     <string name="split_days_label">Napok hetente</string>
     <string name="split_sets_label">Sorozat gyakorlatonként</string>
     <string name="split_accessory_sets_label">Sorozat kiegészítő gyakorlatonként</string>
+    <string name="split_session_length_label">Edzés hossza</string>
+    <string name="split_session_length_standard">Normál</string>
+    <string name="split_session_length_longer">Hosszabb</string>
+    <string name="split_session_length_hint">Naponta legfeljebb %1$d gyakorlat</string>
 
     <string name="split_auto_targets_label">Automatikus célok sorozatonként</string>
     <string name="split_auto_targets_off">Ki</string>

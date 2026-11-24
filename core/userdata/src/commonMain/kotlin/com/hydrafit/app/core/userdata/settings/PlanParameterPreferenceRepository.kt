@@ -1,15 +1,18 @@
 package com.hydrafit.app.core.userdata.settings
 
 import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
+import com.hydrafit.app.core.domain.engine.SessionLength
 
 /**
  * The plan parameters the user chose in the split builder, kept between launches. A null value
- * means "not chosen", so the planner keeps using the training goal's default for it.
+ * means "not chosen", so the planner keeps using the training goal's default for it (the standard
+ * session for [sessionLength]).
  */
 data class PlanParameterPreferences(
     val setsPerExercise: Int? = null,
     val accessorySetsPerExercise: Int? = null,
-    val automaticSetPrescription: AutomaticSetPrescription? = null
+    val automaticSetPrescription: AutomaticSetPrescription? = null,
+    val sessionLength: SessionLength? = null
 )
 
 /** Stores [PlanParameterPreferences]. Not part of backups; a restore leaves them unchanged. */
@@ -21,4 +24,6 @@ interface PlanParameterPreferenceRepository {
     suspend fun setAccessorySetsPerExercise(sets: Int?)
 
     suspend fun setAutomaticSetPrescription(prescription: AutomaticSetPrescription?)
+
+    suspend fun setSessionLength(length: SessionLength?)
 }

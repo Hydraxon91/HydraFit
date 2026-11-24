@@ -25,6 +25,7 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.ProgressWeightsUseCase
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SetAcceptedExerciseMeasureUseCase
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SetTarget
@@ -600,6 +601,37 @@ class SplitBuilderViewModelTest {
         viewModel.onAccessorySetsPerExerciseChanged(2)
         advanceUntilIdle()
         assertEquals(PlanParameterPreferences(3, 2, null), saved.current())
+    }
+
+    @Test
+    fun aSavedLongerSessionIsUsedFromTheFirstPlanAndAChangeIsSaved() = runTest(dispatcher) {
+        val saved = FakePlanParameterPreferences(
+            PlanParameterPreferences(sessionLength = SessionLength.LONGER)
+        )
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planParameterPreferences = saved
+        )
+        advanceUntilIdle()
+
+        assertEquals(SessionLength.LONGER, viewModel.state.value.sessionLength)
+
+        viewModel.onSessionLengthChanged(SessionLength.STANDARD)
+        advanceUntilIdle()
+
+        assertEquals(SessionLength.STANDARD, viewModel.state.value.sessionLength)
+        assertEquals(SessionLength.STANDARD, saved.current().sessionLength)
+    }
+
+    @Test
+    fun withNothingSavedTheSessionLengthIsStandard() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL),
+            planParameterPreferences = FakePlanParameterPreferences()
+        )
+        advanceUntilIdle()
+
+        assertEquals(SessionLength.STANDARD, viewModel.state.value.sessionLength)
     }
 
     @Test
@@ -2300,6 +2332,10 @@ class SplitBuilderViewModelTest {
 
         override suspend fun setAutomaticSetPrescription(prescription: AutomaticSetPrescription?) {
             saved = saved.copy(automaticSetPrescription = prescription)
+        }
+
+        override suspend fun setSessionLength(length: SessionLength?) {
+            saved = saved.copy(sessionLength = length)
         }
     }
 

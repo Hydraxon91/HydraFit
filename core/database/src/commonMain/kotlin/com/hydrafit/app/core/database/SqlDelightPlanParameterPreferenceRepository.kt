@@ -2,6 +2,7 @@ package com.hydrafit.app.core.database
 
 import com.hydrafit.app.core.domain.engine.AutomaticSetPrescription
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.userdata.settings.PlanParameterPreferenceRepository
 import com.hydrafit.app.core.userdata.settings.PlanParameterPreferences
@@ -33,8 +34,17 @@ class SqlDelightPlanParameterPreferenceRepository(database: HydraFitDatabase) :
         return PlanParameterPreferences(
             setsPerExercise = row.setsPerExercise?.toInt(),
             accessorySetsPerExercise = row.accessorySetsPerExercise?.toInt(),
-            automaticSetPrescription = automatic
+            automaticSetPrescription = automatic,
+            // A stored value that is no longer a known length is treated as "not chosen".
+            sessionLength = row.sessionLength?.let { stored ->
+                SessionLength.entries.firstOrNull { it.name == stored }
+            }
         )
+    }
+
+    override suspend fun setSessionLength(length: SessionLength?) {
+        queries.insertIgnoreRow(PlannerEngineId.DETERMINISTIC.name)
+        queries.updateSessionLength(length?.name)
     }
 
     override suspend fun setSetsPerExercise(sets: Int?) {

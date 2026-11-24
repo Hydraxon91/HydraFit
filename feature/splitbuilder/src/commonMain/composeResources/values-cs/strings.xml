@@ -8,6 +8,10 @@
     <string name="split_days_label">Dnů v týdnu</string>
     <string name="split_sets_label">Sérií na cvik</string>
     <string name="split_accessory_sets_label">Sérií na doplňkový cvik</string>
+    <string name="split_session_length_label">Délka tréninku</string>
+    <string name="split_session_length_standard">Standardní</string>
+    <string name="split_session_length_longer">Delší</string>
+    <string name="split_session_length_hint">Až %1$d cviků denně</string>
 
     <string name="split_auto_targets_label">Automatické cíle pro každou sérii</string>
     <string name="split_auto_targets_off">Vypnuto</string>

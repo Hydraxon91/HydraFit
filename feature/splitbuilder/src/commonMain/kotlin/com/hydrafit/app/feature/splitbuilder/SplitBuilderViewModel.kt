@@ -17,6 +17,7 @@ import com.hydrafit.app.core.domain.engine.PlanHistoryRepository
 import com.hydrafit.app.core.domain.engine.PlanRequest
 import com.hydrafit.app.core.domain.engine.PlannerEngineId
 import com.hydrafit.app.core.domain.engine.PlannerSupersetPreference
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.VolumeExplanationStatus
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
@@ -84,6 +85,9 @@ class SplitBuilderViewModel(
     private val setsPerExercise = MutableStateFlow<Int?>(null)
     private val accessorySetsPerExercise = MutableStateFlow<Int?>(null)
 
+    /** The chosen session length; null means "not chosen", which plans the standard session. */
+    private val sessionLength = MutableStateFlow<SessionLength?>(null)
+
     /** The confirmed planning dates; empty keeps the undated planning behavior. */
     private val planningDates = MutableStateFlow<List<Long>>(emptyList())
 
@@ -122,6 +126,7 @@ class SplitBuilderViewModel(
             planParameterPreferences?.current()?.let { saved ->
                 setsPerExercise.value = saved.setsPerExercise
                 accessorySetsPerExercise.value = saved.accessorySetsPerExercise
+                sessionLength.value = saved.sessionLength
                 automaticSetPrescription.value = saved.automaticSetPrescription
                 _state.update { it.copy(automaticSetPrescription = saved.automaticSetPrescription) }
             }
@@ -132,7 +137,8 @@ class SplitBuilderViewModel(
                 setsPerExercise = setsPerExercise,
                 accessorySetsPerExercise = accessorySetsPerExercise,
                 workoutEpochDays = planningDates,
-                automaticSetPrescription = automaticSetPrescription
+                automaticSetPrescription = automaticSetPrescription,
+                sessionLength = sessionLength
             ).collect { inputs ->
                 val prior = previous
                 previous = inputs
@@ -142,7 +148,8 @@ class SplitBuilderViewModel(
                 _state.update {
                     it.copy(
                         setsPerExercise = inputs.request.setsPerExercise,
-                        accessorySetsPerExercise = inputs.request.accessorySetsPerExercise
+                        accessorySetsPerExercise = inputs.request.accessorySetsPerExercise,
+                        sessionLength = inputs.request.sessionLength
                     )
                 }
                 val settingsChanged = prior != null &&
@@ -164,6 +171,7 @@ class SplitBuilderViewModel(
                             prior.request.setsPerExercise != inputs.request.setsPerExercise ||
                             prior.request.accessorySetsPerExercise !=
                             inputs.request.accessorySetsPerExercise ||
+                            prior.request.sessionLength != inputs.request.sessionLength ||
                             prior.request.automaticSetPrescription !=
                             inputs.request.automaticSetPrescription
                         )
@@ -235,6 +243,13 @@ class SplitBuilderViewModel(
         viewModelScope.launch {
             planParameterPreferences?.setAccessorySetsPerExercise(setsPerExercise)
         }
+    }
+
+    /** The session length chip; remembered, and the next generation uses its exercise caps. */
+    fun onSessionLengthChanged(length: SessionLength) {
+        sessionLength.value = length
+        _state.update { it.copy(sessionLength = length) }
+        viewModelScope.launch { planParameterPreferences?.setSessionLength(length) }
     }
 
     // --- Curated planner superset pairing ---
@@ -494,7 +509,8 @@ class SplitBuilderViewModel(
         setsPerExercise = setsPerExercise,
         accessorySetsPerExercise = accessorySetsPerExercise,
         workoutEpochDays = planningDates,
-        automaticSetPrescription = automaticSetPrescription
+        automaticSetPrescription = automaticSetPrescription,
+        sessionLength = sessionLength
     ).first()
 
     private fun startGeneration(inputs: WorkoutPlanInputs) {
@@ -1000,6 +1016,7 @@ class SplitBuilderViewModel(
                 daysPerWeek = request.daysPerWeek,
                 setsPerExercise = request.setsPerExercise,
                 accessorySetsPerExercise = request.accessorySetsPerExercise,
+                sessionLength = request.sessionLength,
                 requestedEngine = inputs.requestedEngine,
                 appliedPlanningDates = request.workoutEpochDays,
                 draftDates = null
@@ -1289,6 +1306,7 @@ class SplitBuilderViewModel(
             request.goal,
             request.setsPerExercise,
             request.accessorySetsPerExercise,
+            request.sessionLength,
             request.automaticSetPrescription,
             request.plannerSupersetPreference,
             request.recentExerciseIdsByPattern.entries

@@ -8,6 +8,10 @@
     <string name="split_days_label">Tage pro Woche</string>
     <string name="split_sets_label">Sätze pro Übung</string>
     <string name="split_accessory_sets_label">Sätze pro Zusatzübung</string>
+    <string name="split_session_length_label">Trainingsdauer</string>
+    <string name="split_session_length_standard">Standard</string>
+    <string name="split_session_length_longer">Länger</string>
+    <string name="split_session_length_hint">Bis zu %1$d Übungen pro Tag</string>
 
     <string name="split_auto_targets_label">Automatische Ziele pro Satz</string>
     <string name="split_auto_targets_off">Aus</string>

@@ -1,0 +1,3 @@
+-- The split builder's session length, kept between launches. NULL means "not chosen": the planner
+-- keeps the standard session.
+ALTER TABLE plannerEngine ADD COLUMN sessionLength TEXT;
