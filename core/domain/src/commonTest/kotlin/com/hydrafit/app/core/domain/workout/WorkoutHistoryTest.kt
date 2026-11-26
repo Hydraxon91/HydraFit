@@ -112,6 +112,27 @@ class WorkoutHistoryTest {
     }
 
     @Test
+    fun translatedMatchesAreCarriedByTheCursorAndPartOfItsFilter() {
+        val request =
+            WorkoutHistoryRequest(search = "evezés", searchExerciseIds = setOf("barbell-row"))
+        val page = WorkoutHistoryPage(
+            entries = listOf(entry(WorkoutHistoryKey.Session("s2"), 20L)),
+            hasMore = true
+        )
+        val cursor = page.nextCursor(request)!!
+        assertEquals(setOf("barbell-row"), cursor.searchExerciseIds)
+        request.copy(cursor = cursor)
+        assertFailsWith<IllegalArgumentException> {
+            request.copy(searchExerciseIds = setOf("dumbbell-row"), cursor = cursor)
+        }
+        // Without a search the ids are not bound, so they never filter.
+        assertEquals(
+            emptySet(),
+            WorkoutHistoryRequest(searchExerciseIds = setOf("barbell-row")).boundSearchExerciseIds
+        )
+    }
+
+    @Test
     fun unassignedSetSortKeyStaysNumericallyOrdered() {
         val nine = WorkoutHistoryKey.UnassignedSet(9L).sortKey
         val ten = WorkoutHistoryKey.UnassignedSet(10L).sortKey

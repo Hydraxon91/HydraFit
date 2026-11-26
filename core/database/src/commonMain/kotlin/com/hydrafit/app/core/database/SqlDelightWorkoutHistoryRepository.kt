@@ -29,6 +29,7 @@ class SqlDelightWorkoutHistoryRepository(database: HydraFitDatabase) : WorkoutHi
         queries.selectHistoryEntries(
             hasSearch = flag(request.hasSearch),
             searchPattern = request.searchPattern,
+            searchExerciseIds = request.boundSearchExerciseIds,
             utcOffsetMillis = request.utcOffsetMillis,
             hasDay = flag(request.hasDay),
             dayFrom = request.dayFromBound,

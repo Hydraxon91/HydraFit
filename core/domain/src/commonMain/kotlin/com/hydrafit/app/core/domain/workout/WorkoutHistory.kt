@@ -126,7 +126,8 @@ data class WorkoutHistoryCursor(
     internal val search: String,
     internal val dayFrom: Long?,
     internal val dayTo: Long?,
-    internal val utcOffsetMillis: Long
+    internal val utcOffsetMillis: Long,
+    internal val searchExerciseIds: Set<String> = emptySet()
 )
 
 /**
@@ -143,7 +144,12 @@ data class WorkoutHistoryRequest(
     /** Caller-supplied UTC offset used to derive a local day for sets without a stored day. */
     val utcOffsetMillis: Long = 0L,
     val pageSize: Int = WORKOUT_HISTORY_DEFAULT_PAGE_SIZE,
-    val cursor: WorkoutHistoryCursor? = null
+    val cursor: WorkoutHistoryCursor? = null,
+    /**
+     * Exercises whose name as shown in the user's language matches [search]. Their sets match too,
+     * because the stored names the query searches stay English. Ignored without a search.
+     */
+    val searchExerciseIds: Set<String> = emptySet()
 ) {
     internal val normalizedSearch: String = search.trim()
 
@@ -161,7 +167,8 @@ data class WorkoutHistoryRequest(
                 cursor.search == normalizedSearch &&
                     cursor.dayFrom == dayFrom &&
                     cursor.dayTo == dayTo &&
-                    cursor.utcOffsetMillis == utcOffsetMillis
+                    cursor.utcOffsetMillis == utcOffsetMillis &&
+                    cursor.searchExerciseIds == boundSearchExerciseIds
             ) {
                 "History cursor does not belong to this filter"
             }
@@ -172,6 +179,10 @@ data class WorkoutHistoryRequest(
     // the repository contract rather than UI state, so callers build a request and never set them.
 
     val hasSearch: Boolean get() = normalizedSearch.isNotEmpty()
+
+    /** [searchExerciseIds] while a search is applied, else none. */
+    val boundSearchExerciseIds: Set<String>
+        get() = if (hasSearch) searchExerciseIds else emptySet()
 
     val hasDay: Boolean get() = dayFrom != null || dayTo != null
 
@@ -214,7 +225,8 @@ data class WorkoutHistoryPage(val entries: List<WorkoutHistoryEntry>, val hasMor
             search = request.normalizedSearch,
             dayFrom = request.dayFrom,
             dayTo = request.dayTo,
-            utcOffsetMillis = request.utcOffsetMillis
+            utcOffsetMillis = request.utcOffsetMillis,
+            searchExerciseIds = request.boundSearchExerciseIds
         )
     }
 }

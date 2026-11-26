@@ -175,6 +175,43 @@ class SqlDelightWorkoutHistoryRepositoryTest {
     }
 
     @Test
+    fun searchAlsoMatchesTheTranslatedExerciseIdsInEveryEntryKindAndAcrossPages() = runTest {
+        insertExercise("barbell-row", "Barbell Row")
+        insertExercise("back-squat", "Back Squat")
+        insertSession("s1", startedAt = 100L, localEpochDay = 10L)
+        insertSet("barbell-row", sessionId = "s1", performedAt = 110L)
+        insertSession("s2", startedAt = 200L, localEpochDay = 10L)
+        insertSet("back-squat", sessionId = "s2", performedAt = 210L)
+        insertSet("barbell-row", sessionId = "gone", performedAt = 300L)
+        val unassigned = insertSet("barbell-row", sessionId = null, performedAt = 400L)
+
+        val request = WorkoutHistoryRequest(
+            search = "evezés",
+            searchExerciseIds = setOf("barbell-row"),
+            pageSize = 2
+        )
+        val first = repository.observeEntries(request).first()
+        assertEquals(2, first.entries.size)
+        assertTrue(first.hasMore)
+        val second = repository.observeEntries(
+            request.copy(cursor = first.nextCursor(request))
+        ).first()
+        // Unassigned set, missing session and session, newest first; the squat session never matches.
+        assertEquals(
+            listOf(
+                WorkoutHistoryKey.UnassignedSet(unassigned),
+                WorkoutHistoryKey.Session("gone"),
+                WorkoutHistoryKey.Session("s1")
+            ),
+            (first.entries + second.entries).map { it.key }
+        )
+        // Without the ids the translated text matches nothing.
+        assertTrue(repository.entries(request.copy(searchExerciseIds = emptySet())).isEmpty())
+        // The English search still finds the same sets.
+        assertEquals(3, repository.entries(WorkoutHistoryRequest(search = "row")).size)
+    }
+
+    @Test
     fun exerciseSetupNotesAreNeverSearchedAsHistory() = runTest {
         insertExercise("back-squat", "Back Squat")
         insertSession("s1", startedAt = 100L, localEpochDay = 10L)

@@ -1,6 +1,8 @@
 -- Read-only history projection. No schema is defined here: these queries read workoutSession,
 -- workoutSet, sessionNote and the current exercise catalog only. Exercise names are current catalog
 -- names (current context, not a historical snapshot); exercise setup notes are never searched.
+-- Stored names stay English, so a search also matches the exercises whose translated name matches,
+-- passed in as :searchExerciseIds.
 
 -- One bounded page of history entries, newest first. A session appears once when it has recorded sets
 -- or a session-note row (including an explicit clear); unassigned sets appear individually; a stored
@@ -46,7 +48,10 @@ FROM (
             WHEN EXISTS (
                 SELECT 1 FROM workoutSet w JOIN exercise e ON e.id = w.exerciseId
                 WHERE w.sessionId = s.id
-                  AND e.searchName LIKE :searchPattern ESCAPE '\'
+                  AND (
+                        e.searchName LIKE :searchPattern ESCAPE '\'
+                        OR e.id IN :searchExerciseIds
+                      )
             ) THEN 1
             ELSE 0
         END AS matchesSearch
@@ -73,7 +78,10 @@ FROM (
             WHEN EXISTS (
                 SELECT 1 FROM workoutSet w2 JOIN exercise e ON e.id = w2.exerciseId
                 WHERE w2.sessionId = orphan.sessionId
-                  AND e.searchName LIKE :searchPattern ESCAPE '\'
+                  AND (
+                        e.searchName LIKE :searchPattern ESCAPE '\'
+                        OR e.id IN :searchExerciseIds
+                      )
             ) THEN 1
             ELSE 0
         END AS matchesSearch
@@ -96,7 +104,10 @@ FROM (
             WHEN EXISTS (
                 SELECT 1 FROM exercise e
                 WHERE e.id = w.exerciseId
-                  AND e.searchName LIKE :searchPattern ESCAPE '\'
+                  AND (
+                        e.searchName LIKE :searchPattern ESCAPE '\'
+                        OR e.id IN :searchExerciseIds
+                      )
             ) THEN 1
             ELSE 0
         END AS matchesSearch
