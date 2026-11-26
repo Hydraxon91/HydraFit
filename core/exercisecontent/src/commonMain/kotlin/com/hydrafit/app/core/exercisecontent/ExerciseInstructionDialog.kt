@@ -72,7 +72,8 @@ fun ExerciseInstructionDialog(
                 }
             }
         },
-        title = { Text(exerciseName) },
+        // An exercise without an id is not a built-in, so its name is shown as entered.
+        title = { Text(exerciseId?.let { exerciseDisplayName(it, exerciseName) } ?: exerciseName) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
