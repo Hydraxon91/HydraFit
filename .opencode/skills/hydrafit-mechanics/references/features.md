@@ -897,7 +897,9 @@ History search/listing support (0.7.1-C5) lives in `WorkoutHistoryRepository` (`
 read-only port backed by query-only `WorkoutHistory.sq`; the Logger's history browser (0.7.1-C6) is
 its only consumer and adds the UI, not the policy. Entries are keyed by explicit session id or an
 unassigned set id — never inferred date grouping — and displayed exercise names resolve from the
-current catalog. Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding
+current catalog. Because stored names stay English, the browser also passes the ids whose translated
+name matches the search (`WorkoutHistoryRequest.searchExerciseIds`, 0.15.7, see `docs/architecture.md`
+§1.30); the ids are bound only with a search and are part of the cursor's filter. Search folds Unicode case (`unicodeCaseFold`, Unicode 17.0.0 default full folding
 in `:core/domain`) over the `exercise.searchName`/`sessionNote.searchNote` projections, so non-ASCII
 case variants match while accents still distinguish; the projections are a schema addition
 (`42.sqm`) written by the seeding, custom-exercise, session-note, override-rename and restore paths
@@ -984,7 +986,8 @@ Barbell Bench Press, Conventional Deadlift, Overhead Press and Seated Cable Row.
 from the effective catalog, omitting missing, custom or non-external rows. Search filters only these
 five; the full editor elsewhere is unchanged and records outside the shortlist are never removed.
 Equipment and
-exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings;
+exercise names come from the domain (`Equipment.name`/`Exercise.name`), not the module's strings, with
+built-in exercise names translated for display through `LocalExerciseNames` (`docs/architecture.md` §1.30);
 everything else is an `onboarding_*` resource key. Selection controls use the radio role for single
 choice and checkbox/toggle for multi-select with ~48dp rows; the step content scrolls with the action
 bar pinned and `imePadding()` applied. A device pass at `font_scale 1.3` in dark mode with the app

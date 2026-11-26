@@ -1725,9 +1725,28 @@ a `locales_config.xml` line and the plural forms the language requires.
 Typed failure reasons (storage, import, planner, schedule) carry no text; each screen maps them to a
 localized string and falls back to the English message when a reason is missing. Groq prompts, plan
 reasons and release notes stay English. The storage wipe confirmation word `REMOVE` is not translated
-because `StorageDataViewModel.ALL_DATA_CONFIRMATION` compares against it literally. Built-in exercise
-names stay English; only the instructions, cautions and muscle names in `:core:exercisecontent` are
-translated.
+because `StorageDataViewModel.ALL_DATA_CONFIRMATION` compares against it literally.
+
+Built-in exercise names are translated at display time only (0.15.7). Stored names stay English
+everywhere: the catalog, logged sets, accepted plans and their copies, backups, exports, imports and the
+Groq prompt. `ExerciseNames` (`:core:exercisecontent`) holds the canonical English name of each seeded
+id and its `exercise_name_<id>` resource. A name is translated only while the stored name still equals
+that canonical English name; a renamed built-in, a custom exercise and an unknown id are shown as
+stored, and a rename back to exactly the English name translates again. The shell wraps the app in
+`ProvideExerciseNames`, which reads the 198 names in composition and exposes them as an
+`ExerciseNameTable` through `LocalExerciseNames`; screens call `exerciseDisplayName(id, storedName)` or
+pass the table to UI-state functions. Nothing caches translated names in a view model, because view
+models survive the activity recreation a language change causes. Search matches the shown name and,
+for an untouched built-in, the English name; lists sort by the shown name with `foldForSort`, which
+places accented letters beside their base letters. The Library editor shows the translated name and
+keeps the English name in its state until the field is edited, so saving a muscle-only change stores
+English. History search passes the ids whose shown name matches as
+`WorkoutHistoryRequest.searchExerciseIds`; they are part of the cursor's filter and `WorkoutHistory.sq`
+matches them beside `exercise.searchName`. The demo-video YouTube search and import aliases stay
+English. `ExerciseNameResourcesTest` checks that every canonical id has a name in every language, that
+the English names equal the canonical ones and that no language repeats a name;
+`ExerciseNameSeedCoverageTest` (`core/database`) checks that the canonical names are exactly the seeded
+ones and that no core module or view model can reach the display lookup, so stored data stays English.
 
 `TranslationParityTest` (`shared/src/androidHostTest`) reads every `composeResources` directory and
 fails when a language lacks a file, misses an English key, changes a `%N$x` placeholder, has the wrong

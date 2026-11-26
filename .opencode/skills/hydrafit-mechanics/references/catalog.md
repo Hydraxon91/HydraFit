@@ -169,6 +169,13 @@ whose text is not authored yet — returns null, so the UI shows the explicit un
 than inferred guidance. Instructions are linked by ID only, never by name, so a renamed custom
 exercise cannot inherit seeded text; CAT-02 profile suggestions do not carry instructions either.
 
+Translated built-in names (0.15.7) follow the same rule: `ExerciseNames` maps each seeded id to its
+canonical English name and an `exercise_name_<id>` resource, and a name is translated for display only
+while the stored name still equals that English name. `DefaultExercises` names stay English and are the
+stored identity; when a seeded name changes, `ExerciseNames.canonicalEnglish` and the English resource
+must change with it (`ExerciseNameSeedCoverageTest` and `ExerciseNameResourcesTest`). Details in
+`docs/architecture.md` §1.30.
+
 Content is display-only and read-only: it is never persisted, never included in a backup, shared
 plan or frozen prescription, and may change with an app update. It stays separate from the OF-13
 personal setup notes. Each authored entry records its provenance in

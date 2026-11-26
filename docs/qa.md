@@ -1382,7 +1382,9 @@ existing TalkBack waivers remain unchanged. This is builder verification, not re
   `exercise.searchName`/`sessionNote.searchNote` projections.
   They match case-insensitively for every script while accents still distinguish. A renamed built-in
   is found and shown by the name the rest of the app uses: the projection folds the effective name an
-  override gives it, and the recorded-set rows resolve the same name.
+  override gives it, and the recorded-set rows resolve the same name. Since 0.15.7 a search also
+  matches the exercises whose translated name matches: their ids, taken when the search is applied,
+  travel in `WorkoutHistoryRequest.searchExerciseIds` and are part of the cursor's filter.
   Local-day bounds are inclusive, using each session's stored local day and a caller-supplied offset
   for sets without one. Keyset pages present every entry exactly once and reject a cursor that does
   not belong to the same filter.
@@ -5719,3 +5721,47 @@ the emulator (debug, guided workouts turned on for the check and off again): the
 Push-up and Dips, the More menu, and the Start set to Set completed swap with Log set hidden. Not verified:
 a load-tracked exercise (Calculate loading and Details with lines), a superset pair, a timed exercise's
 timer controls, a completed (collapsed) exercise, a large font or tablet width, and TalkBack.
+
+## 0.15.7 — set sizing and translated exercise names (2026-11-26)
+
+**Planner set sizing** (commit `faa045b8`). From the maintainer's phone data: a day could carry three
+flies beside one curl, and small gaps still added whole exercises. An accessory now gets the sets that
+close its gap (two up to its normal count), and a gap under two sets adds nothing. Leg extension and leg
+curl stay on every lower day, sized by quads and hamstrings; each chest region targets 10 sets (was 12);
+a Longer session from three days targets 12 direct sets per arm. Groq plans keep fixed counts. Automated:
+`PlannerSetSizingTest`, the updated engine tests and `SeededPlannerQualityTest` in the full matrix below.
+`SeededPlannerQualityTest`'s "more sets per exercise never adds exercises" check was loosened: one more
+set can now move a muscle across the two-set edge and add one short accessory (Hypertrophy, five days,
+five to six sets), so the week may grow by one exercise per step but never past its one-set length.
+Known limit: a Longer day can fill before a second chest exercise.
+
+**Translated exercise names.** The 198 built-in names show in German, Czech, Hungarian and Dutch while the
+stored name is still the English one; a renamed built-in or a custom exercise shows its own name. Stored
+data, backups, exports, imports, accepted plans, the Groq prompt and the demo-video search stay English.
+Pickers and lists search both the shown and the English name and sort by the shown name, with accented
+letters beside their base letters; history search also matches the ids whose shown name matches.
+
+Automated (fresh runs, 2026-11-26): the full Tier A matrix (host tests, `verifySqlDelightMigration`,
+`ktlintCheck`, debug build, iOS compiles) passed. After the Dutch fixes and the review corrections,
+re-run with `--rerun-tasks`: `:core:exercisecontent` (43 tests, including `ExerciseNameTableTest` and
+`ExerciseNameResourcesTest`), `:feature:equipment` (109, including a muscle-only edit that stores English
+and still translates, and a rename that wins), `ExerciseNameSeedCoverageTest` (canonical names equal the
+seed; no core module or view model can reach the display lookup), ktlint for those modules and
+`:shared:compileAndroidMain`. History search across entry kinds and pages is covered in
+`SqlDelightWorkoutHistoryRepositoryTest` and `WorkoutHistoryViewModelTest`.
+
+Seen on the emulator (debug build, app language Magyar, restored afterwards): the Train plan card in
+Hungarian (Guggolás rúddal, Fekvenyomás rúddal, Bicepszhajlítás rúddal); the catalog in Hungarian sorted
+with Á beside A; catalog search "fekve" and "bench" both finding the Fekvenyomás rows; in German the plan
+card (Kniebeuge mit Langhantel, Bankdrücken mit Langhantel, Langhantelcurl), the catalog in order and
+"bank" finding the Bankdrücken rows. Equipment labels (for example "Cable machine") stay English; they are
+not exercise names and are a separate follow-up.
+
+Translations: Hungarian and Dutch were spot-checked against DeepL for the first 66 names; Dutch barbell
+names were corrected from "halter" (dumbbell) to "halterstang". German, Czech and the remaining names were
+not cross-checked, and the maintainer reviews the Hungarian list separately. Not verified on a device: the
+exercise editor showing the translation and saving English when untouched (covered by the unit test), the
+history search in Hungarian, onboarding and import mapping, Czech and Dutch on screen, long names at large
+font or tablet width, and TalkBack. Known limits: a history search keeps its results after a language
+change until it is applied again; when a translated name is typed or edited back to exactly the English
+or translated text, the editor treats the field as typed.

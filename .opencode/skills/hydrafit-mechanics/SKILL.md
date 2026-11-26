@@ -62,6 +62,7 @@ Kotlin package roots:
 | AI output validation | Domain `engine/WeeklyPlanJson.kt`, `WeeklyPlanSanitizer.kt`, `PlanVarietyEnforcer.kt` |
 | Catalog edits and seeding | Database `SqlDelightExerciseCatalog.kt`, `ExerciseEncoding.kt`, `DefaultExercises.kt`, `SeedExerciseCatalog.kt` |
 | Offline exercise instructions | `:core:exercisecontent` `ExerciseInstructions.kt`, `ExerciseInstructionDialog.kt` |
+| Translated exercise names (display only) | `:core:exercisecontent` `ExerciseNames.kt`; `docs/architecture.md` §1.30 |
 | Shared screen header and back arrow | `:core:ui` `ScreenHeader.kt` |
 | Workout storage and snapshots | Database `SqlDelightWorkoutLogRepository.kt`; domain `workout/WorkoutSet.kt` |
 | Exercise progress and descriptive records | Domain `workout/{ExerciseProgress,ExerciseProgressCalculator}.kt`; database `SqlDelightExerciseProgressRepository.kt` and `ExerciseProgress.sq`; Planning, Database and Platform references |
