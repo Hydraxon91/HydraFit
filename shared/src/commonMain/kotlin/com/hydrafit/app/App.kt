@@ -65,6 +65,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hydrafit.app.core.domain.startup.StartupReadiness
+import com.hydrafit.app.core.exercisecontent.ProvideExerciseNames
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
 import com.hydrafit.app.core.navigation.LocalCardioNavigator
@@ -138,11 +139,13 @@ fun App(requestedTabName: String? = null, onTabRequestConsumed: () -> Unit = {})
                 isReady -> {
                     // The first-run decision is read once the staged restore has finished, so a
                     // pending setup can be entered before any tab is shown.
-                    OnboardingStartupGate {
-                        AppContent(
-                            requestedTabName = requestedTabName,
-                            onTabRequestConsumed = onTabRequestConsumed
-                        )
+                    ProvideExerciseNames {
+                        OnboardingStartupGate {
+                            AppContent(
+                                requestedTabName = requestedTabName,
+                                onTabRequestConsumed = onTabRequestConsumed
+                            )
+                        }
                     }
                 }
                 hasFailed -> StartupFailureGate(onRetry = readiness::retry)

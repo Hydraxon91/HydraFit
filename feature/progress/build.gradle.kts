@@ -30,6 +30,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:domain"))
             implementation(project(":core:userdata"))
+            implementation(project(":core:exercisecontent"))
             implementation(project(":core:navigation"))
             implementation(project(":core:ui"))
             implementation(libs.koin.core)

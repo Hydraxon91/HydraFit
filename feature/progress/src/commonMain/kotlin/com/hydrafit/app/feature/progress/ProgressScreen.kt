@@ -50,6 +50,8 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.ui.ScreenHeader
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
@@ -360,7 +362,9 @@ private fun SelectedExercise(state: ProgressUiState, onChangeExercise: (() -> Un
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val name = state.selectedExerciseName
+        val name = state.selectedExerciseName?.let { stored ->
+            state.selectedExerciseId?.let { exerciseDisplayName(it, stored) } ?: stored
+        }
         Text(
             text = name ?: stringResource(Res.string.progress_exercise_missing_name),
             style = MaterialTheme.typography.titleLarge,
@@ -392,20 +396,22 @@ private fun ExerciseSearch(
                 .fillMaxWidth()
                 .testTag(ProgressTestTags.EXERCISE_SEARCH)
         )
+        val names = LocalExerciseNames.current
         if (state.exercises.isEmpty()) {
             Text(stringResource(Res.string.progress_exercise_empty))
         } else if (state.exerciseQuery.isNotBlank()) {
             // A search is a flat list across everything, ordered the same way.
-            state.matchingExercises.forEach { option ->
+            state.matchingExercises(names).forEach { option ->
                 ExerciseRow(option, state.weightUnit, onSelected)
             }
         } else {
-            val trained = state.exercises.filter { it.recentSessions > 0 }
-            val earlier = state.exercises.filter {
+            val ordered = state.orderedExercises(names)
+            val trained = ordered.filter { it.recentSessions > 0 }
+            val earlier = ordered.filter {
                 it.recentSessions == 0 &&
                     it.daysSinceLast != null
             }
-            val untouched = state.exercises.filter { it.daysSinceLast == null }
+            val untouched = ordered.filter { it.daysSinceLast == null }
             var showUntouched by rememberSaveable { mutableStateOf(false) }
             if (trained.isNotEmpty()) {
                 SectionLabel(stringResource(Res.string.progress_exercises_most_trained))
@@ -469,7 +475,10 @@ private fun ExerciseRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text(option.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                exerciseDisplayName(option.id, option.name),
+                style = MaterialTheme.typography.bodyLarge
+            )
             val daysAgo = option.daysSinceLast
             if (daysAgo != null) {
                 val lastLogged = lastLoggedText(daysAgo)

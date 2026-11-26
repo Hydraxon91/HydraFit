@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
 import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_change_exercise
@@ -39,6 +40,7 @@ internal fun ExercisePickerScreen(
     onExerciseSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val names = LocalExerciseNames.current
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -59,7 +61,7 @@ internal fun ExercisePickerScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        items(state.visibleExercises, key = { it.id }) { exercise ->
+        items(state.visibleExercises(names), key = { it.id }) { exercise ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,7 +73,7 @@ internal fun ExercisePickerScreen(
                     selected = state.selectedExerciseId == exercise.id,
                     onClick = { onExerciseSelected(exercise.id) }
                 )
-                Text(exercise.name)
+                Text(names.display(exercise.id, exercise.name))
             }
         }
     }

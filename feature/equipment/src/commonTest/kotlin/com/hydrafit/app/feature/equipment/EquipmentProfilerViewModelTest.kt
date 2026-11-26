@@ -10,6 +10,8 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExerciseProfile
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
+import com.hydrafit.app.core.exercisecontent.ExerciseNames
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseException
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseRepository
@@ -66,7 +68,7 @@ class EquipmentProfilerViewModelTest {
             listOf(EquipmentTag.BARBELL, EquipmentTag.DUMBBELL),
             viewModel.state.value.equipment.map { it.id }
         )
-        assertEquals(listOf("Back Squat"), viewModel.state.value.builtInExercises.map { it.name })
+        assertEquals(listOf("Back Squat"), viewModel.state.value.builtInExercises().map { it.name })
         assertFalse(viewModel.state.value.isLoading)
     }
 
@@ -252,6 +254,38 @@ class EquipmentProfilerViewModelTest {
     }
 
     @Test
+    fun aMuscleOnlyEditOfABuiltInStoresEnglishAndStillTranslates() = runTest(dispatcher) {
+        val overrides = FakeExerciseOverrideRepository()
+        val viewModel = viewModel(overrides = overrides)
+        advanceUntilIdle()
+        val names = ExerciseNameTable(mapOf("back-squat" to "Kniebeuge mit Langhantel"))
+
+        viewModel.onEditExercise("back-squat")
+        // The editor shows the translation from this English state; state itself never holds it.
+        assertEquals(
+            ExerciseNames.canonicalEnglish["back-squat"],
+            viewModel.state.value.exerciseEditor.name
+        )
+        viewModel.onEditorMuscleInvolvementChanged(MuscleGroup.CHEST_UPPER, 0.5)
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+
+        val stored = requireNotNull(overrides.overrides["back-squat"])
+        assertEquals(ExerciseNames.canonicalEnglish["back-squat"], stored.name)
+        assertEquals(
+            "Kniebeuge mit Langhantel",
+            names.display("back-squat", requireNotNull(stored.name))
+        )
+
+        viewModel.onEditExercise("back-squat")
+        viewModel.onEditorNameChanged("Low Bar Squat")
+        viewModel.onSaveExercise()
+        advanceUntilIdle()
+        assertEquals("Low Bar Squat", overrides.overrides["back-squat"]?.name)
+        assertEquals("Low Bar Squat", names.display("back-squat", "Low Bar Squat"))
+    }
+
+    @Test
     fun seedsAndSavesTheUnilateralFlag() = runTest(dispatcher) {
         val overrides = FakeExerciseOverrideRepository()
         overrides.update(
@@ -408,9 +442,52 @@ class EquipmentProfilerViewModelTest {
 
         viewModel.onSearchChanged("squat")
 
-        assertTrue(viewModel.state.value.visibleExercises.all { it.name.contains("squat", true) })
+        assertTrue(
+            viewModel.state.value.visibleExercises().all { it.name.contains("squat", true) }
+        )
         viewModel.onSearchChanged("zzz")
-        assertTrue(viewModel.state.value.visibleExercises.isEmpty())
+        assertTrue(viewModel.state.value.visibleExercises().isEmpty())
+    }
+
+    @Test
+    fun theListSearchesAndSortsByTheShownNameAndStillFindsTheEnglishName() {
+        fun exercise(id: String, name: String, isCustom: Boolean = false) = Exercise(
+            id = id,
+            name = name,
+            requiredEquipment = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.LATS),
+            movementPattern = MovementPattern.HORIZONTAL_PULL,
+            isCustom = isCustom
+        )
+        val state = EquipmentProfilerUiState(
+            exercises = listOf(
+                exercise("lateral-raise", "Lateral Raise"),
+                exercise("barbell-row", "Barbell Row"),
+                exercise("dumbbell-row", "My Row"),
+                exercise("custom-1", "Ölrow", isCustom = true)
+            )
+        )
+        val names = ExerciseNameTable(
+            mapOf(
+                "lateral-raise" to "Oldalemelés",
+                "barbell-row" to "Evezés rúddal",
+                "dumbbell-row" to "Evezés kézisúlyzóval"
+            )
+        )
+
+        assertEquals(
+            listOf("barbell-row", "dumbbell-row", "lateral-raise"),
+            state.builtInExercises(names).map { it.id }
+        )
+        assertEquals(listOf("custom-1"), state.customExercises(names).map { it.id })
+        assertEquals(
+            listOf("barbell-row"),
+            state.copy(search = "evezés").visibleExercises(names).map { it.id }
+        )
+        assertEquals(
+            listOf("barbell-row", "dumbbell-row", "custom-1"),
+            state.copy(search = "row").visibleExercises(names).map { it.id }
+        )
     }
 
     @Test
@@ -427,17 +504,17 @@ class EquipmentProfilerViewModelTest {
         viewModel.onSearchChanged("close grip")
         assertEquals(
             listOf("Close-grip Pulldown"),
-            viewModel.state.value.visibleExercises.map { it.name }
+            viewModel.state.value.visibleExercises().map { it.name }
         )
 
         viewModel.onSearchChanged("back-squat")
         assertEquals(
             listOf("Back Squat"),
-            viewModel.state.value.visibleExercises.map { it.name }
+            viewModel.state.value.visibleExercises().map { it.name }
         )
 
         viewModel.onSearchChanged("-")
-        assertEquals(2, viewModel.state.value.visibleExercises.size)
+        assertEquals(2, viewModel.state.value.visibleExercises().size)
     }
 
     @Test

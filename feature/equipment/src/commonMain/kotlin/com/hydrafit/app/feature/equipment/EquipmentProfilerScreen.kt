@@ -57,6 +57,8 @@ import com.hydrafit.app.core.domain.equipment.StationLoadBasis
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.ui.ScreenHeader
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
@@ -477,12 +479,14 @@ fun EquipmentProfilerScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (state.customExercises.isNotEmpty()) {
+                val names = LocalExerciseNames.current
+                val customExercises = state.customExercises(names)
+                if (customExercises.isNotEmpty()) {
                     Text(
                         text = stringResource(Res.string.equipment_custom_section),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    state.customExercises.forEach { exercise ->
+                    customExercises.forEach { exercise ->
                         ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
                     }
                 }
@@ -499,7 +503,7 @@ fun EquipmentProfilerScreen(
                         Text(stringResource(Res.string.equipment_add_exercise))
                     }
                 }
-                state.builtInExercises.forEach { exercise ->
+                state.builtInExercises(names).forEach { exercise ->
                     ExerciseSummaryRow(exercise, onEditExercise, onOpenInstructions)
                 }
             }
@@ -510,9 +514,12 @@ fun EquipmentProfilerScreen(
                         text = stringResource(Res.string.equipment_exclusions_title),
                         style = MaterialTheme.typography.titleMedium
                     )
-                    val names = state.exercises.associate { it.id to it.name }
+                    val stored = state.exercises.associate { it.id to it.name }
+                    val names = LocalExerciseNames.current
                     exclusions
-                        .sortedBy { names[it.exerciseId] ?: it.exerciseId }
+                        .sortedBy {
+                            names.sortKey(it.exerciseId, stored[it.exerciseId] ?: it.exerciseId)
+                        }
                         .forEach { exclusion ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -521,8 +528,10 @@ fun EquipmentProfilerScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = names[exclusion.exerciseId]
-                                            ?: exclusion.exerciseId,
+                                        text = names.display(
+                                            exclusion.exerciseId,
+                                            stored[exclusion.exerciseId] ?: exclusion.exerciseId
+                                        ),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                     Text(
@@ -573,7 +582,7 @@ fun EquipmentProfilerScreen(
                         title = stringResource(Res.string.equipment_remove_record_title),
                         message = stringResource(
                             Res.string.equipment_remove_record_message,
-                            record.exerciseName
+                            exerciseDisplayName(record.exerciseId, record.exerciseName)
                         ),
                         confirmLabel = stringResource(Res.string.equipment_remove_record_confirm),
                         onConfirm = {
@@ -583,7 +592,10 @@ fun EquipmentProfilerScreen(
                         onDismiss = { pendingClearRecord = null }
                     )
                 }
-                state.personalRecords.forEach { record ->
+                val recordNames = LocalExerciseNames.current
+                state.personalRecords.sortedBy {
+                    recordNames.sortKey(it.exerciseId, it.exerciseName)
+                }.forEach { record ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -591,7 +603,7 @@ fun EquipmentProfilerScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = record.exerciseName,
+                                text = recordNames.display(record.exerciseId, record.exerciseName),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
@@ -757,7 +769,7 @@ private fun PersonalRecordDialog(
                     onExpandedChange = { expanded = it }
                 ) {
                     OutlinedTextField(
-                        value = selected?.name.orEmpty(),
+                        value = selected?.let { exerciseDisplayName(it.id, it.name) }.orEmpty(),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text(stringResource(Res.string.equipment_pr_exercise)) },
@@ -772,9 +784,10 @@ private fun PersonalRecordDialog(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
-                        exercises.forEach { exercise ->
+                        val names = LocalExerciseNames.current
+                        exercises.sortedBy { names.sortKey(it.id, it.name) }.forEach { exercise ->
                             DropdownMenuItem(
-                                text = { Text(exercise.name) },
+                                text = { Text(names.display(exercise.id, exercise.name)) },
                                 onClick = {
                                     onExerciseSelected(exercise.id)
                                     expanded = false
@@ -1140,7 +1153,10 @@ private fun ExerciseSummaryRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = exercise.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = exerciseDisplayName(exercise.id, exercise.name),
+                style = MaterialTheme.typography.bodyLarge
+            )
             Text(
                 text = listOf(equipmentSummary(exercise), muscleNames(exercise.primaryMuscles))
                     .filter { it.isNotEmpty() }
@@ -1287,6 +1303,9 @@ private fun ExerciseEditorDialog(
             onDismiss = { confirmReset = false }
         )
     }
+    // A built-in's untouched English name is shown translated; it stays English in the state, so
+    // saving without editing the field keeps the stored name. Any edit replaces it as typed.
+    val shownName = state.exerciseId?.let { exerciseDisplayName(it, state.name) } ?: state.name
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1317,7 +1336,7 @@ private fun ExerciseEditorDialog(
                 if (state.isNew) {
                     stringResource(Res.string.equipment_add_exercise)
                 } else {
-                    state.name
+                    shownName
                 }
             )
         },
@@ -1329,7 +1348,7 @@ private fun ExerciseEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
-                    value = state.name,
+                    value = shownName,
                     onValueChange = onNameChanged,
                     label = { Text(stringResource(Res.string.equipment_name_label)) },
                     singleLine = true

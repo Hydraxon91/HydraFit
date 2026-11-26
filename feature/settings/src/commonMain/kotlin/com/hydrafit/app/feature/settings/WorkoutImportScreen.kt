@@ -34,6 +34,7 @@ import com.hydrafit.app.core.domain.transfer.WorkoutCsvSource
 import com.hydrafit.app.core.domain.transfer.WorkoutImportCommitFailure
 import com.hydrafit.app.core.domain.transfer.WorkoutImportIssue
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
 import hydrafit.feature.settings.generated.resources.Res
 import hydrafit.feature.settings.generated.resources.settings_workout_import_acknowledge_history
 import hydrafit.feature.settings.generated.resources.settings_workout_import_acknowledge_metadata
@@ -439,9 +440,11 @@ private fun MappingEditor(
     onUnknownWarmupChanged: (String, Boolean) -> Unit
 ) {
     var expanded by remember(mapping.exerciseName) { mutableStateOf(false) }
+    // The source name stays as written in the file; only the catalog targets are translated.
+    val names = LocalExerciseNames.current
     val chosenLabel = catalogOptions.firstOrNull {
         it.exerciseId == mapping.chosenExerciseId
-    }?.label
+    }?.let { names.display(it.exerciseId, it.label) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = "${mapping.exerciseName} · " +
@@ -456,12 +459,12 @@ private fun MappingEditor(
                 is MappingState.Suggested ->
                     stringResource(
                         Res.string.settings_workout_import_mapping_suggested,
-                        state.label
+                        names.display(state.exerciseId, state.label)
                     )
 
                 is MappingState.Ambiguous -> stringResource(
                     Res.string.settings_workout_import_mapping_ambiguous,
-                    state.labels.joinToString(", ")
+                    state.candidates.joinToString(", ") { names.display(it.exerciseId, it.label) }
                 )
 
                 MappingState.Unmatched ->
@@ -485,9 +488,11 @@ private fun MappingEditor(
                         }
                     )
                 }
-                catalogOptions.forEach { option ->
+                catalogOptions.sortedBy {
+                    names.sortKey(it.exerciseId, it.label)
+                }.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option.label) },
+                        text = { Text(names.display(option.exerciseId, option.label)) },
                         onClick = {
                             expanded = false
                             onMappingSelected(mapping.exerciseName, option.exerciseId)

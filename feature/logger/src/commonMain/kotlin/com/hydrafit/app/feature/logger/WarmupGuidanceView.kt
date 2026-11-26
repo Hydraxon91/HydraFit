@@ -46,6 +46,7 @@ data class WarmupRampRow(
 
 data class WarmupRampPlanView(
     val occurrenceEntryId: Long,
+    val exerciseId: String,
     val exerciseName: String,
     val rows: List<WarmupRampRow>
 )
@@ -128,6 +129,7 @@ fun buildWarmupGuidanceView(
         } else {
             WarmupRampPlanView(
                 occurrenceEntryId = plan.occurrenceEntryId,
+                exerciseId = plan.exerciseId,
                 exerciseName = plan.exerciseName,
                 rows = rows
             )

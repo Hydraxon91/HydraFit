@@ -24,6 +24,7 @@ import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_force_value
@@ -303,6 +304,7 @@ fun WorkoutHistoryDetailScreen(
                 items(items = noteExerciseIds, key = { "setup-note:$it" }) { exerciseId ->
                     val name = state.sets.firstOrNull { it.exerciseId == exerciseId }
                         ?.exerciseName
+                        ?.let { exerciseDisplayName(exerciseId, it) }
                         ?: stringResource(Res.string.logger_history_exercise_missing)
                     val note = state.exerciseNotes[exerciseId]
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -386,7 +388,7 @@ private fun WorkoutHistorySetRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = set.exerciseName
+                text = set.exerciseName?.let { exerciseDisplayName(set.exerciseId, it) }
                     ?: stringResource(Res.string.logger_history_exercise_missing),
                 style = MaterialTheme.typography.bodyLarge
             )

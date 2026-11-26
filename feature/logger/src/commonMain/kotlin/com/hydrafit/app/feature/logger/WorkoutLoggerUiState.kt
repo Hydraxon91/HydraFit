@@ -9,7 +9,6 @@ import com.hydrafit.app.core.domain.equipment.EquipmentStation
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.StationAttribution
-import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.schedule.ScheduleFailure
 import com.hydrafit.app.core.domain.time.localEpochDay
@@ -30,6 +29,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSession
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
 import com.hydrafit.app.core.exercisecontent.ExerciseCautions
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
@@ -44,7 +44,9 @@ data class ExerciseOption(
     val isBodyweight: Boolean,
     val isUnilateral: Boolean = false,
     val loadCapability: ExerciseLoadCapability = ExerciseLoadCapability.EXTERNAL,
-    val requiredEquipment: Set<EquipmentTag> = emptySet()
+    val requiredEquipment: Set<EquipmentTag> = emptySet(),
+    /** The exercise's place in today's plan; exercises not in it share the last rank. */
+    val todayRank: Int = Int.MAX_VALUE
 ) {
     /** Only an addable bodyweight movement may reveal a field for added kilograms. */
     val canAddLoad: Boolean get() = loadCapability == ExerciseLoadCapability.BODYWEIGHT_ADDABLE
@@ -538,6 +540,7 @@ data class LoggerFailure(val schedule: ScheduleFailure? = null, val detail: Stri
 
 data class MeasureChangeDialog(
     val occurrenceEntryId: Long,
+    val exerciseId: String,
     val exerciseName: String,
     val metric: SetMetric,
     val value: String = "",
@@ -848,6 +851,7 @@ data class WorkoutLoggerUiState(
     /** A transient explanation about a timed confirmation that ended without logging. */
     val setTimerNotice: SetTimerNotice? = null,
     val shortRestCoachingExerciseName: String? = null,
+    val shortRestCoachingExerciseId: String? = null,
     /** Current effective duration in seconds for the active rest timer. */
     val restDurationSeconds: String = "120",
     /** True when the current exercise uses an explicit rest-duration override. */
@@ -1113,13 +1117,15 @@ data class WorkoutLoggerUiState(
     val selectedStationAttribution: StationAttribution?
         get() = selectedStation?.attribution()
 
-    /** Exercises matching the picker search, or all of them when the search is blank. */
-    val visibleExercises: List<ExerciseOption>
-        get() = if (exerciseSearch.isBlank()) {
-            exercises
-        } else {
-            exercises.filter { matchesExerciseNameQuery(it.name, exerciseSearch) }
-        }
+    /**
+     * Exercises matching the picker search in [names]' language, or all of them when the search is
+     * blank: today's plan first, then by shown name.
+     */
+    fun visibleExercises(
+        names: ExerciseNameTable = ExerciseNameTable.Stored
+    ): List<ExerciseOption> = exercises
+        .filter { exerciseSearch.isBlank() || names.matches(it.id, it.name, exerciseSearch) }
+        .sortedWith(compareBy({ it.todayRank }, { names.sortKey(it.id, it.name) }))
 }
 
 /**

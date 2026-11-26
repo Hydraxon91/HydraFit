@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
 import hydrafit.feature.logger.generated.resources.logger_confirm
@@ -95,7 +96,14 @@ internal fun LoggedSetEditDialog(
         // the keyboard. imePadding is the common Compose inset API; it is zero without a keyboard
         // and does not change the fields, guards or dialog labels.
         modifier = Modifier.imePadding(),
-        title = { Text(stringResource(Res.string.logger_edit_set_title, edit.row.exerciseName)) },
+        title = {
+            Text(
+                stringResource(
+                    Res.string.logger_edit_set_title,
+                    exerciseDisplayName(edit.row.exerciseId, edit.row.exerciseName)
+                )
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),

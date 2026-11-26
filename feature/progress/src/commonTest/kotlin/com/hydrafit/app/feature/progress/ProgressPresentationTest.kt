@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 import hydrafit.feature.progress.generated.resources.Res
 import hydrafit.feature.progress.generated.resources.progress_table_duration
 import kotlin.test.Test
@@ -74,14 +75,45 @@ class ProgressPresentationTest {
                 ProgressExerciseOption("bench", "Bench Press")
             )
         )
-        assertEquals(2, state.matchingExercises.size)
+        assertEquals(2, state.matchingExercises().size)
         assertEquals(
             listOf("squat"),
-            state.copy(exerciseQuery = "squat").matchingExercises.map { it.id }
+            state.copy(exerciseQuery = "squat").matchingExercises().map { it.id }
         )
         assertEquals(
             listOf("bench"),
-            state.copy(exerciseQuery = "  PRESS ").matchingExercises.map { it.id }
+            state.copy(exerciseQuery = "  PRESS ").matchingExercises().map { it.id }
+        )
+    }
+
+    @Test
+    fun exercisesOrderTiesAndSearchByTheShownName() {
+        val state = ProgressUiState(
+            utcOffsetMillis = 0L,
+            exercises = listOf(
+                ProgressExerciseOption("lateral-raise", "Lateral Raise"),
+                ProgressExerciseOption("barbell-row", "Barbell Row"),
+                ProgressExerciseOption("back-squat", "Back Squat", recentSessions = 2)
+            )
+        )
+        val names = ExerciseNameTable(
+            mapOf(
+                "lateral-raise" to "Oldalemelés",
+                "barbell-row" to "Evezés rúddal",
+                "back-squat" to "Guggolás rúddal"
+            )
+        )
+        assertEquals(
+            listOf("back-squat", "barbell-row", "lateral-raise"),
+            state.orderedExercises(names).map { it.id }
+        )
+        assertEquals(
+            listOf("back-squat", "barbell-row"),
+            state.copy(exerciseQuery = "rúddal").matchingExercises(names).map { it.id }
+        )
+        assertEquals(
+            listOf("lateral-raise"),
+            state.copy(exerciseQuery = "lateral").matchingExercises(names).map { it.id }
         )
     }
 

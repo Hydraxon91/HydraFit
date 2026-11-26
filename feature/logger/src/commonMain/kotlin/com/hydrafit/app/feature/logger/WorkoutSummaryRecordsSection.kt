@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.ProgressRecordType
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_history_exercise_missing
 import hydrafit.feature.logger.generated.resources.logger_summary_records_empty
@@ -85,7 +86,8 @@ internal fun WorkoutSummaryRecordsSection(
 private fun SummaryRecordLine(row: SummaryRecordRow, unit: WeightUnit) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = row.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            text = row.exerciseName?.let { exerciseDisplayName(row.exerciseId, it) }
+                ?: stringResource(Res.string.logger_history_exercise_missing),
             style = MaterialTheme.typography.bodyLarge
         )
         Text(text = recordMetricText(row, unit), style = MaterialTheme.typography.bodySmall)

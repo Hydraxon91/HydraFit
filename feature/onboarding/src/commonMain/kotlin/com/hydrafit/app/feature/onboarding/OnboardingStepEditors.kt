@@ -32,11 +32,11 @@ import androidx.compose.ui.unit.dp
 import com.hydrafit.app.core.domain.engine.PersonalRecord
 import com.hydrafit.app.core.domain.engine.TrainingGoal
 import com.hydrafit.app.core.domain.equipment.EquipmentTag
-import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.setup.SetupStep
 import com.hydrafit.app.core.domain.setup.SetupStepInput
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
@@ -324,7 +324,10 @@ private fun PersonalRecordsEditor(
     val draft = (state.input as? SetupStepInput.PersonalRecords)?.edits.orEmpty()
     var query by remember { mutableStateOf("") }
     val openEntry = state.personalRecordEntry
-    val matches = state.eligibleExercises.filter { matchesExerciseNameQuery(it.name, query) }
+    val names = LocalExerciseNames.current
+    val matches = state.eligibleExercises
+        .filter { query.isBlank() || names.matches(it.id, it.name, query) }
+        .sortedBy { names.sortKey(it.id, it.name) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -363,7 +366,7 @@ private fun PersonalRecordsEditor(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = exercise.name,
+                        text = names.display(exercise.id, exercise.name),
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f)
                     )

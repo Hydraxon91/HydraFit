@@ -55,7 +55,7 @@ data class RejectedImportRowUi(
 sealed interface MappingState {
     data class Suggested(val exerciseId: String, val label: String) : MappingState
 
-    data class Ambiguous(val labels: List<String>) : MappingState
+    data class Ambiguous(val candidates: List<MappingCandidateUi>) : MappingState
 
     data object Unmatched : MappingState
 }

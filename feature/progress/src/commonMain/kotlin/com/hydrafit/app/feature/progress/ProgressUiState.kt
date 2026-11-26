@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.workout.ProgressRecord
 import com.hydrafit.app.core.domain.workout.ProgressRecordKey
 import com.hydrafit.app.core.domain.workout.StationFilter
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 
 /** The three explicit chart ranges. Only the chart window changes; records and history are all-time. */
 enum class ProgressRange(val days: Int) {
@@ -92,12 +93,24 @@ data class ProgressUiState(
     val selectedExerciseNameMissing: Boolean
         get() = selectedExerciseId != null && selectedExerciseName == null
 
-    val matchingExercises: List<ProgressExerciseOption>
-        get() {
-            val query = exerciseQuery.trim()
-            if (query.isEmpty()) return exercises
-            return exercises.filter { it.name.contains(query, ignoreCase = true) }
-        }
+    /** Most trained first, then the newest log, then the name shown in [names]' language. */
+    fun orderedExercises(
+        names: ExerciseNameTable = ExerciseNameTable.Stored
+    ): List<ProgressExerciseOption> = exercises.sortedWith(
+        compareByDescending<ProgressExerciseOption> { it.recentSessions }
+            .thenBy { it.daysSinceLast ?: Int.MAX_VALUE }
+            .thenBy { names.sortKey(it.id, it.name) }
+    )
+
+    /** [orderedExercises] whose shown or untouched English name matches the search. */
+    fun matchingExercises(
+        names: ExerciseNameTable = ExerciseNameTable.Stored
+    ): List<ProgressExerciseOption> {
+        val query = exerciseQuery.trim()
+        val ordered = orderedExercises(names)
+        if (query.isEmpty()) return ordered
+        return ordered.filter { names.matches(it.id, it.name, query) }
+    }
 
     val hasSelectedExercise: Boolean get() = selectedExerciseId != null
 

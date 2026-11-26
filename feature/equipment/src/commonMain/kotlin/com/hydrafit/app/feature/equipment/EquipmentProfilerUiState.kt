@@ -9,9 +9,9 @@ import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.MovementPattern
 import com.hydrafit.app.core.domain.equipment.MovementPatternGuardrail
 import com.hydrafit.app.core.domain.equipment.StationLoadBasis
-import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.exercisecontent.ExerciseCautions
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.currentPresentationNumberFormat
@@ -245,18 +245,17 @@ data class EquipmentProfilerUiState(
     val canAdd: Boolean
         get() = newEquipmentName.isNotBlank()
 
-    val visibleExercises: List<Exercise>
-        get() = if (search.isBlank()) {
-            exercises
-        } else {
-            exercises.filter { matchesExerciseNameQuery(it.name, search) }
-        }
+    /** Exercises matching the search in [names]' language, or all of them, by shown name. */
+    fun visibleExercises(names: ExerciseNameTable = ExerciseNameTable.Stored): List<Exercise> =
+        exercises
+            .filter { search.isBlank() || names.matches(it.id, it.name, search) }
+            .sortedBy { names.sortKey(it.id, it.name) }
 
-    val builtInExercises: List<Exercise>
-        get() = visibleExercises.filterNot { it.isCustom }
+    fun builtInExercises(names: ExerciseNameTable = ExerciseNameTable.Stored): List<Exercise> =
+        visibleExercises(names).filterNot { it.isCustom }
 
-    val customExercises: List<Exercise>
-        get() = visibleExercises.filter { it.isCustom }
+    fun customExercises(names: ExerciseNameTable = ExerciseNameTable.Stored): List<Exercise> =
+        visibleExercises(names).filter { it.isCustom }
 
     val activeStations: List<EquipmentStation>
         get() = profile?.stations.orEmpty().filterNot { it.retired }

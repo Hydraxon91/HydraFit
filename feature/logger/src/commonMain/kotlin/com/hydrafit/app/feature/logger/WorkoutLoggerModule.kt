@@ -79,7 +79,8 @@ val loggerModule: Module = module {
             exerciseNoteRepository = get(),
             weightUnitRepository = get(),
             distanceUnitRepository = get(),
-            timeProvider = get()
+            timeProvider = get(),
+            exerciseCatalog = get()
         )
     }
 }

@@ -52,7 +52,6 @@ import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SlotProgressionPolicy
 import com.hydrafit.app.core.domain.engine.SlotSetTargets
 import com.hydrafit.app.core.domain.engine.SplitFocus
-import com.hydrafit.app.core.domain.equipment.matchesExerciseNameQuery
 import com.hydrafit.app.core.domain.routine.ClusterPrescription
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
@@ -73,6 +72,8 @@ import com.hydrafit.app.core.domain.transfer.PrescriptionResolution
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.routines.generated.resources.Res
 import hydrafit.feature.routines.generated.resources.focus_full_body
@@ -1113,11 +1114,12 @@ private fun EntryRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            val shownName = exerciseDisplayName(entry.exerciseId, entry.name)
             Text(
                 text = if (isExcluded) {
-                    stringResource(Res.string.routines_entry_excluded, entry.name)
+                    stringResource(Res.string.routines_entry_excluded, shownName)
                 } else {
-                    entry.name
+                    shownName
                 },
                 modifier = Modifier.weight(1f)
             )
@@ -1406,7 +1408,10 @@ private fun ExercisePickerDialog(
     onSelected: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val matches = exercises.filter { matchesExerciseNameQuery(it.name, query) }
+    val names = LocalExerciseNames.current
+    val matches = exercises
+        .filter { query.isBlank() || names.matches(it.id, it.name, query) }
+        .sortedBy { names.sortKey(it.id, it.name) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.routines_picker_title)) },
@@ -1427,14 +1432,15 @@ private fun ExercisePickerDialog(
                 } else {
                     matches.forEach { exercise ->
                         TextButton(onClick = { onSelected(exercise.id, exercise.name) }) {
+                            val shownName = names.display(exercise.id, exercise.name)
                             Text(
                                 if (exercise.isExcluded) {
                                     stringResource(
                                         Res.string.routines_picker_excluded,
-                                        exercise.name
+                                        shownName
                                     )
                                 } else {
-                                    exercise.name
+                                    shownName
                                 }
                             )
                         }
@@ -2301,9 +2307,10 @@ private fun MapTargetButton(
             Text(stringResource(Res.string.routines_prescription_import_choice_map))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            exercises.forEach { exercise ->
+            val names = LocalExerciseNames.current
+            exercises.sortedBy { names.sortKey(it.id, it.name) }.forEach { exercise ->
                 DropdownMenuItem(
-                    text = { Text(exercise.name) },
+                    text = { Text(names.display(exercise.id, exercise.name)) },
                     onClick = {
                         expanded = false
                         onChoiceChanged(

@@ -82,6 +82,7 @@ import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
@@ -796,8 +797,7 @@ fun SplitBuilderScreen(
                     )
                     day.exercises.forEachIndexed { position, exercise ->
                         Column {
-                            val name = state.exerciseNames[exercise.exerciseId]
-                                ?: exercise.exerciseId
+                            val name = state.shownExerciseName(exercise.exerciseId)
                             val weight = exercise.suggestedWeightKg?.let { kg ->
                                 withLoadBasis(
                                     weight = stringResource(
@@ -888,7 +888,7 @@ fun SplitBuilderScreen(
                 ?.exercises
                 ?.getOrNull(state.swapTargetPosition ?: -1)
             val targetName = target
-                ?.let { state.exerciseNames[it.exerciseId] ?: it.exerciseId }
+                ?.let { state.shownExerciseName(it.exerciseId) }
                 .orEmpty()
             SwapCandidateDialog(
                 targetName = targetName,
@@ -905,7 +905,7 @@ fun SplitBuilderScreen(
                 ?.exercises
                 ?.getOrNull(dialog.position)
             val targetName = target
-                ?.let { state.exerciseNames[it.exerciseId] ?: it.exerciseId }
+                ?.let { state.shownExerciseName(it.exerciseId) }
                 .orEmpty()
             MeasureDialog(
                 dialog = dialog,
@@ -1188,7 +1188,7 @@ private fun SwapCandidateDialog(
                             Text(
                                 text = stringResource(
                                     Res.string.split_swap_candidate,
-                                    candidate.name,
+                                    exerciseDisplayName(candidate.exerciseId, candidate.name),
                                     weight
                                 )
                             )
@@ -1873,3 +1873,8 @@ private fun AutomaticSetPrescriptionDialog(
         }
     )
 }
+
+/** A plan exercise's name in the language in use; its id when the catalog no longer has it. */
+@Composable
+private fun SplitBuilderUiState.shownExerciseName(exerciseId: String): String =
+    exerciseDisplayName(exerciseId, exerciseNames[exerciseId] ?: exerciseId)

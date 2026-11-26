@@ -2,6 +2,8 @@ package com.hydrafit.app.feature.logger
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.equipment.Exercise
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.ExerciseNoteRepository
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryCursor
@@ -11,6 +13,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryRequest
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetCursor
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlinx.coroutines.CancellationException
@@ -42,8 +45,15 @@ class WorkoutHistoryViewModel(
     private val exerciseNoteRepository: ExerciseNoteRepository,
     weightUnitRepository: WeightUnitRepository,
     distanceUnitRepository: DistanceUnitRepository,
-    timeProvider: TimeProvider
+    timeProvider: TimeProvider,
+    exerciseCatalog: ExerciseCatalog
 ) : ViewModel() {
+
+    /** Ids and stored names, so a search can also match the names the screen shows. */
+    private var exercises: List<Exercise> = emptyList()
+
+    /** The exercises whose shown name matched the applied search; see [onApplySearch]. */
+    private var searchExerciseIds: Set<String> = emptySet()
 
     private val utcOffsetMillis: Long = timeProvider.utcOffsetMillis()
 
@@ -79,6 +89,9 @@ class WorkoutHistoryViewModel(
             }
         }
         viewModelScope.launch {
+            exerciseCatalog.observeAll().collect { exercises = it }
+        }
+        viewModelScope.launch {
             listQuery.collectLatest { query -> observeFirstListPage(query.request) }
         }
     }
@@ -89,9 +102,19 @@ class WorkoutHistoryViewModel(
         _state.update { it.copy(searchDraft = value) }
     }
 
-    /** Applies the typed search; the draft is kept so the user can keep refining it. */
-    fun onApplySearch() {
-        applyFilter(_state.value.filter.copy(search = _state.value.searchDraft))
+    /**
+     * Applies the typed search; the draft is kept so the user can keep refining it. Stored names stay
+     * English, so the exercises whose name in [names]' language matches are passed along too. They are
+     * found when the search is applied and are not refreshed by a later language change.
+     */
+    fun onApplySearch(names: ExerciseNameTable = ExerciseNameTable.Stored) {
+        val search = _state.value.searchDraft
+        searchExerciseIds = if (search.isBlank()) {
+            emptySet()
+        } else {
+            exercises.filter { names.matches(it.id, it.name, search.trim()) }.map { it.id }.toSet()
+        }
+        applyFilter(_state.value.filter.copy(search = search))
     }
 
     fun onDayFromChanged(epochDay: Long?) {
@@ -104,6 +127,7 @@ class WorkoutHistoryViewModel(
 
     fun onClearFilters() {
         _state.update { it.copy(searchDraft = "") }
+        searchExerciseIds = emptySet()
         applyFilter(WorkoutHistoryFilter())
     }
 
@@ -160,7 +184,8 @@ class WorkoutHistoryViewModel(
                 search = filter.search,
                 dayFrom = filter.dayFrom,
                 dayTo = filter.dayTo,
-                utcOffsetMillis = utcOffsetMillis
+                utcOffsetMillis = utcOffsetMillis,
+                searchExerciseIds = searchExerciseIds
             ),
             token = current.token + 1
         )

@@ -567,7 +567,9 @@ class WorkoutImportViewModel(
                 MappingState.Suggested(match.candidate.catalogId, match.candidate.displayName)
 
             is CatalogProfileMatch.Ambiguous ->
-                MappingState.Ambiguous(match.candidates.map { it.displayName })
+                MappingState.Ambiguous(
+                    match.candidates.map { MappingCandidateUi(it.catalogId, it.displayName) }
+                )
 
             CatalogProfileMatch.Unknown -> MappingState.Unmatched
         }

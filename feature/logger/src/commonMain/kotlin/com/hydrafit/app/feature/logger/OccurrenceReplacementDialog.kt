@@ -14,6 +14,7 @@ import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.unit.formatDistance
 import com.hydrafit.app.core.domain.workout.LoadKind
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
 import hydrafit.feature.logger.generated.resources.logger_replace
@@ -71,6 +72,8 @@ fun OccurrenceReplacementDialog(
                                 requiresDumbbell = EquipmentTag.DUMBBELL in entry.requiredEquipment,
                                 isUnilateral = entry.isUnilateral
                             )
+                            val shownName =
+                                exerciseDisplayName(entry.exerciseId, entry.exerciseName)
                             val weight = loadWeightText(
                                 entry.loadKind,
                                 entry.weightKg,
@@ -89,14 +92,14 @@ fun OccurrenceReplacementDialog(
                                 newtons != null -> pluralStringResource(
                                     Res.plurals.logger_replace_target_force,
                                     entry.sets,
-                                    entry.exerciseName,
+                                    shownName,
                                     entry.sets,
                                     newtons
                                 )
                                 distance != null -> pluralStringResource(
                                     Res.plurals.logger_replace_target_distance,
                                     entry.sets,
-                                    entry.exerciseName,
+                                    shownName,
                                     entry.sets,
                                     distance,
                                     weight
@@ -104,7 +107,7 @@ fun OccurrenceReplacementDialog(
                                 seconds != null -> pluralStringResource(
                                     Res.plurals.logger_replace_target_timed,
                                     entry.sets,
-                                    entry.exerciseName,
+                                    shownName,
                                     entry.sets,
                                     seconds,
                                     weight
@@ -112,7 +115,7 @@ fun OccurrenceReplacementDialog(
                                 else -> pluralStringResource(
                                     Res.plurals.logger_replace_target,
                                     entry.sets,
-                                    entry.exerciseName,
+                                    shownName,
                                     entry.sets,
                                     entry.reps ?: 0,
                                     weight

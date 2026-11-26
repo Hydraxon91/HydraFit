@@ -29,6 +29,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
 import com.hydrafit.app.core.domain.workout.WorkoutSummary
 import com.hydrafit.app.core.domain.workout.WorkoutSummaryExercise
 import com.hydrafit.app.core.domain.workout.WorkoutSummarySet
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_edit_set
 import hydrafit.feature.logger.generated.resources.logger_force_value
@@ -267,7 +268,10 @@ private fun SummaryExerciseSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = exercise.exerciseName, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = exerciseDisplayName(exercise.exerciseId, exercise.exerciseName),
+                style = MaterialTheme.typography.bodyLarge
+            )
             if (exercise.isReplaced) {
                 Text(
                     text = stringResource(Res.string.logger_summary_replaced),
@@ -329,6 +333,8 @@ private fun SummarySetLine(
     distanceUnit: DistanceUnit,
     onEditSet: (WorkoutSummarySet) -> Unit
 ) {
+    val exerciseName = set.exerciseName?.let { exerciseDisplayName(set.exerciseId, it) }
+        ?: stringResource(Res.string.logger_history_exercise_missing)
     val durationSeconds = set.durationSeconds
     val distanceMeters = set.distanceMeters
     val forceNewtons = set.forceNewtons
@@ -336,28 +342,28 @@ private fun SummarySetLine(
     val editDescription = when {
         forceNewtons != null -> stringResource(
             Res.string.logger_summary_edit_set_force_description,
-            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            exerciseName,
             position,
             stringResource(Res.string.logger_force_value, formatWeightForDisplay(forceNewtons))
         )
 
         distanceMeters != null -> stringResource(
             Res.string.logger_summary_edit_set_distance_description,
-            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            exerciseName,
             position,
             formatDistance(distanceMeters, distanceUnit)
         )
 
         durationSeconds != null -> stringResource(
             Res.string.logger_summary_edit_set_duration_description,
-            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            exerciseName,
             position,
             durationSeconds
         )
 
         reps != null -> stringResource(
             Res.string.logger_summary_edit_set_description,
-            set.exerciseName ?: stringResource(Res.string.logger_history_exercise_missing),
+            exerciseName,
             position,
             reps
         )

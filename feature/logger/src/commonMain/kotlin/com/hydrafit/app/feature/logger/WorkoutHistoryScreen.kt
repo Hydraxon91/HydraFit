@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryEntry
 import com.hydrafit.app.core.domain.workout.WorkoutHistoryKey
+import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
 import hydrafit.feature.logger.generated.resources.Res
 import hydrafit.feature.logger.generated.resources.logger_cancel
 import hydrafit.feature.logger.generated.resources.logger_confirm
@@ -76,10 +77,11 @@ fun WorkoutHistoryRoute(
     viewModel: WorkoutHistoryViewModel
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val names = LocalExerciseNames.current
     WorkoutHistoryScreen(
         state = state,
         onSearchDraftChanged = viewModel::onSearchDraftChanged,
-        onApplySearch = viewModel::onApplySearch,
+        onApplySearch = { viewModel.onApplySearch(names) },
         onDayFromChanged = viewModel::onDayFromChanged,
         onDayToChanged = viewModel::onDayToChanged,
         onClearDates = viewModel::onClearDates,

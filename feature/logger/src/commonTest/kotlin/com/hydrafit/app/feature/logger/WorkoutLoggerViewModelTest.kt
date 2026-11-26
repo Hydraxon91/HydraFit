@@ -124,6 +124,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutSet
 import com.hydrafit.app.core.domain.workout.WorkoutSetCorrection
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
 import com.hydrafit.app.core.domain.workout.buildWorkoutSummary
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfile
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileContext
 import com.hydrafit.app.core.userdata.equipment.EquipmentProfileRepository
@@ -315,11 +316,11 @@ class WorkoutLoggerViewModelTest {
         viewModel.onExerciseSearchChanged("bench")
         assertEquals(
             listOf("Bench Press"),
-            viewModel.state.value.visibleExercises.map { it.name }
+            viewModel.state.value.visibleExercises().map { it.name }
         )
 
         viewModel.onExerciseSearchChanged("")
-        assertEquals(all, viewModel.state.value.visibleExercises.size)
+        assertEquals(all, viewModel.state.value.visibleExercises().size)
     }
 
     @Test
@@ -364,14 +365,58 @@ class WorkoutLoggerViewModelTest {
         viewModel.onExerciseSearchChanged("close grip")
         assertEquals(
             listOf("Close-grip Bench Press"),
-            viewModel.state.value.visibleExercises.map { it.name }
+            viewModel.state.value.visibleExercises().map { it.name }
         )
 
         viewModel.onExerciseSearchChanged("-")
-        assertEquals(2, viewModel.state.value.visibleExercises.size)
+        assertEquals(2, viewModel.state.value.visibleExercises().size)
 
         viewModel.onExerciseSearchChanged("squat")
-        assertTrue(viewModel.state.value.visibleExercises.isEmpty())
+        assertTrue(viewModel.state.value.visibleExercises().isEmpty())
+    }
+
+    @Test
+    fun thePickerSearchesAndSortsByTheShownNameAndStillFindsTheEnglishName() {
+        val state = WorkoutLoggerUiState(
+            exercises = listOf(
+                ExerciseOption("barbell-row", "Barbell Row", isBodyweight = false),
+                ExerciseOption("barbell-bench-press", "Barbell Bench Press", isBodyweight = false),
+                ExerciseOption(
+                    "lateral-raise",
+                    "Lateral Raise",
+                    isBodyweight = false,
+                    todayRank = 0
+                ),
+                ExerciseOption("barbell-curl", "My Curl", isBodyweight = false)
+            )
+        )
+        val names = ExerciseNameTable(
+            mapOf(
+                "barbell-row" to "Evezés rúddal",
+                "barbell-bench-press" to "Fekvenyomás rúddal",
+                "lateral-raise" to "Oldalemelés",
+                "barbell-curl" to "Bicepszhajlítás rúddal"
+            )
+        )
+
+        assertEquals(
+            listOf("lateral-raise", "barbell-row", "barbell-bench-press", "barbell-curl"),
+            state.visibleExercises(names).map { it.id }
+        )
+        assertEquals(
+            listOf("barbell-row", "barbell-bench-press"),
+            state.copy(exerciseSearch = "rúddal").visibleExercises(names).map { it.id }
+        )
+        assertEquals(
+            listOf("barbell-bench-press"),
+            state.copy(exerciseSearch = "bench").visibleExercises(names).map { it.id }
+        )
+        // A renamed built-in matches its own name only.
+        assertTrue(state.copy(exerciseSearch = "bicepsz").visibleExercises(names).isEmpty())
+        assertEquals(
+            listOf("barbell-curl"),
+            state.copy(exerciseSearch = "my curl").visibleExercises(names).map { it.id }
+        )
     }
 
     @Test

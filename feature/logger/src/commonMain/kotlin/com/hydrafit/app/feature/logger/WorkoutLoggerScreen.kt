@@ -94,6 +94,7 @@ import com.hydrafit.app.core.domain.workout.GuidedWorkoutProgress
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.domain.workout.NOTE_MAX_LENGTH
 import com.hydrafit.app.core.domain.workout.WarmupAction
+import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.navigation.FeatureDestination
 import com.hydrafit.app.core.navigation.LocalAppTabNavigator
@@ -545,7 +546,14 @@ fun WorkoutLoggerRoute(
     state.clusterLog?.let { edit ->
         AlertDialog(
             onDismissRequest = viewModel::closeClusterLog,
-            title = { Text(stringResource(Res.string.logger_cluster_log_open, edit.draft.name)) },
+            title = {
+                Text(
+                    stringResource(
+                        Res.string.logger_cluster_log_open,
+                        exerciseDisplayName(edit.draft.exerciseId, edit.draft.name)
+                    )
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -1087,7 +1095,12 @@ fun WorkoutLoggerScreen(
             onDismissRequest = { pendingDeleteSetId = null },
             title = { Text(stringResource(Res.string.logger_delete_set_title)) },
             text = {
-                Text(stringResource(Res.string.logger_delete_set_message, row.exerciseName))
+                Text(
+                    stringResource(
+                        Res.string.logger_delete_set_message,
+                        exerciseDisplayName(row.exerciseId, row.exerciseName)
+                    )
+                )
             },
             confirmButton = {
                 TextButton(
@@ -1216,7 +1229,12 @@ fun WorkoutLoggerScreen(
                             TextButton(onClick = {
                                 onOpenClusterLog(draft)
                             }, enabled = !state.draftWriteInProgress) {
-                                Text(stringResource(Res.string.logger_cluster_log_open, draft.name))
+                                Text(
+                                    stringResource(
+                                        Res.string.logger_cluster_log_open,
+                                        exerciseDisplayName(draft.exerciseId, draft.name)
+                                    )
+                                )
                             }
                         }
                     }
@@ -1428,7 +1446,7 @@ fun WorkoutLoggerScreen(
                             SelectedExerciseRow(
                                 selectedName = state.exercises
                                     .firstOrNull { it.id == state.selectedExerciseId }
-                                    ?.name
+                                    ?.let { exerciseDisplayName(it.id, it.name) }
                                     ?: state.selectedExerciseId,
                                 onClick = onOpenExercisePicker
                             )
@@ -1849,8 +1867,12 @@ fun WorkoutLoggerScreen(
                         (!state.hasActiveWorkout || state.showsTrainingStage)
                     ) {
                         if (state.isGuidedActive) {
-                            state.shortRestCoachingExerciseName?.let { name ->
+                            state.shortRestCoachingExerciseName?.let { storedName ->
                                 item {
+                                    val name = exerciseDisplayName(
+                                        state.shortRestCoachingExerciseId.orEmpty(),
+                                        storedName
+                                    )
                                     Column {
                                         Text(
                                             stringResource(
@@ -2003,13 +2025,14 @@ fun WorkoutLoggerScreen(
                                     state.exerciseLoadBasis[draft.exerciseId]
                                 )
                                 var expanded by remember(draft) { mutableStateOf(false) }
+                                val draftName = exerciseDisplayName(draft.exerciseId, draft.name)
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Column(modifier = Modifier.fillMaxWidth()) {
                                         Text(
                                             text = when {
                                                 draft.forceNewtons != null -> stringResource(
                                                     Res.string.logger_draft_force_line,
-                                                    draft.name,
+                                                    draftName,
                                                     draft.sets,
                                                     stringResource(
                                                         Res.string.logger_force_value,
@@ -2021,7 +2044,7 @@ fun WorkoutLoggerScreen(
 
                                                 draft.distanceMeters != null -> stringResource(
                                                     Res.string.logger_draft_distance_line,
-                                                    draft.name,
+                                                    draftName,
                                                     draft.sets,
                                                     formatDistance(
                                                         draft.distanceMeters,
@@ -2032,14 +2055,14 @@ fun WorkoutLoggerScreen(
 
                                                 draft.durationSeconds != null -> stringResource(
                                                     Res.string.logger_draft_timed_line,
-                                                    draft.name,
+                                                    draftName,
                                                     draft.sets,
                                                     draft.durationSeconds,
                                                     weight
                                                 )
 
                                                 else -> {
-                                                    "${draft.name}  ${draft.sets} x ${draft.reps} · ~$weight"
+                                                    "$draftName  ${draft.sets} x ${draft.reps} · ~$weight"
                                                 }
                                             },
                                             style = MaterialTheme.typography.titleSmall,
@@ -2146,7 +2169,7 @@ fun WorkoutLoggerScreen(
                                                 if (entryId != null) {
                                                     val applyFor = stringResource(
                                                         Res.string.logger_progression_apply_for,
-                                                        draft.name
+                                                        draftName
                                                     )
                                                     TextButton(
                                                         onClick = {
@@ -2433,8 +2456,9 @@ fun WorkoutLoggerScreen(
 
                                     else -> weight
                                 }
-                                val line = "${row.exerciseName}  " +
-                                    "$measurement$warmupSuffix$weekDay$clusterSuffix"
+                                val line =
+                                    "${exerciseDisplayName(row.exerciseId, row.exerciseName)}  " +
+                                        "$measurement$warmupSuffix$weekDay$clusterSuffix"
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.clickable(role = Role.Button) {
@@ -2631,7 +2655,7 @@ fun WorkoutLoggerScreen(
                 Text(
                     stringResource(
                         Res.string.logger_measure_change_for,
-                        dialog.exerciseName
+                        exerciseDisplayName(dialog.exerciseId, dialog.exerciseName)
                     )
                 )
             },
@@ -2719,7 +2743,13 @@ fun WorkoutLoggerScreen(
             onDismissRequest = onDismissLegacyResolution,
             title = { Text(stringResource(Res.string.logger_load_confirm_title)) },
             text = {
-                Text(stringResource(Res.string.logger_load_confirm_body, draft.name, recorded))
+                Text(
+                    stringResource(
+                        Res.string.logger_load_confirm_body,
+                        exerciseDisplayName(draft.exerciseId, draft.name),
+                        recorded
+                    )
+                )
             },
             confirmButton = {
                 if (resolution.current.canBeExternal) {
@@ -2800,7 +2830,14 @@ fun WorkoutLoggerScreen(
         AlertDialog(
             onDismissRequest = onCancelMissingLoadPrompt,
             title = { Text(stringResource(Res.string.logger_draft_load_prompt_title)) },
-            text = { Text(stringResource(Res.string.logger_draft_load_prompt_body, draft.name)) },
+            text = {
+                Text(
+                    stringResource(
+                        Res.string.logger_draft_load_prompt_body,
+                        exerciseDisplayName(draft.exerciseId, draft.name)
+                    )
+                )
+            },
             confirmButton = {
                 TextButton(onClick = onUseLastLoggedLoad) {
                     Text(stringResource(Res.string.logger_draft_load_use_last))
@@ -2911,7 +2948,7 @@ private fun DraftEditDialog(
                     } else {
                         Res.string.logger_draft_edit_title
                     },
-                    edit.draft.name
+                    exerciseDisplayName(edit.draft.exerciseId, edit.draft.name)
                 )
             )
         },
@@ -3742,7 +3779,7 @@ private fun WorkoutOverviewSection(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = draft.name,
+                            text = exerciseDisplayName(draft.exerciseId, draft.name),
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.clickable(
                                 onClickLabel = instructionsLabel,
@@ -3957,7 +3994,7 @@ private fun WarmupGuidanceSection(
                 )
                 view.ramps.forEach { plan ->
                     Column {
-                        Text(plan.exerciseName)
+                        Text(exerciseDisplayName(plan.exerciseId, plan.exerciseName))
                         plan.rows.forEach { row ->
                             val entryId = plan.occurrenceEntryId
                             val rampIndex = row.key.rampIndex
@@ -4374,7 +4411,7 @@ private fun GuidedWorkoutSection(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = exercise.exerciseName,
+                            text = exerciseDisplayName(exercise.exerciseId, exercise.exerciseName),
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier
                                 .weight(1f)
@@ -4618,7 +4655,10 @@ private fun GuidedWorkoutSection(
                                 }
                             }
                             GuidedMoreMenu(
-                                exerciseName = exercise.exerciseName,
+                                exerciseName = exerciseDisplayName(
+                                    exercise.exerciseId,
+                                    exercise.exerciseName
+                                ),
                                 entryId = entryId,
                                 writeInProgress = writeInProgress,
                                 // A slot that already holds recorded work, or the slot currently

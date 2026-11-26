@@ -1,5 +1,9 @@
 package com.hydrafit.app.feature.logger
 
+import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.equipment.MovementPattern
+import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
@@ -15,6 +19,7 @@ import com.hydrafit.app.core.domain.workout.WorkoutHistorySet
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetPage
 import com.hydrafit.app.core.domain.workout.WorkoutHistorySetRequest
 import com.hydrafit.app.core.domain.workout.WorkoutTimingProvenance
+import com.hydrafit.app.core.exercisecontent.ExerciseNameTable
 import com.hydrafit.app.core.userdata.settings.DistanceUnitRepository
 import com.hydrafit.app.core.userdata.settings.WeightUnitRepository
 import kotlin.test.AfterTest
@@ -100,6 +105,42 @@ class WorkoutHistoryViewModelTest {
             listOf<WorkoutHistoryKey>(WorkoutHistoryKey.Session("s34")),
             viewModel.keys()
         )
+    }
+
+    @Test
+    fun aSearchPassesTheExercisesWhoseShownNameMatches() = runTest(dispatcher) {
+        val repository = FakeWorkoutHistoryRepository(thirtyFiveSessions())
+        val catalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = listOf(
+                exercise("barbell-row", "Barbell Row"),
+                exercise("dumbbell-row", "My Row"),
+                exercise("lateral-raise", "Lateral Raise")
+            )
+        }
+        val names = ExerciseNameTable(
+            mapOf("barbell-row" to "Evezés rúddal", "dumbbell-row" to "Evezés kézisúlyzóval")
+        )
+        val viewModel = viewModel(repository, catalog = catalog)
+        advanceUntilIdle()
+
+        viewModel.onSearchDraftChanged("evezés")
+        viewModel.onApplySearch(names)
+        advanceUntilIdle()
+        // The renamed built-in shows its own name, so its translation does not match.
+        assertEquals(setOf("barbell-row"), repository.entryRequests.last().searchExerciseIds)
+
+        viewModel.onSearchDraftChanged("row")
+        viewModel.onApplySearch(names)
+        advanceUntilIdle()
+        // The English name of an untouched built-in and a renamed one's own name still match.
+        assertEquals(
+            setOf("barbell-row", "dumbbell-row"),
+            repository.entryRequests.last().searchExerciseIds
+        )
+
+        viewModel.onClearFilters()
+        advanceUntilIdle()
+        assertEquals(emptySet(), repository.entryRequests.last().searchExerciseIds)
     }
 
     @Test
@@ -522,13 +563,25 @@ class WorkoutHistoryViewModelTest {
     private fun viewModel(
         repository: FakeWorkoutHistoryRepository,
         notes: FakeExerciseNoteRepository = FakeExerciseNoteRepository(),
-        unit: WeightUnit = WeightUnit.KG
+        unit: WeightUnit = WeightUnit.KG,
+        catalog: ExerciseCatalog = object : ExerciseCatalog {
+            override suspend fun all(): List<Exercise> = emptyList()
+        }
     ) = WorkoutHistoryViewModel(
         historyRepository = repository,
         exerciseNoteRepository = notes,
         weightUnitRepository = FakeWeightUnitRepository(unit),
         distanceUnitRepository = FakeDistanceUnitRepository(),
-        timeProvider = TimeProvider { 0L }
+        timeProvider = TimeProvider { 0L },
+        exerciseCatalog = catalog
+    )
+
+    private fun exercise(id: String, name: String) = Exercise(
+        id = id,
+        name = name,
+        requiredEquipment = emptySet(),
+        primaryMuscles = setOf(MuscleGroup.LATS),
+        movementPattern = MovementPattern.HORIZONTAL_PULL
     )
 
     private fun session(id: String, timestampMillis: Long = 1_000L) = WorkoutHistoryEntry(

@@ -2949,6 +2949,7 @@ class WorkoutLoggerViewModel(
             it.copy(
                 measureChange = MeasureChangeDialog(
                     occurrenceEntryId = entryId,
+                    exerciseId = entry.exerciseId,
                     exerciseName = entry.exerciseName,
                     metric = entry.measureMetric(),
                     value = entry.measureInput(),
@@ -3348,10 +3349,11 @@ class WorkoutLoggerViewModel(
                     isBodyweight = it.loadCapability != ExerciseLoadCapability.EXTERNAL,
                     isUnilateral = it.isUnilateral,
                     loadCapability = it.loadCapability,
-                    requiredEquipment = it.requiredEquipment
+                    requiredEquipment = it.requiredEquipment,
+                    todayRank = priority[it.id] ?: Int.MAX_VALUE
                 )
             }
-            .sortedWith(compareBy({ priority[it.id] ?: Int.MAX_VALUE }, { it.name }))
+            .sortedWith(compareBy({ it.todayRank }, { it.name }))
     }
 
     /** Refreshes today's context: the active block's occurrence when one is active, else the plan. */
@@ -4442,7 +4444,12 @@ class WorkoutLoggerViewModel(
                 startedAtElapsedMillis = elapsedNow
             )
         ) {
-            _state.update { it.copy(shortRestCoachingExerciseName = draft.name) }
+            _state.update {
+                it.copy(
+                    shortRestCoachingExerciseName = draft.name,
+                    shortRestCoachingExerciseId = draft.exerciseId
+                )
+            }
         }
         // Starting work supersedes the previous completion's rest prompt: cancel its running countdown
         // and persisted row so the alert coordinator cancels the alarm. Coaching evidence is kept, and
@@ -4734,7 +4741,9 @@ class WorkoutLoggerViewModel(
     }
 
     fun dismissShortRestCoaching() {
-        _state.update { it.copy(shortRestCoachingExerciseName = null) }
+        _state.update {
+            it.copy(shortRestCoachingExerciseName = null, shortRestCoachingExerciseId = null)
+        }
     }
 
     private fun resetShortRestCoaching() {
