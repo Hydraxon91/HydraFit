@@ -30,14 +30,24 @@ object DirectArmCoverage {
      * The weekly direct isolation sets targeted for each of biceps and triceps. It grows with training
      * frequency, since more days leave more accessory slots: [BASE_TARGET_SETS_PER_MUSCLE] for one or
      * two days, 6 for three or four, and 8 for five or six. Endurance keeps the base target at any
-     * frequency because its volume is deliberately lighter. Both arms share one number so neither
-     * is favoured.
+     * frequency because its volume is deliberately lighter. A [SessionLength.LONGER] session from
+     * three days up targets [LONGER_TARGET_SETS_PER_MUSCLE]: the extra exercise places go to a second
+     * arm exercise before regional chest and delt extras. Both arms share one number so neither is
+     * favoured.
      */
-    fun targetSetsPerMuscle(daysPerWeek: Int, goal: TrainingGoal): Int = when {
+    fun targetSetsPerMuscle(
+        daysPerWeek: Int,
+        goal: TrainingGoal,
+        sessionLength: SessionLength = SessionLength.DEFAULT
+    ): Int = when {
         goal == TrainingGoal.ENDURANCE || daysPerWeek <= 2 -> BASE_TARGET_SETS_PER_MUSCLE
+        sessionLength == SessionLength.LONGER -> LONGER_TARGET_SETS_PER_MUSCLE
         daysPerWeek <= 4 -> 6
         else -> 8
     }
+
+    /** The weekly direct-set target of a Longer session from three days up. */
+    const val LONGER_TARGET_SETS_PER_MUSCLE = 12
 
     /**
      * Sets for one direct arm exercise: the selected accessory count, raised only as far as the split
@@ -45,22 +55,26 @@ object DirectArmCoverage {
      * both arms, so they hold one exercise per arm; a push or pull day trains one arm and has room for
      * two. A 4-day upper/lower week (two upper days, 6 target sets) therefore gets 3 sets per arm
      * exercise at an accessory count of 2, while a push/pull/legs week keeps the selected count and
-     * adds exercises instead. A higher selected count is never lowered.
+     * adds exercises instead. A higher selected count is never lowered. A Longer session has room for
+     * one more exercise per arm on each arm day, so its larger target is spread over twice the slots
+     * rather than piled onto one exercise.
      */
     fun setsPerArmExercise(
         muscle: MuscleGroup,
         focuses: List<SplitFocus>,
         targetSets: Int,
-        accessorySets: Int
+        accessorySets: Int,
+        sessionLength: SessionLength = SessionLength.DEFAULT
     ): Int {
         val pattern = armPatterns[muscle] ?: return accessorySets
+        val slotsPerDayScale = if (sessionLength == SessionLength.LONGER) 2 else 1
         val slots = focuses.sumOf { focus ->
             if (pattern !in isolationPatternsFor(focus)) {
                 0
             } else if (focus == SplitFocus.PUSH || focus == SplitFocus.PULL) {
-                SINGLE_ARM_DAY_SLOTS
+                SINGLE_ARM_DAY_SLOTS * slotsPerDayScale
             } else {
-                SHARED_ARM_DAY_SLOTS
+                SHARED_ARM_DAY_SLOTS * slotsPerDayScale
             }
         }
         if (slots == 0) return accessorySets

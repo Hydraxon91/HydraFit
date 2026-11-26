@@ -576,7 +576,13 @@ soft heuristic: the selector chases `targetSets`, treats `maxSets` as a pre-pick
 gate with possible whole-slot overshoot, and uses `minSets` only as the weekly floor of
 `WeeklyVolumeTargets.FLOOR_MUSCLES` (chest upper/lower, lats, upper back, quads, hamstrings, glutes, side
 delts): a floor muscle below its paced `minSets` gets an isolation exercise (`floorRanking`) after direct
-arm work and before the shrug; for every other muscle `minSets` stays report-only. In a deload week
+arm work and before the shrug; for every other muscle `minSets` stays report-only. Since 0.15.7 a gap
+must be at least `MIN_ADDITION_GAP_SETS` (2 weighted sets) to add an accessory or floor fill, and every
+non-compound addition (plus the lunge) is sized to its gap: `MIN_SIZED_SETS` (2) up to its normal count,
+by the largest paced target gap of its main muscles, the arm's owed direct-set share, or the knee
+isolation's own muscle (quads for the extension and lunge, hamstrings for the curl). The sized count is
+the recorded base count; a deload applies it after the deload scale. The Groq sanitizer keeps fixed
+counts. Each chest region's Balanced target is 10 (was 12). In a deload week
 `WeeklyVolumeTargets.forGoal` scales the whole window by `PeriodizationConfig.deloadVolumeScale`
 (0.7), because the ledger counts the already reduced sets; without it a deload would chase the full
 deficit and pad each day with extra exercises. `SubstituteExerciseUseCase` still ranks against the
@@ -594,7 +600,8 @@ triceps/shoulder isolation plus chest fly; pull adds biceps/forearm isolation; u
 biceps/triceps/forearm/shoulder isolation; legs/lower adds leg isolation, calf raises and
 core; full-body is the union. A lower or legs day has three compound slots, squat (including leg
 press and hack squat), then hinge, then lunge; the lunge slot is decided after the leg extension and
-leg curl must-haves and offered only while a muscle the lunge mainly trains is under its paced target,
+leg curl must-haves and offered only while the quads are at least 2 weighted sets under their paced
+target (a calf or glute credit no longer admits it),
 so the squat pattern always leads (it is inserted after the other compounds). The leg extension and
 leg curl pools need the muscle at `targetedInvolvementCutoff` (0.7) or more, not just `MAIN_INVOLVEMENT`. Full-body days still
 share one squat/hinge/lunge group. These are product reachability choices informed by
@@ -622,11 +629,12 @@ beyond the weekly target is a last resort once other isolation candidates remain
 isolation pool includes shoulder isolation, so rear-delt work can fill it.
 
 The deterministic planner also targets direct isolation sets for BICEPS and TRICEPS per normal
-generated week, the same number for both arms: `DirectArmCoverage.targetSetsPerMuscle(days, goal)` is 4
-for a two-day week, 6 for three or four days and 8 for five or six; Endurance keeps 4 at any frequency.
-A direct arm exercise uses the selected accessory count, raised only as far as the split's arm slots need
-to reach the target (`setsPerArmExercise`: one slot per arm on an upper or full-body day, two on a push or
-pull day; the same rule in every goal since 0.15.4). Since 0.15.4 weekly volume targets are per muscle
+generated week, the same number for both arms: `DirectArmCoverage.targetSetsPerMuscle(days, goal,
+sessionLength)` is 4 for a two-day week, 6 for three or four days and 8 for five or six; a Longer session
+from three days up targets 12 (0.15.7); Endurance keeps 4 at any frequency. A direct arm exercise uses the
+selected accessory count, raised only as far as the split's arm slots need to reach the target
+(`setsPerArmExercise`: one slot per arm on an upper or full-body day, two on a push or pull day, doubled on
+a Longer session; the same rule in every goal since 0.15.4), then sized to the day's owed share. Since 0.15.4 weekly volume targets are per muscle
 (`WeeklyVolumeTargets.BALANCED_TARGET_SETS`, scaled to each goal by `sizeFactor`; traps none), paced across the days
 that can mainly train each muscle, and an accessory is added only while a muscle it mainly trains
 (involvement >= `MAIN_INVOLVEMENT` 0.5) is under its paced target; there is no forced 4-exercise minimum. A set qualifies

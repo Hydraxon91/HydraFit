@@ -8,6 +8,7 @@ import com.hydrafit.app.core.domain.engine.PlannerExerciseCounts
 import com.hydrafit.app.core.domain.engine.PlannerLibraryOnlyExercises
 import com.hydrafit.app.core.domain.engine.PlannerSupersetPairing
 import com.hydrafit.app.core.domain.engine.PlannerSupersetPreference
+import com.hydrafit.app.core.domain.engine.SessionLength
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SplitType
 import com.hydrafit.app.core.domain.engine.TrainingGoal
@@ -160,7 +161,8 @@ class SeededPlannerQualityTest {
     fun moreSetsPerExerciseNeverAddsExercisesAndArmTargetsHoldAtEveryCount() = runTest {
         for (goal in TrainingGoal.entries) {
             for (days in 2..6) {
-                var previousExercises = Int.MAX_VALUE
+                var previousExercises = Int.MAX_VALUE - 1
+                var oneSetExercises = Int.MAX_VALUE
                 for (sets in 1..6) {
                     val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
                         PlanRequest(
@@ -176,7 +178,13 @@ class SeededPlannerQualityTest {
                     )
                     val label = "goal=$goal days=$days sets=$sets"
                     val exercises = plan.days.sumOf { it.exercises.size }
-                    assertTrue(exercises <= previousExercises, "$label exercises=$exercises")
+                    // Accessories are sized to their gap and a gap under two weighted sets is left
+                    // open, so one more set per exercise can move a muscle across that edge and
+                    // add a single short accessory (Hypertrophy, 5 days, 5 -> 6 sets). The week
+                    // never grows by more than that, and never past its one-set length.
+                    assertTrue(exercises <= previousExercises + 1, "$label exercises=$exercises")
+                    if (sets == 1) oneSetExercises = exercises
+                    assertTrue(exercises <= oneSetExercises, "$label exercises=$exercises")
                     previousExercises = exercises
                     assertTrue(
                         plan.days.all {
@@ -288,5 +296,55 @@ class SeededPlannerQualityTest {
         val patterns = plan(2).days.flatMap { it.exercises }
             .map { byId.getValue(it.exerciseId).movementPattern.name }
         assertTrue("SQUAT" in patterns && "HINGE" in patterns, "patterns=$patterns")
+    }
+
+    /**
+     * The settings behind the 0.15.7 report (Hypertrophy, four days, Longer, 4 sets): an upper day
+     * had three chest flies or three shoulder isolations and one curl, and lower days piled a lunge
+     * on the glutes and hamstrings.
+     */
+    @Test
+    fun aLongerHypertrophyUpperLowerWeekBalancesArmsAgainstRegionalExtras() = runTest {
+        val plan = DeterministicWorkoutPlannerEngine(catalog).generatePlan(
+            PlanRequest(
+                daysPerWeek = 4,
+                availableEquipment = everything,
+                muscleFatigue = emptyMap(),
+                splitPreference = SplitType.AUTO,
+                nowMillis = 0L,
+                goal = TrainingGoal.HYPERTROPHY,
+                setsPerExercise = 4,
+                accessorySetsPerExercise = 4,
+                sessionLength = SessionLength.LONGER
+            )
+        )
+        fun pattern(id: String) = byId.getValue(id).movementPattern
+        fun rearDeltOnly(id: String) = byId.getValue(id).effectiveInvolvements.let {
+            (it[MuscleGroup.REAR_DELTS] ?: 0.0) >= 0.5 && MuscleGroup.UPPER_BACK !in it
+        }
+
+        plan.days.filter { it.focus == SplitFocus.UPPER }.forEach { day ->
+            val ids = day.exercises.map { it.exerciseId }
+            assertTrue(ids.count { pattern(it) == MovementPattern.CHEST_FLY } <= 2, "ids=$ids")
+            assertTrue(ids.count { rearDeltOnly(it) } <= 1, "ids=$ids")
+            assertTrue(
+                ids.count {
+                    pattern(it) == MovementPattern.BICEPS_ISOLATION
+                } >= 2,
+                "ids=$ids"
+            )
+        }
+        assertTrue(
+            plan.armCoverage.all { it.directIsolationSets >= 12 },
+            "coverage=${plan.armCoverage}"
+        )
+        plan.days.filter { it.focus == SplitFocus.LOWER }.forEach { day ->
+            val legWork = day.exercises.filter {
+                pattern(it.exerciseId) ==
+                    MovementPattern.LEG_ISOLATION
+            }
+            assertTrue(legWork.size >= 2, "day=${day.dayIndex} $legWork")
+            assertTrue(legWork.all { it.sets < 4 }, "day=${day.dayIndex} $legWork")
+        }
     }
 }

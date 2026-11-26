@@ -45,13 +45,18 @@ class WeeklyPlanSanitizer(
         val armSetsPerExercise = if (isDeload) {
             emptyMap()
         } else {
-            val armTarget = DirectArmCoverage.targetSetsPerMuscle(request.daysPerWeek, request.goal)
+            val armTarget = DirectArmCoverage.targetSetsPerMuscle(
+                request.daysPerWeek,
+                request.goal,
+                request.sessionLength
+            )
             listOf(MuscleGroup.BICEPS, MuscleGroup.TRICEPS).associateWith { muscle ->
                 DirectArmCoverage.setsPerArmExercise(
                     muscle,
                     scheduledFocuses,
                     armTarget,
-                    request.accessorySetsPerExercise
+                    request.accessorySetsPerExercise,
+                    request.sessionLength
                 )
             }
         }
@@ -322,7 +327,8 @@ class WeeklyPlanSanitizer(
                 isDeload = isDeload,
                 targetSets = DirectArmCoverage.targetSetsPerMuscle(
                     request.daysPerWeek,
-                    request.goal
+                    request.goal,
+                    request.sessionLength
                 ),
                 attribution = PlanAttribution.AI_GENERATED
             ),

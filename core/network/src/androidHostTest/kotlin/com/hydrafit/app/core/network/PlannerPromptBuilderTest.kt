@@ -114,7 +114,7 @@ class PlannerPromptBuilderTest {
         val text = builder.build(request(), ids).text
 
         assertTrue(text.contains("Weekly floor sets for the prime movers"), text)
-        assertTrue(text.contains("CHEST_UPPER=8.7"), text)
+        assertTrue(text.contains("CHEST_UPPER=7.3"), text)
         assertTrue(text.contains("UPPER_BACK=8.7"), text)
         assertFalse(text.contains("FOREARMS="), text)
         assertTrue(text.contains("at most one shrug in the whole week"), text)

@@ -57,7 +57,11 @@ class DeterministicWorkoutPlannerEngine(
             request.goal,
             if (isDeload) periodization.deloadVolumeScale else 1.0
         )
-        val armTargetSets = DirectArmCoverage.targetSetsPerMuscle(request.daysPerWeek, request.goal)
+        val armTargetSets = DirectArmCoverage.targetSetsPerMuscle(
+            request.daysPerWeek,
+            request.goal,
+            request.sessionLength
+        )
         // Pace each muscle's weekly target across the days whose focus can mainly train it, so the
         // first such day fills only its share and later days are not left with compounds alone.
         val trainableByFocus = focuses.distinct().associateWith { focus ->
@@ -89,7 +93,8 @@ class DeterministicWorkoutPlannerEngine(
                     muscle,
                     focuses,
                     armTargetSets,
-                    request.accessorySetsPerExercise
+                    request.accessorySetsPerExercise,
+                    request.sessionLength
                 )
             }
         }
@@ -201,7 +206,8 @@ class DeterministicWorkoutPlannerEngine(
             slotRanking: Boolean = false,
             floorRanking: Boolean = false,
             armRanking: Boolean = false,
-            insertAt: Int? = null
+            insertAt: Int? = null,
+            sizeFor: ((Exercise) -> Int)? = null
         ): Boolean {
             // Ordering is by weighted fatigue, but the skip uses raw targeted fatigue, so a lower-
             // ranked candidate can be fresh while the top one is sore. Try candidates in order and
@@ -240,7 +246,8 @@ class DeterministicWorkoutPlannerEngine(
                 isDeload,
                 automaticSetPrescription,
                 armSetsPerExercise,
-                repProgressions
+                repProgressions,
+                setsNeeded = sizeFor?.invoke(candidate)
             )
             used += candidate.id
             weekUsed += candidate.id
@@ -260,14 +267,42 @@ class DeterministicWorkoutPlannerEngine(
         fun pickFreshFirst(
             candidates: List<Exercise>,
             floorRanking: Boolean = false,
-            armRanking: Boolean = false
+            armRanking: Boolean = false,
+            sizeFor: ((Exercise) -> Int)? = null
         ): Boolean {
             val fresh = candidates.filter {
                 it.id !in weekUsed ||
                     exercisePreferences[it.id] == ExercisePreference.PREFER
             }
-            return pick(fresh, floorRanking = floorRanking, armRanking = armRanking) ||
-                pick(candidates, floorRanking = floorRanking, armRanking = armRanking)
+            return pick(
+                fresh,
+                floorRanking = floorRanking,
+                armRanking = armRanking,
+                sizeFor = sizeFor
+            ) ||
+                pick(
+                    candidates,
+                    floorRanking = floorRanking,
+                    armRanking = armRanking,
+                    sizeFor = sizeFor
+                )
+        }
+
+        // Accessory sizing: an added accessory gets the sets that close the largest paced gap among
+        // the muscles it mainly trains, not a whole accessory count for a fraction of a set.
+        // plannedExercise keeps it between MIN_SIZED_SETS and the normal count.
+        fun setsToCloseTarget(exercise: Exercise): Int = exercise.plannerInvolvements()
+            .filterValues { it >= MAIN_INVOLVEMENT }
+            .maxOfOrNull { (muscle, weight) ->
+                setsFor(shortfall(muscle, weeklyVolume, target, pace), weight)
+            } ?: 0
+
+        // A knee isolation must-have is sized by the muscle it is there for, not by a side credit.
+        fun setsToCloseMuscle(muscle: MuscleGroup): (Exercise) -> Int = { exercise ->
+            setsFor(
+                shortfall(muscle, weeklyVolume, target, pace),
+                exercise.effectiveInvolvements[muscle] ?: 0.0
+            )
         }
 
         // One compound for each major pattern in the focus, chosen by the largest remaining deficit.
@@ -306,18 +341,25 @@ class DeterministicWorkoutPlannerEngine(
 
         // The arm target is paced like the volume targets: this day only owes its share, so the
         // first arm day does not take the whole week's direct arm work.
-        fun needsArmWork(exercise: Exercise): Boolean =
+        fun armSetsOwed(exercise: Exercise): Int =
             DirectArmCoverage.muscleFor(exercise)?.let { muscle ->
                 val share = armTargetSets * (pace[muscle] ?: 1.0)
-                (directArmSets[muscle] ?: 0) < kotlin.math.ceil(share - ARM_PACE_TOLERANCE)
-            } == true
+                kotlin.math.ceil(share - ARM_PACE_TOLERANCE).toInt() - (directArmSets[muscle] ?: 0)
+            } ?: 0
+
+        fun needsArmWork(exercise: Exercise): Boolean = armSetsOwed(exercise) > 0
 
         // How far a prime mover is below its weekly floor, paced like the targets so a day owes only
-        // its share. A floor exercise must train a floor muscle mainly (involvement >= MAIN_INVOLVEMENT).
+        // its share. A floor exercise must train a floor muscle mainly (involvement >= MAIN_INVOLVEMENT),
+        // and a gap smaller than MIN_ADDITION_GAP_SETS does not justify another exercise.
         fun floorDeficit(exercise: Exercise): Double = exercise.plannerInvolvements()
             .maxOfOrNull { (muscle, weight) ->
-                if (muscle in WeeklyVolumeTargets.FLOOR_MUSCLES && weight >= MAIN_INVOLVEMENT) {
-                    floorShortfall(muscle, weeklyVolume, target, pace) * weight
+                val gap = floorShortfall(muscle, weeklyVolume, target, pace)
+                if (muscle in WeeklyVolumeTargets.FLOOR_MUSCLES &&
+                    weight >= MAIN_INVOLVEMENT &&
+                    gap >= MIN_ADDITION_GAP_SETS
+                ) {
+                    gap * weight
                 } else {
                     0.0
                 }
@@ -349,7 +391,10 @@ class DeterministicWorkoutPlannerEngine(
                 }
                 .groupBy({ it.first }, { it.second })
                 .entries.sortedBy { (muscle, _) -> directArmSets[muscle] ?: 0 }
-            if (priorityPools.any { (_, pool) -> pickFreshFirst(pool, armRanking = true) }) {
+            if (priorityPools.any { (_, pool) ->
+                    pickFreshFirst(pool, armRanking = true, sizeFor = ::armSetsOwed)
+                }
+            ) {
                 // Dedicated arm coverage takes precedence over the weighted ceiling: compound
                 // credits must not make qualifying direct work ineligible.
                 mustHaves++
@@ -364,7 +409,11 @@ class DeterministicWorkoutPlannerEngine(
                     !isAtMax(it, weeklyVolume, target) &&
                     floorDeficit(it) > 0.0
             }
-            if (floorPool.isNotEmpty() && pickFreshFirst(floorPool, floorRanking = true)) {
+            // The fill is sized to the muscle's target, not just its floor, so one exercise does
+            // the work instead of a small floor fill followed by a second accessory.
+            if (floorPool.isNotEmpty() &&
+                pickFreshFirst(floorPool, floorRanking = true, sizeFor = ::setsToCloseTarget)
+            ) {
                 mustHaves++
                 continue
             }
@@ -406,7 +455,9 @@ class DeterministicWorkoutPlannerEngine(
                             (it.effectiveInvolvements[muscle] ?: 0.0) >=
                             fatigueConfig.targetedInvolvementCutoff
                     }
-                    if (pickFreshFirst(pool)) {
+                    // Always planned, but only as many sets as its own muscle still needs, so a
+                    // hinge that already covered the hamstrings leaves a short leg curl.
+                    if (pickFreshFirst(pool, sizeFor = setsToCloseMuscle(muscle))) {
                         pickedLegWork = true
                         mustHaves++
                     }
@@ -418,15 +469,34 @@ class DeterministicWorkoutPlannerEngine(
             if (!lungeSlotTried && lungeOnlyGroup in SplitResolver.compoundGroups(focus)) {
                 lungeSlotTried = true
                 if (picks.size - mustHaves < targetMax) {
+                    // Only the quads decide: a lunge's calf or glute credit used to admit it on
+                    // nearly every lower day, after the squat, hinge and leg extension had already
+                    // covered the quads and loaded the glutes and hamstrings.
+                    val quadsGap = shortfall(MuscleGroup.QUADS, weeklyVolume, target, pace)
                     val eligible = exercises.filter {
                         it.movementPattern in lungeOnlyGroup &&
                             it.id !in used &&
                             !isAtMax(it, weeklyVolume, target) &&
-                            hasDeficit(it, weeklyVolume, target, pace)
+                            (it.effectiveInvolvements[MuscleGroup.QUADS] ?: 0.0) >=
+                            MAIN_INVOLVEMENT &&
+                            quadsGap >= MIN_ADDITION_GAP_SETS
                     }
                     val fresh = eligible.filter { it.id !in weekUsed }
-                    if (pick(fresh, slotRanking = true, insertAt = compoundEnd) ||
-                        pick(eligible, slotRanking = true, insertAt = compoundEnd)
+                    // Sized like an accessory: it is extra quad work, so it takes only the sets
+                    // the quads still need.
+                    val sizeForQuads = setsToCloseMuscle(MuscleGroup.QUADS)
+                    if (pick(
+                            fresh,
+                            slotRanking = true,
+                            insertAt = compoundEnd,
+                            sizeFor = sizeForQuads
+                        ) ||
+                        pick(
+                            eligible,
+                            slotRanking = true,
+                            insertAt = compoundEnd,
+                            sizeFor = sizeForQuads
+                        )
                     ) {
                         continue
                     }
@@ -451,7 +521,13 @@ class DeterministicWorkoutPlannerEngine(
                     (directArmSets[muscle] ?: 0) >= armTargetSets
                 } == true
             }
-            if (!(pickFreshFirst(ordinary) || pickFreshFirst(armOverflow))) break
+            if (!(
+                    pickFreshFirst(ordinary, sizeFor = ::setsToCloseTarget) ||
+                        pickFreshFirst(armOverflow, sizeFor = ::setsToCloseTarget)
+                    )
+            ) {
+                break
+            }
         }
 
         return picks
@@ -528,12 +604,13 @@ class DeterministicWorkoutPlannerEngine(
         isDeload: Boolean,
         automaticSetPrescription: AutomaticSetPrescription? = null,
         armSetsPerExercise: Map<MuscleGroup, Int> = emptyMap(),
-        repProgressions: Map<String, RepProgressionHistory> = emptyMap()
+        repProgressions: Map<String, RepProgressionHistory> = emptyMap(),
+        setsNeeded: Int? = null
     ): PlannedExercise {
         val isCompound = candidate.movementPattern.isCompound
         // Direct arm work uses the split's arm set count (the accessory count, raised only when the
         // split's arm slots could not otherwise reach the weekly arm target).
-        val baseSets = when {
+        val normalSets = when {
             isCompound -> setsPerExercise
             // The shrug is optional, once-a-week work, so it never takes a full accessory count.
             candidate.movementPattern == MovementPattern.TRAP_ISOLATION ->
@@ -541,8 +618,16 @@ class DeterministicWorkoutPlannerEngine(
             else -> DirectArmCoverage.muscleFor(candidate)?.let { armSetsPerExercise[it] }
                 ?: accessorySetsPerExercise
         }
+
+        // A sized exercise takes only the sets its gap needs, at least MIN_SIZED_SETS and never more
+        // than the normal count. The gap is measured against the week's (deload-scaled) targets, so
+        // it is applied after the deload scale rather than scaled a second time. Outside a deload
+        // the sized count is recorded as the base count.
+        fun sized(sets: Int): Int =
+            setsNeeded?.let { minOf(sets, maxOf(MIN_SIZED_SETS, it)) } ?: sets
+        val baseSets = if (isDeload) normalSets else sized(normalSets)
         val deloadedSets = if (isDeload) {
-            (baseSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1)
+            sized((normalSets * periodization.deloadVolumeScale).roundToInt().coerceAtLeast(1))
         } else {
             baseSets
         }
@@ -880,7 +965,9 @@ class DeterministicWorkoutPlannerEngine(
      * True while a muscle the exercise mainly trains (involvement at or above
      * [MAIN_INVOLVEMENT]) is still under its weekly target. A small side share, such as 0.3 abs
      * on a press, still counts toward the weekly totals but cannot justify adding a slot: almost
-     * every exercise touches some under-target muscle, so counting those kept every day full.
+     * every exercise touches some under-target muscle, so counting those kept every day full. A gap
+     * smaller than [MIN_ADDITION_GAP_SETS] counts as met: it used to add a whole accessory, such as a
+     * third chest fly for 0.6 of a set.
      */
     private fun hasDeficit(
         exercise: Exercise,
@@ -888,7 +975,15 @@ class DeterministicWorkoutPlannerEngine(
         target: VolumeTarget,
         pace: Map<MuscleGroup, Double> = emptyMap()
     ): Boolean = exercise.plannerInvolvements().any { (muscle, weight) ->
-        weight >= MAIN_INVOLVEMENT && shortfall(muscle, weeklyVolume, target, pace) > 0.0
+        weight >= MAIN_INVOLVEMENT &&
+            shortfall(muscle, weeklyVolume, target, pace) >= MIN_ADDITION_GAP_SETS
+    }
+
+    /** Whole sets of an exercise crediting [weight] that close [gap] weighted sets; 0 when met. */
+    private fun setsFor(gap: Double, weight: Double): Int = if (gap <= 0.0 || weight <= 0.0) {
+        0
+    } else {
+        kotlin.math.ceil(gap / weight - ARM_PACE_TOLERANCE).toInt()
     }
 
     /**
@@ -962,6 +1057,15 @@ class DeterministicWorkoutPlannerEngine(
 
         /** Keeps floating-point pacing (e.g. 8 x 0.5) from rounding a met share up a whole set. */
         private const val ARM_PACE_TOLERANCE = 1e-9
+
+        /**
+         * The smallest paced gap, in weighted sets, that justifies adding an accessory or a floor
+         * fill. Anything smaller is left open rather than filled with a whole exercise.
+         */
+        const val MIN_ADDITION_GAP_SETS = 2.0
+
+        /** The fewest sets a sized exercise gets, unless the user's own count is lower. */
+        const val MIN_SIZED_SETS = 2
 
         /** Muscles excluded from weekly-volume deficit targeting (still counted for fatigue). */
         private val PLANNER_DEFERRED_MUSCLES = setOf(MuscleGroup.TRAPS)

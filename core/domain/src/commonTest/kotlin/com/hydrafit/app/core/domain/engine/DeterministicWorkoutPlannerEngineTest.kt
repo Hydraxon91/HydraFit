@@ -1704,11 +1704,11 @@ class DeterministicWorkoutPlannerEngineTest {
         val bicepsSets = plan.days.sumOf { day ->
             day.exercises.filter { it.exerciseId == "curl" }.sumOf { it.sets }
         }
-        // The 8-set direct arm target takes three 3-set curls (9 sets), which also clears the
-        // biceps volume target; nothing is added on the other three days, far below the old
+        // The 8-set direct arm target is met exactly: each curl is sized to the paced share still
+        // owed (at least two sets), which also clears the biceps volume target, far below the old
         // soft ceiling of 15.
         assertEquals(DirectArmCoverage.targetSetsPerMuscle(6, TrainingGoal.STRENGTH), 8)
-        assertEquals(9, bicepsSets)
+        assertEquals(8, bicepsSets)
         assertTrue(
             bicepsSets < WeeklyVolumeTargets.forGoal(TrainingGoal.STRENGTH).maxSets,
             "sets=$bicepsSets"

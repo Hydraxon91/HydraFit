@@ -75,11 +75,13 @@ object WeeklyVolumeTargets {
      * back) or that rarely need direct work low. These are sourced product defaults, not validated
      * per-person optima; see `docs/planner-deterministic.md`. Traps are left out on purpose (VOL-01), and so are forearms: every pull, press and curl already
      * loads the grip, the catalog credits none of it, and a target would only chase a false deficit.
-     * Wrist work stays in the library to be logged or picked by hand.
+     * Wrist work stays in the library to be logged or picked by hand. The chest is split into two
+     * regions with a window each, and most presses and flies credit both, so each region sits at ten
+     * rather than twelve: two twelves asked for about five chest exercises a week on two upper days.
      */
     val BALANCED_TARGET_SETS: Map<MuscleGroup, Double> = mapOf(
-        MuscleGroup.CHEST_UPPER to 12.0,
-        MuscleGroup.CHEST_LOWER to 12.0,
+        MuscleGroup.CHEST_UPPER to 10.0,
+        MuscleGroup.CHEST_LOWER to 10.0,
         MuscleGroup.LATS to 12.0,
         MuscleGroup.UPPER_BACK to 12.0,
         MuscleGroup.QUADS to 12.0,

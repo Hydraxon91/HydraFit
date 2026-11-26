@@ -49,6 +49,7 @@ Follow the focus schedule above exactly; a focus may appear on more than one day
 Use <sets> sets for compound lifts and <accessorySets> sets for accessory exercises.
 The goal's rep ranges are <min>-<max> reps for compound exercises and <min>-<max> reps for accessory exercises. The app sets each week's exact reps and any held load by double progression, and the selected set count controls volume; do not trade fewer sets for more reps.
 Where compatible exercises and session capacity allow, include dedicated biceps and triceps isolation work for about <N> sets per muscle across the week. Compound involvement is a separate estimate and does not replace this direct-work objective. This is a planning preference, not a guarantee of physiological adequacy.
+                                                                      (<N> is DirectArmCoverage.targetSetsPerMuscle: 12 on a Longer session from three days up)
                                                                       (in a deload: "This is a deload: do not add work to meet the normal-week direct arm coverage objective.")
 Weekly target sets per muscle (each set counts once per unit of the muscle's involvement in the exercise; aim near these, not far above): <MUSCLE=sets, ...>     (traps and forearms omitted; deload-scaled)
 Weekly floor sets for the prime movers (reach at least these before adding shrugs or other accessories, counted the same way as the targets): <MUSCLE=sets, ...>     (chest, lats, upper back, quads, hamstrings, glutes, side delts; deload-scaled; advisory, a plan is not rejected for missing one)
@@ -102,7 +103,8 @@ optional fields become nullable and are listed as required, because strict mode 
    rather than guessing which one was meant.
 3. **Sanitize** (`WeeklyPlanSanitizer`), per exercise:
    - dropped if unknown, not eligible, excluded or needing equipment the user does not have;
-   - **sets are replaced** by the deterministic engine's rule: the compound or accessory count, direct arm work
+   - **sets are replaced** by the deterministic engine's fixed rule (not its 0.15.7 gap sizing, which needs
+     the engine's own running ledger): the compound or accessory count, direct arm work
      raised only as far as the split's arm slots need (`DirectArmCoverage.setsPerArmExercise`), scaled for a
      deload and one fewer when the exercise's main muscles are sore (recorded as `REDUCED` in the
      explanation); **reps are replaced** by the deterministic engine's double progression inside the goal's
