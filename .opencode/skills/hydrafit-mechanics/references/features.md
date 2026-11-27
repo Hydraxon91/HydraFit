@@ -153,6 +153,14 @@ That wording distinguishes plan-level substitution from the Logger's occurrence-
 **Replace for this workout**; the dialog is titled `Change <exercise> in the plan` and its
 candidates, empty states and cancellation are unchanged.
 
+Since 0.15.7 a confirmed **Change in plan** (and an accepted-plan measure edit) also reaches the
+active block scheduled from that plan: `PlanBuilderActions` hands the saved slot to
+`ApplyPlanEditToActiveBlockUseCase`, which rewrites the block's master slot and that slot in every
+pending, unrecorded workout of the day through `PlanSlotBlockRepository.applyPlanSlotEdit`. The
+Logger's occurrence flow re-emits, so the Train tab shows the change without a reload. Started,
+resolved and recorded workouts, a slot already replaced for this workout, and blocks from routines
+or other plans keep their frozen prescription (`docs/architecture.md` §1.11).
+
 ## SplitBuilder plan-slot measure
 
 Each slot of the shown plan carries a measure action (`Measure <exercise>`) opening a small dialog
@@ -164,7 +172,8 @@ the recordable range, or a distance outside the metre bounds, including an unpar
 value). A distance is entered in the selected unit and converted to whole metres before bounds
 checking, so the stored slot is never unit-dependent. A draft edit is state-only and carries into
 acceptance; an accepted-plan edit persists through `SetAcceptedExerciseMeasureUseCase` in place, like
-a swap, and leaves the frozen volume assessment and the slot's recorded reasons untouched.
+a swap, and leaves the frozen volume assessment and the slot's recorded reasons untouched. Like a
+swap, it also reaches the active block's unstarted workouts scheduled from that plan.
 
 ## SplitBuilder planning dates
 

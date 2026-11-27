@@ -419,6 +419,114 @@ class SqlDelightWorkoutScheduleRepositoryTest {
     }
 
     @Test
+    fun aPlanSlotEditRewritesTheMasterAndTheUnstartedWorkoutInPlace() = runTest {
+        val id = repository.acceptAndActivate(
+            null,
+            activation(explanation = entryExplanation()).copy(sourcePlanId = PLAN_ID),
+            listOf(null, null),
+            false
+        )
+        val before = repository.occurrences(id)
+        val slot = before.first().entries.single()
+        repository.applyTargets(
+            GuidedWorkoutTargetsRequest(
+                occurrenceId = before.first().id,
+                occurrenceRevision = before.first().revision,
+                entryId = slot.id,
+                exerciseId = slot.exerciseId,
+                entrySets = slot.sets,
+                completedSetCount = 0,
+                resetRemaining = false,
+                patches = mapOf(
+                    0 to GuidedTargetPatch(SetTarget(reps = 9), setOf(GuidedTargetField.REPS))
+                )
+            )
+        )
+        val guided = requireNotNull(repository.getOccurrence(before.first().id))
+
+        val changed = repository.applyPlanSlotEdit(
+            sourcePlanId = PLAN_ID,
+            workoutPosition = 0,
+            previousExerciseId = "bench-press",
+            prescription = inclinePress()
+        )
+
+        assertEquals(1, changed)
+        val edited = requireNotNull(repository.getOccurrence(before.first().id))
+        val entry = edited.entries.single()
+        assertEquals(slot.id, entry.id)
+        assertEquals(slot.sourceActivationEntryId, entry.sourceActivationEntryId)
+        assertEquals("incline-press", entry.exerciseId)
+        assertEquals("Incline Press", entry.exerciseName)
+        assertEquals(10, entry.reps)
+        assertEquals(60.0, entry.weightKg)
+        assertNull(entry.explanation)
+        assertNull(entry.guidedTargets)
+        assertEquals(guided.revision + 1, edited.revision)
+        val master = requireNotNull(repository.getActivation(id)).workouts.first().entries.single()
+        assertEquals("incline-press", master.exerciseId)
+        assertEquals(10, master.reps)
+        assertNull(master.explanation)
+        assertEquals(before.last(), repository.getOccurrence(before.last().id))
+    }
+
+    @Test
+    fun aPlanSlotEditLeavesForeignReplacedRecordedAndStartedWorkoutsAlone() = runTest {
+        val id = repository.acceptAndActivate(
+            null,
+            activation().copy(sourcePlanId = PLAN_ID),
+            listOf(null, null),
+            false
+        )
+        val activation = repository.getActivation(id)
+        val occurrence = repository.occurrences(id).first()
+
+        assertEquals(0, repository.applyPlanSlotEdit(PLAN_ID + 1, 0, "bench-press", inclinePress()))
+        assertEquals(0, repository.applyPlanSlotEdit(PLAN_ID, 0, "cable-row", inclinePress()))
+        assertEquals(0, repository.applyPlanSlotEdit(PLAN_ID, 5, "bench-press", inclinePress()))
+        assertEquals(activation, repository.getActivation(id))
+        assertEquals(occurrence, repository.getOccurrence(occurrence.id))
+
+        repository.updateOccurrence(
+            occurrence.copy(
+                status = OccurrenceStatus.IN_PROGRESS,
+                revision = occurrence.revision + 1
+            )
+        )
+        val started = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(0, repository.applyPlanSlotEdit(PLAN_ID, 0, "bench-press", inclinePress()))
+        assertEquals(started, repository.getOccurrence(occurrence.id))
+
+        repository.updateOccurrence(
+            started.copy(status = OccurrenceStatus.PENDING, revision = started.revision + 1)
+        )
+        insertOpenSession("s1", occurrence.id)
+        insertSetForOccurrence(1L, "s1", occurrence.id, occurrence.entries.single().id)
+        val recorded = requireNotNull(repository.getOccurrence(occurrence.id))
+        assertEquals(0, repository.applyPlanSlotEdit(PLAN_ID, 0, "bench-press", inclinePress()))
+        assertEquals(recorded, repository.getOccurrence(occurrence.id))
+        // The master slot follows the plan even while every workout is frozen, so a repeat gets it.
+        assertEquals(
+            "incline-press",
+            requireNotNull(
+                repository.getActivation(id)
+            ).workouts.first().entries.single().exerciseId
+        )
+    }
+
+    private fun inclinePress() = ActivationEntry(
+        position = 0,
+        exerciseId = "incline-press",
+        exerciseName = "Incline Press",
+        movementPattern = MovementPattern.HORIZONTAL_PUSH,
+        requiredEquipment = setOf(EquipmentTag("barbell")),
+        involvements = mapOf(MuscleGroup.CHEST_UPPER to 0.8),
+        sets = 3,
+        reps = 10,
+        weightKg = 60.0
+    )
+
+    @Test
     fun replacementPersistsTheCandidatesOwnExplanation() = runTest {
         SeedExerciseCatalog(database).seed()
         val id = repository.acceptAndActivate(null, activation(), listOf(null, null), false)
@@ -1620,3 +1728,6 @@ class SqlDelightWorkoutScheduleRepositoryTest {
         )
     )
 }
+
+/** The accepted plan a test block is scheduled from. */
+private const val PLAN_ID = 42L

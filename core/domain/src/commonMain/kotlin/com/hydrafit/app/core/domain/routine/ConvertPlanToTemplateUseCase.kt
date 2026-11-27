@@ -1,5 +1,6 @@
 package com.hydrafit.app.core.domain.routine
 
+import com.hydrafit.app.core.domain.engine.AcceptedExercise
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.WeeklyPlan
 
@@ -18,20 +19,7 @@ class ConvertPlanToTemplateUseCase {
                 name = "Day ${index + 1}",
                 focus = day.focus,
                 entries = day.exercises.mapIndexed { entryIndex, exercise ->
-                    RoutineEntry(
-                        position = entryIndex,
-                        exerciseId = exercise.exerciseId,
-                        sets = exercise.sets,
-                        reps = exercise.reps,
-                        durationSeconds = exercise.durationSeconds,
-                        weightKg = exercise.suggestedWeightKg,
-                        loadKind = exercise.loadKind,
-                        progressionPolicy = exercise.progressionPolicy,
-                        setTargets = exercise.setTargets,
-                        superset = exercise.superset,
-                        distanceMeters = exercise.distanceMeters,
-                        forceNewtons = exercise.forceNewtons
-                    )
+                    exercise.toRoutineEntry(entryIndex)
                 }
             )
         }
@@ -65,3 +53,22 @@ class ConvertPlanToTemplateUseCase {
         }
     )
 }
+
+/**
+ * One accepted-plan slot as a routine entry at [position]. Scheduling an accepted plan and carrying a
+ * later plan edit into its block both go through this, so the two can never prescribe a slot apart.
+ */
+internal fun AcceptedExercise.toRoutineEntry(position: Int): RoutineEntry = RoutineEntry(
+    position = position,
+    exerciseId = exerciseId,
+    sets = sets,
+    reps = reps,
+    durationSeconds = durationSeconds,
+    weightKg = suggestedWeightKg,
+    loadKind = loadKind,
+    progressionPolicy = progressionPolicy,
+    setTargets = setTargets,
+    superset = superset,
+    distanceMeters = distanceMeters,
+    forceNewtons = forceNewtons
+)

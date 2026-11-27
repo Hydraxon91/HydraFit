@@ -5765,3 +5765,26 @@ history search in Hungarian, onboarding and import mapping, Czech and Dutch on s
 font or tablet width, and TalkBack. Known limits: a history search keeps its results after a language
 change until it is applied again; when a translated name is typed or edited back to exactly the English
 or translated text, the editor treats the field as typed.
+
+**Plan edits reach the running block (2026-11-27).** Reported by the maintainer: a Manage plan change did
+not show on the Train tab. Cause: a block is a frozen copy of the plan and plan edits never reached it
+(§1.11). Decision: a saved swap or measure edit now also rewrites the block's master slot and that slot in
+every pending, unrecorded workout of the day, only for the active block scheduled from that plan and only
+while the slot still holds the plan's previous exercise.
+
+Automated (fresh runs, 2026-11-27): the full Tier A matrix with `--rerun-tasks` (844 tasks executed, none
+up-to-date: 3424 host tests, `verifySqlDelightMigration`, `ktlintCheck`, debug build, both iOS compiles)
+passed. New coverage: `ApplyPlanEditToActiveBlockUseCaseTest` (sorted day order to block position, catalog
+identity, explanation carried; drafts, missing slots and unknown exercises write nothing),
+`SqlDelightWorkoutScheduleRepositoryTest` (master and unstarted workout rewritten in place with entry ids
+kept, guided targets and the old reason cleared, revision advanced, the other day untouched; a foreign
+plan, a replaced slot, a missing day, a started workout and a workout with a logged set left alone, while
+the master still follows the plan), `SplitBuilderViewModelTest.aConfirmedSwapIsCarriedIntoTheActiveBlock`
+and the domain Koin graph resolving the new use case.
+
+Seen on the emulator (debug build, Magyar): a block was started from the accepted plan with Next workout
+mode, replacing the emulator's "Strength session" block (intended; the old block is not restored). Train
+showed Day 1 with Fekvőtámasz, Tolódzkodás, Húzódzkodás V-markolattal. Changing Fekvőtámasz in the plan to
+Ferde fekvenyomás rúddal showed Ferde fekvenyomás rúddal on Train without a restart, the other two
+unchanged (screenshots and dumps in `/tmp/hydrafit-0157-block/`). Not verified on a device: a measure edit,
+a workout with logged sets staying unchanged, Repeat block, and the chosen-weekdays mode.

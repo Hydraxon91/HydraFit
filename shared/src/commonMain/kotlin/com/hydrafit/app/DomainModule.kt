@@ -47,6 +47,7 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
 import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
+import com.hydrafit.app.core.domain.schedule.ApplyPlanEditToActiveBlockUseCase
 import com.hydrafit.app.core.domain.schedule.CancelTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
@@ -183,6 +184,7 @@ val domainModule: Module = module {
     singleOf(::MoveWorkoutOccurrenceUseCase)
     singleOf(::SwitchScheduleModeUseCase)
     singleOf(::EditUnstartedOccurrenceUseCase)
+    singleOf(::ApplyPlanEditToActiveBlockUseCase)
     singleOf(::ReplaceOccurrenceExerciseUseCase)
     singleOf(::ApplyGuidedWorkoutTargetsUseCase)
     singleOf(::RoutineTemplateActions)

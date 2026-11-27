@@ -703,12 +703,23 @@ fatigue is segmented by.
   `TrainingActivation`/`ActivationWorkout`/`ActivationEntry`/`WorkoutOccurrence`/`OccurrenceEntry` and
   the single-row `workoutScheduleState` (schema v27 + `26.sqm`); nullable
   `workoutSet.occurrenceId`/`occurrenceEntryId` and `workoutSession.occurrenceId`.
-- **Rules:** editing a template, catalog or accepted plan never rewrites an activation;
+- **Rules:** editing a template or catalog never rewrites an activation;
   occurrence-only prescription edits are allowed only before any set is logged; explicit Finish/Skip
   resolves an occurrence and advances the queue while logging a set, End/New session, inactivity
   expiry or midnight do not. Periodization stays the accepted-plan ordinal — template/routine actions
   never advance it. Chosen-weekday scheduling assigns civil-day dates and never compresses missed
   work; sequence mode keeps the oldest unresolved workout pending.
+- **Accepted-plan edits (0.15.7):** a saved swap or measure change in the accepted plan
+  (`PlanBuilderActions.substitute`/`setMeasure`) is the one plan edit that reaches a block, and only
+  the active block scheduled from that plan (`sourcePlanId`). `ApplyPlanEditToActiveBlockUseCase`
+  builds the slot through the same conversion scheduling uses (`toRoutineEntry` +
+  `activationEntryFor`), and `PlanSlotBlockRepository.applyPlanSlotEdit` rewrites, in one
+  transaction, the block's master slot (what Repeat copies) and that slot in every `PENDING`
+  occurrence of the day with no recorded sets. Each slot changes only while it still holds the
+  plan's previous exercise, so a logger-side replacement wins; entry ids, pairing and cluster stay,
+  guided targets clear, and each rewritten occurrence's revision advances. Started, resolved and
+  recorded workouts, and blocks from routines or other plans, are never rewritten. The plan save
+  and the block write are separate transactions: a failure between them leaves the block as it was.
 - **Day attribution:** a set logged against an active block occurrence stores that workout's
   explicit zero-based `position` within the frozen activation as its `dayIndex`, so its "Day N" label
   matches the block workout rather than the weekday or the occurrence queue index. A set with no active block

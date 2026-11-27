@@ -5,6 +5,7 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
 import com.hydrafit.app.core.domain.schedule.ActivationRequest
+import com.hydrafit.app.core.domain.schedule.ApplyPlanEditToActiveBlockUseCase
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleFailure
@@ -18,7 +19,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * The plan-facing action surface a feature may call: accepting a draft plan, swapping a single
- * exercise inside an accepted one, and turning an accepted plan into a scheduled training block or
+ * exercise inside an accepted one (carried into the active block's unstarted workouts), and turning an accepted plan into a scheduled training block or
  * a reusable routine. Grouping them keeps the SplitBuilder ViewModel within its dependency budget
  * instead of injecting each use case separately.
  */
@@ -26,6 +27,7 @@ class PlanBuilderActions(
     private val acceptWeeklyPlan: AcceptWeeklyPlanUseCase,
     private val substituteExercise: SubstituteExerciseUseCase,
     private val setAcceptedExerciseMeasure: SetAcceptedExerciseMeasureUseCase,
+    private val applyPlanEditToActiveBlock: ApplyPlanEditToActiveBlockUseCase,
     private val convertPlanToTemplate: ConvertPlanToTemplateUseCase,
     private val saveRoutineTemplate: SaveRoutineTemplateUseCase,
     private val activateRoutine: ActivateRoutineUseCase,
@@ -54,10 +56,12 @@ class PlanBuilderActions(
         selectedExerciseId: String
     ): AcceptedExercise? =
         substituteExercise.invoke(plan, dayIndex, position, request, selectedExerciseId)
+            ?.also { applyPlanEditToActiveBlock(plan, dayIndex, position, it) }
 
     /**
      * Sets one accepted-plan slot's measure in place, returning the updated slot or null when the
      * day/position is missing. Throws [IllegalArgumentException] on an out-of-bounds measure.
+     * Like a swap, the saved change also reaches the block's workouts that have not started.
      */
     suspend fun setMeasure(
         plan: AcceptedPlan,
@@ -75,7 +79,7 @@ class PlanBuilderActions(
         durationSeconds,
         distanceMeters,
         forceNewtons
-    )
+    )?.also { applyPlanEditToActiveBlock(plan, dayIndex, position, it) }
 
     /** Today as a local civil day, for the "start today" default. */
     fun todayEpochDay(): Long =

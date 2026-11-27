@@ -2,6 +2,8 @@ package com.hydrafit.app.core.domain.schedule
 
 import com.hydrafit.app.core.domain.engine.AcceptedPlan
 import com.hydrafit.app.core.domain.engine.ExerciseCatalog
+import com.hydrafit.app.core.domain.equipment.Exercise
+import com.hydrafit.app.core.domain.routine.RoutineEntry
 import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.time.TimeProvider
 import com.hydrafit.app.core.domain.workout.WorkoutLoadPolicy
@@ -93,32 +95,7 @@ class ActivateRoutineUseCase(
                             "This routine references an unknown exercise: ${entry.exerciseId}",
                             ScheduleFailure.ROUTINE_UNKNOWN_EXERCISE
                         )
-                    val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
-                        exercise.loadCapability,
-                        entry.loadKind,
-                        entry.weightKg
-                    )
-                    ActivationEntry(
-                        position = entry.position,
-                        exerciseId = entry.exerciseId,
-                        exerciseName = exercise.name,
-                        movementPattern = exercise.movementPattern,
-                        requiredEquipment = exercise.requiredEquipment,
-                        involvements = exercise.effectiveInvolvements,
-                        isUnilateral = exercise.isUnilateral,
-                        sets = entry.sets,
-                        reps = entry.reps,
-                        durationSeconds = entry.durationSeconds,
-                        weightKg = weightKg,
-                        loadCapability = exercise.loadCapability,
-                        loadKind = kind,
-                        progressionPolicy = entry.progressionPolicy,
-                        setTargets = entry.setTargets,
-                        superset = entry.superset,
-                        cluster = entry.cluster,
-                        distanceMeters = entry.distanceMeters,
-                        forceNewtons = entry.forceNewtons
-                    )
+                    activationEntryFor(entry, exercise)
                 }
             )
         }
@@ -166,6 +143,40 @@ class ActivateRoutineUseCase(
             )
         }
     }
+}
+
+/**
+ * The frozen block slot for [entry] performed as [exercise]: the catalog supplies identity and load
+ * capability, and the stored load is reconciled against that capability. Activation and a later
+ * plan edit carried into a block both build slots here, so the two always agree.
+ */
+internal fun activationEntryFor(entry: RoutineEntry, exercise: Exercise): ActivationEntry {
+    val (kind, weightKg) = WorkoutLoadPolicy.reconcile(
+        exercise.loadCapability,
+        entry.loadKind,
+        entry.weightKg
+    )
+    return ActivationEntry(
+        position = entry.position,
+        exerciseId = entry.exerciseId,
+        exerciseName = exercise.name,
+        movementPattern = exercise.movementPattern,
+        requiredEquipment = exercise.requiredEquipment,
+        involvements = exercise.effectiveInvolvements,
+        isUnilateral = exercise.isUnilateral,
+        sets = entry.sets,
+        reps = entry.reps,
+        durationSeconds = entry.durationSeconds,
+        weightKg = weightKg,
+        loadCapability = exercise.loadCapability,
+        loadKind = kind,
+        progressionPolicy = entry.progressionPolicy,
+        setTargets = entry.setTargets,
+        superset = entry.superset,
+        cluster = entry.cluster,
+        distanceMeters = entry.distanceMeters,
+        forceNewtons = entry.forceNewtons
+    )
 }
 
 /**

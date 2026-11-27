@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementException
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementFailure
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
 import com.hydrafit.app.core.domain.schedule.OccurrenceStatus
+import com.hydrafit.app.core.domain.schedule.PlanSlotBlockRepository
 import com.hydrafit.app.core.domain.schedule.RemainingDisposition
 import com.hydrafit.app.core.domain.schedule.ScheduleException
 import com.hydrafit.app.core.domain.schedule.ScheduleFailure
@@ -43,7 +44,8 @@ class SqlDelightWorkoutScheduleRepository(
     private val gate: WorkoutReminderDeliveryGate = WorkoutReminderDeliveryGate()
 ) : WorkoutScheduleRepository,
     OccurrenceReplacementRepository,
-    GuidedWorkoutTargetsRepository {
+    GuidedWorkoutTargetsRepository,
+    PlanSlotBlockRepository {
     private val queries = database.trainingScheduleQueries
     private val planWriter = AcceptedPlanWriter(database)
 
@@ -444,6 +446,101 @@ class SqlDelightWorkoutScheduleRepository(
         nowMillis: Long
     ) = gate.mutate {
         replaceUntouchedEntryLocked(occurrenceId, expectedRevision, replacement, nowMillis)
+    }
+
+    override suspend fun applyPlanSlotEdit(
+        sourcePlanId: Long,
+        workoutPosition: Int,
+        previousExerciseId: String,
+        prescription: DomainActivationEntry
+    ): Int = gate.mutate {
+        database.transactionWithResult {
+            val activeId = queries.selectScheduleState().executeAsOneOrNull()?.activeActivationId
+                ?: return@transactionWithResult 0
+            val activation = queries.selectActivationById(activeId).executeAsOneOrNull()
+            if (activation?.sourcePlanId != sourcePlanId) return@transactionWithResult 0
+            val workout = queries.selectActivationWorkoutsForActivation(activeId).executeAsList()
+                .firstOrNull { it.position == workoutPosition.toLong() }
+                ?: return@transactionWithResult 0
+            val position = prescription.position.toLong()
+            // The master slot is what "Repeat block" copies, so a repeated block keeps the edit.
+            queries.selectActivationEntriesForWorkout(workout.id).executeAsList()
+                .firstOrNull { it.position == position && it.exerciseId == previousExerciseId }
+                ?.let { master ->
+                    prescription.updateMaster(master.id)
+                    writeEntryExplanation(
+                        ACTIVATION_ENTRY_KIND,
+                        master.id,
+                        prescription.explanation
+                    )
+                }
+            var changed = 0
+            queries.selectOccurrencesForActivation(activeId).executeAsList()
+                .filter {
+                    it.activationWorkoutId == workout.id &&
+                        it.status == OccurrenceStatus.PENDING.name
+                }
+                .forEach { occurrence ->
+                    val slot = queries.selectOccurrenceEntriesForOccurrence(occurrence.id)
+                        .executeAsList()
+                        .firstOrNull {
+                            it.position == position &&
+                                it.exerciseId == previousExerciseId
+                        }
+                        ?: return@forEach
+                    // Any recorded set, including one linked only by entry, starts the workout's
+                    // prescription freeze, so a workout with logged work is never re-prescribed.
+                    val recorded = database.workoutLogQueries.selectSetsForOccurrence(occurrence.id)
+                        .executeAsList().isNotEmpty() ||
+                        database.workoutLogQueries.selectSetsForOccurrenceEntry(slot.id)
+                            .executeAsList().isNotEmpty()
+                    if (recorded) return@forEach
+                    slot.toDomain().copy(
+                        exerciseId = prescription.exerciseId,
+                        exerciseName = prescription.exerciseName,
+                        movementPattern = prescription.movementPattern,
+                        requiredEquipment = prescription.requiredEquipment,
+                        involvements = prescription.involvements,
+                        isUnilateral = prescription.isUnilateral,
+                        sets = prescription.sets,
+                        reps = prescription.reps,
+                        durationSeconds = prescription.durationSeconds,
+                        distanceMeters = prescription.distanceMeters,
+                        forceNewtons = prescription.forceNewtons,
+                        weightKg = prescription.weightKg,
+                        loadCapability = prescription.loadCapability,
+                        loadKind = prescription.loadKind,
+                        progressionPolicy = prescription.progressionPolicy,
+                        setTargets = prescription.setTargets,
+                        explanation = prescription.explanation
+                    ).update(queries, position = slot.position.toInt())
+                    queries.incrementOccurrenceRevision(occurrence.id)
+                    changed++
+                }
+            changed
+        }
+    }
+
+    private fun DomainActivationEntry.updateMaster(entryId: Long) {
+        queries.updateActivationEntryPrescription(
+            exerciseId = exerciseId,
+            exerciseName = exerciseName,
+            movementPattern = movementPattern.name,
+            requiredEquipment = encodeEquipment(requiredEquipment),
+            involvements = involvements?.let { encodeInvolvements(it) },
+            isUnilateral = if (isUnilateral) 1L else 0L,
+            sets = sets.toLong(),
+            reps = reps?.toLong(),
+            durationSeconds = durationSeconds?.toLong(),
+            distanceMeters = distanceMeters?.toLong(),
+            forceNewtons = forceNewtons,
+            weightKg = weightKg,
+            loadCapability = loadCapability.name,
+            loadKind = loadKind.name,
+            progressionPolicy = progressionPolicy?.let(SlotProgressionPolicyJson::encode),
+            setTargets = setTargets?.let(SlotSetTargetsJson::encode),
+            id = entryId
+        )
     }
 
     override suspend fun applyTargets(request: GuidedWorkoutTargetsRequest) = gate.mutate {

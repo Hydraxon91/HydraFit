@@ -171,6 +171,12 @@ SELECT last_insert_rowid();
 selectActivationEntriesForWorkout:
 SELECT * FROM activationEntry WHERE workoutId = ? ORDER BY position;
 
+-- A saved accepted-plan edit re-prescribes one master slot; its pairing and cluster stay with the slot.
+updateActivationEntryPrescription:
+UPDATE activationEntry
+SET exerciseId = ?, exerciseName = ?, movementPattern = ?, requiredEquipment = ?, involvements = ?, isUnilateral = ?, sets = ?, reps = ?, durationSeconds = ?, distanceMeters = ?, forceNewtons = ?, weightKg = ?, loadCapability = ?, loadKind = ?, progressionPolicy = ?, setTargets = ?
+WHERE id = ?;
+
 selectAllActivationEntries:
 SELECT * FROM activationEntry ORDER BY workoutId, position;
 

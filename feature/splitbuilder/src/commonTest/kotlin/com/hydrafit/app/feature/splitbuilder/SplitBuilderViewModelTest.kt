@@ -58,8 +58,11 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplate
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
+import com.hydrafit.app.core.domain.schedule.ActivationEntry
+import com.hydrafit.app.core.domain.schedule.ApplyPlanEditToActiveBlockUseCase
 import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
+import com.hydrafit.app.core.domain.schedule.PlanSlotBlockRepository
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
 import com.hydrafit.app.core.domain.schedule.TrainingActivation
 import com.hydrafit.app.core.domain.schedule.WorkoutOccurrence
@@ -1189,6 +1192,32 @@ class SplitBuilderViewModelTest {
     }
 
     @Test
+    fun aConfirmedSwapIsCarriedIntoTheActiveBlock() = runTest(dispatcher) {
+        val history = FakePlanHistoryRepository()
+        history.accept(acceptedPlan().copy(id = 1L))
+        val blockEdits = RecordingPlanSlotBlockRepository()
+        val viewModel = viewModel(
+            availableEquipment = setOf(EquipmentTag.DUMBBELL, EquipmentTag.BARBELL),
+            planHistory = history,
+            blockEdits = blockEdits
+        )
+        advanceUntilIdle()
+        val previous = viewModel.state.value.plan!!.days.single().exercises.single().exerciseId
+
+        viewModel.onSwapRequested(0, 0)
+        advanceUntilIdle()
+        viewModel.onSwapCandidateSelected("back-squat")
+        advanceUntilIdle()
+
+        val edit = blockEdits.edits.single()
+        assertEquals(1L, edit.sourcePlanId)
+        assertEquals(0, edit.workoutPosition)
+        assertEquals(previous, edit.previousExerciseId)
+        assertEquals("back-squat", edit.prescription.exerciseId)
+        assertEquals(0, edit.prescription.position)
+    }
+
+    @Test
     fun confirmedSwapInvalidatesTheVolumeExplanation() = runTest(dispatcher) {
         val history = FakePlanHistoryRepository()
         history.accept(
@@ -2285,7 +2314,8 @@ class SplitBuilderViewModelTest {
         distanceUnitRepository: DistanceUnitRepository? = null,
         numberFormat: PresentationNumberFormat = PresentationNumberFormat('.'),
         planParameterPreferences: PlanParameterPreferenceRepository? = null,
-        onActivation: () -> Unit = {}
+        onActivation: () -> Unit = {},
+        blockEdits: PlanSlotBlockRepository = RecordingPlanSlotBlockRepository()
     ): SplitBuilderViewModel {
         val catalog = FakeExerciseCatalog()
         val sources = sourcesRepository ?: FakeWorkoutPlanSourcesRepository(
@@ -2306,7 +2336,8 @@ class SplitBuilderViewModelTest {
             planBuilderActions = planBuilderActions(
                 history = planHistory,
                 catalog = catalog,
-                onActivation = onActivation
+                onActivation = onActivation,
+                blockEdits = blockEdits
             ),
             planHistory = planHistory,
             exerciseCatalog = catalog,
@@ -2342,7 +2373,8 @@ class SplitBuilderViewModelTest {
     private fun planBuilderActions(
         history: PlanHistoryRepository,
         catalog: ExerciseCatalog,
-        onActivation: () -> Unit = {}
+        onActivation: () -> Unit = {},
+        blockEdits: PlanSlotBlockRepository = RecordingPlanSlotBlockRepository()
     ): PlanBuilderActions {
         val time = TimeProvider { 0L }
         val preview = PreviewWorkoutScheduleUseCase()
@@ -2429,6 +2461,7 @@ class SplitBuilderViewModelTest {
                 SuggestedWeightConfig()
             ),
             setAcceptedExerciseMeasure = SetAcceptedExerciseMeasureUseCase(history),
+            applyPlanEditToActiveBlock = ApplyPlanEditToActiveBlockUseCase(catalog, blockEdits),
             convertPlanToTemplate = ConvertPlanToTemplateUseCase(),
             saveRoutineTemplate = SaveRoutineTemplateUseCase(routineRepository, time),
             activateRoutine = ActivateRoutineUseCase(
@@ -2735,5 +2768,26 @@ class SplitBuilderViewModelTest {
         override fun loggedSetsFlow(): Flow<List<LoggedSet>> = loggedState.asStateFlow()
 
         override suspend fun clear() = Unit
+    }
+
+    private class RecordingPlanSlotBlockRepository : PlanSlotBlockRepository {
+        data class Edit(
+            val sourcePlanId: Long,
+            val workoutPosition: Int,
+            val previousExerciseId: String,
+            val prescription: ActivationEntry
+        )
+
+        val edits = mutableListOf<Edit>()
+
+        override suspend fun applyPlanSlotEdit(
+            sourcePlanId: Long,
+            workoutPosition: Int,
+            previousExerciseId: String,
+            prescription: ActivationEntry
+        ): Int {
+            edits += Edit(sourcePlanId, workoutPosition, previousExerciseId, prescription)
+            return 0
+        }
     }
 }

@@ -75,7 +75,9 @@ import com.hydrafit.app.core.domain.routine.RoutineTemplateActions
 import com.hydrafit.app.core.domain.routine.RoutineTemplateRepository
 import com.hydrafit.app.core.domain.routine.SaveRoutineTemplateUseCase
 import com.hydrafit.app.core.domain.schedule.ActivateRoutineUseCase
+import com.hydrafit.app.core.domain.schedule.ActivationEntry
 import com.hydrafit.app.core.domain.schedule.ApplyGuidedWorkoutTargetsUseCase
+import com.hydrafit.app.core.domain.schedule.ApplyPlanEditToActiveBlockUseCase
 import com.hydrafit.app.core.domain.schedule.CancelTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.CreateTrainingActivationUseCase
 import com.hydrafit.app.core.domain.schedule.EditUnstartedOccurrenceUseCase
@@ -86,6 +88,7 @@ import com.hydrafit.app.core.domain.schedule.GuidedWorkoutTargetsRequest
 import com.hydrafit.app.core.domain.schedule.MoveWorkoutOccurrenceUseCase
 import com.hydrafit.app.core.domain.schedule.OccurrenceEntry
 import com.hydrafit.app.core.domain.schedule.OccurrenceReplacementRepository
+import com.hydrafit.app.core.domain.schedule.PlanSlotBlockRepository
 import com.hydrafit.app.core.domain.schedule.PreviewWorkoutScheduleUseCase
 import com.hydrafit.app.core.domain.schedule.ReminderDeliveryRepository
 import com.hydrafit.app.core.domain.schedule.RepeatTrainingBlockUseCase
@@ -399,6 +402,16 @@ class KoinModulesVerificationTest {
                             ) = error("No guided writes expected during graph resolution")
                         }
                     }
+                    single<PlanSlotBlockRepository> {
+                        object : PlanSlotBlockRepository {
+                            override suspend fun applyPlanSlotEdit(
+                                sourcePlanId: Long,
+                                workoutPosition: Int,
+                                previousExerciseId: String,
+                                prescription: ActivationEntry
+                            ): Int = error("No block writes expected during graph resolution")
+                        }
+                    }
                     single<SessionNoteRepository> { FakeSessionNoteRepository }
                     single<BackupCatalog> { FakeBackupCatalog }
                     single<BackupRepository> { FakeBackupRepository }
@@ -427,6 +440,7 @@ class KoinModulesVerificationTest {
             assertNotNull(koin.get<SetAcceptedExerciseMeasureUseCase>())
             assertNotNull(koin.get<ReplaceOccurrenceExerciseUseCase>())
             assertNotNull(koin.get<ApplyGuidedWorkoutTargetsUseCase>())
+            assertNotNull(koin.get<ApplyPlanEditToActiveBlockUseCase>())
             assertNotNull(koin.get<PlanBuilderActions>())
             assertNotNull(koin.get<ObserveAcceptedPlanUseCase>())
             assertNotNull(koin.get<LogWorkoutSetUseCase>())
