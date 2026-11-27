@@ -58,6 +58,7 @@ import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.time.isoLocalDateTime
 import com.hydrafit.app.core.exercisecontent.ExerciseInstructionDialog
 import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
+import com.hydrafit.app.core.exercisecontent.equipmentDisplayName
 import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.ui.ScreenHeader
 import com.hydrafit.app.core.userdata.equipment.CustomExerciseFailureReason
@@ -898,7 +899,7 @@ private fun InventoryGroup(
         ) {
             Checkbox(checked = selected, onCheckedChange = null)
             Text(
-                text = item.name,
+                text = equipmentDisplayName(item),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier
                     .weight(1f)
@@ -945,7 +946,7 @@ private fun StationsSection(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = station.name, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = station.equipmentId.displayName,
+                        text = equipmentDisplayName(station.equipmentId),
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
@@ -991,8 +992,9 @@ private fun StationEditorDialog(
     var basisExpanded by remember { mutableStateOf(false) }
     var equipmentExpanded by remember { mutableStateOf(false) }
     var confirmRetire by remember { mutableStateOf(false) }
-    val equipmentName = equipment.firstOrNull { it.id == state.equipmentId }?.name
-        ?: state.equipmentId?.displayName.orEmpty()
+    val equipmentName = equipment.firstOrNull { it.id == state.equipmentId }
+        ?.let { equipmentDisplayName(it) }
+        ?: state.equipmentId?.let { equipmentDisplayName(it) }.orEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -1038,7 +1040,7 @@ private fun StationEditorDialog(
                     ) {
                         equipment.forEach { item ->
                             DropdownMenuItem(
-                                text = { Text(item.name) },
+                                text = { Text(equipmentDisplayName(item)) },
                                 onClick = {
                                     equipmentExpanded = false
                                     onEquipmentChanged(item.id)
@@ -1434,7 +1436,7 @@ private fun ExerciseEditorDialog(
                         FilterChip(
                             selected = item.id in state.equipment,
                             onClick = { onEquipmentToggled(item.id) },
-                            label = { Text(item.name) }
+                            label = { Text(equipmentDisplayName(item)) }
                         )
                     }
                 }
@@ -1702,7 +1704,7 @@ private fun ConfirmRemovalDialog(
 
 @Composable
 private fun equipmentSummary(exercise: Exercise): String =
-    exercise.requiredEquipment.joinToString { it.displayName }
+    exercise.requiredEquipment.map { equipmentDisplayName(it) }.joinToString()
         .ifEmpty { stringResource(Res.string.equipment_bodyweight) }
 
 @Composable

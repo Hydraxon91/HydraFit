@@ -632,4 +632,24 @@
     <string name="exercise_name_wide_grip_bench_press">Széles fogású fekvenyomás</string>
     <string name="exercise_name_bench_dips">Tolódzkodás padon</string>
     <string name="exercise_name_feet_elevated_bench_dips">Tolódzkodás padon, emelt lábbal</string>
+    <string name="equipment_name_barbell">Súlyzórúd</string>
+    <string name="equipment_name_dumbbell">Kézisúlyzók</string>
+    <string name="equipment_name_kettlebell">Kettlebell</string>
+    <string name="equipment_name_bench">Edzőpad</string>
+    <string name="equipment_name_pull_up_bar">Húzódzkodó rúd</string>
+    <string name="equipment_name_resistance_band">Gumiszalagok</string>
+    <string name="equipment_name_cable_machine">Csigás gép</string>
+    <string name="equipment_name_bodyweight">Saját testsúly</string>
+    <string name="equipment_name_ez_bar">EZ-rúd</string>
+    <string name="equipment_name_trap_bar">Hatszögletű rúd</string>
+    <string name="equipment_name_ab_roller">Hasizomkerék</string>
+    <string name="equipment_name_leg_extension_machine">Lábnyújtó gép</string>
+    <string name="equipment_name_leg_press_machine">Lábtoló gép</string>
+    <string name="equipment_name_leg_curl_machine">Lábhajlító gép</string>
+    <string name="equipment_name_dip_bar">Tolódzkodó korlát</string>
+    <string name="equipment_name_smith_machine">Smith-gép</string>
+    <string name="equipment_name_hack_squat_machine">Hack guggoló gép</string>
+    <string name="equipment_name_calf_raise_machine">Vádligép</string>
+    <string name="equipment_name_pec_deck_machine">Pillangó gép (alkartámasszal)</string>
+    <string name="equipment_name_reverse_fly_machine">Fordított tárogató gép</string>
 </resources>

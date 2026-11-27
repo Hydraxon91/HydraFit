@@ -632,4 +632,24 @@
     <string name="exercise_name_wide_grip_bench_press">Bankdrukken met brede greep</string>
     <string name="exercise_name_bench_dips">Bankdips</string>
     <string name="exercise_name_feet_elevated_bench_dips">Bankdips met verhoogde voeten</string>
+    <string name="equipment_name_barbell">Halterstang</string>
+    <string name="equipment_name_dumbbell">Dumbbells</string>
+    <string name="equipment_name_kettlebell">Kettlebell</string>
+    <string name="equipment_name_bench">Trainingsbank</string>
+    <string name="equipment_name_pull_up_bar">Optrekstang</string>
+    <string name="equipment_name_resistance_band">Weerstandsbanden</string>
+    <string name="equipment_name_cable_machine">Kabelmachine</string>
+    <string name="equipment_name_bodyweight">Lichaamsgewicht</string>
+    <string name="equipment_name_ez_bar">EZ-stang</string>
+    <string name="equipment_name_trap_bar">Trapbar</string>
+    <string name="equipment_name_ab_roller">Buikroller</string>
+    <string name="equipment_name_leg_extension_machine">Beenstrekmachine</string>
+    <string name="equipment_name_leg_press_machine">Beenpers</string>
+    <string name="equipment_name_leg_curl_machine">Beenbuigmachine</string>
+    <string name="equipment_name_dip_bar">Dipstation</string>
+    <string name="equipment_name_smith_machine">Smithmachine</string>
+    <string name="equipment_name_hack_squat_machine">Hack-squatmachine</string>
+    <string name="equipment_name_calf_raise_machine">Kuitmachine</string>
+    <string name="equipment_name_pec_deck_machine">Pec-deckmachine (onderarmsteunen)</string>
+    <string name="equipment_name_reverse_fly_machine">Reverse-flymachine</string>
 </resources>

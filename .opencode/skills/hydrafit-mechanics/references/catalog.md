@@ -173,7 +173,10 @@ Translated built-in names (0.15.7) follow the same rule: `ExerciseNames` maps ea
 canonical English name and an `exercise_name_<id>` resource, and a name is translated for display only
 while the stored name still equals that English name. `DefaultExercises` names stay English and are the
 stored identity; when a seeded name changes, `ExerciseNames.canonicalEnglish` and the English resource
-must change with it (`ExerciseNameSeedCoverageTest` and `ExerciseNameResourcesTest`). Details in
+must change with it (`ExerciseNameSeedCoverageTest` and `ExerciseNameResourcesTest`). Built-in
+equipment names are shown through `equipmentDisplayName` (`EquipmentNames.kt`) by tag id and stay
+English in `EquipmentTag.BUILT_IN_NAMES`; a changed built-in name changes its English
+`equipment_name_<id>` resource too (`EquipmentNameResourcesTest`). Details in
 `docs/architecture.md` §1.30.
 
 Content is display-only and read-only: it is never persisted, never included in a backup, shared

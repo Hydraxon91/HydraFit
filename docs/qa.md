@@ -5806,3 +5806,25 @@ open; tapping day 1 again folded it and left day 2 open (screenshots in `/tmp/hy
 data changed; a schedule-change dialog opened by mistake during navigation was cancelled and the block
 was confirmed unchanged. Not verified: TalkBack reading the open/fold action, rotation keeping open days,
 the other four languages on screen, and a six-day plan.
+
+**Translated equipment names and two Czech exercise names (2026-11-27).** Requested by the maintainer.
+The 20 built-in equipment names are shown in the app language through `equipmentDisplayName`; stored
+names, backups, exports and the Groq prompt stay English, and custom equipment is shown as named. The
+DeepL comparison of the German and Czech exercise names found nothing to change in German; in Czech
+`squat_jerk` became "Squat jerk" (the old name meant squat snatch) and `deficit_deadlift` became
+"Deficitní mrtvý tah".
+
+Automated (fresh runs, 2026-11-27, `--rerun-tasks`, 588 tasks executed): ktlintCheck for
+`:core:exercisecontent`, `:core:database`, `:feature:equipment`, `:feature:routines` and
+`:feature:onboarding`; their host tests (345 tests, new `EquipmentNameResourcesTest`: every built-in has a
+name in every language, English equals `EquipmentTag.BUILT_IN_NAMES`, no language repeats a name, custom
+ids have none); `ExerciseNameSeedCoverageTest` with `equipmentDisplayName` added to the view-model guard;
+`TranslationParityTest`; `:androidApp:assembleDebug` and `:shared:compileKotlinIosSimulatorArm64` passed.
+
+Seen on the emulator (debug build, Magyar): Könyvtár > Felszerelés > Készlet és állomások listed all 20
+built-ins in Hungarian (Hasizomkerék, Súlyzórúd, Edzőpad, Csigás gép, ... Pillangó gép (alkartámasszal),
+Smith-gép), none in English, with no clipping; the exercise catalog rows showed "EZ-rúd", "Csigás gép",
+"Súlyzórúd" and "Lábhajlító gép" (screenshots in `/tmp/hydrafit-0157-equip/`). No data changed. The
+inventory keeps its stored order, which follows the English names. Not verified on screen: stations (none
+exist), the onboarding equipment step, profile suggestions, a shared routine's missing-equipment line, the
+other three translated languages and the Czech exercise names.

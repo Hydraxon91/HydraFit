@@ -632,4 +632,24 @@
     <string name="exercise_name_wide_grip_bench_press">Breites Bankdrücken</string>
     <string name="exercise_name_bench_dips">Dips an der Bank</string>
     <string name="exercise_name_feet_elevated_bench_dips">Dips an der Bank mit erhöhten Füßen</string>
+    <string name="equipment_name_barbell">Langhantel</string>
+    <string name="equipment_name_dumbbell">Kurzhanteln</string>
+    <string name="equipment_name_kettlebell">Kettlebell</string>
+    <string name="equipment_name_bench">Hantelbank</string>
+    <string name="equipment_name_pull_up_bar">Klimmzugstange</string>
+    <string name="equipment_name_resistance_band">Widerstandsbänder</string>
+    <string name="equipment_name_cable_machine">Kabelzug</string>
+    <string name="equipment_name_bodyweight">Körpergewicht</string>
+    <string name="equipment_name_ez_bar">SZ-Stange</string>
+    <string name="equipment_name_trap_bar">Trap Bar</string>
+    <string name="equipment_name_ab_roller">Bauchroller</string>
+    <string name="equipment_name_leg_extension_machine">Beinstrecker-Maschine</string>
+    <string name="equipment_name_leg_press_machine">Beinpresse</string>
+    <string name="equipment_name_leg_curl_machine">Beinbeuger-Maschine</string>
+    <string name="equipment_name_dip_bar">Dipstation</string>
+    <string name="equipment_name_smith_machine">Multipresse</string>
+    <string name="equipment_name_hack_squat_machine">Hackenschmidt-Maschine</string>
+    <string name="equipment_name_calf_raise_machine">Wadenmaschine</string>
+    <string name="equipment_name_pec_deck_machine">Butterfly-Maschine (Unterarmpolster)</string>
+    <string name="equipment_name_reverse_fly_machine">Reverse-Butterfly-Maschine</string>
 </resources>

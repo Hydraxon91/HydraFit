@@ -73,6 +73,7 @@ import com.hydrafit.app.core.domain.unit.DistanceUnit
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.domain.workout.LoadKind
 import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
+import com.hydrafit.app.core.exercisecontent.equipmentDisplayName
 import com.hydrafit.app.core.exercisecontent.exerciseDisplayName
 import com.hydrafit.app.core.ui.ScreenHeader
 import hydrafit.feature.routines.generated.resources.Res
@@ -2228,7 +2229,9 @@ private fun PrescriptionIdentityRow(
             Text(
                 text = stringResource(
                     Res.string.routines_prescription_import_missing_equipment,
-                    identity.missingEquipment.map { it.displayName }.sorted().joinToString(", ")
+                    identity.missingEquipment.map {
+                        equipmentDisplayName(it)
+                    }.sorted().joinToString(", ")
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error

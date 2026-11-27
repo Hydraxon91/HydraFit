@@ -30,7 +30,8 @@ class ExerciseNameSeedCoverageTest {
     /**
      * Accepted plans, scheduled copies, backups, exports and the Groq prompt are written by the core
      * modules and by view models, so translated names stay out of stored data while neither can reach
-     * them: no core module depends on `:core:exercisecontent`, and no view model calls the display lookup.
+     * them: no core module depends on `:core:exercisecontent`, and no view model calls the exercise or
+     * equipment display lookup.
      */
     @Test
     fun translatedNamesCannotReachStoredData() {
@@ -40,7 +41,8 @@ class ExerciseNameSeedCoverageTest {
         }
         assertEquals(emptyList(), coreDependents)
 
-        val displayCalls = Regex("""\.display\(|exerciseDisplayName|LocalExerciseNames""")
+        val displayCalls =
+            Regex("""\.display\(|exerciseDisplayName|LocalExerciseNames|equipmentDisplayName""")
         val viewModels = File(root, "feature").walkTopDown()
             .filter { it.isFile && it.name.endsWith("ViewModel.kt") && "commonMain" in it.path }
             .toList()

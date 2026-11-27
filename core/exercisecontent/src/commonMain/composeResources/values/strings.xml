@@ -632,4 +632,24 @@
     <string name="exercise_name_wide_grip_bench_press">Wide-Grip Bench Press</string>
     <string name="exercise_name_bench_dips">Bench Dips</string>
     <string name="exercise_name_feet_elevated_bench_dips">Feet-Elevated Bench Dips</string>
+    <string name="equipment_name_barbell">Barbell</string>
+    <string name="equipment_name_dumbbell">Dumbbells</string>
+    <string name="equipment_name_kettlebell">Kettlebell</string>
+    <string name="equipment_name_bench">Bench</string>
+    <string name="equipment_name_pull_up_bar">Pull-up bar</string>
+    <string name="equipment_name_resistance_band">Resistance bands</string>
+    <string name="equipment_name_cable_machine">Cable machine</string>
+    <string name="equipment_name_bodyweight">Bodyweight</string>
+    <string name="equipment_name_ez_bar">EZ bar</string>
+    <string name="equipment_name_trap_bar">Trap bar</string>
+    <string name="equipment_name_ab_roller">Ab roller</string>
+    <string name="equipment_name_leg_extension_machine">Leg extension machine</string>
+    <string name="equipment_name_leg_press_machine">Leg press machine</string>
+    <string name="equipment_name_leg_curl_machine">Leg curl machine</string>
+    <string name="equipment_name_dip_bar">Dip bar</string>
+    <string name="equipment_name_smith_machine">Smith machine</string>
+    <string name="equipment_name_hack_squat_machine">Hack squat machine</string>
+    <string name="equipment_name_calf_raise_machine">Calf raise machine</string>
+    <string name="equipment_name_pec_deck_machine">Pec deck machine (forearm pads)</string>
+    <string name="equipment_name_reverse_fly_machine">Reverse fly machine</string>
 </resources>

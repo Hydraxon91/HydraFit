@@ -37,6 +37,7 @@ import com.hydrafit.app.core.domain.setup.SetupStepInput
 import com.hydrafit.app.core.domain.time.DayOfWeek
 import com.hydrafit.app.core.domain.unit.WeightUnit
 import com.hydrafit.app.core.exercisecontent.LocalExerciseNames
+import com.hydrafit.app.core.exercisecontent.equipmentDisplayName
 import com.hydrafit.app.core.navigation.AppTab
 import com.hydrafit.app.core.userdata.presentation.PresentationNumberFormat
 import com.hydrafit.app.core.userdata.presentation.formatLocalizedDecimal
@@ -197,7 +198,7 @@ private fun EquipmentEditor(
                 val tag: EquipmentTag = item.id
                 // Selection only: this step never edits a max weight, so ceilings stay untouched.
                 CheckChoiceRow(
-                    label = item.name,
+                    label = equipmentDisplayName(item),
                     checked = tag in selected,
                     enabled = enabled,
                     onToggle = {

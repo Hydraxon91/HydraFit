@@ -1759,6 +1759,16 @@ the English names equal the canonical ones and that no language repeats a name;
 `ExerciseNameSeedCoverageTest` (`core/database`) checks that the canonical names are exactly the seeded
 ones and that no core module or view model can reach the display lookup, so stored data stays English.
 
+Built-in equipment names are translated the same way (0.15.7). Stored names stay
+`EquipmentTag.BUILT_IN_NAMES` English in the database, backups, exports and the Groq prompt.
+`EquipmentNames` (`:core:exercisecontent`) maps each built-in tag id to its `equipment_name_<id>`
+resource; built-in equipment cannot be renamed, so `equipmentDisplayName(equipment)` translates every
+built-in by id and shows custom equipment as named, and `equipmentDisplayName(tag)` does the same for a
+bare tag. The equipment inventory, stations, the exercise editor and profile suggestions, onboarding's
+equipment step and a shared routine's missing-equipment line use it. `EquipmentNameResourcesTest` checks
+that every built-in has a distinct name in every language and that the English names equal the stored
+ones; the view-model guard in `ExerciseNameSeedCoverageTest` also covers `equipmentDisplayName`.
+
 `TranslationParityTest` (`shared/src/androidHostTest`) reads every `composeResources` directory and
 fails when a language lacks a file, misses an English key, changes a `%N$x` placeholder, has the wrong
 plural forms or carries a key English does not have.

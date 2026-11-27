@@ -20,6 +20,7 @@ import com.hydrafit.app.core.domain.equipment.CatalogExerciseProfile
 import com.hydrafit.app.core.domain.equipment.Equipment
 import com.hydrafit.app.core.domain.equipment.ExerciseLoadCapability
 import com.hydrafit.app.core.domain.equipment.ExerciseProfile
+import com.hydrafit.app.core.exercisecontent.equipmentDisplayName
 import hydrafit.feature.equipment.generated.resources.Res
 import hydrafit.feature.equipment.generated.resources.equipment_cancel
 import hydrafit.feature.equipment.generated.resources.equipment_equipment_section
@@ -178,9 +179,10 @@ private fun profileGroupValue(
     profile: ExerciseProfile,
     equipment: List<Equipment>
 ): String = when (group) {
-    ExerciseProfileGroup.EQUIPMENT -> profile.equipment.sortedBy { it.id }.joinToString { tag ->
-        equipment.firstOrNull { it.id == tag }?.name ?: tag.displayName
-    }.ifEmpty { stringResource(Res.string.equipment_profile_none) }
+    ExerciseProfileGroup.EQUIPMENT -> profile.equipment.sortedBy { it.id }.map { tag ->
+        equipment.firstOrNull { it.id == tag }?.let { equipmentDisplayName(it) }
+            ?: equipmentDisplayName(tag)
+    }.joinToString().ifEmpty { stringResource(Res.string.equipment_profile_none) }
     ExerciseProfileGroup.PATTERN -> stringResource(profile.movementPattern.labelResource())
     ExerciseProfileGroup.INVOLVEMENTS -> {
         val labels = profile.involvements.entries.sortedBy { it.key.name }.map { (muscle, weight) ->
