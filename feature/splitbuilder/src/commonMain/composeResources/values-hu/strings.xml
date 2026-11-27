@@ -230,4 +230,14 @@
     <string name="split_failure_plan_needs_weekdays">Válasszon egy edzésnapot edzésenként.</string>
     <string name="split_failure_block_already_active">Már van aktív edzésblokk.</string>
     <string name="split_failure_block_needs_workout">Az edzésblokkhoz legalább egy edzés kell.</string>
+    <plurals name="split_day_exercise_count">
+        <item quantity="one">%1$d gyakorlat</item>
+        <item quantity="other">%1$d gyakorlat</item>
+    </plurals>
+    <plurals name="split_day_set_count">
+        <item quantity="one">%1$d sorozat</item>
+        <item quantity="other">%1$d sorozat</item>
+    </plurals>
+    <string name="split_day_show">Gyakorlatok megjelenítése</string>
+    <string name="split_day_hide">Gyakorlatok elrejtése</string>
 </resources>

@@ -230,4 +230,14 @@
     <string name="split_failure_plan_needs_weekdays">Kies één trainingsdag per workout.</string>
     <string name="split_failure_block_already_active">Er is al een trainingsblok actief.</string>
     <string name="split_failure_block_needs_workout">Een trainingsblok heeft minstens één workout nodig.</string>
+    <plurals name="split_day_exercise_count">
+        <item quantity="one">%1$d oefening</item>
+        <item quantity="other">%1$d oefeningen</item>
+    </plurals>
+    <plurals name="split_day_set_count">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <string name="split_day_show">Oefeningen tonen</string>
+    <string name="split_day_hide">Oefeningen verbergen</string>
 </resources>

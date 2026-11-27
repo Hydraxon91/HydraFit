@@ -147,6 +147,13 @@ filled primary action. The two never merge, because accepting and creating a blo
 separate effects. Regenerate, Save as routine, export and plan history remain available but
 secondary.
 
+Since 0.15.7 every plan day, draft or accepted, starts folded to one row (`PlanDayHeader`): the
+day number and focus, then its exercise count and its total sets (`WorkoutDay.totalSets()`), with
+an expand arrow. The whole row is a 48dp button that opens or folds that day's exercise rows in
+place; several days can be open at once. The open state is `rememberSaveable` per day index, so
+it survives rotation and dialogs but resets when the screen is left. No day opens automatically:
+the screen does not know which block workout is today's.
+
 Each exercise row keeps its prescription on a full-width line, with the measure control and,
 for an accepted plan, a visible **Change in plan** action on a compact wrapping row beneath it.
 That wording distinguishes plan-level substitution from the Logger's occurrence-only

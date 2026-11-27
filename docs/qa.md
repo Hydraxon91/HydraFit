@@ -5788,3 +5788,21 @@ showed Day 1 with Fekvőtámasz, Tolódzkodás, Húzódzkodás V-markolattal. Ch
 Ferde fekvenyomás rúddal showed Ferde fekvenyomás rúddal on Train without a restart, the other two
 unchanged (screenshots and dumps in `/tmp/hydrafit-0157-block/`). Not verified on a device: a measure edit,
 a workout with logged sets staying unchanged, Repeat block, and the chosen-weekdays mode.
+
+**Folded plan days on Manage plan (2026-11-27).** Requested by the maintainer: reaching days 3-6 took a
+long scroll. Decision: every day starts folded to one row (number, focus, exercise count, total sets) and
+opens in place on tap; no day opens automatically.
+
+Automated (fresh runs, 2026-11-27, `--rerun-tasks`, 415 tasks executed): `:feature:splitbuilder:ktlintCheck`,
+`:feature:splitbuilder:testAndroidHostTest` (new `PlanDaySummaryTest`: sets summed across exercises, an
+empty day has none), `TranslationParityTest` for the new plurals and labels in all five languages, and
+`:androidApp:assembleDebug` passed.
+
+Seen on the emulator (debug build, Magyar): Manage plan showed four folded rows, "1. nap - Felsőtest /
+3 gyakorlat · 12 sorozat", "2. nap - Alsótest / 4 gyakorlat · 16 sorozat", "3. nap - Felsőtest / 3 gyakorlat ·
+12 sorozat", "4. nap - Alsótest / 3 gyakorlat · 12 sorozat", each with a down arrow and no exercise rows.
+Tapping day 1 opened its three exercises with their actions; tapping day 2 opened it too while day 1 stayed
+open; tapping day 1 again folded it and left day 2 open (screenshots in `/tmp/hydrafit-0157-fold/`). No
+data changed; a schedule-change dialog opened by mistake during navigation was cancelled and the block
+was confirmed unchanged. Not verified: TalkBack reading the open/fold action, rotation keeping open days,
+the other four languages on screen, and a six-day plan.

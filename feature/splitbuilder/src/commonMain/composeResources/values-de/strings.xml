@@ -230,4 +230,14 @@
     <string name="split_failure_plan_needs_weekdays">Wähle einen Trainingstag pro Workout.</string>
     <string name="split_failure_block_already_active">Ein Trainingsblock ist bereits aktiv.</string>
     <string name="split_failure_block_needs_workout">Ein Trainingsblock braucht mindestens ein Workout.</string>
+    <plurals name="split_day_exercise_count">
+        <item quantity="one">%1$d Übung</item>
+        <item quantity="other">%1$d Übungen</item>
+    </plurals>
+    <plurals name="split_day_set_count">
+        <item quantity="one">%1$d Satz</item>
+        <item quantity="other">%1$d Sätze</item>
+    </plurals>
+    <string name="split_day_show">Übungen anzeigen</string>
+    <string name="split_day_hide">Übungen ausblenden</string>
 </resources>

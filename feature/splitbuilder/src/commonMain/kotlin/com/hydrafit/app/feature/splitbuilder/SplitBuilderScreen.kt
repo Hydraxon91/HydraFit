@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +75,7 @@ import com.hydrafit.app.core.domain.engine.SetPrescriptionShape
 import com.hydrafit.app.core.domain.engine.SetTarget
 import com.hydrafit.app.core.domain.engine.SplitFocus
 import com.hydrafit.app.core.domain.engine.SwapCandidate
+import com.hydrafit.app.core.domain.engine.WorkoutDay
 import com.hydrafit.app.core.domain.fatigue.MuscleGroup
 import com.hydrafit.app.core.domain.routine.PrescriptionBounds
 import com.hydrafit.app.core.domain.schedule.ScheduleMode
@@ -125,6 +130,10 @@ import hydrafit.feature.splitbuilder.generated.resources.split_configuration_lab
 import hydrafit.feature.splitbuilder.generated.resources.split_configuration_show
 import hydrafit.feature.splitbuilder.generated.resources.split_confirm
 import hydrafit.feature.splitbuilder.generated.resources.split_day
+import hydrafit.feature.splitbuilder.generated.resources.split_day_exercise_count
+import hydrafit.feature.splitbuilder.generated.resources.split_day_hide
+import hydrafit.feature.splitbuilder.generated.resources.split_day_set_count
+import hydrafit.feature.splitbuilder.generated.resources.split_day_show
 import hydrafit.feature.splitbuilder.generated.resources.split_days_label
 import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan
 import hydrafit.feature.splitbuilder.generated.resources.split_delete_plan_confirm
@@ -789,73 +798,76 @@ fun SplitBuilderScreen(
                 }
             }
             plan.days.forEach { day ->
+                var expanded by rememberSaveable(day.dayIndex) { mutableStateOf(false) }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(Res.string.split_day, day.dayIndex + 1) +
-                            " - " + stringResource(day.focus.labelResource()),
-                        style = MaterialTheme.typography.titleMedium
+                    PlanDayHeader(
+                        day = day,
+                        expanded = expanded,
+                        onToggle = { expanded = !expanded }
                     )
-                    day.exercises.forEachIndexed { position, exercise ->
-                        Column {
-                            val name = state.shownExerciseName(exercise.exerciseId)
-                            val weight = exercise.suggestedWeightKg?.let { kg ->
-                                withLoadBasis(
-                                    weight = stringResource(
-                                        Res.string.split_suggested_weight,
-                                        formatSplitWeightForDisplay(
-                                            weightUnit.kilogramsToDisplay(kg)
+                    if (expanded) {
+                        day.exercises.forEachIndexed { position, exercise ->
+                            Column {
+                                val name = state.shownExerciseName(exercise.exerciseId)
+                                val weight = exercise.suggestedWeightKg?.let { kg ->
+                                    withLoadBasis(
+                                        weight = stringResource(
+                                            Res.string.split_suggested_weight,
+                                            formatSplitWeightForDisplay(
+                                                weightUnit.kilogramsToDisplay(kg)
+                                            ),
+                                            weightUnit.label
                                         ),
-                                        weightUnit.label
-                                    ),
-                                    basis = state.exerciseLoadBasis[exercise.exerciseId]
-                                )
-                            }.orEmpty()
-                            Text(
-                                text = exerciseLine(
-                                    name = name,
-                                    sets = exercise.sets,
-                                    reps = exercise.reps,
-                                    durationSeconds = exercise.durationSeconds,
-                                    distanceMeters = exercise.distanceMeters,
-                                    forceNewtons = exercise.forceNewtons,
-                                    distanceUnit = state.distanceUnit,
-                                    weight = weight,
-                                    repRange = exercise.progressionPolicy?.let {
-                                        it.minReps..it.maxReps
-                                    }
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                itemVerticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(
-                                    onClick = { onMeasureRequested(day.dayIndex, position) }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Timer,
-                                        contentDescription = stringResource(
-                                            Res.string.split_measure_action,
-                                            name
-                                        )
+                                        basis = state.exerciseLoadBasis[exercise.exerciseId]
                                     )
-                                }
-                                if (state.isPlanAccepted) {
-                                    TextButton(
-                                        onClick = { onSwapRequested(day.dayIndex, position) }
+                                }.orEmpty()
+                                Text(
+                                    text = exerciseLine(
+                                        name = name,
+                                        sets = exercise.sets,
+                                        reps = exercise.reps,
+                                        durationSeconds = exercise.durationSeconds,
+                                        distanceMeters = exercise.distanceMeters,
+                                        forceNewtons = exercise.forceNewtons,
+                                        distanceUnit = state.distanceUnit,
+                                        weight = weight,
+                                        repRange = exercise.progressionPolicy?.let {
+                                            it.minReps..it.maxReps
+                                        }
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    itemVerticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(
+                                        onClick = { onMeasureRequested(day.dayIndex, position) }
                                     ) {
-                                        Text(stringResource(Res.string.split_swap_action))
+                                        Icon(
+                                            imageVector = Icons.Default.Timer,
+                                            contentDescription = stringResource(
+                                                Res.string.split_measure_action,
+                                                name
+                                            )
+                                        )
+                                    }
+                                    if (state.isPlanAccepted) {
+                                        TextButton(
+                                            onClick = { onSwapRequested(day.dayIndex, position) }
+                                        ) {
+                                            Text(stringResource(Res.string.split_swap_action))
+                                        }
                                     }
                                 }
+                                TargetExplanationDisclosure(
+                                    key = day.dayIndex to position,
+                                    explanation = exercise.explanation,
+                                    substituted = plan.explanation != null &&
+                                        exercise.explanation == null,
+                                    weightUnit = weightUnit
+                                )
                             }
-                            TargetExplanationDisclosure(
-                                key = day.dayIndex to position,
-                                explanation = exercise.explanation,
-                                substituted = plan.explanation != null &&
-                                    exercise.explanation == null,
-                                weightUnit = weightUnit
-                            )
                         }
                     }
                 }
@@ -1242,6 +1254,54 @@ private fun SplitFocus.labelResource(): StringResource = when (this) {
     SplitFocus.UPPER -> Res.string.focus_upper
     SplitFocus.LOWER -> Res.string.focus_lower
     SplitFocus.FULL_BODY -> Res.string.focus_full_body
+}
+
+/** All sets the day prescribes, across its exercises; the folded day row shows it. */
+internal fun WorkoutDay.totalSets(): Int = exercises.sumOf { it.sets }
+
+/**
+ * A plan day folded to one row: its number, focus and size. The whole row toggles the day's
+ * exercise list so a long plan stays short enough to reach its later days.
+ */
+@Composable
+private fun PlanDayHeader(day: WorkoutDay, expanded: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(
+                onClickLabel = stringResource(
+                    if (expanded) Res.string.split_day_hide else Res.string.split_day_show
+                ),
+                role = Role.Button,
+                onClick = onToggle
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(Res.string.split_day, day.dayIndex + 1) +
+                    " - " + stringResource(day.focus.labelResource()),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = pluralStringResource(
+                    Res.plurals.split_day_exercise_count,
+                    day.exercises.size,
+                    day.exercises.size
+                ) + " · " + pluralStringResource(
+                    Res.plurals.split_day_set_count,
+                    day.totalSets(),
+                    day.totalSets()
+                ),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null
+        )
+    }
 }
 
 /** One decimal place, e.g. "8.4"; the progress line only needs a rough rate. */

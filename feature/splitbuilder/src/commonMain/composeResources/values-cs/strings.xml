@@ -232,4 +232,18 @@
     <string name="split_failure_plan_needs_weekdays">Vyberte jeden tréninkový den na každý trénink.</string>
     <string name="split_failure_block_already_active">Tréninkový blok je již aktivní.</string>
     <string name="split_failure_block_needs_workout">Tréninkový blok potřebuje alespoň jeden trénink.</string>
+    <plurals name="split_day_exercise_count">
+        <item quantity="one">%1$d cvik</item>
+        <item quantity="few">%1$d cviky</item>
+        <item quantity="many">%1$d cviku</item>
+        <item quantity="other">%1$d cviků</item>
+    </plurals>
+    <plurals name="split_day_set_count">
+        <item quantity="one">%1$d série</item>
+        <item quantity="few">%1$d série</item>
+        <item quantity="many">%1$d série</item>
+        <item quantity="other">%1$d sérií</item>
+    </plurals>
+    <string name="split_day_show">Zobrazit cviky</string>
+    <string name="split_day_hide">Skrýt cviky</string>
 </resources>

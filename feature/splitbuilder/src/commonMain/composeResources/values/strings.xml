@@ -231,4 +231,14 @@
     <string name="split_failure_plan_needs_weekdays">Choose one training day per workout.</string>
     <string name="split_failure_block_already_active">A training block is already active.</string>
     <string name="split_failure_block_needs_workout">A training block needs at least one workout.</string>
+    <plurals name="split_day_exercise_count">
+        <item quantity="one">%1$d exercise</item>
+        <item quantity="other">%1$d exercises</item>
+    </plurals>
+    <plurals name="split_day_set_count">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <string name="split_day_show">Show exercises</string>
+    <string name="split_day_hide">Hide exercises</string>
 </resources>
